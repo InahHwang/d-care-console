@@ -1,8 +1,8 @@
 // app/api/messages/log/route.ts
-import { NextResponse } from 'next/server';
+import { NextRequest, NextResponse } from 'next/server';
 
-export async function POST(request: { json: () => any; }) {
-  try {
+export async function POST(request: NextRequest) {
+    try {
     // 요청 데이터 파싱
     const body = await request.json();
     const { 
