@@ -223,21 +223,21 @@ export interface PatientsState {
 
 // 2. 초기 상태 정의
 const initialState: PatientsState = {
-  patients: loadPatientsFromStorage(),  // 초기 환자 목록
-  filteredPatients: loadPatientsFromStorage(), // 초기에는 모든 환자가 필터링된 목록에 포함
+  patients: [], // 빈 배열로 초기화 - loadPatientsFromStorage() 대신
+  filteredPatients: [], // 빈 배열로 초기화
   selectedPatient: null,
   pagination: {
     currentPage: 1,
-    totalPages: Math.ceil(loadPatientsFromStorage().length / 10),
+    totalPages: 0, // 페이지도 0으로 시작
     itemsPerPage: 10,
-    totalItems: loadPatientsFromStorage().length
+    totalItems: 0
   },
   filters: {
     searchTerm: '',
     status: 'all',
     interestArea: 'all'
   },
-  isLoading: false,
+  isLoading: true,
   error: null,
   eventTargetPatients: []
 };
@@ -248,6 +248,14 @@ export const fetchPatients = createAsyncThunk(
   'patients/fetchPatients',
   async (_, { rejectWithValue }) => {
     try {
+      // 클라이언트 사이드에서만 로컬스토리지 접근
+      if (typeof window === 'undefined') {
+        return {
+          patients: [],
+          totalItems: 0
+        };
+      }
+      
       // LocalStorage에서 환자 데이터 불러오기
       const patients = loadPatientsFromStorage();
       
@@ -1106,7 +1114,8 @@ const patientsSlice = createSlice({
         state.patients = action.payload.patients;
         state.filteredPatients = action.payload.patients;
         state.pagination.totalItems = action.payload.totalItems;
-        state.pagination.totalPages = Math.ceil(action.payload.totalItems / state.pagination.itemsPerPage);
+        state.pagination.totalPages = Math.ceil(action.payload.totalItems / state.pagination.itemsPerPage) || 1; // 최소 1 페이지
+        console.log('fetchPatients 완료 - 환자 수:', action.payload.patients.length);
       })
       .addCase(fetchPatients.rejected, (state, action: PayloadAction<any>) => {
         state.isLoading = false;
