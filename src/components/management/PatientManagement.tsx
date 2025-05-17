@@ -15,7 +15,6 @@ import OngoingConsultations from './OngoingConsultations'
 import PatientFormModal from './PatientFormModal'
 import PatientDetailModal from './PatientDetailModal'
 import MessageLogModal from './MessageLogModal'
-import { IconType } from 'react-icons'
 import { 
   HiOutlineSearch, 
   HiOutlineAdjustments, 
@@ -30,7 +29,7 @@ export default function PatientManagement() {
   const searchParams = useSearchParams()
   
   const { currentMenuItem } = useSelector((state: RootState) => state.ui)
-  const { isLoading, selectedPatient } = useSelector((state: RootState) => state.patients)
+const { isLoading, selectedPatient } = useSelector((state: RootState) => state.patients)
   
   // 현재 탭 상태를 별도로 관리
   const [activeTab, setActiveTab] = useState('환자 목록')
@@ -38,6 +37,9 @@ export default function PatientManagement() {
   const [searchTerm, setSearchTerm] = useState('')
   const [statusFilter, setStatusFilter] = useState('all')
   const [interestFilter, setInterestFilter] = useState('all')
+  
+  // 데이터 로딩 상태 추가
+  const [isDataLoaded, setIsDataLoaded] = useState(false)
 
   // URL 파라미터에서 탭 정보 가져오기
   useEffect(() => {
@@ -59,12 +61,23 @@ export default function PatientManagement() {
 
   // 초기 데이터 로드
   useEffect(() => {
+    console.log('PatientManagement - 초기 데이터 로드 시작');
+    
     // 환자 데이터 로드
     dispatch(fetchPatients())
+      .then(() => {
+        console.log('환자 데이터 로드 완료');
+        setIsDataLoaded(true);
+      })
+      .catch(error => {
+        console.error('환자 데이터 로드 실패:', error);
+        setIsDataLoaded(true); // 에러가 나도 로딩 상태는 완료로 처리
+      });
     
     // 이벤트 타겟 데이터 로드
-    dispatch(initializeEventTargets())
-  }, [dispatch])
+    dispatch(initializeEventTargets());
+    
+  }, [dispatch]);
 
   // 필터 적용
   useEffect(() => {
@@ -247,7 +260,7 @@ export default function PatientManagement() {
 
       {/* 콘텐츠 영역 */}
       <div>
-        {activeTab === '환자 목록' && <PatientList isLoading={isLoading} />}
+        {activeTab === '환자 목록' && <PatientList isLoading={isLoading && !isDataLoaded} />}
         {activeTab === '이벤트 타겟' && <EventTargetList />}
         {activeTab === '문자발송 내역' && <MessageLogModal isOpen={true} onClose={() => {}} embedded={true} />}
         {activeTab === '콜 기록' && <CallHistory />}

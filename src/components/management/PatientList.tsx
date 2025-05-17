@@ -9,7 +9,7 @@ import { openDeleteConfirm } from '@/store/slices/uiSlice'
 import { IconType } from 'react-icons'
 import { HiOutlineChevronLeft, HiOutlineChevronRight, HiOutlineArrowUp, HiOutlineTrash, HiOutlineCheck } from 'react-icons/hi'
 import { Icon } from '../common/Icon'
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import PatientDetailModal from './PatientDetailModal'
 
 interface PatientListProps {
@@ -17,9 +17,6 @@ interface PatientListProps {
 }
 
 const PatientStatusBadge = ({ status }: { status: string }) => {
-  console.log('상태 배지 렌더링:', status);
-  // 로그 추가: 상태에 따른 색상 확인
-
   const colorMap: Record<string, string> = {
     '잠재고객': 'bg-blue-100 text-blue-800',
     '콜백필요': 'bg-yellow-100 text-yellow-800',
@@ -66,21 +63,29 @@ const CallbackCountBadge = ({ patient }: { patient: Patient }) => {
 export default function PatientList({ isLoading = false }: PatientListProps) {
   const dispatch = useDispatch<AppDispatch>()
   
+  // 클라이언트 사이드 마운트 여부를 확인하기 위한 상태 추가
+  const [isMounted, setIsMounted] = useState(false)
+  
   const { 
     filteredPatients, 
     pagination: { currentPage, totalPages, itemsPerPage, totalItems },
     filters,
-    selectedPatient, // 선택된 환자 상태 추가
+    selectedPatient,
   } = useSelector((state: RootState) => state.patients)
-
-  console.log('현재 필터링된 환자 목록:', filteredPatients.map(p => ({ id: p.id, name: p.name, status: p.status })));
+  
+  // 컴포넌트가 마운트되면 상태 업데이트
+  useEffect(() => {
+    console.log('PatientList 컴포넌트 마운트됨');
+    setIsMounted(true);
+  }, [])
+  
+  console.log('PatientList 렌더링 - isMounted:', isMounted);
+  console.log('filteredPatients 수:', filteredPatients.length);
   
   // 현재 표시될 환자 목록
   const startIndex = (currentPage - 1) * itemsPerPage
   const endIndex = Math.min(startIndex + itemsPerPage, filteredPatients.length)
   const paginatedPatients = filteredPatients.slice(startIndex, endIndex)
-
-  console.log('현재 페이지 환자 목록:', paginatedPatients.map(p => ({ id: p.id, name: p.name, status: p.status })));
   
   // 페이지 변경 핸들러
   const handlePageChange = (newPage: number) => {
@@ -97,7 +102,6 @@ export default function PatientList({ isLoading = false }: PatientListProps) {
   const handleToggleVisitConfirmation = (patientId: string, e: React.MouseEvent) => {
     e.stopPropagation() // 이벤트 버블링 방지
     dispatch(toggleVisitConfirmation(patientId))
-    console.log(`내원 확정 토글: ${patientId}`) // 디버깅용
   }
   
   return (
@@ -142,14 +146,11 @@ export default function PatientList({ isLoading = false }: PatientListProps) {
                 </tr>
               ) : (
                 paginatedPatients.map((patient) => {
-                  console.log('환자 상태 확인:', patient.id, patient.name, patient.status);
-
                   // 콜백 히스토리 확인 - 부재중 콜백이 있는지
                   if (patient.callbackHistory && patient.callbackHistory.length > 0) {
                     const absentCallbacks = patient.callbackHistory.filter(cb => cb.status === '부재중');
                     if (absentCallbacks.length > 0) {
                       console.log('부재중 콜백이 있는 환자:', patient.id, patient.name, '- 상태:', patient.status);
-                      console.log('부재중 콜백 목록:', absentCallbacks);
                     }
                   }
                   // 특수 환자 강조 표시 (VIP, 미응답 등)

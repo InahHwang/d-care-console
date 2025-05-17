@@ -38,9 +38,10 @@ export const getMessagePreview = (content: string, maxLength: number = 50): stri
 export const getStatusText = (status: MessageStatus): string => {
   const statusMap: Record<MessageStatus, string> = {
     'success': '성공',
-    'failed': '실패'
+    'failed': '실패',
+    'pending': '대기중' 
   };
-  return statusMap[status] || status;
+  return statusMap[status] || '알 수 없음';
 };
 
 // 메시지 타입 텍스트 반환
