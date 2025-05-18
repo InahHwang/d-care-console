@@ -1,4 +1,3 @@
-//src/store/slices/patientsSlice.ts
 
 import { createSlice, createAsyncThunk, PayloadAction } from '@reduxjs/toolkit';
 
@@ -83,8 +82,9 @@ export interface CompletePatientData {
   reason: string;
 }
 
-// 환자 타입 정의
+// 환자 타입 정의 (MongoDB ID 추가)
 export interface Patient {
+  _id?: string;            // MongoDB ID 필드 추가
   nextCallbackDate: string;
   id: string;
   patientId: string; // PT-XXXX 형식
@@ -149,58 +149,6 @@ export interface UpdatePatientData {
   callbackHistory?: CallbackItem[];
 }
 
-
-
-// LocalStorage에서 환자 데이터 불러오기
-const loadPatientsFromStorage = (): Patient[] => {
-  if (typeof window === 'undefined') return []; // 빈 배열 반환
-  
-  try {
-    const storedPatients = localStorage.getItem('patients');
-    if (storedPatients) {
-      const parsedPatients = JSON.parse(storedPatients);
-      
-      // 디버깅용 로그
-      console.log('로컬 스토리지에서 환자 데이터 로드:', parsedPatients.length, '명');
-      console.log('이벤트 타겟 환자 수:', 
-        parsedPatients.filter((p: Patient) => p.eventTargetInfo?.isEventTarget === true).length
-      );
-      
-      return parsedPatients;
-    }
-    
-    // 저장된 데이터가 없으면 빈 배열 반환
-    return [];
-  } catch (error) {
-    console.error('LocalStorage에서 데이터를 불러오는데 실패했습니다:', error);
-    return []; // 오류 시 빈 배열 반환
-  }
-};
-
-// LocalStorage에 환자 데이터 저장
-const savePatientsToStorage = (patients: Patient[]) => {
-  if (typeof window === 'undefined') return;
-  
-  try {
-    // 저장 전 환자 상태 로깅
-    console.log('[localStorage] 저장 전 환자 상태 샘플:', 
-      patients.slice(0, 3).map(p => ({ id: p.id, name: p.name, status: p.status }))
-    );
-    
-    localStorage.setItem('patients', JSON.stringify(patients));
-    console.log('[localStorage] 환자 데이터 저장 완료');
-    
-    // 저장 후 확인
-    const saved = localStorage.getItem('patients');
-    const parsed = JSON.parse(saved || '[]');
-    console.log('[localStorage] 저장 후 검증 샘플:', 
-      parsed.slice(0, 3).map((p: any) => ({ id: p.id, name: p.name, status: p.status }))
-    );
-  } catch (error) {
-    console.error('LocalStorage에 데이터를 저장하는데 실패했습니다:', error);
-  }
-};
-
 export interface PatientsState {
   patients: Patient[];            // 모든 환자 목록 (allPatients 대신 이 필드 사용)
   filteredPatients: Patient[];    // 필터링된 환자 목록
@@ -221,9 +169,9 @@ export interface PatientsState {
   eventTargetPatients: Patient[];  // 이벤트 타겟 환자 목록
 }
 
-// 2. 초기 상태 정의
+// 초기 상태 정의
 const initialState: PatientsState = {
-  patients: [], // 빈 배열로 초기화 - loadPatientsFromStorage() 대신
+  patients: [], // 빈 배열로 초기화
   filteredPatients: [], // 빈 배열로 초기화
   selectedPatient: null,
   pagination: {
@@ -242,26 +190,23 @@ const initialState: PatientsState = {
   eventTargetPatients: []
 };
 
-
 // 환자 목록 가져오기 비동기 액션
 export const fetchPatients = createAsyncThunk(
   'patients/fetchPatients',
   async (_, { rejectWithValue }) => {
     try {
-      // 클라이언트 사이드에서만 로컬스토리지 접근
-      if (typeof window === 'undefined') {
-        return {
-          patients: [],
-          totalItems: 0
-        };
+      const response = await fetch('/api/patients');
+      
+      if (!response.ok) {
+        const errorData = await response.json();
+        return rejectWithValue(errorData.error || '환자 목록을 불러오는데 실패했습니다.');
       }
       
-      // LocalStorage에서 환자 데이터 불러오기
-      const patients = loadPatientsFromStorage();
+      const data = await response.json();
       
       return {
-        patients,
-        totalItems: patients.length,
+        patients: data.patients,
+        totalItems: data.patients.length
       };
     } catch (error: any) {
       return rejectWithValue(error.message || '환자 목록을 불러오는데 실패했습니다.');
@@ -272,23 +217,23 @@ export const fetchPatients = createAsyncThunk(
 // 앱 시작 시 이벤트 타겟 정보 로드를 위한 액션 추가
 export const initializeEventTargets = createAsyncThunk(
   'patients/initializeEventTargets',
-  async (_, { getState }) => {
+  async (_, { rejectWithValue }) => {
     try {
-      // 현재 로컬 스토리지에서 로드된 환자 목록 가져오기
-      const state = getState() as { patients: PatientsState };
-      const allPatients = state.patients.patients;
+      const response = await fetch('/api/patients/event-targets');
       
-      // 이벤트 타겟으로 지정된 환자만 필터링
-      const eventTargetPatients = allPatients.filter(patient => 
-        patient.eventTargetInfo?.isEventTarget === true
-      );
+      if (!response.ok) {
+        const errorData = await response.json();
+        return rejectWithValue(errorData.error || '이벤트 타겟 정보 로드에 실패했습니다.');
+      }
+      
+      const eventTargetPatients = await response.json();
       
       console.log('이벤트 타겟 초기화:', eventTargetPatients.length, '명의 환자 로드됨');
       
       return eventTargetPatients;
-    } catch (error) {
+    } catch (error: any) {
       console.error('이벤트 타겟 초기화 오류:', error);
-      throw error;
+      return rejectWithValue(error.message || '이벤트 타겟 초기화에 실패했습니다.');
     }
   }
 );
@@ -296,56 +241,26 @@ export const initializeEventTargets = createAsyncThunk(
 // 이벤트 타겟 설정 액션
 export const updateEventTargetInfo = createAsyncThunk(
   'patients/updateEventTargetInfo',
-  async ({ patientId, eventTargetInfo }: { patientId: string, eventTargetInfo: Partial<EventTargetInfo> }, { getState, rejectWithValue }) => {
+  async ({ patientId, eventTargetInfo }: { patientId: string, eventTargetInfo: Partial<EventTargetInfo> }, { rejectWithValue }) => {
     try {
-      // 현재 목업 데이터로 동작
-      const now = new Date().toISOString();
+      const response = await fetch(`/api/patients/${patientId}/event-target`, {
+        method: 'PUT',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify(eventTargetInfo),
+      });
       
-      // 현재 환자 목록 가져오기
-      const state = getState() as { patients: PatientsState };
-      const allPatients = [...state.patients.patients];
-      
-      // 해당 환자 찾기
-      const patientIndex = allPatients.findIndex(p => p.id === patientId);
-      
-      if (patientIndex === -1) {
-        return rejectWithValue('환자를 찾을 수 없습니다.');
+      if (!response.ok) {
+        const errorData = await response.json();
+        return rejectWithValue(errorData.error || '이벤트 타겟 정보 업데이트에 실패했습니다.');
       }
       
-      // 현재 환자의 eventTargetInfo 가져오기 (없으면 기본값으로 초기화)
-      const currentEventTargetInfo = allPatients[patientIndex].eventTargetInfo || {
-        isEventTarget: false,
-        targetReason: '',
-        categories: []
-      };
-      
-      // 최종 eventTargetInfo 객체 생성
-      let finalEventTargetInfo: EventTargetInfo = {
-        ...currentEventTargetInfo,
-        ...eventTargetInfo as Partial<EventTargetInfo>,
-        updatedAt: now
-      } as EventTargetInfo;
-      
-      // isEventTarget이 true인 경우에만 createdAt 처리
-      if (eventTargetInfo.isEventTarget === true) {
-        // 기존에 생성 시간이 있으면 그대로 유지, 없으면 현재 시간 사용
-        if (!finalEventTargetInfo.createdAt) {
-          finalEventTargetInfo.createdAt = now;
-        }
-      }
-      
-      // 환자 정보 업데이트
-      allPatients[patientIndex] = {
-        ...allPatients[patientIndex],
-        eventTargetInfo: finalEventTargetInfo
-      };
-      
-      // LocalStorage에 저장
-      savePatientsToStorage(allPatients);
+      const updatedPatient = await response.json();
       
       return {
         patientId,
-        eventTargetInfo: finalEventTargetInfo
+        eventTargetInfo: updatedPatient.eventTargetInfo
       };
     } catch (error) {
       return rejectWithValue(
@@ -358,22 +273,33 @@ export const updateEventTargetInfo = createAsyncThunk(
 // 이벤트 타겟 환자 필터링 액션
 export const filterEventTargets = createAsyncThunk(
   'patients/filterEventTargets',
-  async ({ categories, reasons }: { categories?: EventCategory[], reasons?: EventTargetReason[] }, { getState }) => {
+  async ({ categories, reasons }: { categories?: EventCategory[], reasons?: EventTargetReason[] }, { rejectWithValue }) => {
     try {
-      // API 호출 대신 클라이언트 측 필터링으로 동작
-      const state = getState() as { patients: PatientsState };
-      const filteredPatients = state.patients.patients.filter((patient: Patient) => 
-        patient.eventTargetInfo?.isEventTarget && 
-        (!categories?.length || patient.eventTargetInfo.categories.some((cat: EventCategory) => categories.includes(cat))) &&
-        (!reasons?.length || reasons.includes(patient.eventTargetInfo.targetReason))
-      );
+      // 쿼리 파라미터 구성
+      const params = new URLSearchParams();
       
+      if (categories && categories.length > 0) {
+        categories.forEach(cat => params.append('category', cat));
+      }
+      
+      if (reasons && reasons.length > 0) {
+        reasons.forEach(reason => params.append('reason', reason));
+      }
+      
+      const response = await fetch(`/api/patients/event-targets/filter?${params.toString()}`);
+      
+      if (!response.ok) {
+        const errorData = await response.json();
+        return rejectWithValue(errorData.error || '이벤트 타겟 필터링에 실패했습니다.');
+      }
+      
+      const filteredPatients = await response.json();
       return filteredPatients;
     } catch (error) {
       if (error instanceof Error) {
-        throw error;
+        return rejectWithValue(error.message);
       }
-      throw new Error('알 수 없는 오류가 발생했습니다.');
+      return rejectWithValue('알 수 없는 오류가 발생했습니다.');
     }
   }
 );
@@ -381,50 +307,22 @@ export const filterEventTargets = createAsyncThunk(
 // 신규 환자 등록 비동기 액션
 export const createPatient = createAsyncThunk(
   'patients/createPatient',
-  async (patientData: CreatePatientData, { rejectWithValue, getState }) => {
+  async (patientData: CreatePatientData, { rejectWithValue }) => {
     try {
-      // 현재 환자 목록 가져오기
-      const state = getState() as { patients: PatientsState };
-      const currentPatients = state.patients.patients;
+      const response = await fetch('/api/patients', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify(patientData),
+      });
       
-      // 새 환자 생성
-      const now = new Date().toISOString();
-      // 마지막 환자 ID + 1로 새 ID 생성
-      const lastId = currentPatients.length > 0 
-        ? parseInt(currentPatients[currentPatients.length - 1].id) 
-        : 0;
-      const newId = (lastId + 1).toString();
-      // 환자 ID 생성 (PT-XXXX 형식)
-      const patientId = typeof window === 'undefined' 
-        ? `PT-${2500 + newId}` // 서버에서는 고정 패턴 사용
-        : `PT-${Math.floor(1000 + Math.random() * 9000)}`;
+      if (!response.ok) {
+        const errorData = await response.json();
+        return rejectWithValue(errorData.error || '환자 등록에 실패했습니다.');
+      }
       
-      const newPatient: Patient = {
-        id: newId,
-        patientId,
-        name: patientData.name,
-        phoneNumber: patientData.phoneNumber,
-        interestedServices: patientData.interestedServices,
-        lastConsultation: '', // 콜 유입 날짜 대신 빈 문자열로 설정
-        status: patientData.status,
-        reminderStatus: '초기', // 신규 환자는 초기 상태
-        notes: patientData.memo,
-        callInDate: patientData.callInDate, // 콜 유입 날짜 추가
-        firstConsultDate: '', // 첫 상담 날짜는 빈 문자열로 초기화
-        age: patientData.age,
-        region: patientData.region,
-        createdAt: now,
-        updatedAt: now,
-        nextCallbackDate: '',
-        visitConfirmed: false // 내원 확정 초기값 추가
-      };
-      
-      // 새 환자를 포함한 환자 목록 생성
-      const updatedPatients = [...currentPatients, newPatient];
-      
-      // LocalStorage에 저장
-      savePatientsToStorage(updatedPatients);
-      
+      const newPatient = await response.json();
       return newPatient;
     } catch (error: any) {
       return rejectWithValue(error.message || '환자 등록에 실패했습니다.');
@@ -441,98 +339,23 @@ export const updatePatient = createAsyncThunk(
   }: { 
     patientId: string, 
     patientData: UpdatePatientData 
-  }, { rejectWithValue, getState }) => {
+  }, { rejectWithValue }) => {
     try {
-      // 현재 환자 목록 가져오기
-      const state = getState() as { patients: PatientsState };
-      const currentPatients = state.patients.patients;
+      const response = await fetch(`/api/patients/${patientId}`, {
+        method: 'PUT',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify(patientData),
+      });
       
-      // 해당 환자 찾기
-      const patientIndex = currentPatients.findIndex(patient => patient.id === patientId);
-      if (patientIndex === -1) {
-        return rejectWithValue('환자를 찾을 수 없습니다.');
+      if (!response.ok) {
+        const errorData = await response.json();
+        return rejectWithValue(errorData.error || '환자 정보 수정에 실패했습니다.');
       }
       
-      // 환자 정보 복제
-      const updatedPatients = [...currentPatients];
-      const patient = { ...updatedPatients[patientIndex] };
-      
-      // 환자 정보 업데이트
-      const now = new Date().toISOString();
-      
-      // 수정된 필드만 업데이트
-      if (patientData.name !== undefined) patient.name = patientData.name;
-      if (patientData.phoneNumber !== undefined) patient.phoneNumber = patientData.phoneNumber;
-      if (patientData.status !== undefined) patient.status = patientData.status;
-      if (patientData.interestedServices !== undefined) patient.interestedServices = patientData.interestedServices;
-      if (patientData.notes !== undefined) patient.notes = patientData.notes;
-      if (patientData.callInDate !== undefined) patient.callInDate = patientData.callInDate;
-      if (patientData.firstConsultDate !== undefined) {
-        patient.firstConsultDate = patientData.firstConsultDate;
-        // 첫 상담 날짜가 최근이면 마지막 상담 날짜도 업데이트
-        if (new Date(patientData.firstConsultDate) > new Date(patient.lastConsultation)) {
-          patient.lastConsultation = patientData.firstConsultDate;
-        }
-      }
-      if (patientData.age !== undefined) patient.age = patientData.age;
-      if (patientData.region !== undefined) patient.region = patientData.region;
-      
-      // reminderStatus는 수동으로 설정되었을 때만 업데이트
-      if (patientData.reminderStatus !== undefined) {
-        patient.reminderStatus = patientData.reminderStatus;
-      }
-      
-      if (patientData.isCompleted !== undefined) patient.isCompleted = patientData.isCompleted;
-      if (patientData.completedAt !== undefined) patient.completedAt = patientData.completedAt;
-      if (patientData.completedReason !== undefined) patient.completedReason = patientData.completedReason;
-      
-      // 콜백 이력이 전달되었다면 업데이트
-      if (patientData.callbackHistory !== undefined) {
-        patient.callbackHistory = patientData.callbackHistory;
-        
-        // 모든 완료된 콜백 중 가장 오래된 날짜를 찾아 첫 상담 날짜로 설정
-        const completedCallbacks = patientData.callbackHistory
-          .filter(cb => cb.status === '완료')
-          .sort((a, b) => new Date(a.date).getTime() - new Date(b.date).getTime());
-          
-        if (completedCallbacks.length > 0) {
-          // 첫 상담 날짜 업데이트 (가장 오래된 완료 콜백)
-          patient.firstConsultDate = completedCallbacks[0].date;
-          
-          // 마지막 상담 날짜 업데이트 (가장 최근 완료 콜백)
-          patient.lastConsultation = completedCallbacks[completedCallbacks.length - 1].date;
-        } else {
-          // 완료된 콜백이 없으면 첫 상담 날짜와 마지막 상담 날짜를 초기화
-          patient.firstConsultDate = '';
-          patient.lastConsultation = '';
-        }
-        
-        // 가장 최근 콜백 상태에 따라 환자 상태 갱신 (기존 코드 유지)
-        const latestCallback = [...patientData.callbackHistory]
-          .sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime())[0];
-        
-        if (latestCallback) {
-          if (latestCallback.status === '부재중') {
-            console.log('[updatePatient] 환자 상태를 부재중으로 설정:', patientId);
-            patient.status = '부재중';
-          } else if (latestCallback.status === '예정') {
-            patient.status = '콜백필요';
-          } else if (latestCallback.status === '완료') {
-            patient.status = '콜백필요';
-          }
-        }
-      }
-      
-      // 업데이트 시간 갱신
-      patient.updatedAt = now;
-      
-      // 환자 목록 업데이트
-      updatedPatients[patientIndex] = patient;
-      
-      // LocalStorage에 저장
-      savePatientsToStorage(updatedPatients);
-      
-      return patient;
+      const updatedPatient = await response.json();
+      return updatedPatient;
     } catch (error: any) {
       return rejectWithValue(error.message || '환자 정보 수정에 실패했습니다.');
     }
@@ -542,17 +365,16 @@ export const updatePatient = createAsyncThunk(
 // 환자 삭제 비동기 액션
 export const deletePatient = createAsyncThunk(
   'patients/deletePatient',
-  async (patientId: string, { rejectWithValue, getState }) => {
+  async (patientId: string, { rejectWithValue }) => {
     try {
-      // 현재 환자 목록 가져오기
-      const state = getState() as { patients: PatientsState };
-      const currentPatients = state.patients.patients;
+      const response = await fetch(`/api/patients/${patientId}`, {
+        method: 'DELETE',
+      });
       
-      // 해당 환자를 제외한 목록 생성
-      const updatedPatients = currentPatients.filter(patient => patient.id !== patientId);
-      
-      // LocalStorage에 저장
-      savePatientsToStorage(updatedPatients);
+      if (!response.ok) {
+        const errorData = await response.json();
+        return rejectWithValue(errorData.error || '환자 삭제에 실패했습니다.');
+      }
       
       return patientId;
     } catch (error: any) {
@@ -561,94 +383,33 @@ export const deletePatient = createAsyncThunk(
   }
 );
 
-  // 환자 종결 처리 액션
-  export const completePatient = createAsyncThunk(
-    'patients/completePatient',
-    async ({ 
-      patientId, 
-      reason 
-    }: CompletePatientData, { rejectWithValue, getState }) => {
+// 환자 종결 처리 액션
+export const completePatient = createAsyncThunk(
+  'patients/completePatient',
+  async ({ 
+    patientId, 
+    reason 
+  }: CompletePatientData, { rejectWithValue }) => {
     try {
-      // 현재 환자 목록 가져오기
-      const state = getState() as { patients: PatientsState };
-      const currentPatients = state.patients.patients;
+      const response = await fetch(`/api/patients/${patientId}/complete`, {
+        method: 'PUT',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ reason }),
+      });
       
-      // 해당 환자 찾기
-      const patientIndex = currentPatients.findIndex(patient => patient.id === patientId);
-      if (patientIndex === -1) {
-        return rejectWithValue('환자를 찾을 수 없습니다.');
+      if (!response.ok) {
+        const errorData = await response.json();
+        return rejectWithValue(errorData.error || '환자 종결 처리에 실패했습니다.');
       }
       
-      // 환자 정보 복제
-      const updatedPatients = [...currentPatients];
-      const patient = { ...updatedPatients[patientIndex] };
-      
-      // 이미 종결된 환자인지 확인
-      if (patient.isCompleted) {
-        return rejectWithValue('이미 종결 처리된 환자입니다.');
-      }
-      
-      // 현재 날짜
-      const now = new Date().toISOString();
-      const today = now.split('T')[0];
-      
-      // 예약 완료인지 확인
-      const isReservationCompletion = reason.includes('[예약완료]') || reason.includes('예약일시:');
-      
-      // 종결 처리 콜백 아이템 생성
-      const completionCallbackId = `cb-completion-${Date.now()}`;
-      const completionCallback: CallbackItem = {
-        id: completionCallbackId,
-        date: today,
-        status: '종결', // 항상 '종결' 상태로 통일
-        notes: reason,
-        type: '3차', // 종결 처리는 항상 최종 단계로 설정
-        isCompletionRecord: true, // 종결 기록임을 표시
-        time: undefined
-      };
-
-      // 콜백 이력 배열이 없으면 초기화
-      const callbackHistory = patient.callbackHistory || [];
-      
-      // 이미 오늘 생성된 종결 관련 기록이 있는지 확인
-      const existingCompletionRecord = callbackHistory.some(
-        cb => cb.isCompletionRecord && cb.date === today
-      );
-
-      // 종결 기록이 없는 경우에만 새로 추가
-      if (!existingCompletionRecord) {
-        patient.callbackHistory = [...callbackHistory, completionCallback];
-      }
-      
-      // 환자 종결 상태로 업데이트
-      patient.isCompleted = true;
-      patient.completedAt = today;
-      patient.completedReason = reason;
-      
-      // 환자 상태를 예약확정 또는 종결로 변경
-      // 예약 완료인 경우 '예약확정'으로, 그 외에는 '종결'로 설정
-      if (isReservationCompletion) {
-        patient.status = '예약확정';
-      } else {
-        patient.status = '종결';
-      }
-      
-      patient.reminderStatus = '-'; // 리마인더 상태 초기화
-      
-      // 업데이트 시간 갱신
-      patient.updatedAt = now;
-      
-      // 환자 목록 업데이트
-      updatedPatients[patientIndex] = patient;
-      
-      // LocalStorage에 저장
-      savePatientsToStorage(updatedPatients);
-      
+      const result = await response.json();
       return { 
         patientId, 
-        updatedPatient: patient,
-        callbackHistory: patient.callbackHistory || [], // undefined가 아닌 빈 배열 반환
-        isReservationCompletion // 예약 완료 여부 추가하여 반환
+        updatedPatient: result.updatedPatient,
+        callbackHistory: result.callbackHistory || [], 
+        isReservationCompletion: result.isReservationCompletion
       };
     } catch (error: any) {
       return rejectWithValue(error.message || '환자 종결 처리에 실패했습니다.');
@@ -659,82 +420,25 @@ export const deletePatient = createAsyncThunk(
 // 환자 종결 취소 액션
 export const cancelPatientCompletion = createAsyncThunk(
   'patients/cancelPatientCompletion',
-  async (patientId: string, { rejectWithValue, getState }) => {
+  async (patientId: string, { rejectWithValue }) => {
     try {
-      // 현재 환자 목록 가져오기
-      const state = getState() as { patients: PatientsState };
-      const currentPatients = state.patients.patients;
+      const response = await fetch(`/api/patients/${patientId}/cancel-completion`, {
+        method: 'PUT',
+      });
       
-      // 해당 환자 찾기
-      const patientIndex = currentPatients.findIndex(patient => patient.id === patientId);
-      if (patientIndex === -1) {
-        return rejectWithValue('환자를 찾을 수 없습니다.');
+      if (!response.ok) {
+        const errorData = await response.json();
+        return rejectWithValue(errorData.error || '환자 종결 취소에 실패했습니다.');
       }
       
-      // 환자 정보 복제
-      const updatedPatients = [...currentPatients];
-      const patient = { ...updatedPatients[patientIndex] };
-      
-      // 종결 처리된 환자가 아닌 경우
-      if (!patient.isCompleted) {
-        return rejectWithValue('종결 처리된 환자가 아닙니다.');
-      }
-      
-      // 종결 관련 필드 초기화
-      patient.isCompleted = false;
-      patient.completedAt = undefined;
-      patient.completedReason = undefined;
-      
-      // 종결 기록 콜백 항목 찾기 및 제거
-      if (patient.callbackHistory) {
-        patient.callbackHistory = patient.callbackHistory.filter(
-          callback => !callback.isCompletionRecord
-        );
-      }
-      
-      // 상태를 마지막 콜백 기록에 따라 업데이트
-      if (patient.callbackHistory && patient.callbackHistory.length > 0) {
-        // 완료된 콜백이 있으면 콜백필요 상태로
-        const hasCompletedCallback = patient.callbackHistory.some(cb => cb.status === '완료');
-        if (hasCompletedCallback) {
-          patient.status = '콜백필요';
-          
-          // 리마인더 상태 업데이트 - 최신 완료된 콜백의 타입으로 설정
-          const completedCallbacks = patient.callbackHistory.filter(cb => cb.status === '완료');
-          if (completedCallbacks.length > 0) {
-            const latestCallback = completedCallbacks[completedCallbacks.length - 1];
-            patient.reminderStatus = latestCallback.type;
-          } else {
-            patient.reminderStatus = '초기';
-          }
-        } else {
-          // 완료된 콜백이 없으면 잠재고객으로
-          patient.status = '잠재고객';
-          patient.reminderStatus = '초기';
-        }
-      } else {
-        // 콜백 기록이 없으면 잠재고객으로
-        patient.status = '잠재고객';
-        patient.reminderStatus = '초기';
-      }
-      
-      // 업데이트 시간 갱신
-      patient.updatedAt = new Date().toISOString();
-      
-      // 환자 목록 업데이트
-      updatedPatients[patientIndex] = patient;
-      
-      // LocalStorage에 저장
-      savePatientsToStorage(updatedPatients);
-      
-      return { patientId, updatedPatient: patient };
+      const result = await response.json();
+      return { patientId, updatedPatient: result };
     } catch (error: any) {
       return rejectWithValue(error.message || '환자 종결 취소에 실패했습니다.');
     }
   }
 );
 
-// 콜백 추가 액션
 // 콜백 추가 비동기 액션
 export const addCallback = createAsyncThunk(
   'patients/addCallback',
@@ -744,90 +448,23 @@ export const addCallback = createAsyncThunk(
   }: { 
     patientId: string, 
     callbackData: Omit<CallbackItem, 'id'> 
-  }, { rejectWithValue, getState }) => {
+  }, { rejectWithValue }) => {
     try {
-      // 현재 환자 목록 가져오기
-      const state = getState() as { patients: PatientsState };
-      const currentPatients = state.patients.patients;
+      const response = await fetch(`/api/patients/${patientId}/callbacks`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify(callbackData),
+      });
       
-      // 해당 환자 찾기
-      const patientIndex = currentPatients.findIndex(patient => patient.id === patientId);
-      if (patientIndex === -1) {
-        return rejectWithValue('환자를 찾을 수 없습니다.');
+      if (!response.ok) {
+        const errorData = await response.json();
+        return rejectWithValue(errorData.error || '콜백 추가에 실패했습니다.');
       }
       
-      // 환자 정보 복제
-      const updatedPatients = [...currentPatients];
-      const patient = { ...updatedPatients[patientIndex] };
-      
-      // 종결 처리된 환자인 경우 콜백 추가 불가
-      if (patient.isCompleted) {
-        return rejectWithValue('종결 처리된 환자에게는 콜백을 추가할 수 없습니다. 먼저 종결 처리를 취소해주세요.');
-      }
-      
-      // 고유 ID 생성
-      const callbackId = `cb-${Date.now()}`;
-      
-      console.log('[addCallback] 콜백 추가 전 환자 상태:', patient.status);
-
-      // 콜백 이력 추가
-      const callbackHistory = patient.callbackHistory || [];
-      
-      // notes에 "부재중:" 접두어가 있는지 확인
-      const isMissedCall = callbackData.notes?.startsWith('부재중:');
-      
-      // 콜백 객체 생성 - time 필드 처리 개선
-      const newCallback = { 
-        id: callbackId, 
-        ...callbackData, 
-        // 메모 필드는 전달받은 그대로 사용 (이전 콜백 메모와 합치지 않음)
-        time: typeof callbackData.time === 'string' ? callbackData.time : undefined 
-      };
-
-      console.log('[addCallback] 추가할 콜백:', newCallback);
-      
-      // 콜백 이력에 추가
-      patient.callbackHistory = [...callbackHistory, newCallback];
-      
-      // 콜백 상태가 '완료'인 경우 마지막 상담 날짜 업데이트
-      if (callbackData.status === '완료') {
-        // 첫 상담 날짜가 없는 경우 설정
-        if (!patient.firstConsultDate || patient.firstConsultDate === '') {
-          patient.firstConsultDate = callbackData.date;
-          console.log('[addCallback] 첫 상담 날짜 설정:', patient.firstConsultDate);
-        }
-
-        // 마지막 상담 날짜 업데이트 (항상 최신 완료된 콜백 날짜로 갱신)
-        patient.lastConsultation = callbackData.date;
-        console.log('[addCallback] 마지막 상담 날짜 업데이트:', patient.lastConsultation);          
-
-        // 첫 상담 날짜를 설정할 때 마지막 상담 날짜도 업데이트
-        if (new Date(callbackData.date) > new Date(patient.lastConsultation)) {
-          patient.lastConsultation = callbackData.date;
-        }
-      }
-      
-      // 상태 변경 로직
-      if (callbackData.status === '부재중') {
-        console.log('[addCallback] 환자 상태를 부재중으로 설정:', patientId);
-        patient.status = '부재중';
-      } else if (callbackData.status === '예정') {
-        patient.status = '콜백필요';
-      } else if (callbackData.status === '완료') {
-        patient.reminderStatus = callbackData.type;
-        patient.status = '콜백필요';
-      }
-      
-      // 업데이트 시간 갱신
-      patient.updatedAt = new Date().toISOString();
-      
-      // 환자 목록 업데이트
-      updatedPatients[patientIndex] = patient;
-      
-      // LocalStorage에 저장
-      savePatientsToStorage(updatedPatients);
-      
-      return { patientId, updatedPatient: patient };
+      const updatedPatient = await response.json();
+      return { patientId, updatedPatient };
     } catch (error) {
       console.error('[addCallback] 오류 발생:', error);
       if (error instanceof Error) {
@@ -849,103 +486,23 @@ export const cancelCallback = createAsyncThunk(
     patientId: string,
     callbackId: string,
     cancelReason?: string
-  }, { rejectWithValue, getState }) => {
+  }, { rejectWithValue }) => {
     try {
-      // 현재 환자 목록 가져오기
-      const state = getState() as { patients: PatientsState };
-      const currentPatients = state.patients.patients;
+      const response = await fetch(`/api/patients/${patientId}/callbacks/${callbackId}/cancel`, {
+        method: 'PUT',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ cancelReason }),
+      });
       
-      // 해당 환자 찾기
-      const patientIndex = currentPatients.findIndex(patient => patient.id === patientId);
-      if (patientIndex === -1) {
-        return rejectWithValue('환자를 찾을 수 없습니다.');
+      if (!response.ok) {
+        const errorData = await response.json();
+        return rejectWithValue(errorData.error || '콜백 취소에 실패했습니다.');
       }
       
-      // 환자 정보 복제
-      const updatedPatients = [...currentPatients];
-      const patient = { ...updatedPatients[patientIndex] };
-      
-      // 종결 처리된 환자인 경우 콜백 취소 불가
-      if (patient.isCompleted) {
-        return rejectWithValue('종결 처리된 환자의 콜백은 취소할 수 없습니다. 먼저 종결 처리를 취소해주세요.');
-      }
-      
-      // 해당 콜백 찾기
-      if (!patient.callbackHistory) {
-        return rejectWithValue('콜백 이력이 없습니다.');
-      }
-      
-      const callbackIndex = patient.callbackHistory.findIndex(callback => callback.id === callbackId);
-      if (callbackIndex === -1) {
-        return rejectWithValue('해당 콜백을 찾을 수 없습니다.');
-      }
-      
-      // 콜백 상태 업데이트
-      const updatedCallbacks = [...patient.callbackHistory];
-      updatedCallbacks[callbackIndex] = {
-        ...updatedCallbacks[callbackIndex],
-        status: '취소',
-        cancelReason,
-        cancelDate: new Date().toISOString().split('T')[0]
-      };
-
-      patient.callbackHistory = updatedCallbacks;
-
-      const hasOtherScheduledCallbacks = patient.callbackHistory.some(
-        cb => cb.id !== callbackId && cb.status === '예정'
-      );
-
-      if (!hasOtherScheduledCallbacks) {
-        // 다른 예정된 콜백이 없다면 환자 상태를 변경
-        // 가장 최근 콜백 이력을 확인
-        const latestCallback = patient.callbackHistory
-          .filter(cb => cb.status !== '취소')
-          .sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime())[0];
-        
-        if (latestCallback) {
-          if (latestCallback.status === '부재중') {
-            console.log('[cancelCallback] 환자 상태를 부재중으로 설정:', patientId);
-            // 가장 최근 콜백이 부재중인 경우
-            patient.status = '부재중';
-          } else if (latestCallback.status === '완료') {
-            // 가장 최근 콜백이 완료된 경우
-            // 고객 반응이 부정적이었는지 확인
-            if (latestCallback.customerResponse === 'negative' || 
-                latestCallback.customerResponse === 'very_negative') {
-              // 부정적 반응인 경우 '부재중'으로 (이전에는 '미응답'이었음)
-              patient.status = '콜백필요';
-            } else {
-              // 기타 완료된 콜백인 경우 '콜백필요'로
-              patient.status = '콜백필요';
-            }
-          }
-        } else {
-          // 유효한 콜백 기록이 없으면 '잠재고객'으로
-          patient.status = '잠재고객';
-        }
-      }
-      
-      // 리마인더 상태 업데이트 - 완료된 콜백만 고려하도록 수정
-      const completedCallbacks = updatedCallbacks.filter(cb => cb.status === '완료');
-      if (completedCallbacks.length > 0) {
-        // 가장 높은 단계의 완료된 콜백으로 설정
-        const maxType = getHighestCallbackType(completedCallbacks);
-        patient.reminderStatus = maxType;
-      } else {
-        // 완료된 콜백이 없으면 초기 상태로
-        patient.reminderStatus = '초기';
-      }
-      
-      // 업데이트 시간 갱신
-      patient.updatedAt = new Date().toISOString();
-      
-      // 환자 목록 업데이트
-      updatedPatients[patientIndex] = patient;
-      
-      // LocalStorage에 저장
-      savePatientsToStorage(updatedPatients);
-      
-      return { patientId, updatedPatient: patient };
+      const updatedPatient = await response.json();
+      return { patientId, updatedPatient };
     } catch (error: any) {
       return rejectWithValue(error.message || '콜백 취소에 실패했습니다.');
     }
@@ -961,99 +518,28 @@ export const deleteCallback = createAsyncThunk(
   }: { 
     patientId: string,
     callbackId: string
-  }, { rejectWithValue, getState }) => {
+  }, { rejectWithValue }) => {
     try {
-      // 현재 환자 목록 가져오기
-      const state = getState() as { patients: PatientsState };
-      const currentPatients = state.patients.patients;
+      const response = await fetch(`/api/patients/${patientId}/callbacks/${callbackId}`, {
+        method: 'DELETE',
+      });
       
-      // 해당 환자 찾기
-      const patientIndex = currentPatients.findIndex(patient => patient.id === patientId);
-      if (patientIndex === -1) {
-        return rejectWithValue('환자를 찾을 수 없습니다.');
+      if (!response.ok) {
+        const errorData = await response.json();
+        return rejectWithValue(errorData.error || '콜백 삭제에 실패했습니다.');
       }
       
-      // 환자 정보 복제
-      const updatedPatients = [...currentPatients];
-      const patient = { ...updatedPatients[patientIndex] };
-      
-      // 해당 콜백 찾기
-      if (!patient.callbackHistory) {
-        return rejectWithValue('콜백 이력이 없습니다.');
-      }
-      
-      // 지울 콜백 찾기
-      const callbackToDelete = patient.callbackHistory.find(callback => callback.id === callbackId);
-      if (!callbackToDelete) {
-        return rejectWithValue('해당 콜백을 찾을 수 없습니다.');
-      }
-      
-      // 종결 처리된 환자의 종결 기록은 삭제 불가
-      if (patient.isCompleted && callbackToDelete.isCompletionRecord === true) {
-        return rejectWithValue('종결 처리 기록은 삭제할 수 없습니다. 먼저 종결 처리를 취소해주세요.');
-      }
-      
-      // 콜백 삭제 전 정보 저장
-      const deletedType = callbackToDelete.type;
-      const deletedStatus = callbackToDelete.status;
-      
-      // 콜백 삭제
-      const updatedCallbacks = patient.callbackHistory.filter(
-        callback => callback.id !== callbackId
-      );
-
-      patient.callbackHistory = updatedCallbacks;
-
-      // 완료된 콜백이 있는지 확인하고 상담 날짜 업데이트
-      const completedCallbacks = updatedCallbacks
-        .filter(cb => cb.status === '완료')
-        .sort((a, b) => new Date(a.date).getTime() - new Date(b.date).getTime());
-
-      if (completedCallbacks.length > 0) {
-        // 첫 상담 날짜 업데이트 (가장 오래된 완료 콜백)
-        patient.firstConsultDate = completedCallbacks[0].date;
-        
-        // 마지막 상담 날짜 업데이트 (가장 최근 완료 콜백)
-        patient.lastConsultation = completedCallbacks[completedCallbacks.length - 1].date;
-      } else {
-        // 완료된 콜백이 없으면 첫 상담 날짜와 마지막 상담 날짜를 초기화
-        patient.firstConsultDate = '';
-        patient.lastConsultation = '';
-      }
-      
-      // 업데이트 시간 갱신
-      patient.updatedAt = new Date().toISOString();
-      
-      // 환자 목록 업데이트
-      updatedPatients[patientIndex] = patient;
-      
-      // LocalStorage에 저장
-      savePatientsToStorage(updatedPatients);
-      console.log('[addCallback] 반환 직전 환자 상태:', patient.status);
-      
+      const result = await response.json();
       return { 
         patientId, 
-        updatedPatient: patient, 
-        deletedCallbackInfo: {
-          type: deletedType,
-          status: deletedStatus
-        }
+        updatedPatient: result.updatedPatient,
+        deletedCallbackInfo: result.deletedCallbackInfo
       };
     } catch (error: any) {
       return rejectWithValue(error.message || '콜백 삭제에 실패했습니다.');
     }
   }
 );
-
-// 가장 높은 콜백 타입 반환 헬퍼 함수
-function getHighestCallbackType(callbacks: CallbackItem[]): ReminderStatus {
-  if (callbacks.some(cb => cb.type === '5차')) return '5차';
-  if (callbacks.some(cb => cb.type === '4차')) return '4차';
-  if (callbacks.some(cb => cb.type === '3차')) return '3차';
-  if (callbacks.some(cb => cb.type === '2차')) return '2차';
-  if (callbacks.some(cb => cb.type === '1차')) return '1차';
-  return '초기';
-}
 
 const patientsSlice = createSlice({
   name: 'patients',
@@ -1097,8 +583,16 @@ const patientsSlice = createSlice({
           state.selectedPatient.visitConfirmed = patient.visitConfirmed;
         }
         
-        // localStorage에 업데이트된 환자 정보 저장
-        savePatientsToStorage(state.patients);
+        // 방문 확인 상태 업데이트 API 호출
+        fetch(`/api/patients/${patientId}/visit-confirmation`, {
+          method: 'PUT',
+          headers: {
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify({ visitConfirmed: patient.visitConfirmed }),
+        }).catch(error => {
+          console.error('방문 확인 상태 업데이트 실패:', error);
+        });
       }
     },
   },
@@ -1136,7 +630,7 @@ const patientsSlice = createSlice({
         state.error = action.payload;
       })
       
-      // updatePatient 액션 처리 - 수정
+      // updatePatient 액션 처리
       .addCase(updatePatient.pending, (state) => {
         state.isLoading = true;
         state.error = null;
@@ -1197,7 +691,7 @@ const patientsSlice = createSlice({
         state.error = action.payload;
       })
       
-      // completePatient 액션 처리 - 수정
+      // completePatient 액션 처리
       .addCase(completePatient.pending, (state) => {
         state.isLoading = true;
         state.error = null;
