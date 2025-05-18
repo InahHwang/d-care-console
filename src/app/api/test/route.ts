@@ -1,67 +1,55 @@
-// app/api/test/route.ts
-import { NextRequest, NextResponse } from 'next/server';
+// src/app/api/test/route.ts
+import { NextResponse } from 'next/server';
+import { connectToDatabase } from '@/utils/mongodb';
 
 export async function GET() {
-  return NextResponse.json({
-    message: "테스트 API가 활성화되어 있습니다.",
-    timestamp: new Date().toISOString()
-  });
-}
-
-export async function POST(request: NextRequest) {
   try {
-    // 요청 본문 로깅
-    const requestText = await request.text();
-    console.log('테스트 API - 원본 요청 본문:', requestText);
+    console.log('테스트 API 호출: MongoDB 연결 시도...');
+    const { db } = await connectToDatabase();
     
-    // 요청 파싱 시도
-    let body;
-    try {
-      body = JSON.parse(requestText);
-      console.log('테스트 API - 파싱된 요청 본문:', body);
-    } catch (error: unknown) {
-      const parseError = error instanceof Error ? error : new Error(String(error));
-      console.error('테스트 API - JSON 파싱 오류:', parseError);
-      
-      // 파싱 실패해도 원본 텍스트 반환
-      return NextResponse.json({
-        success: false,
-        message: '요청 파싱 실패',
-        error: parseError.message,
-        receivedText: requestText
-      }, { status: 400 });
+    // 간단한 테스트 쿼리 실행
+    const result = await db.command({ ping: 1 });
+    
+    // 컬렉션 목록 가져오기
+    const collections = await db.listCollections().toArray();
+    const collectionNames = collections.map((col: { name: any; }) => col.name);
+    
+    // messageLogs 컬렉션의 문서 수 확인
+    let messageLogsCount = 0;
+    if (collectionNames.includes('messageLogs')) {
+      messageLogsCount = await db.collection('messageLogs').countDocuments();
     }
     
-    // 메시지 타입 확인 로그 (MMS, RCS 등 확인용)
-    if (body.messageType) {
-      console.log(`테스트 API - 메시지 타입: ${body.messageType}`);
-    }
-    
-    // 이미지 URL 로그 (MMS, RCS 확인용)
-    if (body.imageUrl) {
-      console.log(`테스트 API - 이미지 URL: ${body.imageUrl}`);
-    }
-    
-    // RCS 옵션 로그 (RCS 확인용)
-    if (body.rcsOptions) {
-      console.log('테스트 API - RCS 옵션:', body.rcsOptions);
-    }
-    
-    // 성공 응답
-    return NextResponse.json({
-      success: true,
-      message: '요청 수신 완료',
-      receivedData: body,
-      timestamp: new Date().toISOString()
+    return NextResponse.json({ 
+      success: true, 
+      message: 'MongoDB 연결 성공',
+      ping: result,
+      collections: collectionNames,
+      messageLogsCount,
+      environment: {
+        NODE_ENV: process.env.NODE_ENV,
+        MONGODB_DB: process.env.MONGODB_DB,
+        // 비밀 정보는 마스킹하여 표시
+        MONGODB_URI_SET: !!process.env.MONGODB_URI,
+        JWT_SECRET_SET: !!process.env.JWT_SECRET
+      }
     });
-  } catch (error: unknown) {
-    const finalError = error instanceof Error ? error : new Error(String(error));
-    console.error('테스트 API - 오류 발생:', finalError);
+  } catch (error) {
+    console.error('MongoDB 연결 실패:', error);
     
-    return NextResponse.json({
-      success: false,
-      message: '처리 중 오류 발생',
-      error: finalError.message
-    }, { status: 500 });
+    return NextResponse.json(
+      { 
+        success: false, 
+        message: 'MongoDB 연결 실패',
+        error: error instanceof Error ? error.message : '알 수 없는 오류',
+        environment: {
+          NODE_ENV: process.env.NODE_ENV,
+          MONGODB_DB: process.env.MONGODB_DB,
+          MONGODB_URI_SET: !!process.env.MONGODB_URI,
+          JWT_SECRET_SET: !!process.env.JWT_SECRET
+        }
+      },
+      { status: 500 }
+    );
   }
 }

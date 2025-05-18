@@ -1,11 +1,17 @@
-// app/api/messages/log/route.ts
+// 수정된 src/app/api/messages/log/route.ts
 import { NextRequest, NextResponse } from 'next/server';
 import { connectToDatabase } from '@/utils/mongodb';
 
 export async function GET(request: NextRequest) {
+  console.log('GET 요청 수신: /api/messages/log');
+  
   try {
+    console.log('MongoDB 연결 시도...');
     const { db } = await connectToDatabase();
+    console.log('MongoDB 연결 성공!');
+    
     const logs = await db.collection('messageLogs').find({}).toArray();
+    console.log(`조회된 로그 개수: ${logs.length}`);
     
     return NextResponse.json({ 
       success: true, 
@@ -26,41 +32,64 @@ export async function GET(request: NextRequest) {
 }
 
 export async function POST(request: NextRequest) {
+  console.log('POST 요청 수신: /api/messages/log');
+  
   try {
     // 요청 데이터 파싱
     const body = await request.json();
+    console.log('수신된 요청 데이터:', body);
+    
     const { 
       template, 
       category, 
       totalCount, 
       successCount, 
       failedCount, 
-      messageType 
+      messageType,
+      // 추가 필드 - 기존 코드에는 없지만 클라이언트에서 보낼 수 있는 필드
+      patientName,
+      patientId,
+      phoneNumber,
+      content,
+      status
     } = body;
     
-    // 로그 객체 생성
+    // 로그 객체 생성 - 모든 가능한 필드 포함
     const logEntry = {
-      timestamp: new Date(),
+      createdAt: new Date(), // timestamp 대신 createdAt 사용 (Redux 슬라이스와 일치하도록)
       template,
       category,
       totalCount,
       successCount,
       failedCount,
-      messageType
+      messageType,
+      // 추가 필드
+      patientName: patientName || '알 수 없음',
+      patientId: patientId || '',
+      phoneNumber: phoneNumber || '',
+      content: content || template || '',
+      status: status || 'success',
+      // 고유 ID
+      id: Date.now().toString() // MongoDB의 _id와 별개로 클라이언트에서 사용할 ID
     };
     
     // 콘솔에 로그 출력 (개발용)
-    console.log('메시지 발송 로그:', logEntry);
+    console.log('저장할 로그 데이터:', logEntry);
     
     // MongoDB에 저장
+    console.log('MongoDB 연결 시도...');
     const { db } = await connectToDatabase();
+    console.log('MongoDB 연결 성공!');
+    
     const result = await db.collection('messageLogs').insertOne(logEntry);
+    console.log('MongoDB 저장 성공! ID:', result.insertedId);
     
     // 성공 응답
     return NextResponse.json({
       success: true,
       message: '로그가 데이터베이스에 저장되었습니다.',
-      logId: result.insertedId
+      logId: result.insertedId,
+      log: logEntry // 저장된 로그 데이터 반환
     });
   } catch (error) {
     console.error('메시지 로그 저장 중 오류 발생:', error);
