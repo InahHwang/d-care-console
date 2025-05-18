@@ -1,3 +1,4 @@
+//src/store/slices/patientsSlice.ts
 
 import { createSlice, createAsyncThunk, PayloadAction } from '@reduxjs/toolkit';
 
@@ -84,7 +85,7 @@ export interface CompletePatientData {
 
 // 환자 타입 정의 (MongoDB ID 추가)
 export interface Patient {
-  _id?: string;            // MongoDB ID 필드 추가
+  _id: string;            // MongoDB ID 필드 추가
   nextCallbackDate: string;
   id: string;
   patientId: string; // PT-XXXX 형식
@@ -204,9 +205,22 @@ export const fetchPatients = createAsyncThunk(
       
       const data = await response.json();
       
+      // MongoDB의 _id를 문자열로 변환하여 사용하도록 처리
+      const patients = data.patients.map((patient: any) => {
+        // 이미 문자열인 경우는 그대로 사용
+        if (typeof patient._id === 'string') {
+          return patient;
+        }
+        // 객체인 경우 문자열로 변환
+        return {
+          ...patient,
+          _id: patient._id.toString()
+        };
+      });
+      
       return {
-        patients: data.patients,
-        totalItems: data.patients.length
+        patients,
+        totalItems: patients.length 
       };
     } catch (error: any) {
       return rejectWithValue(error.message || '환자 목록을 불러오는데 실패했습니다.');
@@ -362,22 +376,28 @@ export const updatePatient = createAsyncThunk(
   }
 );
 
-// 환자 삭제 비동기 액션
+// deletePatient 액션 수정
 export const deletePatient = createAsyncThunk(
   'patients/deletePatient',
   async (patientId: string, { rejectWithValue }) => {
     try {
+      console.log(`Redux: 환자 ID ${patientId} 삭제 시도`);
       const response = await fetch(`/api/patients/${patientId}`, {
         method: 'DELETE',
       });
+
+      console.log(`API 응답 상태: ${response.status}`);
       
       if (!response.ok) {
         const errorData = await response.json();
+        console.error('삭제 실패 응답:', errorData);
         return rejectWithValue(errorData.error || '환자 삭제에 실패했습니다.');
       }
-      
-      return patientId;
+
+      console.log('환자 삭제 성공');
+      return patientId; // 삭제 성공 시 ID 반환
     } catch (error: any) {
+      console.error('환자 삭제 오류:', error);
       return rejectWithValue(error.message || '환자 삭제에 실패했습니다.');
     }
   }
@@ -547,10 +567,15 @@ const patientsSlice = createSlice({
   reducers: {
     selectPatient: (state, action: PayloadAction<string>) => {
       const patientId = action.payload;
-      const updatedPatient = state.patients.find((patient: { id: string; }) => patient.id === patientId);
+      // 먼저 _id로 찾고, 없으면 id로 찾기
+      const updatedPatient = state.patients.find((patient) => 
+        patient._id === patientId || patient.id === patientId
+      );
       state.selectedPatient = updatedPatient || null;
 
-      const filteredIndex = state.filteredPatients.findIndex((p: { id: string; }) => p.id === patientId);
+      const filteredIndex = state.filteredPatients.findIndex((p) => 
+        p._id === patientId || p.id === patientId
+      );
       if (filteredIndex !== -1 && updatedPatient) {
         state.filteredPatients[filteredIndex] = updatedPatient;
       }
@@ -667,13 +692,18 @@ const patientsSlice = createSlice({
       })
       .addCase(deletePatient.fulfilled, (state, action: PayloadAction<string>) => {
         state.isLoading = false;
-        // 환자 목록에서 삭제된 환자 제거
-        state.patients = state.patients.filter((patient: { id: string; }) => patient.id !== action.payload);
+        // 환자 목록에서 삭제된 환자 제거 - _id 또는 id 기준으로 찾기
+        state.patients = state.patients.filter((patient) => 
+          patient._id !== action.payload && patient.id !== action.payload
+        );
         // 필터링된 목록도 업데이트
-        state.filteredPatients = state.filteredPatients.filter((patient: { id: string; }) => patient.id !== action.payload);
+        state.filteredPatients = state.filteredPatients.filter((patient) => 
+          patient._id !== action.payload && patient.id !== action.payload
+        );
         
         // 현재 선택된 환자가 삭제되었으면 선택 취소
-        if (state.selectedPatient && state.selectedPatient.id === action.payload) {
+        if (state.selectedPatient && 
+            (state.selectedPatient._id === action.payload || state.selectedPatient.id === action.payload)) {
           state.selectedPatient = null;
         }
         

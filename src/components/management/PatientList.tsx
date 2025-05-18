@@ -1,4 +1,4 @@
-//src/components/management/PatientList.tsx
+// src/components/management/PatientList.tsx
 
 'use client'
 
@@ -94,15 +94,28 @@ export default function PatientList({ isLoading = false }: PatientListProps) {
   }
   
   // 디테일 보기 핸들러
-  const handleViewDetails = (patientId: string) => {
-    dispatch(selectPatient(patientId))
+  const handleViewDetails = (patient: Patient) => {
+    // _id가 undefined일 수 있으므로 체크 후 사용
+    if (patient._id) {
+      dispatch(selectPatient(patient._id))
+    } else if (patient.id) {
+      // 대체 ID 사용
+      dispatch(selectPatient(patient.id))
+    }
   }
   
   // 내원 확정 토글 핸들러
-  const handleToggleVisitConfirmation = (patientId: string, e: React.MouseEvent) => {
-    e.stopPropagation() // 이벤트 버블링 방지
-    dispatch(toggleVisitConfirmation(patientId))
+  const handleToggleVisitConfirmation = (patient: Patient, e: React.MouseEvent) => {
+  e.stopPropagation() // 이벤트 버블링 방지
+  
+  // _id가 undefined일 수 있으므로 체크 후 사용
+  if (patient._id) {
+    dispatch(toggleVisitConfirmation(patient._id))
+  } else if (patient.id) {
+    // 대체 ID 사용
+    dispatch(toggleVisitConfirmation(patient.id))
   }
+}
   
   return (
     <>
@@ -150,7 +163,7 @@ export default function PatientList({ isLoading = false }: PatientListProps) {
                   if (patient.callbackHistory && patient.callbackHistory.length > 0) {
                     const absentCallbacks = patient.callbackHistory.filter(cb => cb.status === '부재중');
                     if (absentCallbacks.length > 0) {
-                      console.log('부재중 콜백이 있는 환자:', patient.id, patient.name, '- 상태:', patient.status);
+                      console.log('부재중 콜백이 있는 환자:', patient._id, patient.name, '- 상태:', patient.status);
                     }
                   }
                   // 특수 환자 강조 표시 (VIP, 미응답 등)
@@ -162,10 +175,13 @@ export default function PatientList({ isLoading = false }: PatientListProps) {
                   
                   // 홍길동은 특별히 이름을 강조
                   const isVip = patient.name === '홍길동' || patient.status === 'VIP';
+
+                  // 환자 레코드에 _id 또는 id가 있는지 확인
+                  const patientId = patient._id || patient.id || '';
                   
                   return (
                     <tr 
-                      key={patient.id} 
+                      key={patient._id} 
                       className={`border-b border-border last:border-0 ${rowColor} hover:bg-light-bg/50 transition-colors duration-150`}
                     >
                       <td className="px-4 py-4 text-sm text-text-secondary">
@@ -173,7 +189,7 @@ export default function PatientList({ isLoading = false }: PatientListProps) {
                       </td>
                       <td className={`px-4 py-4 text-sm font-medium ${isVip ? 'text-purple-800' : 'text-text-primary'}`}>
                         <button 
-                          onClick={() => handleViewDetails(patient.id)}
+                          onClick={() => handleViewDetails(patient)}
                           className="hover:underline"
                         >
                           {patient.name}
@@ -222,7 +238,7 @@ export default function PatientList({ isLoading = false }: PatientListProps) {
                               ? 'bg-green-500 text-white hover:bg-green-600' 
                               : 'bg-gray-200 text-gray-500 hover:bg-gray-300'
                           }`}
-                          onClick={(e) => handleToggleVisitConfirmation(patient.id, e)}
+                          onClick={(e) => handleToggleVisitConfirmation(patient, e)}
                           title={patient.visitConfirmed ? "내원 확정 취소" : "내원 확정"}
                         >
                           <Icon 
@@ -235,7 +251,7 @@ export default function PatientList({ isLoading = false }: PatientListProps) {
                         <div className="flex items-center justify-center gap-2">
                           <button
                             className="inline-flex items-center justify-center w-8 h-8 rounded-full bg-primary text-white hover:bg-primary/90 transition-colors duration-150"
-                            onClick={() => handleViewDetails(patient.id)}
+                            onClick={() => handleViewDetails(patient)}
                             title="상세 정보"
                           >
                             <Icon 
@@ -246,7 +262,8 @@ export default function PatientList({ isLoading = false }: PatientListProps) {
                           </button>
                           <button
                             className="inline-flex items-center justify-center w-8 h-8 rounded-full bg-error text-white hover:bg-error/90 transition-colors duration-150"
-                            onClick={() => dispatch(openDeleteConfirm(patient.id))}
+                            // 환자 ID 체크 추가
+                            onClick={() => patientId && dispatch(openDeleteConfirm(patientId))}
                             title="환자 삭제"
                           >
                             <Icon 

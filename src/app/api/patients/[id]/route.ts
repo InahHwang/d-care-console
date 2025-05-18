@@ -81,19 +81,47 @@ export async function DELETE(
   try {
     const { db } = await connectToDatabase();
     const id = params.id;
-    
-    let result;
+
+    console.log(`삭제 시도: 환자 ID = ${id}`); // 로깅 추가
+
+    // 먼저 환자 찾기 시도
+    let patient;
+
+    // 1. MongoDB ObjectId로 시도
     if (ObjectId.isValid(id)) {
-      result = await db.collection('patients').deleteOne({ _id: new ObjectId(id) });
-    } else {
-      result = await db.collection('patients').deleteOne({ patientId: id });
+      patient = await db.collection('patients').findOne({ _id: new ObjectId(id) });
     }
-    
-    if (result.deletedCount === 0) {
+
+    // 2. id 필드로 시도
+    if (!patient) {
+      patient = await db.collection('patients').findOne({ id: id });
+    }
+
+    // 3. patientId 필드로 시도
+    if (!patient) {
+      patient = await db.collection('patients').findOne({ patientId: id });
+    }
+
+    if (!patient) {
+      console.log('삭제 실패: 환자를 찾을 수 없음');
       return NextResponse.json({ error: '환자를 찾을 수 없습니다.' }, { status: 404 });
     }
-    
-    return NextResponse.json({ success: true, message: '환자가 삭제되었습니다.' }, { status: 200 });
+
+    // 찾은 환자의 _id로 삭제
+    const result = await db.collection('patients').deleteOne({ _id: patient._id });
+
+    console.log(`삭제 결과: ${JSON.stringify(result)}`);
+
+    if (result.deletedCount === 0) {
+      return NextResponse.json({ error: '환자 삭제에 실패했습니다.' }, { status: 500 });
+    }
+
+    // _id를 문자열로 변환하여 반환
+    return NextResponse.json({ 
+      success: true, 
+      message: '환자가 삭제되었습니다.',
+      deletedId: patient._id.toString() 
+    }, { status: 200 });
   } catch (error) {
     console.error('환자 삭제 실패:', error);
     return NextResponse.json({ error: '환자 삭제에 실패했습니다.' }, { status: 500 });

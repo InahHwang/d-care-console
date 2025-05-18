@@ -23,13 +23,14 @@ import {
 } from 'react-icons/hi'
 import { Icon } from '../common/Icon'
 import EventTargetList from './EventTargetList'
+import DeleteConfirmModal from './DeleteConfirmModal'
 
 export default function PatientManagement() {
   const dispatch = useDispatch<AppDispatch>()
   const searchParams = useSearchParams()
   
   const { currentMenuItem } = useSelector((state: RootState) => state.ui)
-const { isLoading, selectedPatient } = useSelector((state: RootState) => state.patients)
+  const { isLoading, selectedPatient } = useSelector((state: RootState) => state.patients)
   
   // 현재 탭 상태를 별도로 관리
   const [activeTab, setActiveTab] = useState('환자 목록')
@@ -272,6 +273,7 @@ const { isLoading, selectedPatient } = useSelector((state: RootState) => state.p
       <PatientFormModal />
       {/* 환자 상세 모달 - 상태에 따라 표시 */}
       {selectedPatient && <PatientDetailModal />}
+      <DeleteConfirmModal />
     </div>
   )
 }

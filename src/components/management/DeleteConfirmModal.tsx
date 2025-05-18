@@ -1,3 +1,5 @@
+// src/components/management/DeleteConfirmModal.tsx
+
 'use client'
 import { useDispatch, useSelector } from 'react-redux'
 import { RootState, AppDispatch } from '@/store'
@@ -53,20 +55,21 @@ export default function DeleteConfirmModal({
   
   // 삭제 확인
   const handleConfirmDelete = async () => {
-    if (isPropMode) {
-      onConfirm!()
-    } else {
-      if (!patientToDelete) return
-      
-      try {
-        await dispatch(deletePatient(patientToDelete)).unwrap()
-        dispatch(closeDeleteConfirm())
-      } catch (error) {
-        console.error('환자 삭제 오류:', error)
-        alert('환자 삭제 중 오류가 발생했습니다.')
-      }
+  if (isPropMode) {
+    onConfirm!()
+  } else {
+    if (!patientToDelete) return
+    
+    try {
+      // patientToDelete는 이제 MongoDB의 _id 값이거나 기존 id 값 중 하나
+      await dispatch(deletePatient(patientToDelete)).unwrap()
+      dispatch(closeDeleteConfirm())
+    } catch (error) {
+      console.error('환자 삭제 오류:', error)
+      alert('환자 삭제 중 오류가 발생했습니다.')
     }
   }
+}
   
   // 모달이 닫혀 있을 때는 렌더링하지 않음
   if (!shouldShowModal) return null

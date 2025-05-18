@@ -22,22 +22,22 @@ export async function POST(request: NextRequest) {
   try {
     const { db } = await connectToDatabase();
     const data = await request.json();
-    
+
     // 입력 데이터 검증
     if (!data.name || !data.phoneNumber) {
       return NextResponse.json({ error: '필수 입력값이 누락되었습니다.' }, { status: 400 });
     }
-    
+
     // 중복 번호 확인
     const existingPatient = await db.collection('patients').findOne({ phoneNumber: data.phoneNumber });
     if (existingPatient) {
       return NextResponse.json({ error: '이미 등록된 전화번호입니다.' }, { status: 409 });
     }
-    
+
     // 환자 ID 생성
     const count = await db.collection('patients').countDocuments();
     const patientId = `PT-${Math.floor(1000 + Math.random() * 9000)}`;
-    
+
     // 환자 정보 추가
     const now = new Date().toISOString();
     const newPatient = {
@@ -49,10 +49,12 @@ export async function POST(request: NextRequest) {
       reminderStatus: '초기',
       visitConfirmed: false
     };
-    
+
     const result = await db.collection('patients').insertOne(newPatient);
-    newPatient._id = result.insertedId;
     
+    // _id를 newPatient에 설정하고 문자열로 변환
+    newPatient._id = result.insertedId.toString();
+
     return NextResponse.json(newPatient, { status: 201 });
   } catch (error) {
     console.error('환자 등록 실패:', error);
