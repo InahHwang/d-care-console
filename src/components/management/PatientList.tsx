@@ -95,26 +95,32 @@ export default function PatientList({ isLoading = false }: PatientListProps) {
   
   // 디테일 보기 핸들러
   const handleViewDetails = (patient: Patient) => {
-    // _id가 undefined일 수 있으므로 체크 후 사용
-    if (patient._id) {
-      dispatch(selectPatient(patient._id))
-    } else if (patient.id) {
-      // 대체 ID 사용
-      dispatch(selectPatient(patient.id))
-    }
+  // patient 객체에서 _id나 id 확인
+  const patientId = patient._id || patient.id;
+  
+  if (!patientId) {
+    console.error('환자 ID가 없습니다:', patient);
+    return; // ID가 없으면 처리하지 않음
   }
   
-  // 내원 확정 토글 핸들러
-  const handleToggleVisitConfirmation = (patient: Patient, e: React.MouseEvent) => {
-  e.stopPropagation() // 이벤트 버블링 방지
+  console.log('상세 보기 선택:', patientId);
+  dispatch(selectPatient(patientId));
+}
+
+// 내원 확정 토글 핸들러
+const handleToggleVisitConfirmation = (patient: Patient, e: React.MouseEvent) => {
+  e.stopPropagation(); // 이벤트 버블링 방지
   
-  // _id가 undefined일 수 있으므로 체크 후 사용
-  if (patient._id) {
-    dispatch(toggleVisitConfirmation(patient._id))
-  } else if (patient.id) {
-    // 대체 ID 사용
-    dispatch(toggleVisitConfirmation(patient.id))
+  // patient 객체에서 _id나 id 확인
+  const patientId = patient._id || patient.id;
+  
+  if (!patientId) {
+    console.error('환자 ID가 없습니다:', patient);
+    return; // ID가 없으면 처리하지 않음
   }
+  
+  console.log('내원 확정 토글:', patientId);
+  dispatch(toggleVisitConfirmation(patientId));
 }
   
   return (

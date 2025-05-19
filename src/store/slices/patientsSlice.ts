@@ -470,6 +470,13 @@ export const addCallback = createAsyncThunk(
     callbackData: Omit<CallbackItem, 'id'> 
   }, { rejectWithValue }) => {
     try {
+      console.log(`콜백 추가 시도: 환자 ID = ${patientId}, 데이터:`, callbackData);
+      
+      if (!patientId) {
+        console.error('환자 ID가 undefined입니다!');
+        return rejectWithValue('환자 ID가 없습니다.');
+      }
+      
       const response = await fetch(`/api/patients/${patientId}/callbacks`, {
         method: 'POST',
         headers: {
@@ -480,10 +487,12 @@ export const addCallback = createAsyncThunk(
       
       if (!response.ok) {
         const errorData = await response.json();
+        console.error('콜백 추가 실패 응답:', errorData);
         return rejectWithValue(errorData.error || '콜백 추가에 실패했습니다.');
       }
       
       const updatedPatient = await response.json();
+      console.log('콜백 추가 성공. 업데이트된 환자:', updatedPatient);
       return { patientId, updatedPatient };
     } catch (error) {
       console.error('[addCallback] 오류 발생:', error);
@@ -567,17 +576,20 @@ const patientsSlice = createSlice({
   reducers: {
     selectPatient: (state, action: PayloadAction<string>) => {
       const patientId = action.payload;
-      // 먼저 _id로 찾고, 없으면 id로 찾기
-      const updatedPatient = state.patients.find((patient) => 
-        patient._id === patientId || patient.id === patientId
+      
+      console.log('환자 선택 시도:', patientId);
+      
+      // MongoDB ID 형식인지 먼저 확인하고, 아니면 id 필드로 검색
+      const updatedPatient = state.patients.find(
+        (patient) => patient._id === patientId || patient.id === patientId
       );
-      state.selectedPatient = updatedPatient || null;
-
-      const filteredIndex = state.filteredPatients.findIndex((p) => 
-        p._id === patientId || p.id === patientId
-      );
-      if (filteredIndex !== -1 && updatedPatient) {
-        state.filteredPatients[filteredIndex] = updatedPatient;
+      
+      if (updatedPatient) {
+        console.log('환자 찾음:', updatedPatient);
+        state.selectedPatient = updatedPatient;
+      } else {
+        console.error('환자를 찾을 수 없음:', patientId);
+        state.selectedPatient = null;
       }
     },
     clearSelectedPatient: (state) => {
