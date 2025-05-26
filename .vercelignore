@@ -1,0 +1,11 @@
+# .vercelignore
+.git
+.next
+node_modules
+*.log
+.DS_Store
+coverage
+.nyc_output
+.cache
+*.tsbuildinfo
+.env*.local
