@@ -1,17 +1,16 @@
-//src/app/settings/page.tsx
-
 'use client'
 
 import { useState } from 'react'
 import AppLayout from '@/components/layout/AppLayout'
 import TemplateSettings from '@/components/settings/TemplateSettings'
-import { HiOutlineTemplate, HiOutlineUserCircle, HiOutlineOfficeBuilding } from 'react-icons/hi'
+import GoalSettings from '@/components/settings/GoalSettings'
+import { HiOutlineTemplate, HiOutlineUserCircle, HiOutlineOfficeBuilding, HiOutlineTag } from 'react-icons/hi'
 import { Icon } from '@/components/common/Icon'
 
-type SettingsTab = 'account' | 'clinic' | 'templates'
+type SettingsTab = 'account' | 'clinic' | 'templates' | 'goals'
 
 export default function SettingsPage() {
-  const [activeTab, setActiveTab] = useState<SettingsTab>('templates')
+  const [activeTab, setActiveTab] = useState<SettingsTab>('goals')
   
   return (
     <AppLayout currentPage="settings">
@@ -19,9 +18,9 @@ export default function SettingsPage() {
         <h2 className="text-xl font-bold text-text-primary mb-6">설정</h2>
         
         {/* 탭 네비게이션 */}
-        <div className="flex border-b border-border mb-6">
+        <div className="flex border-b border-border mb-6 overflow-x-auto">
           <button
-            className={`px-4 py-2 font-medium text-sm border-b-2 -mb-px flex items-center gap-1.5 ${
+            className={`px-4 py-2 font-medium text-sm border-b-2 -mb-px flex items-center gap-1.5 whitespace-nowrap ${
               activeTab === 'account' 
                 ? 'border-primary text-primary' 
                 : 'border-transparent text-text-secondary hover:text-text-primary'
@@ -32,7 +31,7 @@ export default function SettingsPage() {
             계정 설정
           </button>
           <button
-            className={`px-4 py-2 font-medium text-sm border-b-2 -mb-px flex items-center gap-1.5 ${
+            className={`px-4 py-2 font-medium text-sm border-b-2 -mb-px flex items-center gap-1.5 whitespace-nowrap ${
               activeTab === 'clinic' 
                 ? 'border-primary text-primary' 
                 : 'border-transparent text-text-secondary hover:text-text-primary'
@@ -43,7 +42,18 @@ export default function SettingsPage() {
             병원 정보
           </button>
           <button
-            className={`px-4 py-2 font-medium text-sm border-b-2 -mb-px flex items-center gap-1.5 ${
+            className={`px-4 py-2 font-medium text-sm border-b-2 -mb-px flex items-center gap-1.5 whitespace-nowrap ${
+              activeTab === 'goals' 
+                ? 'border-primary text-primary' 
+                : 'border-transparent text-text-secondary hover:text-text-primary'
+            }`}
+            onClick={() => setActiveTab('goals')}
+          >
+            <Icon icon={HiOutlineTag} size={16} />
+            목표 설정
+          </button>
+          <button
+            className={`px-4 py-2 font-medium text-sm border-b-2 -mb-px flex items-center gap-1.5 whitespace-nowrap ${
               activeTab === 'templates' 
                 ? 'border-primary text-primary' 
                 : 'border-transparent text-text-secondary hover:text-text-primary'
@@ -78,6 +88,8 @@ export default function SettingsPage() {
               </div>
             </div>
           )}
+          
+          {activeTab === 'goals' && <GoalSettings />}
           
           {activeTab === 'templates' && <TemplateSettings />}
         </div>

@@ -1,5 +1,4 @@
-//src/components/management/PatientMessageHistory.tsx
-
+// src/components/management/PatientMessageHistory.tsx
 'use client'
 
 import { useState, useEffect } from 'react'
@@ -8,21 +7,22 @@ import {
   initializeLogs, 
   setFilters, 
   resetFilters, 
-  selectFilteredLogs,
-  MessageLogFilters,
-  fetchMessageLogs 
+  selectPatientLogs,
+  fetchMessageLogs,
+  MessageLogFilters
 } from '@/store/slices/messageLogsSlice'
 import { 
   MessageLog, 
   MessageStatus, 
   MessageType 
 } from '@/types/messageLog'
-import { Patient } from '@/store/slices/patientsSlice'
+import { Patient, EventCategory } from '@/store/slices/patientsSlice'
 import { 
   formatMessageDate, 
   getMessagePreview, 
   getStatusText,
-  getMessageTypeText
+  getMessageTypeText,
+  getCategoryText
 } from '@/utils/messageLogUtils'
 import { format, subDays, parseISO } from 'date-fns'
 import { ko } from 'date-fns/locale/ko'
@@ -38,7 +38,7 @@ export default function PatientMessageHistory({ patient }: PatientMessageHistory
   const dispatch = useAppDispatch();
   
   // 상태 관리
-  const allLogs = useAppSelector(selectFilteredLogs);
+  const patientMessages = useAppSelector(state => selectPatientLogs(state, patient.id));
   const isLoading = useAppSelector(state => state.messageLogs.isLoading);
   const error = useAppSelector(state => state.messageLogs.error);
   
@@ -47,11 +47,6 @@ export default function PatientMessageHistory({ patient }: PatientMessageHistory
   const [startDate, setStartDate] = useState('');
   const [statusFilter, setStatusFilter] = useState<MessageStatus | 'all'>('all');
   const [selectedMessage, setSelectedMessage] = useState<MessageLog | null>(null);
-  
-  // 환자별 필터링된 메시지 가져오기
-  const patientMessages = allLogs.filter(log => 
-    log.patientId === patient.id || log.phoneNumber === patient.phoneNumber
-  );
   
   // 전체 페이지 수 계산
   const totalPages = Math.ceil(patientMessages.length / PAGE_SIZE);
@@ -64,24 +59,21 @@ export default function PatientMessageHistory({ patient }: PatientMessageHistory
   
   // 컴포넌트 마운트 시 로그 초기화 및 데이터 로드
   useEffect(() => {
+    console.log('PatientMessageHistory 마운트 - 환자 ID:', patient.id);
+    
+    // 먼저 로컬 데이터 초기화
+    dispatch(initializeLogs());
+    
     // 메시지 로그 불러오기
     dispatch(fetchMessageLogs());
     
     // 환자 ID 또는 전화번호로 필터링하는 로직은 Redux 액션으로 처리
     const filterParams: Partial<MessageLogFilters> = {
       searchTerm: '', // 기존 검색어 초기화
-      statuses: ['success', 'failed'] // 모든 상태 표시
+      statuses: ['success', 'failed'] as MessageStatus[], // 타입 캐스팅 추가
+      patientId: patient.id,
+      phoneNumber: patient.phoneNumber
     };
-    
-    // 환자 ID가 있으면 필터에 추가
-    if (patient.id) {
-      filterParams.patientId = patient.id;
-    }
-    
-    // 환자 전화번호가 있으면 필터에 추가
-    if (patient.phoneNumber) {
-      filterParams.phoneNumber = patient.phoneNumber;
-    }
     
     dispatch(setFilters(filterParams));
     
@@ -89,28 +81,23 @@ export default function PatientMessageHistory({ patient }: PatientMessageHistory
     return () => {
       dispatch(resetFilters());
     };
-  }, [dispatch, patient]);
+  }, [dispatch, patient.id, patient.phoneNumber]);
   
-  // 필터 적용
+  // 필터 변경 시 적용
   useEffect(() => {
     const filterParams: Partial<MessageLogFilters> = {
       searchTerm,
       startDate: startDate || undefined,
-      statuses: statusFilter === 'all' ? ['success', 'failed'] : [statusFilter]
+      statuses: statusFilter === 'all' 
+        ? ['success', 'failed'] as MessageStatus[] 
+        : [statusFilter],
+      patientId: patient.id,
+      phoneNumber: patient.phoneNumber
     };
-    
-    // 환자 정보 유지
-    if (patient.id) {
-      filterParams.patientId = patient.id;
-    }
-    
-    if (patient.phoneNumber) {
-      filterParams.phoneNumber = patient.phoneNumber;
-    }
     
     dispatch(setFilters(filterParams));
     setCurrentPage(1); // 필터 변경 시 첫 페이지로 이동
-  }, [dispatch, searchTerm, startDate, statusFilter, patient]);
+  }, [dispatch, searchTerm, startDate, statusFilter, patient.id, patient.phoneNumber]);
   
   // 날짜 필터 빠른 선택 (최근 N일)
   const handleQuickDateFilter = (days: number) => {
@@ -139,6 +126,11 @@ export default function PatientMessageHistory({ patient }: PatientMessageHistory
       </span>
     );
   };
+  
+  // 디버깅을 위한 출력
+  useEffect(() => {
+    console.log(`환자 메시지 수: ${patientMessages.length}`);
+  }, [patientMessages]);
   
   return (
     <div className="space-y-4">
@@ -226,7 +218,10 @@ export default function PatientMessageHistory({ patient }: PatientMessageHistory
           <p>{error}</p>
           <button 
             className="mt-2 text-sm underline"
-            onClick={() => dispatch(fetchMessageLogs())}
+            onClick={() => {
+              dispatch(initializeLogs());
+              dispatch(fetchMessageLogs());
+            }}
           >
             다시 시도
           </button>
@@ -241,9 +236,9 @@ export default function PatientMessageHistory({ patient }: PatientMessageHistory
           </div>
         ) : (
           <div className="divide-y divide-border">
-            {visibleMessages.map(message => (
+            {visibleMessages.map((message, index) => (
               <div 
-                key={message.id} 
+                key={`${message.id}-${index}`} // 인덱스를 추가하여 고유키 생성
                 className={`p-4 hover:bg-gray-50 cursor-pointer transition-colors ${
                   selectedMessage?.id === message.id ? 'bg-blue-50' : ''
                 }`}
@@ -259,7 +254,9 @@ export default function PatientMessageHistory({ patient }: PatientMessageHistory
                     <span className={`text-xs px-2 py-0.5 rounded-full ${
                       message.messageType === 'SMS' 
                         ? 'bg-blue-100 text-blue-700' 
-                        : 'bg-purple-100 text-purple-700'
+                        : message.messageType === 'MMS'
+                          ? 'bg-purple-100 text-purple-700'
+                          : 'bg-green-100 text-green-700'
                     }`}>
                       {getMessageTypeText(message.messageType)}
                     </span>
@@ -298,7 +295,7 @@ export default function PatientMessageHistory({ patient }: PatientMessageHistory
       {patientMessages.length > 0 && (
         <div className="flex justify-between items-center mt-4">
           <div className="text-sm text-text-secondary">
-            총 {patientMessages.length}개 중 {(currentPage - 1) * PAGE_SIZE + 1}-
+            총 {patientMessages.length}개 중 {patientMessages.length > 0 ? (currentPage - 1) * PAGE_SIZE + 1 : 0}-
             {Math.min(currentPage * PAGE_SIZE, patientMessages.length)} 표시
           </div>
           
@@ -361,7 +358,9 @@ export default function PatientMessageHistory({ patient }: PatientMessageHistory
                 <span className={`inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium ${
                   selectedMessage.messageType === 'SMS' 
                     ? 'bg-blue-100 text-blue-700' 
-                    : 'bg-purple-100 text-purple-700'
+                    : selectedMessage.messageType === 'MMS'
+                      ? 'bg-purple-100 text-purple-700'
+                      : 'bg-green-100 text-green-700'
                 }`}>
                   {getMessageTypeText(selectedMessage.messageType)}
                 </span>
@@ -380,6 +379,20 @@ export default function PatientMessageHistory({ patient }: PatientMessageHistory
             </div>
           </div>
           
+          {selectedMessage.imageUrl && (
+            <div className="mt-4">
+              <p className="text-sm text-text-secondary mb-1">첨부 이미지</p>
+              <div className="p-3 bg-gray-50 rounded-md">
+                <img 
+                  src={selectedMessage.imageUrl} 
+                  alt="첨부 이미지" 
+                  className="max-w-full h-auto rounded-md"
+                  style={{ maxHeight: '200px' }}
+                />
+              </div>
+            </div>
+          )}
+          
           {selectedMessage.status === 'failed' && selectedMessage.errorMessage && (
             <div className="mt-4">
               <p className="text-sm text-text-secondary mb-1">오류 메시지</p>
@@ -394,6 +407,15 @@ export default function PatientMessageHistory({ patient }: PatientMessageHistory
               <p className="text-sm text-text-secondary mb-1">사용된 템플릿</p>
               <div className="p-3 bg-blue-50 rounded-md text-blue-600 text-sm">
                 {selectedMessage.templateName}
+              </div>
+            </div>
+          )}
+          
+          {selectedMessage.category && (
+            <div className="mt-4">
+              <p className="text-sm text-text-secondary mb-1">카테고리</p>
+              <div className="p-3 bg-green-50 rounded-md text-green-600 text-sm">
+                {getCategoryText(selectedMessage.category as EventCategory)}
               </div>
             </div>
           )}

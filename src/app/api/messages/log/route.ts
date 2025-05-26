@@ -1,4 +1,4 @@
-// 수정된 src/app/api/messages/log/route.ts
+// app/api/messages/log/route.ts
 import { NextRequest, NextResponse } from 'next/server';
 import { connectToDatabase } from '@/utils/mongodb';
 
@@ -39,58 +39,103 @@ export async function POST(request: NextRequest) {
     const body = await request.json();
     console.log('수신된 요청 데이터:', body);
     
+    // 필수 필드 검증
+    if (!body.patientId && !body.patientName) {
+      return NextResponse.json(
+        { 
+          success: false, 
+          message: '필수 필드가 누락되었습니다. 환자 정보(patientId 또는 patientName)는 필수입니다.' 
+        },
+        { status: 400 }
+      );
+    }
+    
+    if (!body.content && !body.template) {
+      return NextResponse.json(
+        { 
+          success: false, 
+          message: '필수 필드가 누락되었습니다. 메시지 내용(content 또는 template)은 필수입니다.' 
+        },
+        { status: 400 }
+      );
+    }
+    
     const { 
+      id,  // 로그 ID (클라이언트에서 생성된 경우)
+      patientId,
+      patientName,
+      phoneNumber,
+      content,
+      messageType,
+      status,
+      // 추가 필드
       template, 
       category, 
       totalCount, 
       successCount, 
-      failedCount, 
-      messageType,
-      // 추가 필드 - 기존 코드에는 없지만 클라이언트에서 보낼 수 있는 필드
-      patientName,
-      patientId,
-      phoneNumber,
-      content,
-      status
+      failedCount,
+      messageId,
+      imageUrl,
+      rcsOptions,
+      errorMessage,
+      createdAt,
+      templateName,
+      operator
     } = body;
     
     // 로그 객체 생성 - 모든 가능한 필드 포함
     const logEntry = {
-      createdAt: new Date(), // timestamp 대신 createdAt 사용 (Redux 슬라이스와 일치하도록)
-      template,
-      category,
-      totalCount,
-      successCount,
-      failedCount,
-      messageType,
-      // 추가 필드
-      patientName: patientName || '알 수 없음',
+      id: id || `log_${Date.now()}_${Math.random().toString(36).substring(2, 9)}`,
+      createdAt: createdAt || new Date().toISOString(),
       patientId: patientId || '',
+      patientName: patientName || '알 수 없음',
       phoneNumber: phoneNumber || '',
       content: content || template || '',
+      messageType: messageType || 'SMS',
       status: status || 'success',
-      // 고유 ID
-      id: Date.now().toString() // MongoDB의 _id와 별개로 클라이언트에서 사용할 ID
+      template: template || templateName || '',
+      category: category || '',
+      totalCount: totalCount || 1,
+      successCount: successCount || (status === 'success' ? 1 : 0),
+      failedCount: failedCount || (status === 'failed' ? 1 : 0),
+      messageId: messageId || '',
+      imageUrl: imageUrl || null,
+      rcsOptions: rcsOptions || null,
+      errorMessage: errorMessage || '',
+      operator: operator || '시스템',
+      timestamp: new Date().toISOString() // 백업 타임스탬프
     };
     
     // 콘솔에 로그 출력 (개발용)
     console.log('저장할 로그 데이터:', logEntry);
     
-    // MongoDB에 저장
-    console.log('MongoDB 연결 시도...');
-    const { db } = await connectToDatabase();
-    console.log('MongoDB 연결 성공!');
-    
-    const result = await db.collection('messageLogs').insertOne(logEntry);
-    console.log('MongoDB 저장 성공! ID:', result.insertedId);
-    
-    // 성공 응답
-    return NextResponse.json({
-      success: true,
-      message: '로그가 데이터베이스에 저장되었습니다.',
-      logId: result.insertedId,
-      log: logEntry // 저장된 로그 데이터 반환
-    });
+    try {
+      // MongoDB에 저장
+      console.log('MongoDB 연결 시도...');
+      const { db } = await connectToDatabase();
+      console.log('MongoDB 연결 성공!');
+      
+      const result = await db.collection('messageLogs').insertOne(logEntry);
+      console.log('MongoDB 저장 성공! ID:', result.insertedId);
+      
+      // 성공 응답
+      return NextResponse.json({
+        success: true,
+        message: '로그가 데이터베이스에 저장되었습니다.',
+        logId: result.insertedId,
+        log: logEntry // 저장된 로그 데이터 반환
+      });
+    } catch (dbError) {
+      console.error('MongoDB 저장 오류:', dbError);
+      
+      // DB 오류 발생해도 로그 데이터 자체는 반환
+      return NextResponse.json({
+        success: false,
+        message: 'DB 저장 실패했으나 로그 데이터는 생성됨',
+        error: dbError instanceof Error ? dbError.message : '데이터베이스 오류',
+        log: logEntry // 저장 시도한 로그 데이터
+      }, { status: 500 });
+    }
   } catch (error) {
     console.error('메시지 로그 저장 중 오류 발생:', error);
     

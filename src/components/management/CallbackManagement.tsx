@@ -160,7 +160,7 @@ export default function CallbackManagement({ patient }: CallbackManagementProps)
   // 예정된 콜백 개수
   const scheduledCallbacks = callbackHistory.filter(cb => cb.status === '예정').length;
     
-  // 완료된 콜백 개수 (부재중 제외)
+  // 완료된 콜백 개수 (부재중 제외) - 수정된 로직
   const completedNonMissedCallbacks = callbackHistory.filter(cb => {
     // 예약 확정으로 완료된 콜백도 포함
     const isCompletedNormal = cb.status === '완료' && !isMissedCallNote(cb.notes);
@@ -175,8 +175,14 @@ export default function CallbackManagement({ patient }: CallbackManagementProps)
     cb.status === '완료' && isMissedCallNote(cb.notes)
   ).length;
 
-  // 총 완료된 콜백 개수 (부재중 포함 - 기존 코드와 호환성 유지)
-  const completedCallbacks = completedNonMissedCallbacks + missedCallbacks;
+  // 환자가 종결되었지만 콜백 이력이 없는 경우 (바로 종결/예약완료 처리된 경우)
+  // 최소 1회는 콜백을 진행한 것으로 간주
+  const adjustedCompletedCallbacks = patient.isCompleted && completedNonMissedCallbacks === 0 && missedCallbacks === 0
+    ? 1  // 종결되었는데 콜백 이력이 전혀 없으면 1회로 간주
+    : completedNonMissedCallbacks;
+
+  // 콜백 현황 표시에서 사용할 값
+  const displayCompletedCallbacks = adjustedCompletedCallbacks;
 
   // 새 콜백 관련 상태
   const [isAddingCallback, setIsAddingCallback] = useState(false);
@@ -406,53 +412,55 @@ export default function CallbackManagement({ patient }: CallbackManagementProps)
       // 부재중 처리 로직 아래에 추가
       // 예약 확정이 선택된 경우
       if (nextStep === '예약_확정') {
-      if (!reservationDate || !reservationTime) {
-        alert('예약 날짜와 시간을 모두 입력해주세요.');
-        setIsLoading(false);
+        if (!reservationDate || !reservationTime) {
+          alert('예약 날짜와 시간을 모두 입력해주세요.');
+          setIsLoading(false);
+          return;
+        }
+        
+        // 현재 콜백을 완료 처리하고, 완료된 콜백 데이터에 예약 정보 추가
+        const completedCallbackData: Omit<CallbackItem, 'id'> = {
+          date: format(new Date(), 'yyyy-MM-dd'), // 오늘 날짜로 업데이트
+          status: '완료',
+          notes: `[상담 내용]\n${resultNotes}\n\n[예약 정보]\n예약일시: ${reservationDate} ${reservationTime}`,
+          customerResponse: customerResponse as any,
+          nextStep: '예약_확정',
+          type: callbackToComplete.type,
+          time: undefined
+        };
+        
+        // 기존 콜백 삭제
+        await dispatch(deleteCallback({
+          patientId: patient.id,
+          callbackId: callbackToComplete.id
+        })).unwrap();
+          
+        // 새 (완료된) 콜백 추가
+        await dispatch(addCallback({
+          patientId: patient.id,
+          callbackData: completedCallbackData
+        })).unwrap();
+        
+        // 예약 정보 포맷팅 - 상담 내용도 포함 (줄바꿈 추가)
+        const reservationDateTime = `${reservationDate} ${reservationTime}`;
+        const reservationNote = resultNotes.trim() 
+          ? `[예약완료] 예약일시: ${reservationDateTime}\n\n${resultNotes}`  // \n\n으로 변경
+          : `[예약완료] 예약일시: ${reservationDateTime}`;
+        
+        // 종결 처리 (예약 완료로)
+        await dispatch(completePatient({
+          patientId: patient.id,
+          reason: reservationNote
+        })).unwrap();
+        
+        // 환자 정보 새로고침
+        dispatch(selectPatient(patient.id));
+        
+        // 성공 처리
+        resetMarkCompleteForm();
+        alert('환자의 예약이 완료되었습니다.');
         return;
       }
-      
-      // 현재 콜백을 완료 처리하고, 완료된 콜백 데이터에 예약 정보 추가
-      const completedCallbackData: Omit<CallbackItem, 'id'> = {
-        date: format(new Date(), 'yyyy-MM-dd'), // 오늘 날짜로 업데이트
-        status: '완료',
-        notes: `[상담 내용]\n${resultNotes}\n\n[예약 정보]\n예약일시: ${reservationDate} ${reservationTime}`,
-        customerResponse: customerResponse as any,
-        nextStep: '예약_확정',
-        type: callbackToComplete.type,
-        time: undefined
-      };
-      
-      // 기존 콜백 삭제
-      await dispatch(deleteCallback({
-        patientId: patient.id,
-        callbackId: callbackToComplete.id
-      })).unwrap();
-        
-      // 새 (완료된) 콜백 추가
-      await dispatch(addCallback({
-        patientId: patient.id,
-        callbackData: completedCallbackData
-      })).unwrap();
-      
-      // 예약 정보 포맷팅
-      const reservationDateTime = `${reservationDate} ${reservationTime}`;
-      const reservationNote = `[예약완료] 예약일시: ${reservationDateTime}\n${resultNotes}`;
-      
-      // 종결 처리 (예약 완료로)
-      await dispatch(completePatient({
-        patientId: patient.id,
-        reason: reservationNote
-      })).unwrap();
-      
-      // 환자 정보 새로고침
-      dispatch(selectPatient(patient.id));
-      
-      // 성공 처리
-      resetMarkCompleteForm();
-      alert('환자의 예약이 완료되었습니다.');
-      return;
-    }
 
     // 종결 처리 로직 추가
     if (nextStep === '종결_처리') {
@@ -827,21 +835,24 @@ export default function CallbackManagement({ patient }: CallbackManagementProps)
       }
       
     } else if (callbackResult === '예약완료') {
-        // 예약 완료 처리
-        const today = new Date().toISOString().split('T')[0];
-        const reservationDateTime = `${reservationDate} ${reservationTime}`;
-        const terminationNote = `[예약완료] 예약일시: ${reservationDateTime}`;
-        
-        // 환자 종결 처리만 수행 (콜백 추가는 이 안에서 자동으로 처리됨)
-        await dispatch(completePatient({
-          patientId: patient.id,
-          reason: terminationNote
-        })).unwrap();
-        
-        // 환자 정보 새로고침
-        dispatch(selectPatient(patient.id));
-        
-      } else if (callbackResult === '종결') {
+      // 예약 완료 처리
+      const today = new Date().toISOString().split('T')[0];
+      const reservationDateTime = `${reservationDate} ${reservationTime}`;
+      
+      // 상담 내용도 함께 포함하여 저장 (줄바꿈 추가)
+      const terminationNote = callbackNotes.trim() 
+        ? `[예약완료] 예약일시: ${reservationDateTime}\n\n${callbackNotes}`  // \n\n으로 변경
+        : `[예약완료] 예약일시: ${reservationDateTime}`;
+      
+      // 환자 종결 처리만 수행 (콜백 추가는 이 안에서 자동으로 처리됨)
+      await dispatch(completePatient({
+        patientId: patient.id,
+        reason: terminationNote
+      })).unwrap();
+      
+      // 환자 정보 새로고침
+      dispatch(selectPatient(patient.id));
+    } else if (callbackResult === '종결') {
         // 종결 처리
         const today = new Date().toISOString().split('T')[0];
         
@@ -1163,7 +1174,36 @@ export default function CallbackManagement({ patient }: CallbackManagementProps)
     canComplete,
     patientStatus: patient.status
   });
-      
+
+  // 예약 완료 상담 내용 추출 함수 추가
+  const getReservationConsultationNotes = (patient: Patient) => {
+    if (!patient.completedReason) return '';
+    
+    // 공백으로 분할해서 처리 (현재는 줄바꿈이 없이 저장되고 있음)
+    const text = patient.completedReason;
+    
+    // [예약완료] 예약일시: YYYY-MM-DD HH:MM 뒤의 내용을 상담 내용으로 처리
+    const match = text.match(/\[예약완료\]\s*예약일시:\s*[\d-]+\s+[\d:]+\s*(.*)/);
+    if (match && match[1]) {
+      return match[1].trim();
+    }
+    
+    return '';
+  };
+  
+  // 예약 정보 추출 함수 추가
+  const getReservationInfo = (patient: Patient) => {
+    if (!patient.completedReason) return '';
+    
+    // [예약완료] 예약일시: YYYY-MM-DD HH:MM 부분만 추출
+    const match = patient.completedReason.match(/\[예약완료\]\s*(예약일시:\s*[\d-]+\s+[\d:]+)/);
+    if (match && match[1]) {
+      return match[1].trim();
+    }
+    
+    return '';
+  };
+
   return (
     <div className="space-y-6">
       {/* 콜백 요약 정보 - 수정된 부분 */}
@@ -1236,20 +1276,42 @@ export default function CallbackManagement({ patient }: CallbackManagementProps)
                   ? '이 환자는 예약 완료되었습니다'  // 예약 완료로 문구 변경
                   : '이 환자는 종결 처리되었습니다'}
               </h3>
-              <p className={`text-sm ${
-                isReservationCompleted(patient) ? 'text-green-600' : 'text-gray-600'
-              }`}>
-                {patient.completedReason 
-                  ? `사유: ${patient.completedReason}` 
-                  : isReservationCompleted(patient)
+              
+              {/* 예약 정보와 상담 내용을 모두 표시 - PatientDetailModal과 동일한 구조 적용 */}
+              {isReservationCompleted(patient) ? (
+                <div className="mt-1 space-y-2">
+                  {/* 예약 정보 표시 */}
+                  {getReservationInfo(patient) && (
+                    <p className="text-sm text-green-600 font-medium">
+                      {getReservationInfo(patient)}
+                    </p>
+                  )}
+                  
+                  {/* 상담 내용 표시 */}
+                  {getReservationConsultationNotes(patient) && (
+                    <p className="text-sm text-green-600">
+                      상담내용: {getReservationConsultationNotes(patient)}
+                    </p>
+                  )}
+                </div>
+              ) : patient.completedReason ? (
+                // 일반 종결인 경우 기존 방식 유지
+                <p className="text-sm text-gray-600 mt-1 whitespace-pre-line">
+                  상담내용: {patient.completedReason}
+                </p>
+              ) : (
+                <p className="text-sm text-gray-600 mt-1">
+                  {isReservationCompleted(patient)
                     ? '예약 정보가 기록되지 않았습니다.'
                     : '종결 사유가 기록되지 않았습니다.'}
-              </p>
+                </p>
+              )}
+              
               {patient.completedAt && (
                 <p className={`text-xs ${
                   isReservationCompleted(patient) ? 'text-green-500' : 'text-gray-500'
-                } mt-1`}>
-                  {isReservationCompleted(patient) ? '예약일: ' : '종결일: '}{patient.completedAt}
+                } mt-2`}>
+                  {isReservationCompleted(patient) ? '예약 확정일: ' : '종결일: '}{patient.completedAt}
                 </p>
               )}
             </div>
@@ -1595,13 +1657,12 @@ export default function CallbackManagement({ patient }: CallbackManagementProps)
                 onChange={(e) => setCallbackNotes(e.target.value)}
                 className="form-input min-h-[100px]"
                 placeholder="상담 내용을 입력하세요"
-                disabled={callbackResult === '부재중' || callbackResult === '예약완료' || callbackResult === '종결'}
-                required={callbackResult === '상담중'}
+                disabled={callbackResult === '부재중' || callbackResult === '종결'} // 예약완료 제거
+                required={callbackResult === '상담중' || callbackResult === '예약완료'} // 예약완료 추가
               />
-              {(callbackResult === '부재중' || callbackResult === '예약완료' || callbackResult === '종결') && (
+              {(callbackResult === '부재중' || callbackResult === '종결') && (
                 <p className="text-xs text-gray-500 mt-1">
                   {callbackResult === '부재중' ? '부재중인 경우 상담 내용을 입력할 수 없습니다.' : 
-                  callbackResult === '예약완료' ? '예약 완료 처리 시 상담 내용이 자동으로 설정됩니다.' : 
                   '종결 처리 시 상담 내용이 자동으로 설정됩니다.'}
                 </p>
               )}
@@ -1646,9 +1707,9 @@ export default function CallbackManagement({ patient }: CallbackManagementProps)
                 onClick={handleAddCallback}
                 disabled={isLoading || !callbackDate || 
                         (callbackResult === '상담중' && (!callbackNotes || !nextPlanNotes)) || 
-                        (callbackResult === '예약완료' && (!reservationDate || !reservationTime)) ||
+                        (callbackResult === '예약완료' && (!reservationDate || !reservationTime || !callbackNotes)) || // callbackNotes 필수 추가
                         (callbackResult === '종결' && !terminationReason) ||
-                        !callbackResult} // 콜백 결과 선택 필수
+                        !callbackResult}
               >
                 {isLoading ? '처리 중...' : '콜백 추가하기'}
               </button>

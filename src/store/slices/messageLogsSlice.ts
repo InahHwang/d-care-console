@@ -1,6 +1,6 @@
 // src/store/slices/messageLogsSlice.ts
 
-import { createSlice, createAsyncThunk, PayloadAction } from '@reduxjs/toolkit'
+import { createSlice, createAsyncThunk, PayloadAction, createSelector } from '@reduxjs/toolkit'
 import { RootState } from '@/store'
 import { MessageLog, MessageStatus, MessageType, MessageLogSort, SortDirection } from '@/types/messageLog'
 import { EventCategory } from './patientsSlice'
@@ -63,7 +63,7 @@ export const fetchMessageLogs = createAsyncThunk(
   }
 );
 
-// 새 메시지 로그 저장
+// 새 메시지 로그 저장 - 중복 방지 로직 강화
 export const saveMessageLog = createAsyncThunk(
   'messageLogs/saveMessageLog',
   async (messageLog: MessageLog, { getState, rejectWithValue }) => {
@@ -78,10 +78,37 @@ export const saveMessageLog = createAsyncThunk(
           id: response.data.logId || messageLog.id
         };
         
-        // 백업으로 localStorage에도 저장
+        // 백업으로 localStorage에도 저장 - 중복 방지 강화
         const state = getState() as RootState;
         const currentLogs = [...state.messageLogs.logs];
-        const updatedLogs = [savedLog, ...currentLogs];
+        
+        // 중복 확인 - ID 기반
+        const existingIndex = currentLogs.findIndex(log => log.id === savedLog.id);
+        let updatedLogs;
+        
+        if (existingIndex !== -1) {
+          // 기존 로그 업데이트
+          updatedLogs = [...currentLogs];
+          updatedLogs[existingIndex] = savedLog;
+          console.log(`로그 업데이트 (ID: ${savedLog.id})`);
+        } else {
+          // 추가 중복 검사 (내용, 시간, 환자 ID로 중복 확인)
+          const potentialDuplicate = currentLogs.find(log => 
+            log.patientId === savedLog.patientId && 
+            log.content === savedLog.content &&
+            Math.abs(new Date(log.createdAt).getTime() - new Date(savedLog.createdAt).getTime()) < 5000 // 5초 이내
+          );
+          
+          if (potentialDuplicate) {
+            console.warn(`잠재적 중복 로그 감지됨 - 저장하지 않음 (원본 ID: ${potentialDuplicate.id}, 새 ID: ${savedLog.id})`);
+            return potentialDuplicate; // 기존 로그 반환
+          }
+          
+          // 새 로그 추가
+          updatedLogs = [savedLog, ...currentLogs];
+          console.log(`새 로그 추가 (ID: ${savedLog.id})`);
+        }
+        
         localStorage.setItem('messageLogsData', JSON.stringify(updatedLogs));
         
         return savedLog;
@@ -93,7 +120,32 @@ export const saveMessageLog = createAsyncThunk(
       try {
         const state = getState() as RootState;
         const currentLogs = [...state.messageLogs.logs];
-        const updatedLogs = [messageLog, ...currentLogs];
+        
+        // 중복 방지를 위해 같은 ID가 이미 있는지 확인
+        const existingIndex = currentLogs.findIndex(log => log.id === messageLog.id);
+        let updatedLogs;
+        
+        if (existingIndex !== -1) {
+          // 기존 로그 업데이트
+          updatedLogs = [...currentLogs];
+          updatedLogs[existingIndex] = messageLog;
+        } else {
+          // 내용 기반 중복 검사 추가
+          const potentialDuplicate = currentLogs.find(log => 
+            log.patientId === messageLog.patientId && 
+            log.content === messageLog.content &&
+            Math.abs(new Date(log.createdAt).getTime() - new Date(messageLog.createdAt).getTime()) < 5000
+          );
+          
+          if (potentialDuplicate) {
+            console.warn(`localStorage 저장 중 중복 로그 감지됨 (원본 ID: ${potentialDuplicate.id}, 새 ID: ${messageLog.id})`);
+            return potentialDuplicate; // 기존 로그 반환
+          }
+          
+          // 새 로그 추가
+          updatedLogs = [messageLog, ...currentLogs];
+        }
+        
         localStorage.setItem('messageLogsData', JSON.stringify(updatedLogs));
         
         console.warn('API 호출 실패, localStorage에만 저장합니다');
@@ -107,7 +159,7 @@ export const saveMessageLog = createAsyncThunk(
   }
 );
 
-// 메시지 로그 일괄 저장 (다중 메시지 발송 시)
+// 메시지 로그 일괄 저장 (다중 메시지 발송 시) - 중복 방지 강화
 export const saveMessageLogs = createAsyncThunk(
   'messageLogs/saveMessageLogs',
   async (messageLogs: MessageLog[], { getState, rejectWithValue }) => {
@@ -131,8 +183,36 @@ export const saveMessageLogs = createAsyncThunk(
       // 백업으로 localStorage에도 저장
       const state = getState() as RootState;
       const currentLogs = [...state.messageLogs.logs];
-      const updatedLogs = [...savedLogs, ...currentLogs];
-      localStorage.setItem('messageLogsData', JSON.stringify(updatedLogs));
+      
+      // 중복 제거 로직 강화
+      const uniqueLogsMap = new Map<string, MessageLog>();
+      
+      // 먼저 새로운 로그들을 맵에 추가
+      savedLogs.forEach(log => {
+        uniqueLogsMap.set(log.id, log);
+      });
+      
+      // 기존 로그와 비교하여 내용 기반 중복 제거
+      currentLogs.forEach(existingLog => {
+        // 이미 ID가 동일한 로그가 있으면 맵의 값을 유지 (새 로그 우선)
+        if (!uniqueLogsMap.has(existingLog.id)) {
+          // ID는 다르지만 내용, 환자ID, 시간이 유사한 잠재적 중복 확인
+          const potentialDuplicate = Array.from(uniqueLogsMap.values()).find(log => 
+            log.patientId === existingLog.patientId && 
+            log.content === existingLog.content &&
+            Math.abs(new Date(log.createdAt).getTime() - new Date(existingLog.createdAt).getTime()) < 5000
+          );
+          
+          if (!potentialDuplicate) {
+            uniqueLogsMap.set(existingLog.id, existingLog);
+          } else {
+            console.warn(`내용 기반 중복 감지됨 - 기존 로그 제외`);
+          }
+        }
+      });
+      
+      const uniqueLogs = Array.from(uniqueLogsMap.values());
+      localStorage.setItem('messageLogsData', JSON.stringify(uniqueLogs));
       
       return savedLogs;
     } catch (error) {
@@ -140,11 +220,51 @@ export const saveMessageLogs = createAsyncThunk(
       try {
         const state = getState() as RootState;
         const currentLogs = [...state.messageLogs.logs];
-        const updatedLogs = [...messageLogs, ...currentLogs];
+        
+        // 중복 방지 - 일괄 처리에 맞게 개선
+        const deduplicatedLogs: MessageLog[] = []; // 명시적 타입 지정
+        
+        // 먼저 각 로그가 이미 존재하는지 확인하고 중복이 아닌 것만 추가
+        for (const newLog of messageLogs) {
+          // ID 기반 중복 확인
+          const existingLogById = currentLogs.find(log => log.id === newLog.id);
+          
+          if (existingLogById) {
+            continue; // 중복 로그는 건너뜀
+          }
+          
+          // 내용 기반 중복 확인
+          const existingLogByContent = currentLogs.find(log => 
+            log.patientId === newLog.patientId && 
+            log.content === newLog.content &&
+            Math.abs(new Date(log.createdAt).getTime() - new Date(newLog.createdAt).getTime()) < 5000
+          );
+          
+          if (existingLogByContent) {
+            console.warn(`내용 기반 중복 감지됨 - 로그 제외 (ID: ${newLog.id})`);
+            continue; // 중복 로그는 건너뜀
+          }
+          
+          // 새 로그들 사이에서도 중복 확인
+          const duplicateInNewLogs = deduplicatedLogs.find(log => 
+            log.patientId === newLog.patientId && 
+            log.content === newLog.content &&
+            Math.abs(new Date(log.createdAt).getTime() - new Date(newLog.createdAt).getTime()) < 5000
+          );
+          
+          if (!duplicateInNewLogs) {
+            deduplicatedLogs.push(newLog);
+          } else {
+            console.warn(`새 로그 간 중복 감지됨 - 로그 제외 (ID: ${newLog.id})`);
+          }
+        }
+        
+        // 중복 제거된 로그만 저장
+        const updatedLogs = [...deduplicatedLogs, ...currentLogs];
         localStorage.setItem('messageLogsData', JSON.stringify(updatedLogs));
         
         console.warn('API 호출 실패, localStorage에만 저장합니다');
-        return messageLogs;
+        return deduplicatedLogs;
       } catch (localStorageError) {
         return rejectWithValue(
           error instanceof Error ? error.message : '메시지 로그를 저장하는 중 오류가 발생했습니다.'
@@ -177,7 +297,7 @@ const initialState: MessageLogsState = {
   filters: {
     searchTerm: '',
     statuses: ['success', 'failed'],
-    messageTypes: ['SMS', 'LMS'],
+    messageTypes: ['SMS', 'LMS', 'MMS'],
     categories: [],
   },
   sort: {
@@ -199,10 +319,12 @@ const messageLogsSlice = createSlice({
         const storedLogs = localStorage.getItem('messageLogsData');
         if (storedLogs) {
           state.logs = JSON.parse(storedLogs);
+          console.log(`initializeLogs - ${state.logs.length}개의 로그 불러옴`);
         }
         state.isLoading = false;
         state.error = null;
       } catch (error) {
+        console.error('로그 초기화 오류:', error);
         state.error = '로그 데이터를 불러오는 중 오류가 발생했습니다.';
       }
     },
@@ -223,7 +345,40 @@ const messageLogsSlice = createSlice({
     },
     // 새 메시지 로그 추가 - 로컬 상태 업데이트만, API는 thunk에서 처리
     addMessageLog: (state, action: PayloadAction<MessageLog>) => {
-      state.logs.unshift(action.payload);
+      // 중복 방지 개선
+      const newLog = action.payload;
+      
+      // ID 기반 중복 확인
+      const existingIndex = state.logs.findIndex(log => log.id === newLog.id);
+      
+      if (existingIndex !== -1) {
+        // 기존 로그 업데이트
+        state.logs[existingIndex] = newLog;
+        console.log(`로그 업데이트됨: ${newLog.id}`);
+      } else {
+        // 내용 기반 중복 확인
+        const potentialDuplicate = state.logs.find(log => 
+          log.patientId === newLog.patientId && 
+          log.content === newLog.content &&
+          Math.abs(new Date(log.createdAt).getTime() - new Date(newLog.createdAt).getTime()) < 5000
+        );
+        
+        if (potentialDuplicate) {
+          console.warn(`중복 로그 감지됨 - 추가하지 않음 (원본 ID: ${potentialDuplicate.id}, 새 ID: ${newLog.id})`);
+          return; // 중복이면 추가하지 않음
+        }
+        
+        // 중복이 아닌 경우만 추가
+        state.logs.unshift(newLog);
+        console.log(`로그 추가됨: ${newLog.id}`);
+      }
+      
+      // localStorage에도 저장
+      try {
+        localStorage.setItem('messageLogsData', JSON.stringify(state.logs));
+      } catch (error) {
+        console.error('localStorage 저장 실패:', error);
+      }
     },
     // 메시지 로그 업데이트 - 로컬 상태 업데이트만, 실제 API 연동은 필요시 구현
     updateMessageLog: (state, action: PayloadAction<{ id: string; updates: Partial<MessageLog> }>) => {
@@ -231,6 +386,13 @@ const messageLogsSlice = createSlice({
       const index = state.logs.findIndex(log => log.id === id);
       if (index !== -1) {
         state.logs[index] = { ...state.logs[index], ...updates };
+        
+        // localStorage 업데이트
+        try {
+          localStorage.setItem('messageLogsData', JSON.stringify(state.logs));
+        } catch (error) {
+          console.error('localStorage 업데이트 실패:', error);
+        }
       }
     }
   },
@@ -244,122 +406,218 @@ const messageLogsSlice = createSlice({
       .addCase(fetchMessageLogs.fulfilled, (state, action) => {
         state.logs = action.payload;
         state.isLoading = false;
+        console.log(`fetchMessageLogs - ${state.logs.length}개의 로그 불러옴`);
       })
       .addCase(fetchMessageLogs.rejected, (state, action) => {
         state.isLoading = false;
         state.error = action.payload as string;
+        console.error('fetchMessageLogs 오류:', action.payload);
       })
       // saveMessageLog
+      .addCase(saveMessageLog.pending, (state) => {
+        state.isLoading = true;
+      })
       .addCase(saveMessageLog.fulfilled, (state, action) => {
-        // 중복 방지를 위해 같은 ID가 있는지 확인
+        state.isLoading = false;
+        
+        // ID 기반 중복 확인
         const existingIndex = state.logs.findIndex(log => log.id === action.payload.id);
+        
         if (existingIndex !== -1) {
+          // 기존 로그 업데이트
           state.logs[existingIndex] = action.payload;
+          console.log(`saveMessageLog - 로그 업데이트됨: ${action.payload.id}`);
         } else {
-          state.logs.unshift(action.payload);
+          // 내용 기반 중복 검사 추가
+          const potentialDuplicate = state.logs.find(log => 
+            log.patientId === action.payload.patientId && 
+            log.content === action.payload.content &&
+            Math.abs(new Date(log.createdAt).getTime() - new Date(action.payload.createdAt).getTime()) < 5000
+          );
+          
+          if (potentialDuplicate) {
+            console.warn(`saveMessageLog - 중복 로그 감지됨: ${action.payload.id} (원본: ${potentialDuplicate.id})`);
+            // 중복인 경우에는 상태를 변경하지 않음
+          } else {
+            // 중복이 아닌 경우만 추가
+            state.logs.unshift(action.payload);
+            console.log(`saveMessageLog - 로그 추가됨: ${action.payload.id}`);
+          }
         }
       })
+      .addCase(saveMessageLog.rejected, (state, action) => {
+        state.isLoading = false;
+        state.error = action.payload as string;
+        console.error('saveMessageLog 오류:', action.payload);
+      })
       // saveMessageLogs
+      .addCase(saveMessageLogs.pending, (state) => {
+        state.isLoading = true;
+      })
       .addCase(saveMessageLogs.fulfilled, (state, action) => {
-        // 중복 제거 로직 추가
-        const newLogs = action.payload.filter(newLog => 
-          !state.logs.some(existingLog => existingLog.id === newLog.id)
-        );
-        state.logs = [...newLogs, ...state.logs];
+        state.isLoading = false;
+        
+        // 중복 제거 로직 개선
+        const newLogs: MessageLog[] = [];
+        
+        // 새 로그들을 순회하면서 중복 체크
+        action.payload.forEach(newLog => {
+          // ID 기반 중복 확인
+          const existingLogById = state.logs.find(log => log.id === newLog.id);
+          
+          if (existingLogById) {
+            // 기존 로그 업데이트 (상태는 변경하지 않고 상태 업데이트는 별도 렌더링 사이클에서)
+            console.log(`saveMessageLogs - 이미 존재하는 로그 ID: ${newLog.id}`);
+            return;
+          }
+          
+          // 내용 기반 중복 확인
+          const existingLogByContent = state.logs.find(log => 
+            log.patientId === newLog.patientId && 
+            log.content === newLog.content &&
+            Math.abs(new Date(log.createdAt).getTime() - new Date(newLog.createdAt).getTime()) < 5000
+          );
+          
+          if (existingLogByContent) {
+            console.warn(`saveMessageLogs - 내용 기반 중복 감지: ${newLog.id} (원본: ${existingLogByContent.id})`);
+            return;
+          }
+          
+          // 새 로그들 사이에서도 중복 확인
+          const duplicateInNewLogs = newLogs.find(log => 
+            log.patientId === newLog.patientId && 
+            log.content === newLog.content &&
+            Math.abs(new Date(log.createdAt).getTime() - new Date(newLog.createdAt).getTime()) < 5000
+          );
+          
+          if (duplicateInNewLogs) {
+            console.warn(`saveMessageLogs - 새 로그 간 중복 감지: ${newLog.id} (원본: ${duplicateInNewLogs.id})`);
+            return;
+          }
+          
+          // 모든 중복 검사를 통과한 로그만 추가
+          newLogs.push(newLog);
+        });
+        
+        if (newLogs.length > 0) {
+          state.logs = [...newLogs, ...state.logs];
+          console.log(`saveMessageLogs - ${newLogs.length}개의 로그 추가됨`);
+        } else {
+          console.log('saveMessageLogs - 추가할 새 로그가 없음 (모두 중복)');
+        }
+      })
+      .addCase(saveMessageLogs.rejected, (state, action) => {
+        state.isLoading = false;
+        state.error = action.payload as string;
+        console.error('saveMessageLogs 오류:', action.payload);
       })
       // clearMessageLogs
       .addCase(clearMessageLogs.fulfilled, (state) => {
         state.logs = [];
+        console.log('clearMessageLogs - 모든 로그 삭제됨');
       });
   }
 });
 
-// 필터링 및 정렬된 로그 선택자
-export const selectFilteredLogs = (state: RootState) => {
-  const { logs, filters, sort } = state.messageLogs;
-  
-  // 필터링
-  let filteredLogs = logs.filter(log => {
-    // 검색어 필터
-    if (filters.searchTerm && !log.content.toLowerCase().includes(filters.searchTerm.toLowerCase()) &&
-        !log.patientName.toLowerCase().includes(filters.searchTerm.toLowerCase()) &&
-        !log.phoneNumber.includes(filters.searchTerm)) {
-      return false;
-    }
-    
-    // 상태 필터
-    if (filters.statuses.length > 0 && !filters.statuses.includes(log.status)) {
-      return false;
-    }
-    
-    // 메시지 타입 필터
-    if (filters.messageTypes.length > 0 && !filters.messageTypes.includes(log.messageType)) {
-      return false;
-    }
-    
-    // 카테고리 필터
-    if (filters.categories.length > 0 && (!log.category || !filters.categories.includes(log.category))) {
-      return false;
-    }
-    
-    // 시작 날짜 필터
-    if (filters.startDate) {
-      const startDate = new Date(filters.startDate);
-      const logDate = new Date(log.createdAt);
-      startDate.setHours(0, 0, 0, 0);
-      if (logDate < startDate) {
+// 기본 로그 선택자
+const selectLogs = (state: RootState) => state.messageLogs.logs;
+const selectFilters = (state: RootState) => state.messageLogs.filters;
+const selectSort = (state: RootState) => state.messageLogs.sort;
+
+// 메모이제이션된 환자별 로그 선택자
+export const selectPatientLogs = createSelector(
+  [selectLogs, (_, patientId?: string) => patientId],
+  (logs, patientId) => {
+    if (!patientId) return [];
+    return logs.filter(log => log.patientId === patientId);
+  }
+);
+
+// 필터링 및 정렬된 로그 선택자 (메모이제이션)
+export const selectFilteredLogs = createSelector(
+  [selectLogs, selectFilters, selectSort],
+  (logs, filters, sort) => {
+    // 필터링
+    let filteredLogs = logs.filter(log => {
+      // 검색어 필터
+      if (filters.searchTerm && !log.content?.toLowerCase().includes(filters.searchTerm.toLowerCase()) &&
+          !log.patientName?.toLowerCase().includes(filters.searchTerm.toLowerCase()) &&
+          !log.phoneNumber?.includes(filters.searchTerm)) {
         return false;
       }
-    }
-    
-    // 종료 날짜 필터
-    if (filters.endDate) {
-      const endDate = new Date(filters.endDate);
-      const logDate = new Date(log.createdAt);
-      endDate.setHours(23, 59, 59, 999);
-      if (logDate > endDate) {
+      
+      // 상태 필터
+      if (filters.statuses.length > 0 && !filters.statuses.includes(log.status)) {
         return false;
       }
-    }
+      
+      // 메시지 타입 필터
+      if (filters.messageTypes.length > 0 && !filters.messageTypes.includes(log.messageType)) {
+        return false;
+      }
+      
+      // 카테고리 필터
+      if (filters.categories.length > 0 && (!log.category || !filters.categories.includes(log.category))) {
+        return false;
+      }
+      
+      // 시작 날짜 필터
+      if (filters.startDate && log.createdAt) {
+        const startDate = new Date(filters.startDate);
+        const logDate = new Date(log.createdAt);
+        startDate.setHours(0, 0, 0, 0);
+        if (logDate < startDate) {
+          return false;
+        }
+      }
+      
+      // 종료 날짜 필터
+      if (filters.endDate && log.createdAt) {
+        const endDate = new Date(filters.endDate);
+        const logDate = new Date(log.createdAt);
+        endDate.setHours(23, 59, 59, 999);
+        if (logDate > endDate) {
+          return false;
+        }
+      }
+      
+      // 환자 ID 필터
+      if (filters.patientId && log.patientId !== filters.patientId) {
+        return false;
+      }
+      
+      // 전화번호 필터
+      if (filters.phoneNumber && log.phoneNumber !== filters.phoneNumber) {
+        return false;
+      }
+      
+      return true;
+    });
     
-    // 환자 ID 필터
-    if (filters.patientId && log.patientId !== filters.patientId) {
-      return false;
-    }
-    
-    // 전화번호 필터
-    if (filters.phoneNumber && log.phoneNumber !== filters.phoneNumber) {
-      return false;
-    }
-    
-    return true;
-  });
-  
-  // 정렬
-  filteredLogs.sort((a, b) => {
-    if (sort.field === 'createdAt') {
-      const dateA = new Date(a.createdAt).getTime();
-      const dateB = new Date(b.createdAt).getTime();
-      return sort.direction === 'asc' ? dateA - dateB : dateB - dateA;
-    }
-    
-    if (sort.field === 'patientName') {
-      return sort.direction === 'asc' 
-        ? a.patientName.localeCompare(b.patientName) 
-        : b.patientName.localeCompare(a.patientName);
-    }
-    
-    if (sort.field === 'status') {
-      return sort.direction === 'asc'
-        ? a.status.localeCompare(b.status)
-        : b.status.localeCompare(a.status);
-    }
-    
-    return 0;
-  });
-  
-  return filteredLogs;
-};
+    // 정렬
+    return [...filteredLogs].sort((a, b) => {
+      if (sort.field === 'createdAt' && a.createdAt && b.createdAt) {
+        const dateA = new Date(a.createdAt).getTime();
+        const dateB = new Date(b.createdAt).getTime();
+        return sort.direction === 'asc' ? dateA - dateB : dateB - dateA;
+      }
+      
+      if (sort.field === 'patientName') {
+        return sort.direction === 'asc' 
+          ? (a.patientName || '').localeCompare(b.patientName || '') 
+          : (b.patientName || '').localeCompare(a.patientName || '');
+      }
+      
+      if (sort.field === 'status') {
+        return sort.direction === 'asc'
+          ? a.status.localeCompare(b.status)
+          : b.status.localeCompare(a.status);
+      }
+      
+      return 0;
+    });
+  }
+);
 
 // 액션 내보내기
 export const { 

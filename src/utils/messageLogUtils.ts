@@ -1,4 +1,3 @@
-
 // src/utils/messageLogUtils.ts
 
 import { format, parseISO } from 'date-fns';
@@ -10,9 +9,11 @@ import {
   RcsOptions
 } from '@/types/messageLog';
 import { Patient, EventCategory } from '@/store/slices/patientsSlice';
+import { saveMessageLog } from '@/store/slices/messageLogsSlice';
+import {store} from '@/store'; // 스토어 임포트 추가
 
 // 간단한 고유 ID 생성 함수 (uuid 대체)
-const generateId = (): string => {
+export const generateId = (): string => {
   return 'msg-' + Math.random().toString(36).substring(2, 15) + 
          Math.random().toString(36).substring(2, 15) + 
          '-' + Date.now().toString(36);
@@ -72,7 +73,11 @@ export const getCategoryText = (category?: EventCategory): string => {
 
 // 새 메시지 로그 생성
 export const createMessageLog = (
-  patient: Patient,
+  patient: Patient | {
+    id: string;
+    name: string;
+    phoneNumber: string;
+  },
   content: string,
   messageType: MessageType,
   status: MessageStatus,
@@ -95,9 +100,12 @@ export const createMessageLog = (
     hasRcsOptions: !!options?.rcsOptions
   });
   
+  // 보다 고유한 ID 생성
+  const uniqueId = options?.messageId || `msg_${Date.now()}_${Math.random().toString(36).substring(2, 9)}_${patient.id.substring(0, 8)}`;
+  
   // 메시지 로그 생성
   const messageLog: MessageLog = {
-    id: generateId(),
+    id: uniqueId,
     patientId: patient.id,
     patientName: patient.name,
     phoneNumber: patient.phoneNumber,
@@ -105,11 +113,20 @@ export const createMessageLog = (
     messageType,
     status,
     createdAt: now,
-    ...options
+    category: options?.category,
+    templateName: options?.templateName,
+    errorMessage: options?.errorMessage,
+    operator: options?.operator,
+    imageUrl: options?.imageUrl,
+    rcsOptions: options?.rcsOptions
   };
   
   // 디버깅용
   console.log('생성된 메시지 로그:', JSON.stringify(messageLog).substring(0, 200) + '...');
+  
+  // localStorage에 중복 백업 저장하지 않고 Redux 스토어에만 저장
+  // Redux 스토어에 직접 저장 (비동기 작업)
+  store.dispatch(saveMessageLog(messageLog));
   
   return messageLog;
 };
@@ -117,9 +134,11 @@ export const createMessageLog = (
 // 메시지 내용에 환자명 적용
 export const personalizeMessageContent = (
   content: string,
-  patientName: string
+  patientName: string,
+  hospitalName: string = '다산바른치과'
 ): string => {
   return content
     .replace(/\[환자명\]/g, patientName)
+    .replace(/\[병원명\]/g, hospitalName)
     .replace(/고객님/g, `${patientName}님`);
 };

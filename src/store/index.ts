@@ -1,28 +1,32 @@
-//src/store/index.ts
-
+// src/store/index.ts
 import { configureStore } from '@reduxjs/toolkit';
-import uiReducer from './slices/uiSlice';
-import patientsReducer from './slices/patientsSlice';
+import authReducer from './slices/authSlice';
 import callsReducer from './slices/callsSlice';
-import campaignsSlice from './slices/campaignsSlice'; 
+import campaignsReducer from './slices/campaignsSlice';
 import messageLogsReducer from './slices/messageLogsSlice';
-import templatesReducer from './slices/templatesSlice'
+import patientsReducer from './slices/patientsSlice';
+import templatesReducer from './slices/templatesSlice';
+import uiReducer from './slices/uiSlice';
+import goalsReducer from './slices/goalsSlice';
+
 export const store = configureStore({
   reducer: {
-    ui: uiReducer,
-    patients: patientsReducer,
-    campaigns: campaignsSlice,
-    messageLogs: messageLogsReducer,
+    auth: authReducer,
     calls: callsReducer,
-    templates: templatesReducer // 추가
+    campaigns: campaignsReducer,
+    messageLogs: messageLogsReducer,
+    patients: patientsReducer,
+    templates: templatesReducer,
+    ui: uiReducer,
+    goals: goalsReducer,
   },
   middleware: (getDefaultMiddleware) =>
     getDefaultMiddleware({
-      serializableCheck: false,
+      serializableCheck: {
+        ignoredActions: ['persist/PERSIST'],
+      },
     }),
 });
 
-export type RootState = ReturnType<typeof store.getState>
-export type AppDispatch = typeof store.dispatch
-
-export default store;
+export type RootState = ReturnType<typeof store.getState>;
+export type AppDispatch = typeof store.dispatch;

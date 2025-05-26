@@ -1,3 +1,5 @@
+//src/components/management/TemplateFormModal.tsx
+
 'use client'
 
 import { useState, useEffect } from 'react'
@@ -330,6 +332,12 @@ export default function TemplateFormModal({
                   <label className="block text-sm font-medium text-text-secondary mb-1">
                     이미지 업로드
                   </label>
+                  
+                  {/* 여기에 MMS 조건 안내 추가 */}
+                  <p className="text-xs text-text-muted mt-1 mb-3 p-2 bg-blue-50 border border-blue-200 rounded-md">
+                    <strong>MMS 발송 조건:</strong> JPG 형식, 200KB 이하, 1500x1440px 이하<br/>
+                    업로드 시 자동으로 최적화됩니다.
+                  </p>
                   
                   {previewImage ? (
                     <div className="relative">

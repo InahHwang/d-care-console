@@ -6,7 +6,7 @@ import { useState, useEffect } from 'react'
 import { useAppDispatch, useAppSelector } from '@/hooks/reduxHooks'
 import { RootState } from '@/store'
 import { clearSelectedPatient, Patient } from '@/store/slices/patientsSlice'
-import { HiOutlineX, HiOutlinePhone, HiOutlineCalendar, HiOutlineUser, HiOutlineLocationMarker, HiOutlineCake, HiOutlineClipboardList, HiOutlinePencil } from 'react-icons/hi'
+import { HiOutlineX, HiOutlinePhone, HiOutlineCalendar, HiOutlineUser, HiOutlineLocationMarker, HiOutlineCake, HiOutlineClipboardList, HiOutlinePencil, HiOutlineCheck, HiOutlineStop, HiOutlineRefresh } from 'react-icons/hi'
 import { formatDistance } from 'date-fns'
 import { ko } from 'date-fns/locale/ko'
 import { Icon } from '../common/Icon'
@@ -71,11 +71,51 @@ export default function PatientDetailModal() {
   const needsCallback = selectedPatient.status === '콜백필요' || selectedPatient.status === '부재중'
   
 
-  // 예약 완료 여부 확인 함수 추가
+  // 예약 완료 여부 확인 함수 수정
   const isReservationCompleted = (patient: Patient) => {
-    return patient.isCompleted && 
+    const result = patient.isCompleted && 
           patient.completedReason && 
           patient.completedReason.includes('[예약완료]');
+    
+    // 디버깅 로그 추가
+    if (result && patient.completedReason) {
+      console.log('=== 예약 완료 환자 디버깅 ===');
+      console.log('completedReason:', patient.completedReason);
+      console.log('contains newline:', patient.completedReason.includes('\n'));
+      console.log('completedReason length:', patient.completedReason.length);
+      console.log('completedReason split by \\n:', patient.completedReason.split('\n'));
+    }
+    
+    return result;
+  };
+
+  // 예약 완료 상담 내용 추출 함수 수정
+  const getReservationConsultationNotes = (patient: Patient) => {
+    if (!patient.completedReason) return '';
+    
+    // 공백으로 분할해서 처리 (현재는 줄바꿈이 없이 저장되고 있음)
+    const text = patient.completedReason;
+    
+    // [예약완료] 예약일시: YYYY-MM-DD HH:MM 뒤의 내용을 상담 내용으로 처리
+    const match = text.match(/\[예약완료\]\s*예약일시:\s*[\d-]+\s+[\d:]+\s*(.*)/);
+    if (match && match[1]) {
+      return match[1].trim();
+    }
+    
+    return '';
+  };
+
+  // 예약 정보 추출 함수 수정
+  const getReservationInfo = (patient: Patient) => {
+    if (!patient.completedReason) return '';
+    
+    // [예약완료] 예약일시: YYYY-MM-DD HH:MM 부분만 추출
+    const match = patient.completedReason.match(/\[예약완료\]\s*(예약일시:\s*[\d-]+\s+[\d:]+)/);
+    if (match && match[1]) {
+      return match[1].trim();
+    }
+    
+    return '';
   };
 
   // 종결 상태 여부 확인 - 명시적으로 체크 (수정)
@@ -397,56 +437,78 @@ const timeSinceFirstConsult = selectedPatient.firstConsultDate && selectedPatien
                 </div>
               )}
 
-              {/* 종결 처리 알림 - 종결 처리된 경우에만 표시 */}
+              {/* 종결 처리 알림 - 종결 처리된 경우에만 표시 (수정된 부분) */}
               {isCompleted && (
-                <div className="card bg-gray-50 border-gray-200">
-                  <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4">
-                    <div className="space-y-2">
-                      <h3 className="text-md font-semibold text-gray-800">
-                        {isReservationCompleted(selectedPatient) ? '예약 확정됨' : '종결 처리됨'}
+                <div className={`card ${
+                  isReservationCompleted(selectedPatient)
+                    ? 'bg-green-50 border-green-300'
+                    : 'bg-gray-50 border-gray-300'
+                }`}>
+                  <div className="flex items-center gap-3">
+                    <div className={`w-10 h-10 rounded-full ${
+                      isReservationCompleted(selectedPatient)
+                        ? 'bg-green-200 text-green-700'
+                        : 'bg-gray-200 text-gray-700'
+                    } flex items-center justify-center`}>
+                      <Icon icon={isReservationCompleted(selectedPatient) ? HiOutlineCheck : HiOutlineStop} size={20} />
+                    </div>
+                    <div className="flex-1">
+                      <h3 className={`text-md font-semibold ${
+                        isReservationCompleted(selectedPatient) ? 'text-green-800' : 'text-gray-800'
+                      }`}>
+                        {isReservationCompleted(selectedPatient)
+                          ? '이 환자는 예약 완료되었습니다'
+                          : '이 환자는 종결 처리되었습니다'}
                       </h3>
                       
-                      <div className="text-gray-600">
-                        <p>
-                          이 환자는 <span className="font-medium">{selectedPatient.completedAt || ''}</span>에 
-                          {isReservationCompleted(selectedPatient) ? ' 예약이 확정되었습니다.' : ' 종결 처리되었습니다.'}
-                        </p>
-                        
-                        {selectedPatient.completedReason && isReservationCompleted(selectedPatient) ? (
-                          <div className="mt-3 space-y-1">
-                            <p className="font-medium">
-                              {selectedPatient.completedReason
-                                .split('\n')[0]
-                                .replace('[예약완료]', '')
-                                .trim()}
+                      {/* 예약 정보와 상담 내용을 모두 표시 */}
+                      {isReservationCompleted(selectedPatient) ? (
+                        <div className="mt-1 space-y-2">
+                          {/* 예약 정보 표시 */}
+                          {getReservationInfo(selectedPatient) && (
+                            <p className="text-sm text-green-600 font-medium">
+                              {getReservationInfo(selectedPatient)}
                             </p>
-                            
-                            {selectedPatient.completedReason.split('\n').length > 1 && (
-                              <p className="text-sm text-gray-500 italic border-l-2 border-gray-300 pl-3 mt-2">
-                                메모: {selectedPatient.completedReason
-                                  .split('\n')
-                                  .slice(1)
-                                  .join(' ')}
-                              </p>
-                            )}
-                          </div>
-                        ) : selectedPatient.completedReason ? (
-                          <p className="mt-3">
-                            <span className="font-medium">사유:</span> {selectedPatient.completedReason}
-                          </p>
-                        ) : null}
-                      </div>
+                          )}
+                          
+                          {/* 상담 내용 표시 */}
+                          {getReservationConsultationNotes(selectedPatient) && (
+                            <p className="text-sm text-green-600">
+                              상담내용: {getReservationConsultationNotes(selectedPatient)}
+                            </p>
+                          )}
+                        </div>
+                      ) : selectedPatient.completedReason ? (
+                        // 일반 종결인 경우 기존 방식 유지
+                        <p className="text-sm text-gray-600 mt-1 whitespace-pre-line">
+                          상담내용: {selectedPatient.completedReason}
+                        </p>
+                      ) : (
+                        <p className="text-sm text-gray-600 mt-1">
+                          {isReservationCompleted(selectedPatient)
+                            ? '예약 정보가 기록되지 않았습니다.'
+                            : '종결 사유가 기록되지 않았습니다.'}
+                        </p>
+                      )}
+                      
+                      {selectedPatient.completedAt && (
+                        <p className={`text-xs ${
+                          isReservationCompleted(selectedPatient) ? 'text-green-500' : 'text-gray-500'
+                        } mt-2`}>
+                          {isReservationCompleted(selectedPatient) ? '예약 확정일: ' : '종결일: '}{selectedPatient.completedAt}
+                        </p>
+                      )}
                     </div>
-                    
                     <button
-                      className={`px-4 py-2 rounded-md transition-colors whitespace-nowrap ${
-                        isReservationCompleted(selectedPatient) 
-                          ? 'bg-green-100 text-green-800 hover:bg-green-200' 
-                          : 'bg-gray-100 text-gray-800 hover:bg-gray-200'
-                      }`}
+                      className={`px-4 py-2 ${
+                        isReservationCompleted(selectedPatient)
+                          ? 'bg-green-500 hover:bg-green-600'
+                          : 'bg-gray-500 hover:bg-gray-600'
+                      } text-white rounded-md transition-colors flex items-center gap-2`}
                       onClick={() => setActiveTab('콜백관리')}
                     >
-                      콜백 관리로 이동
+                      <Icon icon={HiOutlineRefresh} size={18} />
+                      <span>{isReservationCompleted(selectedPatient) ? '예약 취소' : '종결 취소'}</span>
                     </button>
                   </div>
                 </div>

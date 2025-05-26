@@ -68,17 +68,38 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: '이미 등록된 전화번호입니다.' }, { status: 409 });
     }
 
-    // 환자 ID 생성
-    const count = await db.collection('patients').countDocuments();
-    const patientId = `PT-${Math.floor(1000 + Math.random() * 9000)}`;
+    // 환자 ID 생성 - 날짜 기반 (PT-YYMMDDXXX)
+    const now = new Date();
+    const year = now.getFullYear().toString().slice(-2); // 25
+    const month = String(now.getMonth() + 1).padStart(2, '0'); // 05
+    const day = String(now.getDate()).padStart(2, '0'); // 25
+    const datePrefix = year + month + day; // 250525
+    
+    // 같은 날짜로 시작하는 환자 ID 개수 확인
+    const todayPattern = new RegExp(`^PT-${datePrefix}`);
+    const todayPatientCount = await db.collection('patients').countDocuments({
+      patientId: todayPattern
+    });
+    
+    // 오늘 날짜 기준 다음 순번 (001부터 시작)
+    const nextSequence = String(todayPatientCount + 1).padStart(3, '0');
+    let patientId = `PT-${datePrefix}${nextSequence}`; // PT-250525001
+    
+    // 혹시 모를 중복 방지 검증
+    const existingIdPatient = await db.collection('patients').findOne({ patientId });
+    if (existingIdPatient) {
+      // 중복이 있다면 타임스탬프 기반으로 재생성
+      const timestamp = Date.now().toString().slice(-3);
+      patientId = `PT-${datePrefix}${timestamp}`;
+    }
 
     // 환자 정보 추가
-    const now = new Date().toISOString();
+    const nowISO = new Date().toISOString();
     const newPatient = {
       ...data,
-      patientId, // PT-XXXX 형식 ID (표시용)
-      createdAt: now,
-      updatedAt: now,
+      patientId, // PT-YYMMDDXXX 형식 ID (표시용)
+      createdAt: nowISO,
+      updatedAt: nowISO,
       lastConsultation: '',
       reminderStatus: '초기',
       visitConfirmed: false
