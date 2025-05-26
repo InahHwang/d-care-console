@@ -3,7 +3,6 @@ import React, { useState, useEffect } from 'react';
 import { useSelector, useDispatch } from 'react-redux';
 import { RootState } from '@/store';
 import { loadGoalsFromServer } from '@/store/slices/goalsSlice';
-import { useGoalsCalculation } from '@/hooks/useGoalsCalculation';
 import { HiOutlineAdjustments, HiOutlineRefresh } from 'react-icons/hi';
 import { Icon } from '@/components/common/Icon';
 import Link from 'next/link';
