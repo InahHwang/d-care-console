@@ -1,7 +1,8 @@
-// src/app/api/patients/event-targets/filter/route.ts
-
 import { NextRequest, NextResponse } from 'next/server';
 import { connectToDatabase } from '@/utils/mongodb';
+
+// Dynamic server usage를 명시적으로 허용 (Vercel 배포 에러 해결)
+export const dynamic = 'force-dynamic';
 
 export async function GET(request: NextRequest) {
   try {
