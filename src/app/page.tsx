@@ -323,7 +323,7 @@ export default function Home() {
           {/* 오른쪽 칼럼 (목표 달성률 및 빠른 액션) */}
           <div className="lg:w-80">
             <div className="mb-6">
-              <ProgressGoals goals={goalProgress} />
+              <ProgressGoals />
             </div>
             <QuickActions />
           </div>
