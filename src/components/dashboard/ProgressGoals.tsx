@@ -1,18 +1,33 @@
 // src/components/dashboard/ProgressGoals.tsx
 import React, { useState, useEffect } from 'react';
+import { useSelector, useDispatch } from 'react-redux';
+import { RootState } from '@/store';
+import { loadGoalsFromServer } from '@/store/slices/goalsSlice';
 import { useGoalsCalculation } from '@/hooks/useGoalsCalculation';
-import { HiOutlineAdjustments } from 'react-icons/hi';
+import { HiOutlineAdjustments, HiOutlineRefresh } from 'react-icons/hi';
 import { Icon } from '@/components/common/Icon';
 import Link from 'next/link';
 
 const ProgressGoals: React.FC = () => {
-  const currentMonth = useGoalsCalculation();
+  const dispatch = useDispatch();
+  const { currentMonth, isLoading, error } = useSelector((state: RootState) => state.goals);
   const [isClient, setIsClient] = useState(false);
 
   // 클라이언트 사이드에서만 렌더링하도록 설정
   useEffect(() => {
     setIsClient(true);
   }, []);
+
+  // 컴포넌트 마운트 시 서버에서 목표 불러오기
+  useEffect(() => {
+    if (isClient) {
+      dispatch(loadGoalsFromServer() as any);
+    }
+  }, [dispatch, isClient]);
+
+  const handleRefresh = () => {
+    dispatch(loadGoalsFromServer() as any);
+  };
 
   // 서버 사이드 렌더링 중에는 로딩 상태 표시
   if (!isClient) {
@@ -75,19 +90,44 @@ const ProgressGoals: React.FC = () => {
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z" />
             </svg>
             이번달 목표 달성률
+            {isLoading && (
+              <div className="ml-2 w-4 h-4 border-2 border-primary border-t-transparent rounded-full animate-spin"></div>
+            )}
           </h3>
           
-          {/* 목표 설정 버튼 */}
-          <Link href="/settings?tab=goals">
-            <button className="flex items-center gap-1 px-2 py-1 text-xs text-text-secondary hover:text-primary hover:bg-gray-50 rounded transition-colors">
-              <Icon icon={HiOutlineAdjustments} size={14} />
-              목표 수정
+          <div className="flex items-center gap-2">
+            {/* 새로고침 버튼 */}
+            <button
+              onClick={handleRefresh}
+              disabled={isLoading}
+              className="flex items-center gap-1 px-2 py-1 text-xs text-text-secondary hover:text-primary hover:bg-gray-50 rounded transition-colors disabled:opacity-50"
+              title="목표 데이터 새로고침"
+            >
+              <Icon icon={HiOutlineRefresh} size={14} className={isLoading ? 'animate-spin' : ''} />
             </button>
-          </Link>
+            
+            {/* 목표 설정 버튼 */}
+            <Link href="/settings?tab=goals">
+              <button className="flex items-center gap-1 px-2 py-1 text-xs text-text-secondary hover:text-primary hover:bg-gray-50 rounded transition-colors">
+                <Icon icon={HiOutlineAdjustments} size={14} />
+                목표 수정
+              </button>
+            </Link>
+          </div>
         </div>
       </div>
       
       <div className="p-4">
+        {/* 에러 표시 */}
+        {error && (
+          <div className="mb-4 p-3 bg-red-50 border border-red-200 rounded-lg">
+            <div className="text-sm text-red-800">
+              목표 데이터를 불러오는 중 오류가 발생했습니다.
+            </div>
+            <div className="text-xs text-red-600 mt-1">{error}</div>
+          </div>
+        )}
+
         {/* 신규 환자 목표 */}
         <div className="mb-6">
           <div className="flex justify-between items-center mb-1">
@@ -145,6 +185,17 @@ const ProgressGoals: React.FC = () => {
             }`}>
               {currentMonth.appointments.percentage}%
             </span>
+          </div>
+        </div>
+
+        {/* 서버 연동 상태 표시 */}
+        <div className="mt-4 pt-3 border-t border-gray-100">
+          <div className="flex items-center justify-between text-xs text-text-muted">
+            <span>서버 동기화 상태</span>
+            <div className="flex items-center gap-1">
+              <div className={`w-2 h-2 rounded-full ${error ? 'bg-red-400' : 'bg-green-400'}`}></div>
+              <span>{error ? '오류' : '정상'}</span>
+            </div>
           </div>
         </div>
       </div>

@@ -1,5 +1,5 @@
 // src/store/slices/goalsSlice.ts
-import { createSlice, PayloadAction } from '@reduxjs/toolkit';
+import { createSlice, PayloadAction, createAsyncThunk } from '@reduxjs/toolkit';
 
 export interface GoalData {
   newPatients: {
@@ -18,6 +18,7 @@ interface GoalsState {
   currentMonth: GoalData;
   isLoading: boolean;
   error: string | null;
+  lastUpdated: string | null;
 }
 
 // 목표 달성률 계산 함수
@@ -26,98 +27,81 @@ const calculatePercentage = (current: number, target: number): number => {
   return Math.min(Math.round((current / target) * 100), 100);
 };
 
-// localStorage에서 초기 목표값 가져오기
-const getInitialTargets = () => {
-  if (typeof window === 'undefined') {
-    return { newPatients: 30, appointments: 50 }; // SSR 기본값
-  }
-
-  try {
-    const savedGoals = localStorage.getItem('monthlyGoals');
-    if (savedGoals) {
-      const parsedGoals = JSON.parse(savedGoals);
-      const now = new Date();
-      const currentMonthKey = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}`;
+// 비동기 액션: 서버에서 목표 불러오기
+export const loadGoalsFromServer = createAsyncThunk(
+  'goals/loadFromServer',
+  async (_, { rejectWithValue }) => {
+    try {
+      const response = await fetch('/api/goals');
+      const result = await response.json();
       
-      if (parsedGoals[currentMonthKey]) {
-        return {
-          newPatients: parsedGoals[currentMonthKey].newPatients || 30,
-          appointments: parsedGoals[currentMonthKey].appointments || 50,
-        };
+      if (!result.success) {
+        throw new Error(result.error || '목표 불러오기 실패');
       }
+      
+      return result.data;
+    } catch (error) {
+      console.error('목표 불러오기 오류:', error);
+      return rejectWithValue(error instanceof Error ? error.message : '알 수 없는 오류');
     }
-  } catch (error) {
-    console.error('목표 불러오기 오류:', error);
   }
+);
 
-  return { newPatients: 30, appointments: 50 }; // 기본값
-};
-
-const initialTargets = getInitialTargets();
+// 비동기 액션: 서버에 목표 저장하기
+export const saveGoalsToServer = createAsyncThunk(
+  'goals/saveToServer',
+  async (
+    { newPatientsTarget, appointmentsTarget }: { newPatientsTarget: number; appointmentsTarget: number },
+    { rejectWithValue }
+  ) => {
+    try {
+      const response = await fetch('/api/goals', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          newPatientsTarget,
+          appointmentsTarget,
+        }),
+      });
+      
+      const result = await response.json();
+      
+      if (!result.success) {
+        throw new Error(result.error || '목표 저장 실패');
+      }
+      
+      return result.data;
+    } catch (error) {
+      console.error('목표 저장 오류:', error);
+      return rejectWithValue(error instanceof Error ? error.message : '알 수 없는 오류');
+    }
+  }
+);
 
 const initialState: GoalsState = {
   currentMonth: {
     newPatients: {
-      current: 0, // 실제 데이터에서 계산될 예정
-      target: initialTargets.newPatients,
+      current: 0,
+      target: 30, // 기본값
       percentage: 0,
     },
     appointments: {
-      current: 0, // 실제 데이터에서 계산될 예정
-      target: initialTargets.appointments,
+      current: 0,
+      target: 50, // 기본값
       percentage: 0,
     },
   },
   isLoading: false,
   error: null,
-};
-
-// localStorage에 목표 저장하는 헬퍼 함수
-const saveTargetsToStorage = (newPatientsTarget: number, appointmentsTarget: number) => {
-  if (typeof window === 'undefined') return;
-  
-  try {
-    const now = new Date();
-    const currentMonthKey = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}`;
-    const existingGoals = JSON.parse(localStorage.getItem('monthlyGoals') || '{}');
-    
-    existingGoals[currentMonthKey] = {
-      newPatients: newPatientsTarget,
-      appointments: appointmentsTarget,
-      updatedAt: new Date().toISOString(),
-    };
-    
-    localStorage.setItem('monthlyGoals', JSON.stringify(existingGoals));
-  } catch (error) {
-    console.error('목표 저장 중 오류:', error);
-  }
+  lastUpdated: null,
 };
 
 const goalsSlice = createSlice({
   name: 'goals',
   initialState,
   reducers: {
-    // 목표 설정
-    setGoalTargets: (state, action: PayloadAction<{ newPatientsTarget: number; appointmentsTarget: number }>) => {
-      const { newPatientsTarget, appointmentsTarget } = action.payload;
-      
-      state.currentMonth.newPatients.target = newPatientsTarget;
-      state.currentMonth.appointments.target = appointmentsTarget;
-      
-      // localStorage에 저장
-      saveTargetsToStorage(newPatientsTarget, appointmentsTarget);
-      
-      // 달성률 재계산
-      state.currentMonth.newPatients.percentage = calculatePercentage(
-        state.currentMonth.newPatients.current,
-        newPatientsTarget
-      );
-      state.currentMonth.appointments.percentage = calculatePercentage(
-        state.currentMonth.appointments.current,
-        appointmentsTarget
-      );
-    },
-    
     // 실제 환자 데이터 기반으로 현재 달성률 계산
     calculateCurrentProgress: (state, action: PayloadAction<{ patients: any[] }>) => {
       const { patients } = action.payload;
@@ -169,38 +153,6 @@ const goalsSlice = createSlice({
       console.log('최종 달성률 - 신규 환자:', state.currentMonth.newPatients.percentage + '%', '예약:', state.currentMonth.appointments.percentage + '%');
     },
     
-    // localStorage에서 목표를 불러와서 Redux 스토어에 반영
-    loadGoalsFromStorage: (state) => {
-      if (typeof window === 'undefined') return;
-      
-      try {
-        const savedGoals = localStorage.getItem('monthlyGoals');
-        if (savedGoals) {
-          const parsedGoals = JSON.parse(savedGoals);
-          const now = new Date();
-          const currentMonthKey = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}`;
-          
-          if (parsedGoals[currentMonthKey]) {
-            const monthlyGoals = parsedGoals[currentMonthKey];
-            state.currentMonth.newPatients.target = monthlyGoals.newPatients || 30;
-            state.currentMonth.appointments.target = monthlyGoals.appointments || 50;
-            
-            // 달성률 재계산
-            state.currentMonth.newPatients.percentage = calculatePercentage(
-              state.currentMonth.newPatients.current,
-              state.currentMonth.newPatients.target
-            );
-            state.currentMonth.appointments.percentage = calculatePercentage(
-              state.currentMonth.appointments.current,
-              state.currentMonth.appointments.target
-            );
-          }
-        }
-      } catch (error) {
-        console.error('목표 불러오기 오류:', error);
-      }
-    },
-    
     // 로딩 상태 관리
     setLoading: (state, action: PayloadAction<boolean>) => {
       state.isLoading = action.payload;
@@ -218,16 +170,75 @@ const goalsSlice = createSlice({
       state.currentMonth.newPatients.percentage = 0;
       state.currentMonth.appointments.percentage = 0;
     },
+
+    // 에러 클리어
+    clearError: (state) => {
+      state.error = null;
+    },
+  },
+  extraReducers: (builder) => {
+    // 서버에서 목표 불러오기
+    builder
+      .addCase(loadGoalsFromServer.pending, (state) => {
+        state.isLoading = true;
+        state.error = null;
+      })
+      .addCase(loadGoalsFromServer.fulfilled, (state, action) => {
+        state.isLoading = false;
+        state.currentMonth.newPatients.target = action.payload.newPatientsTarget;
+        state.currentMonth.appointments.target = action.payload.appointmentsTarget;
+        state.lastUpdated = action.payload.updatedAt;
+        
+        // 달성률 재계산
+        state.currentMonth.newPatients.percentage = calculatePercentage(
+          state.currentMonth.newPatients.current,
+          action.payload.newPatientsTarget
+        );
+        state.currentMonth.appointments.percentage = calculatePercentage(
+          state.currentMonth.appointments.current,
+          action.payload.appointmentsTarget
+        );
+      })
+      .addCase(loadGoalsFromServer.rejected, (state, action) => {
+        state.isLoading = false;
+        state.error = action.payload as string;
+      });
+
+    // 서버에 목표 저장하기
+    builder
+      .addCase(saveGoalsToServer.pending, (state) => {
+        state.isLoading = true;
+        state.error = null;
+      })
+      .addCase(saveGoalsToServer.fulfilled, (state, action) => {
+        state.isLoading = false;
+        state.currentMonth.newPatients.target = action.payload.newPatientsTarget;
+        state.currentMonth.appointments.target = action.payload.appointmentsTarget;
+        state.lastUpdated = action.payload.updatedAt;
+        
+        // 달성률 재계산
+        state.currentMonth.newPatients.percentage = calculatePercentage(
+          state.currentMonth.newPatients.current,
+          action.payload.newPatientsTarget
+        );
+        state.currentMonth.appointments.percentage = calculatePercentage(
+          state.currentMonth.appointments.current,
+          action.payload.appointmentsTarget
+        );
+      })
+      .addCase(saveGoalsToServer.rejected, (state, action) => {
+        state.isLoading = false;
+        state.error = action.payload as string;
+      });
   },
 });
 
 export const {
-  setGoalTargets,
   calculateCurrentProgress,
-  loadGoalsFromStorage,
   setLoading,
   setError,
   resetMonthlyGoals,
+  clearError,
 } = goalsSlice.actions;
 
 export default goalsSlice.reducer;
