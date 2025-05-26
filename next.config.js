@@ -1,44 +1,30 @@
 /** @type {import('next').NextConfig} */
 const nextConfig = {
-  // ✅ Vercel 배포 최적화 설정
+  // 🔥 완전 최소한 설정 - Vercel 빌드 최적화
   
-  // SWC 미니파이어 활성화
-  swcMinify: true,
+  // 기본적인 설정만 유지
+  reactStrictMode: true,
   
-  // 이미지 최적화 (Vercel에서 자동 처리)
-  images: {
-    unoptimized: false, // Vercel에서는 false 권장
-    domains: [],
-  },
-  
-  // 웹팩 설정 - 최소한만 유지
-  webpack: (config, { isServer }) => {
-    // 파일 시스템 폴백 (API 라우트용)
+  // 웹팩 설정도 최소화
+  webpack: (config) => {
     config.resolve.fallback = {
-      ...config.resolve.fallback,
       fs: false,
     };
-    
     return config;
   },
   
-  // 🎯 핵심: Vercel 최적화 설정
-  experimental: {
-    serverComponentsExternalPackages: ['mongodb'],
-  },
-  
-  // 🔥 문제가 되던 설정들 제거
-  // output: 'standalone', // 제거!
-  // outputFileTracing: false, // 제거!
-  
-  // ESLint 설정 (빌드 실패 방지)
+  // 빌드 에러 완전 무시 (임시)
   eslint: {
-    ignoreDuringBuilds: true, // 임시로 true
+    ignoreDuringBuilds: true,
   },
   
-  // TypeScript 설정 (빌드 실패 방지)
   typescript: {
-    ignoreBuildErrors: true, // 임시로 true
+    ignoreBuildErrors: true,
+  },
+  
+  // 이미지 최적화도 일단 비활성화
+  images: {
+    unoptimized: true,
   },
 };
 
