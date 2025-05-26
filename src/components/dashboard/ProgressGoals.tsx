@@ -8,18 +8,26 @@ import { Icon } from '@/components/common/Icon';
 import Link from 'next/link';
 
 const ProgressGoals: React.FC = () => {
+  console.log('🔍 ProgressGoals 컴포넌트 시작');
+  
   const dispatch = useDispatch();
   const { currentMonth, isLoading, error } = useSelector((state: RootState) => state.goals);
   const [isClient, setIsClient] = useState(false);
 
+  console.log('🔍 현재 goals 상태:', { currentMonth, isLoading, error });
+  console.log('🔍 isClient:', isClient);
+
   // 클라이언트 사이드에서만 렌더링하도록 설정
   useEffect(() => {
+    console.log('🔍 isClient를 true로 설정');
     setIsClient(true);
   }, []);
 
   // 컴포넌트 마운트 시 서버에서 목표 불러오기
   useEffect(() => {
+    console.log('🔍 useEffect 실행 - isClient:', isClient);
     if (isClient) {
+      console.log('🔍 loadGoalsFromServer 디스패치 시도');
       dispatch(loadGoalsFromServer() as any);
     }
   }, [dispatch, isClient]);
