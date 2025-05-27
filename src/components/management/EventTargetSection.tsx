@@ -10,7 +10,8 @@ import {
   EventTargetInfo,
   EventTargetReason,
   EventCategory,
-  selectPatient
+  selectPatient,
+  initializeEventTargets  // 추가
 } from '@/store/slices/patientsSlice'
 import { 
   HiOutlineVolumeUp, 
@@ -146,8 +147,11 @@ export default function EventTargetSection({ patient }: EventTargetSectionProps)
         }
       })).unwrap()
       
-      // 환자 정보 최신화
+      // 환자 정보 최신화 - unwrap() 제거
       dispatch(selectPatient(patient.id))
+      
+      // 이벤트 타겟 리스트 새로고침 추가
+      dispatch(initializeEventTargets())
       
       // 성공 메시지 표시
       setShowSuccessMessage(true)
@@ -173,7 +177,7 @@ export default function EventTargetSection({ patient }: EventTargetSectionProps)
     })
   }
   
-  // 이벤트 타겟 정보 저장 처리
+  // 이벤트 타겟 정보 저장 처리 - 주요 수정 부분
   const handleSaveEventTarget = async () => {
     // 종결 처리된 환자의 정보 업데이트 시 확인
     if (patient.isCompleted) {
@@ -223,8 +227,19 @@ export default function EventTargetSection({ patient }: EventTargetSectionProps)
         eventTargetInfo
       })).unwrap()
       
-      // 환자 정보 최신화
+      // 환자 정보 최신화 - unwrap() 제거
       dispatch(selectPatient(patient.id))
+      
+      // 이벤트 타겟 리스트 강제 새로고침 - 핵심 추가!
+      await dispatch(initializeEventTargets()).unwrap()
+      
+      // 디버깅을 위한 로그 추가
+      console.log('이벤트 타겟 저장 완료:', {
+        patientId: patient.id,
+        patientName: patient.name,
+        isEventTarget: true,
+        eventTargetInfo
+      })
       
       // 성공 메시지 표시
       setShowSuccessMessage(true)
@@ -232,6 +247,10 @@ export default function EventTargetSection({ patient }: EventTargetSectionProps)
       
       // 편집 모드 종료
       setIsEditing(false)
+      
+      // 성공 알림에 추가 정보 포함
+      alert(`${patient.name} 환자가 이벤트 타겟으로 설정되었습니다.`)
+      
     } catch (error) {
       console.error('이벤트 타겟 정보 저장 오류:', error)
       alert('이벤트 타겟 정보 저장 중 오류가 발생했습니다.')
@@ -240,7 +259,7 @@ export default function EventTargetSection({ patient }: EventTargetSectionProps)
     }
   }
   
-  // 삭제 처리
+  // 삭제 처리 - 수정
   const handleDeleteEventTarget = async () => {
     try {
       setIsLoading(true)
@@ -259,8 +278,11 @@ export default function EventTargetSection({ patient }: EventTargetSectionProps)
         }
       })).unwrap()
       
-      // 환자 정보 최신화
+      // 환자 정보 최신화 - unwrap() 제거
       dispatch(selectPatient(patient.id))
+      
+      // 이벤트 타겟 리스트 새로고침 추가
+      await dispatch(initializeEventTargets()).unwrap()
       
       // 상태 초기화
       setIsEventTarget(false)

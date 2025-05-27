@@ -9,7 +9,8 @@ import {
   EventTargetReason,
   EventCategory,
   selectPatient,
-  initializeEventTargets
+  initializeEventTargets,
+  fetchPatients  // 추가
 } from '@/store/slices/patientsSlice'
 import { 
   HiOutlineSearch, 
@@ -23,7 +24,8 @@ import {
   HiOutlineChevronRight,
   HiOutlineAdjustments,
   HiOutlinePaperAirplane,
-  HiOutlineExclamation
+  HiOutlineExclamation,
+  HiOutlineRefresh  // 추가
 } from 'react-icons/hi'
 import { Icon } from '../common/Icon'
 import { formatDistance } from 'date-fns'
@@ -70,18 +72,85 @@ export default function EventTargetList() {
   // 메시지 발송 모달 상태
   const [messageSendModalOpen, setMessageSendModalOpen] = useState(false)
 
+  // 새로고침 상태 추가
+  const [refreshing, setRefreshing] = useState(false)
+
   // 컴포넌트 마운트 시 이벤트 타겟 초기화
   useEffect(() => {
-    dispatch(initializeEventTargets())
-    console.log('이벤트 타겟 리스트 컴포넌트 마운트됨')
+    console.log('EventTargetList 컴포넌트 마운트됨')
+    
+    // 초기 데이터 로드
+    const initializeData = async () => {
+      try {
+        setRefreshing(true)
+        
+        // 환자 데이터와 이벤트 타겟 데이터를 순차적으로 로드
+        await dispatch(fetchPatients()).unwrap()
+        await dispatch(initializeEventTargets()).unwrap()
+        
+        console.log('초기 데이터 로드 완료')
+      } catch (error) {
+        console.error('초기 데이터 로드 실패:', error)
+      } finally {
+        setRefreshing(false)
+      }
+    }
+    
+    initializeData()
   }, [dispatch])
+
+  // 이벤트 타겟 환자 데이터 변경 감지
+  useEffect(() => {
+    console.log('이벤트 타겟 환자 리스트 업데이트:', {
+      eventTargetPatientsCount: eventTargetPatients?.length || 0,
+      totalPatientsCount: patients?.length || 0,
+      eventTargetPatients: eventTargetPatients?.map(p => ({
+        id: p.id,
+        name: p.name,
+        isEventTarget: p.eventTargetInfo?.isEventTarget
+      })) || []
+    })
+  }, [eventTargetPatients, patients])
+
+  // 수동 새로고침 함수
+  const handleRefresh = async () => {
+    try {
+      setRefreshing(true)
+      console.log('수동 새로고침 시작')
+      
+      // 순차적으로 데이터 새로고침
+      await dispatch(fetchPatients()).unwrap()
+      await dispatch(initializeEventTargets()).unwrap()
+      
+      console.log('수동 새로고침 완료')
+    } catch (error) {
+      console.error('새로고침 실패:', error)
+      alert('데이터 새로고침 중 오류가 발생했습니다.')
+    } finally {
+      setRefreshing(false)
+    }
+  }
   
   // 필터링 및 정렬된 환자 목록 계산 (useMemo로 최적화)
   const filteredPatients = useMemo(() => {
+    console.log('필터링 시작:', {
+      eventTargetPatientsLength: eventTargetPatients?.length || 0,
+      searchTerm,
+      selectedReasons,
+      selectedCategories
+    })
+    
     // 이벤트 타겟으로 지정된 환자만 필터링
-    let filtered = (eventTargetPatients || []).filter(patient => 
-      patient.eventTargetInfo?.isEventTarget === true
-    )
+    let filtered = (eventTargetPatients || []).filter(patient => {
+      const isEventTarget = patient.eventTargetInfo?.isEventTarget === true
+      console.log(`환자 ${patient.name} 이벤트 타겟 여부:`, {
+        isEventTarget,
+        eventTargetInfo: patient.eventTargetInfo
+      })
+      return isEventTarget
+    })
+    
+    console.log('이벤트 타겟 필터링 후:', filtered.length)
     
     // 검색어로 필터링
     if (searchTerm) {
@@ -123,9 +192,10 @@ export default function EventTargetList() {
       })
     }
     
-    if (filtered.length > 0) {
-      console.log('이벤트 타겟 목록 업데이트됨:', filtered.length, '명')
-    }
+    console.log('최종 필터링 결과:', {
+      count: filtered.length,
+      patients: filtered.map(p => ({ name: p.name, id: p.id }))
+    })
     
     return filtered
   }, [eventTargetPatients, searchTerm, selectedReasons, selectedCategories, sortBy])
@@ -283,20 +353,59 @@ export default function EventTargetList() {
       <div className="flex items-center justify-between mb-6">
         <h1 className="text-2xl font-bold text-text-primary">이벤트 타겟 관리</h1>
         
-        {/* 메시지 발송 버튼 */}
-        <button
-          className={`px-6 py-2 rounded-full text-sm font-medium transition-colors flex items-center gap-2 ${
-            selectedPatients.length > 0 
-              ? 'bg-primary text-white hover:bg-primary/90'
-              : 'bg-gray-200 text-gray-500 cursor-not-allowed'
-          }`}
-          onClick={handleOpenMessageSendModal}
-          disabled={selectedPatients.length === 0}
-        >
-          <Icon icon={HiOutlinePaperAirplane} size={16} />
-          <span>메시지 발송 ({selectedPatients.length})</span>
-        </button>
+        <div className="flex items-center gap-3">
+          {/* 새로고침 버튼 추가 */}
+          <button
+            className={`px-4 py-2 rounded-full text-sm font-medium transition-colors flex items-center gap-2 ${
+              refreshing 
+                ? 'bg-gray-200 text-gray-500 cursor-not-allowed'
+                : 'bg-blue-500 text-white hover:bg-blue-600'
+            }`}
+            onClick={handleRefresh}
+            disabled={refreshing}
+          >
+            <Icon 
+              icon={HiOutlineRefresh} 
+              size={16} 
+              className={refreshing ? 'animate-spin' : ''} 
+            />
+            <span>{refreshing ? '새로고침 중...' : '새로고침'}</span>
+          </button>
+          
+          {/* 메시지 발송 버튼 */}
+          <button
+            className={`px-6 py-2 rounded-full text-sm font-medium transition-colors flex items-center gap-2 ${
+              selectedPatients.length > 0 
+                ? 'bg-primary text-white hover:bg-primary/90'
+                : 'bg-gray-200 text-gray-500 cursor-not-allowed'
+            }`}
+            onClick={handleOpenMessageSendModal}
+            disabled={selectedPatients.length === 0}
+          >
+            <Icon icon={HiOutlinePaperAirplane} size={16} />
+            <span>메시지 발송 ({selectedPatients.length})</span>
+          </button>
+        </div>
       </div>
+      
+      {/* 상태 표시 영역 추가 */}
+      {eventTargetPatients && (
+        <div className="card mb-4 bg-blue-50 border-blue-200">
+          <div className="flex items-center justify-between">
+            <div className="text-sm text-blue-700">
+              총 <span className="font-medium">{eventTargetPatients.length}</span>명의 이벤트 타겟 환자가 등록되어 있습니다.
+              {filteredPatients.length !== eventTargetPatients.length && (
+                <span className="ml-2">
+                  (필터링된 결과: <span className="font-medium">{filteredPatients.length}</span>명)
+                </span>
+              )}
+            </div>
+            <div className="text-xs text-blue-600">
+              {refreshing ? '데이터 업데이트 중...' : `마지막 업데이트: ${new Date().toLocaleTimeString()}`}
+            </div>
+          </div>
+        </div>
+      )}
       
       {/* 검색 및 필터 영역 */}
       <div className="card mb-6">
@@ -484,19 +593,29 @@ export default function EventTargetList() {
             
             {/* 테이블 바디 */}
             <tbody>
-              {isLoading ? (
+              {isLoading || refreshing ? (
                 <tr>
                   <td colSpan={8} className="px-4 py-8 text-center text-text-secondary">
-                    불러오는 중...
+                    {refreshing ? '데이터를 새로고침하는 중...' : '불러오는 중...'}
                   </td>
                 </tr>
               ) : currentItems.length === 0 ? (
                 <tr>
                   <td colSpan={8} className="px-4 py-8 text-center text-text-secondary">
                     {searchTerm || selectedReasons.length > 0 || selectedCategories.length > 0 ? (
-                      <>검색 결과가 없습니다. 다른 검색어나 필터를 사용해보세요.</>
+                      <>
+                        검색 결과가 없습니다. 다른 검색어나 필터를 사용해보세요.
+                        <div className="mt-2 text-xs text-gray-500">
+                          또는 <button onClick={handleRefresh} className="text-blue-600 hover:underline">새로고침</button>을 눌러주세요.
+                        </div>
+                      </>
                     ) : (
-                      '등록된 이벤트 타겟 환자가 없습니다.'
+                      <>
+                        등록된 이벤트 타겟 환자가 없습니다.
+                        <div className="mt-2 text-xs text-gray-500">
+                          환자 상세 정보에서 이벤트 타겟을 설정할 수 있습니다.
+                        </div>
+                      </>
                     )}
                   </td>
                 </tr>

@@ -231,18 +231,44 @@ export const fetchPatients = createAsyncThunk(
 // 앱 시작 시 이벤트 타겟 정보 로드를 위한 액션 추가
 export const initializeEventTargets = createAsyncThunk(
   'patients/initializeEventTargets',
-  async (_, { rejectWithValue }) => {
+  async (_, { getState, rejectWithValue }) => {
     try {
-      const response = await fetch('/api/patients/event-targets');
+      console.log('이벤트 타겟 초기화 시작');
       
-      if (!response.ok) {
-        const errorData = await response.json();
-        return rejectWithValue(errorData.error || '이벤트 타겟 정보 로드에 실패했습니다.');
+      // 현재 Redux 상태에서 환자 데이터 가져오기
+      const state = getState() as { patients: PatientsState };
+      const currentPatients = state.patients.patients;
+      
+      // 환자 데이터가 없으면 API에서 직접 로드
+      if (!currentPatients || currentPatients.length === 0) {
+        console.log('Redux에 환자 데이터가 없어서 API에서 로드합니다.');
+        const response = await fetch('/api/patients/event-targets');
+        
+        if (!response.ok) {
+          const errorData = await response.json();
+          return rejectWithValue(errorData.error || '이벤트 타겟 정보 로드에 실패했습니다.');
+        }
+        
+        const eventTargetPatients = await response.json();
+        console.log('API에서 이벤트 타겟 환자 로드:', eventTargetPatients.length, '명');
+        return eventTargetPatients;
       }
       
-      const eventTargetPatients = await response.json();
+      // 기존 환자 데이터에서 이벤트 타겟 환자들 필터링
+      const eventTargetPatients = currentPatients.filter(patient => 
+        patient.eventTargetInfo?.isEventTarget === true
+      );
       
-      console.log('이벤트 타겟 초기화:', eventTargetPatients.length, '명의 환자 로드됨');
+      console.log('Redux에서 이벤트 타겟 환자 필터링 완료:', {
+        totalPatients: currentPatients.length,
+        eventTargetCount: eventTargetPatients.length,
+        eventTargetPatients: eventTargetPatients.map(p => ({
+          id: p.id,
+          name: p.name,
+          isEventTarget: p.eventTargetInfo?.isEventTarget,
+          targetReason: p.eventTargetInfo?.targetReason
+        }))
+      });
       
       return eventTargetPatients;
     } catch (error: any) {
@@ -927,12 +953,16 @@ const patientsSlice = createSlice({
       .addCase(updateEventTargetInfo.pending, (state) => {
         state.isLoading = true;
       })
+      
+      /*
       .addCase(updateEventTargetInfo.fulfilled, (state, action) => {
         state.isLoading = false;
         
-        // 해당 환자 찾기
+        const { patientId, eventTargetInfo } = action.payload;
+        
+        // 환자 목록에서 해당 환자 업데이트
         const patientIndex = state.patients.findIndex(
-          (patient) => patient.id === action.payload.patientId
+          (patient) => patient.id === patientId || patient._id === patientId
         );
         
         if (patientIndex !== -1) {
@@ -940,74 +970,63 @@ const patientsSlice = createSlice({
           const currentEventTargetInfo = state.patients[patientIndex].eventTargetInfo || {};
           state.patients[patientIndex].eventTargetInfo = {
             ...currentEventTargetInfo,
-            ...action.payload.eventTargetInfo
+            ...eventTargetInfo
           } as EventTargetInfo;
 
-          // isEventTarget이 false인 경우 createdAt과 updatedAt을 제거
-          if (action.payload.eventTargetInfo.isEventTarget === false) {
-            if (state.patients[patientIndex].eventTargetInfo) {
-              delete state.patients[patientIndex].eventTargetInfo.createdAt;
-              delete state.patients[patientIndex].eventTargetInfo.updatedAt;
-            }
+          // 선택된 환자 업데이트
+          if (state.selectedPatient && 
+              (state.selectedPatient.id === patientId || state.selectedPatient._id === patientId)) {
+            state.selectedPatient.eventTargetInfo = state.patients[patientIndex].eventTargetInfo;
           }
           
-          // 선택된 환자가 있고, 그 환자가 현재 업데이트된 환자라면 selectedPatient도 업데이트
-          if (state.selectedPatient && state.selectedPatient.id === action.payload.patientId) {
-            const currentSelectedEventTargetInfo = state.selectedPatient.eventTargetInfo || {};
-            state.selectedPatient.eventTargetInfo = {
-              ...currentSelectedEventTargetInfo,
-              ...action.payload.eventTargetInfo
-            } as EventTargetInfo;
-            
-            // isEventTarget이 false인 경우 createdAt과 updatedAt을 제거
-            if (action.payload.eventTargetInfo.isEventTarget === false && state.selectedPatient.eventTargetInfo) {
-              delete state.selectedPatient.eventTargetInfo.createdAt;
-              delete state.selectedPatient.eventTargetInfo.updatedAt;
-            }
-          }
-          
-          // filteredPatients도 필요한 경우 업데이트
+          // 필터링된 환자 목록 업데이트
           const filteredIndex = state.filteredPatients.findIndex(
-            (patient) => patient.id === action.payload.patientId
+            (patient) => patient.id === patientId || patient._id === patientId
           );
           
           if (filteredIndex !== -1) {
-            const currentFilteredEventTargetInfo = state.filteredPatients[filteredIndex].eventTargetInfo || {};
-            state.filteredPatients[filteredIndex].eventTargetInfo = {
-              ...currentFilteredEventTargetInfo,
-              ...action.payload.eventTargetInfo
-            } as EventTargetInfo;
-            
-            // isEventTarget이 false인 경우 createdAt과 updatedAt을 제거
-            if (action.payload.eventTargetInfo.isEventTarget === false && 
-                state.filteredPatients[filteredIndex].eventTargetInfo) {
-              delete state.filteredPatients[filteredIndex].eventTargetInfo.createdAt;
-              delete state.filteredPatients[filteredIndex].eventTargetInfo.updatedAt;
-            }
+            state.filteredPatients[filteredIndex].eventTargetInfo = state.patients[patientIndex].eventTargetInfo;
           }
 
-          // 이벤트 타겟 목록도 업데이트
-          if (action.payload.eventTargetInfo.isEventTarget === true) {
-            // 이벤트 타겟으로 설정된 경우, 목록에 추가/업데이트
+          // 이벤트 타겟 환자 목록 즉시 업데이트
+          if (eventTargetInfo.isEventTarget === true) {
+            // 이벤트 타겟으로 설정된 경우
             const targetIndex = state.eventTargetPatients.findIndex(
-              (patient) => patient.id === action.payload.patientId
+              (patient) => patient.id === patientId || patient._id === patientId
             );
             
             if (targetIndex === -1) {
               // 목록에 없으면 추가
               state.eventTargetPatients.push(state.patients[patientIndex]);
+              console.log('이벤트 타겟 목록에 환자 추가:', state.patients[patientIndex].name);
             } else {
               // 있으면 업데이트
               state.eventTargetPatients[targetIndex] = state.patients[patientIndex];
+              console.log('이벤트 타겟 목록에서 환자 정보 업데이트:', state.patients[patientIndex].name);
             }
           } else {
-            // 이벤트 타겟 해제된 경우, 목록에서 제거
+            // 이벤트 타겟 해제된 경우
+            const originalLength = state.eventTargetPatients.length;
             state.eventTargetPatients = state.eventTargetPatients.filter(
-              (patient) => patient.id !== action.payload.patientId
+              (patient) => patient.id !== patientId && patient._id !== patientId
             );
+            
+            if (state.eventTargetPatients.length < originalLength) {
+              console.log('이벤트 타겟 목록에서 환자 제거:', patientId);
+            }
           }
+          
+          console.log('이벤트 타겟 업데이트 완료:', {
+            patientId,
+            patientName: state.patients[patientIndex].name,
+            isEventTarget: eventTargetInfo.isEventTarget,
+            totalEventTargets: state.eventTargetPatients.length
+          });
+        } else {
+          console.error('업데이트할 환자를 찾을 수 없음:', patientId);
         }
       })
+      */
           
       .addCase(updateEventTargetInfo.rejected, (state, action) => {
         state.isLoading = false;
