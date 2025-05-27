@@ -94,11 +94,34 @@ export default function MessageLogModal({ isOpen, onClose, patientId, embedded =
     setCurrentPage(1); // 필터 변경 시 첫 페이지로 이동
   };
   
-  const handleClearLogs = () => {
-    if (confirm('모든 메시지 발송 내역을 초기화하시겠습니까?\n이 작업은 되돌릴 수 없습니다.')) {
+  const handleClearLogs = async () => {
+  if (confirm('모든 메시지 발송 내역을 초기화하시겠습니까?\n이 작업은 되돌릴 수 없습니다.')) {
+    try {
+      // 1. API를 통해 데이터베이스에서 실제 삭제
+      const response = await fetch('/api/messages/log', {
+        method: 'DELETE',
+        headers: {
+          'Content-Type': 'application/json',
+        }
+      });
+      
+      if (!response.ok) {
+        throw new Error('서버에서 로그 삭제에 실패했습니다.');
+      }
+      
+      const result = await response.json();
+      console.log('DB에서 삭제된 로그 수:', result.deletedCount);
+      
+      // 2. Redux 상태도 초기화
       dispatch(clearMessageLogs());
+      
+      alert(`${result.deletedCount}개의 메시지 로그가 삭제되었습니다.`);
+    } catch (error) {
+      console.error('로그 삭제 오류:', error);
+      alert('로그 삭제 중 오류가 발생했습니다: ' + (error instanceof Error ? error.message : '알 수 없는 오류'));
     }
-  };  
+  }
+};
 
   // 날짜 필터 빠른 선택
   const handleQuickDateFilter = (days: number) => {

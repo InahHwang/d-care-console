@@ -2,6 +2,36 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { connectToDatabase } from '@/utils/mongodb';
 
+export async function DELETE(request: NextRequest) {
+  try {
+    console.log('메시지 로그 전체 삭제 요청');
+    
+    const { db } = await connectToDatabase();
+    
+    // messageLogs 컬렉션의 모든 문서 삭제
+    const result = await db.collection('messageLogs').deleteMany({});
+    
+    console.log(`메시지 로그 삭제 완료: ${result.deletedCount}개 삭제됨`);
+    
+    return NextResponse.json({
+      success: true,
+      message: '모든 메시지 로그가 삭제되었습니다.',
+      deletedCount: result.deletedCount
+    });
+    
+  } catch (error) {
+    console.error('메시지 로그 삭제 오류:', error);
+    return NextResponse.json(
+      { 
+        success: false,
+        error: '메시지 로그 삭제 중 오류가 발생했습니다.',
+        details: error instanceof Error ? error.message : 'Unknown error'
+      },
+      { status: 500 }
+    );
+  }
+}
+
 export async function GET(request: NextRequest) {
   console.log('GET 요청 수신: /api/messages/log');
   
