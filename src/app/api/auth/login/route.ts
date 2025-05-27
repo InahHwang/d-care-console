@@ -1,3 +1,5 @@
+//src/app/api/auth/login/route.ts
+
 import { NextRequest, NextResponse } from 'next/server';
 import { connectToDatabase } from '@/utils/mongodb';
 import jwt from 'jsonwebtoken';

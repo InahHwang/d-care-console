@@ -37,6 +37,16 @@ export default function TemplateFormModal({
   const [imageFile, setImageFile] = useState<File | null>(null);
   const [previewImage, setPreviewImage] = useState<string | null>(null);
   
+  // 이미지 업로드 상태 추가
+  const [isImageUploading, setIsImageUploading] = useState(false);
+  const [uploadError, setUploadError] = useState<string | null>(null);
+  const [imageInfo, setImageInfo] = useState<{
+    originalSize?: string;
+    optimizedSize?: string;
+    dimensions?: string;
+    format?: string;
+  } | null>(null);
+  
   // RCS 옵션
   const [rcsCardType, setRcsCardType] = useState<'basic' | 'carousel' | 'commerce'>('basic');
   const [rcsButtons, setRcsButtons] = useState<Array<{
@@ -53,18 +63,101 @@ export default function TemplateFormModal({
     currencyUnit: '원'
   });
   
-  // 이미지 업로드 처리
-  const handleImageChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+  // 이미지 업로드 처리 (개선된 버전)
+  const handleImageChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
-    if (file) {
-      setImageFile(file);
+    if (!file) return;
+    
+    console.log('📄 이미지 파일 선택:', file.name, `${(file.size / 1024).toFixed(1)}KB`);
+    
+    // 파일 크기 사전 검증 (1MB)
+    if (file.size > 1024 * 1024) {
+      setUploadError('파일 크기는 1MB를 초과할 수 없습니다.');
+      return;
+    }
+    
+    // 파일 형식 사전 검증
+    const allowedTypes = ['image/jpeg', 'image/jpg', 'image/png', 'image/gif', 'image/webp'];
+    if (!allowedTypes.includes(file.type)) {
+      setUploadError('지원하지 않는 파일 형식입니다. (JPG, PNG, GIF, WebP 가능)');
+      return;
+    }
+    
+    setImageFile(file);
+    setUploadError(null);
+    setImageInfo(null);
+    
+    // 로컬 미리보기 생성
+    const reader = new FileReader();
+    reader.onload = () => {
+      setPreviewImage(reader.result as string);
+    };
+    reader.readAsDataURL(file);
+    
+    // 즉시 업로드 처리 (사용자 경험 개선)
+    await handleImageUpload(file);
+  };
+  
+  // 실제 이미지 업로드 함수
+  const handleImageUpload = async (file: File) => {
+    setIsImageUploading(true);
+    setUploadError(null);
+    
+    try {
+      console.log('🚀 이미지 업로드 시작:', file.name);
       
-      // 이미지 미리보기 생성
-      const reader = new FileReader();
-      reader.onload = () => {
-        setPreviewImage(reader.result as string);
-      };
-      reader.readAsDataURL(file);
+      const formData = new FormData();
+      formData.append('file', file);
+      
+      const response = await fetch('/api/upload', {
+        method: 'POST',
+        body: formData
+      });
+      
+      if (!response.ok) {
+        const errorData = await response.json();
+        throw new Error(errorData.message || '이미지 업로드에 실패했습니다.');
+      }
+      
+      const data = await response.json();
+      console.log('✅ 이미지 업로드 성공:', data);
+      
+      // 업로드된 이미지 URL 설정
+      setImageUrl(data.imageUrl);
+      
+      // Vercel 환경에서는 Base64, 로컬에서는 파일 경로
+      if (data.imageUrl.startsWith('data:')) {
+        // Vercel Base64 이미지 - 미리보기는 그대로 사용
+        setPreviewImage(data.imageUrl);
+      } else {
+        // 로컬 파일 경로 - 미리보기 업데이트
+        setPreviewImage(data.imageUrl);
+      }
+      
+      // 이미지 정보 설정
+      setImageInfo({
+        originalSize: data.originalSize,
+        optimizedSize: data.optimizedSize,
+        dimensions: data.dimensions,
+        format: data.format
+      });
+      
+      // 성공 메시지 표시 (옵션)
+      if (data.message) {
+        console.log('📋 업로드 메시지:', data.message);
+      }
+      
+    } catch (error: any) {
+      console.error('💥 이미지 업로드 실패:', error);
+      setUploadError(error.message || '이미지 업로드 중 오류가 발생했습니다.');
+      
+      // 실패 시 상태 리셋
+      setImageFile(null);
+      setImageUrl('');
+      setImageInfo(null);
+      
+    } finally {
+      setIsImageUploading(false);
     }
   };
   
@@ -73,6 +166,8 @@ export default function TemplateFormModal({
     setImageFile(null);
     setPreviewImage(null);
     setImageUrl('');
+    setUploadError(null);
+    setImageInfo(null);
   };
   
   // RCS 버튼 추가
@@ -141,10 +236,15 @@ export default function TemplateFormModal({
           currencyUnit: '원'
         });
       }
+      
+      // 상태 초기화
+      setIsImageUploading(false);
+      setUploadError(null);
+      setImageInfo(null);
     }
   }, [isOpen, template]);
   
-  // 폼 제출 처리
+  // 폼 제출 처리 (간소화됨 - 이미지는 이미 업로드됨)
   const handleSubmit = async () => {
     // 필수 필드 검증
     if (!title.trim() || !content.trim()) {
@@ -152,32 +252,16 @@ export default function TemplateFormModal({
       return;
     }
     
-    let finalImageUrl = imageUrl;
+    // 업로드 중인 경우 대기
+    if (isImageUploading) {
+      alert('이미지 업로드가 진행 중입니다. 잠시만 기다려주세요.');
+      return;
+    }
     
-    // 이미지 파일이 있으면 업로드 처리
-    if (imageFile) {
-      try {
-        // 이미지 업로드를 위한 FormData 생성
-        const formData = new FormData();
-        formData.append('file', imageFile);
-        
-        // 이미지 업로드 API 호출
-        const response = await fetch('/api/upload', {
-          method: 'POST',
-          body: formData
-        });
-        
-        if (!response.ok) {
-          throw new Error('이미지 업로드에 실패했습니다.');
-        }
-        
-        const data = await response.json();
-        finalImageUrl = data.imageUrl;
-      } catch (error) {
-        console.error('이미지 업로드 오류:', error);
-        alert('이미지 업로드 중 오류가 발생했습니다.');
-        return;
-      }
+    // 업로드 오류가 있는 경우 확인
+    if (uploadError) {
+      const proceed = confirm('이미지 업로드에 실패했습니다. 이미지 없이 저장하시겠습니까?');
+      if (!proceed) return;
     }
     
     // RCS 옵션 구성
@@ -195,12 +279,14 @@ export default function TemplateFormModal({
       content,
       category,
       type: messageType,
-      imageUrl: (messageType === 'MMS' || messageType === 'RCS') ? finalImageUrl : undefined,
+      imageUrl: (messageType === 'MMS' || messageType === 'RCS') ? imageUrl : undefined,
       rcsOptions,
       createdAt: template?.createdAt || new Date().toISOString(),
       updatedAt: new Date().toISOString(),
       createdBy: template?.createdBy || 'current_user' // 실제 인증된 사용자 ID로 대체해야 함
     };
+    
+    console.log('💾 템플릿 저장:', finalTemplate);
     
     // 저장 콜백 호출
     onSave(finalTemplate);
@@ -333,11 +419,24 @@ export default function TemplateFormModal({
                     이미지 업로드
                   </label>
                   
-                  {/* 여기에 MMS 조건 안내 추가 */}
-                  <p className="text-xs text-text-muted mt-1 mb-3 p-2 bg-blue-50 border border-blue-200 rounded-md">
-                    <strong>MMS 발송 조건:</strong> JPG 형식, 200KB 이하, 1500x1440px 이하<br/>
-                    업로드 시 자동으로 최적화됩니다.
-                  </p>
+                  {/* MMS 조건 안내 */}
+                  <div className="text-xs text-text-muted mt-1 mb-3 p-3 bg-blue-50 border border-blue-200 rounded-md">
+                    <div className="font-medium text-blue-800 mb-1">📱 MMS 발송 조건</div>
+                    <div className="space-y-1">
+                      <div>• <strong>형식:</strong> JPG (자동 변환됨)</div>
+                      <div>• <strong>크기:</strong> 200KB 이하 (자동 압축됨)</div>
+                      <div>• <strong>해상도:</strong> 1500x1440px 이하 (자동 조정됨)</div>
+                      <div>• <strong>업로드 제한:</strong> 1MB 이하</div>
+                    </div>
+                    <div className="mt-1 text-blue-600">업로드 시 자동으로 최적화됩니다.</div>
+                  </div>
+                  
+                  {/* 업로드 오류 표시 */}
+                  {uploadError && (
+                    <div className="mb-3 p-2 bg-red-50 border border-red-200 rounded-md text-red-700 text-sm">
+                      ❌ {uploadError}
+                    </div>
+                  )}
                   
                   {previewImage ? (
                     <div className="relative">
@@ -346,13 +445,35 @@ export default function TemplateFormModal({
                         alt="이미지 미리보기"
                         className="w-full h-48 object-cover rounded-md"
                       />
+                      
+                      {/* 업로드 중 표시 */}
+                      {isImageUploading && (
+                        <div className="absolute inset-0 bg-black/50 flex items-center justify-center rounded-md">
+                          <div className="bg-white p-3 rounded-md flex items-center gap-2">
+                            <div className="w-4 h-4 border-2 border-t-blue-500 border-blue-200 rounded-full animate-spin"></div>
+                            <span className="text-sm">최적화 중...</span>
+                          </div>
+                        </div>
+                      )}
+                      
                       <button
-                        className="absolute top-2 right-2 p-1 bg-red-100 text-red-700 rounded-full"
+                        className="absolute top-2 right-2 p-1 bg-red-100 text-red-700 rounded-full hover:bg-red-200"
                         onClick={handleRemoveImage}
                         title="이미지 삭제"
+                        disabled={isImageUploading}
                       >
                         <Icon icon={HiOutlineTrash} size={16} />
                       </button>
+                      
+                      {/* 이미지 정보 표시 */}
+                      {imageInfo && (
+                        <div className="absolute bottom-2 left-2 bg-black/70 text-white text-xs px-2 py-1 rounded">
+                          {imageInfo.optimizedSize} · {imageInfo.dimensions}
+                          {imageInfo.originalSize !== imageInfo.optimizedSize && (
+                            <span className="text-green-300"> (압축됨)</span>
+                          )}
+                        </div>
+                      )}
                     </div>
                   ) : (
                     <div className="border-2 border-dashed border-border rounded-md p-4 text-center">
@@ -362,14 +483,19 @@ export default function TemplateFormModal({
                         accept="image/*"
                         className="hidden"
                         onChange={handleImageChange}
+                        disabled={isImageUploading}
                       />
                       <label
                         htmlFor="imageUpload"
-                        className="flex flex-col items-center cursor-pointer"
+                        className={`flex flex-col items-center cursor-pointer ${
+                          isImageUploading ? 'opacity-50 cursor-not-allowed' : ''
+                        }`}
                       >
                         <Icon icon={HiOutlineUpload} size={24} className="text-text-secondary mb-2" />
-                        <span className="text-sm text-text-secondary">이미지 파일을 드래그하거나 클릭하여 업로드</span>
-                        <span className="text-xs text-text-muted mt-1">최대 1MB, JPG, PNG, GIF</span>
+                        <span className="text-sm text-text-secondary">
+                          {isImageUploading ? '업로드 중...' : '이미지 파일을 드래그하거나 클릭하여 업로드'}
+                        </span>
+                        <span className="text-xs text-text-muted mt-1">최대 1MB, JPG, PNG, GIF, WebP</span>
                       </label>
                     </div>
                   )}
@@ -619,6 +745,11 @@ export default function TemplateFormModal({
                     </div>
                     <div className="mt-2 text-xs text-text-muted text-right">
                       MMS · {content.length}자
+                      {imageInfo && (
+                        <span className="ml-2 text-green-600">
+                          · {imageInfo.optimizedSize}
+                        </span>
+                      )}
                     </div>
                   </div>
                 </div>
@@ -652,6 +783,11 @@ export default function TemplateFormModal({
                     
                     <div className="mt-2 text-xs text-text-muted text-right">
                       RCS · {rcsCardType} 카드
+                      {imageInfo && (
+                        <span className="ml-2 text-green-600">
+                          · {imageInfo.optimizedSize}
+                        </span>
+                      )}
                     </div>
                   </div>
                 </div>
@@ -669,11 +805,16 @@ export default function TemplateFormModal({
             취소
           </button>
           <button
-            className="px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 transition-colors flex items-center gap-1.5"
+            className={`px-4 py-2 rounded-md transition-colors flex items-center gap-1.5 ${
+              isImageUploading 
+                ? 'bg-gray-400 text-gray-200 cursor-not-allowed' 
+                : 'bg-blue-600 text-white hover:bg-blue-700'
+            }`}
             onClick={handleSubmit}
+            disabled={isImageUploading}
           >
             <Icon icon={HiOutlineSave} size={16} />
-            템플릿 저장
+            {isImageUploading ? '업로드 중...' : '템플릿 저장'}
           </button>
         </div>
       </div>
