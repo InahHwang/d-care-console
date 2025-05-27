@@ -2,6 +2,7 @@
 
 'use client'
 
+import { calculateCurrentProgress } from '@/store/slices/goalsSlice';
 import { useEffect, useState } from 'react'
 import { useDispatch, useSelector } from 'react-redux'
 import { useSearchParams } from 'next/navigation'
@@ -30,7 +31,7 @@ export default function PatientManagement() {
   const searchParams = useSearchParams()
   
   const { currentMenuItem } = useSelector((state: RootState) => state.ui)
-  const { isLoading, selectedPatient } = useSelector((state: RootState) => state.patients)
+  const { isLoading, selectedPatient, patients } = useSelector((state: RootState) => state.patients)
   
   // 현재 탭 상태를 별도로 관리
   const [activeTab, setActiveTab] = useState('환자 목록')
@@ -80,6 +81,14 @@ export default function PatientManagement() {
     
   }, [dispatch]);
 
+  // 🎯 환자 데이터 변경시 목표 달성률 재계산 (새로 추가)
+  useEffect(() => {
+    if (patients && patients.length >= 0) {
+      console.log('🎯 PatientManagement - 목표 달성률 재계산 시작, 환자 수:', patients.length);
+      dispatch(calculateCurrentProgress({ patients }));
+    }
+  }, [dispatch, patients]);
+
   // 필터 적용
   useEffect(() => {
     const debounceTimer = setTimeout(() => {
@@ -96,20 +105,30 @@ export default function PatientManagement() {
 
   // 탭 변경 핸들러
   const handleTabChange = (tab: string) => {
-  setActiveTab(tab)
-  dispatch(setCurrentMenuItem(tab))
-  
-  // 탭 변경 시 환자 목록 탭으로 이동할 경우 데이터 다시 불러오기
-  if (tab === '환자 목록') {
-    dispatch(fetchPatients());
+    setActiveTab(tab)
+    dispatch(setCurrentMenuItem(tab))
+    
+    // 탭 변경 시 환자 목록 탭으로 이동할 경우 데이터 다시 불러오기
+    if (tab === '환자 목록') {
+      dispatch(fetchPatients()).then(() => {
+        // 🎯 데이터 다시 불러온 후 목표 달성률도 재계산
+        console.log('🎯 탭 변경으로 인한 데이터 재로드 후 목표 재계산');
+      });
+    }
   }
-}
 
   return (
     <div>
       {/* 페이지 제목 */}
       <div className="flex items-center justify-between mb-6">
         <h1 className="text-2xl font-bold text-text-primary">상담 관리</h1>
+        
+        {/* 🎯 개발 중 디버깅 정보 (나중에 제거) */}
+        {process.env.NODE_ENV === 'development' && (
+          <div className="text-xs text-gray-500 bg-gray-100 px-2 py-1 rounded">
+            환자 수: {patients?.length || 0} | 로딩: {isLoading ? 'Y' : 'N'}
+          </div>
+        )}
       </div>
 
       {/* 탭 메뉴 - 문자발송 내역 탭 추가 */}

@@ -13,6 +13,9 @@ import { useAppDispatch, useAppSelector } from '@/hooks/reduxHooks';
 import { setCurrentMenuItem } from '@/store/slices/uiSlice';
 import { fetchPatients } from '@/store/slices/patientsSlice';
 import { fetchMessageLogs } from '@/store/slices/messageLogsSlice';
+// 🎯 추가: 목표 관련 imports
+import { calculateCurrentProgress } from '@/store/slices/goalsSlice';
+import GoalsInitializer from '@/components/common/GoalsInitializer';
 
 export default function Home() {
   const dispatch = useAppDispatch();
@@ -23,40 +26,29 @@ export default function Home() {
   const [monthlyPerformance, setMonthlyPerformance] = useState({
     outboundCalls: {
       count: 0,
-      trend: 0, // 전월 대비 증감률
+      trend: 0,
     },
     appointmentRate: {
-      value: 0, // 예약 전환율 (%)
-      trend: 0, // 전월 대비 증감률
+      value: 0,
+      trend: 0,
     },
     visitRate: {
-      value: 0, // 내원 전환율 (%)
-      trend: 0, // 전월 대비 증감률
+      value: 0,
+      trend: 0,
     }
   });
   
-  // 환자 상태별 카운트 - noResponse를 absentCount로 변경
+   // 환자 상태별 카운트
   const [patientStatusCounts, setPatientStatusCounts] = useState({
-    callbackNeeded: 0, // 콜백 필요 환자 수
-    absentCount: 0,   // 부재중 환자 수 (미응답에서 변경)
-    todayScheduled: 0, // 오늘 예정된 콜백 수
-    newPatients: 0    // 이번달 신규 환자 수
+    callbackNeeded: 0,
+    absentCount: 0,
+    todayScheduled: 0,
+    newPatients: 0
   });
   
-  // 목표 달성률
-  const [goalProgress, setGoalProgress] = useState({
-    newPatients: {
-      current: 0,
-      target: 30, // 예시 목표값
-      percentage: 0
-    },
-    appointments: {
-      current: 0,
-      target: 20, // 예시 목표값
-      percentage: 0
-    }
-  });
-  
+  // 🎯 제거: goalProgress 상태 삭제 (Redux에서 관리하므로)
+  // const [goalProgress, setGoalProgress] = useState({...}) 
+
   // 오늘 예정된 콜 데이터
   const [todayCalls, setTodayCalls] = useState<any[]>([]);
   
@@ -67,9 +59,12 @@ export default function Home() {
     dispatch(fetchMessageLogs());
   }, [dispatch]);
   
-  // 환자 데이터와 메시지 로그가 변경될 때마다 대시보드 데이터 업데이트
+  // 🎯 수정: 환자 데이터 변경시 목표 달성률 계산 추가
   useEffect(() => {
     if (patients.length === 0) return;
+    
+    // 🎯 추가: 환자 데이터로 목표 달성률 계산
+    dispatch(calculateCurrentProgress({ patients }));
     
     // 현재 날짜 정보
     const today = new Date();
@@ -231,20 +226,6 @@ export default function Home() {
       newPatients: newPatientsThisMonth
     });
     
-    // 5. 목표 달성률 계산
-    setGoalProgress({
-      newPatients: {
-        current: newPatientsThisMonth,
-        target: 30, // 예시 목표값
-        percentage: Math.min(Math.round((newPatientsThisMonth / 30) * 100), 100)
-      },
-      appointments: {
-        current: confirmedAppointments,
-        target: 20, // 예시 목표값
-        percentage: Math.min(Math.round((confirmedAppointments / 20) * 100), 100)
-      }
-    });
-    
     // 6. 오늘 예정된 콜 데이터 - 실제 예정된 콜백을 기반으로 처리
     const todaysCallsData = patients
       .filter(p => {
@@ -290,11 +271,14 @@ export default function Home() {
     
     setTodayCalls(todaysCallsData);
     
-  }, [patients, messageLogs]);
+  }, [patients, messageLogs, dispatch]); // 🎯 수정: dispatch 의존성 추가
 
   return (
     <AppLayout currentPage="dashboard">
       <div>
+        {/* 🎯 추가: GoalsInitializer 컴포넌트 */}
+        <GoalsInitializer />
+        
         {/* 페이지 제목 */}
         <div className="flex items-center justify-between mb-6">
           <h1 className="text-2xl font-bold text-text-primary">대시보드</h1>
@@ -323,6 +307,7 @@ export default function Home() {
           {/* 오른쪽 칼럼 (목표 달성률 및 빠른 액션) */}
           <div className="lg:w-80">
             <div className="mb-6">
+              {/* 🎯 수정: ProgressGoals는 이제 Redux에서 데이터 가져옴 */}
               <ProgressGoals />
             </div>
             <QuickActions />

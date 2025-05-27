@@ -1,21 +1,30 @@
 // src/components/common/GoalsInitializer.tsx
-import React from 'react';
 import { useEffect } from 'react';
-import { useDispatch } from 'react-redux';
-import { loadGoalsFromServer } from '@/store/slices/goalsSlice'; // 🔧 수정됨
+import { useSelector, useDispatch } from 'react-redux';
+import { RootState } from '@/store';
+import { calculateCurrentProgress, loadGoalsFromServer } from '@/store/slices/goalsSlice';
 
-/**
- * 앱 시작시 서버에서 목표 설정을 불러오는 컴포넌트
- */
 const GoalsInitializer: React.FC = () => {
   const dispatch = useDispatch();
+  const patients = useSelector((state: RootState) => state.patients.patients);
+  const goalsLoaded = useSelector((state: RootState) => state.goals.lastUpdated !== null);
 
+  // 1️⃣ 앱 시작시 서버에서 목표 불러오기 (기존 기능 유지)
   useEffect(() => {
-    // 🔧 서버에서 목표 불러오기로 변경
-    dispatch(loadGoalsFromServer() as any);
-  }, [dispatch]);
+    if (!goalsLoaded) {
+      dispatch(loadGoalsFromServer() as any);
+    }
+  }, [dispatch, goalsLoaded]);
 
-  return null; // UI를 렌더링하지 않는 컴포넌트
+  // 2️⃣ 환자 데이터가 변경될 때마다 목표 달성률 재계산 (새로 추가)
+  useEffect(() => {
+    if (patients && patients.length >= 0) {
+      console.log('🎯 목표 달성률 재계산 시작 - 환자 수:', patients.length);
+      dispatch(calculateCurrentProgress({ patients }));
+    }
+  }, [dispatch, patients]);
+
+  return null; // UI 렌더링 없음
 };
 
 export default GoalsInitializer;

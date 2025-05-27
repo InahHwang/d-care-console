@@ -16,7 +16,9 @@ import {
   completePatient,
   cancelPatientCompletion,
   CallbackStatus,
-  selectPatient
+  selectPatient,
+  updateEventTargetInfo,
+  initializeEventTargets
 } from '@/store/slices/patientsSlice'
 import { 
   HiOutlinePlus, 
@@ -474,7 +476,7 @@ export default function CallbackManagement({ patient }: CallbackManagementProps)
         type: callbackToComplete.type,
         time: undefined
       };
-      
+   
       // 기존 콜백 삭제
       await dispatch(deleteCallback({
         patientId: patient.id,
@@ -502,6 +504,57 @@ export default function CallbackManagement({ patient }: CallbackManagementProps)
       // 성공 처리
       resetMarkCompleteForm();
       alert('환자가 종결 처리되었습니다.');
+      return;
+    }
+
+    // 이벤트 타겟 설정 로직 추가
+    if (nextStep === '이벤트_타겟_설정') {
+      // 현재 콜백을 완료 처리
+      const completedCallbackData: Omit<CallbackItem, 'id'> = {
+        date: format(new Date(), 'yyyy-MM-dd'),
+        status: '완료',
+        notes: `[상담 내용]\n${resultNotes}`,
+        customerResponse: customerResponse as any,
+        nextStep: '이벤트_타겟_설정',
+        type: callbackToComplete.type,
+        time: undefined
+      };
+      
+      // 기존 콜백 삭제
+      await dispatch(deleteCallback({
+        patientId: patient.id,
+        callbackId: callbackToComplete.id
+      })).unwrap();
+        
+      // 새 (완료된) 콜백 추가
+      await dispatch(addCallback({
+        patientId: patient.id,
+        callbackData: completedCallbackData
+      })).unwrap();
+      
+      // 이벤트 타겟으로 설정
+      await dispatch(updateEventTargetInfo({
+        patientId: patient.id,
+        eventTargetInfo: {
+          isEventTarget: true,
+          targetReason: 'price_hesitation', // 기본값으로 가격 망설임 설정
+          categories: ['discount'], // 기본값으로 할인 프로모션 설정
+          scheduledDate: format(addDays(new Date(), 30), 'yyyy-MM-dd'), // 30일 후
+          notes: `콜백 완료 후 이벤트 타겟으로 설정됨\n상담 내용: ${resultNotes}`,
+          createdAt: new Date().toISOString(),
+          updatedAt: new Date().toISOString()
+        }
+      })).unwrap();
+      
+      // 이벤트 타겟 목록 새로고침
+      await dispatch(initializeEventTargets()).unwrap();
+      
+      // 환자 정보 새로고침
+      dispatch(selectPatient(patient.id));
+      
+      // 성공 처리
+      resetMarkCompleteForm();
+      alert('환자가 이벤트 타겟으로 설정되었습니다. 추후 프로모션 발송 시 포함됩니다.');
       return;
     }
 
@@ -1978,6 +2031,7 @@ export default function CallbackManagement({ patient }: CallbackManagementProps)
                               <span className={`text-xs ${
                                 callback.nextStep === '예약_확정' ? 'text-green-600 font-medium' : 
                                 callback.nextStep === '종결_처리' ? 'text-gray-600 font-medium' : 
+                                callback.nextStep === '이벤트_타겟_설정' ? '이벤트 타겟 설정' :
                                 'text-blue-600'
                               }`}>
                                 {callback.nextStep === '2차_콜백' ? '2차 콜백 예정' :
@@ -1985,7 +2039,8 @@ export default function CallbackManagement({ patient }: CallbackManagementProps)
                                 callback.nextStep === '4차_콜백' ? '4차 콜백 예정' :
                                 callback.nextStep === '5차_콜백' ? '5차 콜백 예정' :
                                 callback.nextStep === '예약_확정' ? '예약 확정' : 
-                                callback.nextStep === '종결_처리' ? '종결 처리' : '기타'}
+                                callback.nextStep === '종결_처리' ? '종결 처리' : 
+                                callback.nextStep === '이벤트_타겟_설정' ? '이벤트 타겟 설정' : '기타'}
                               </span>
                             </div>
                           )}
@@ -2839,6 +2894,19 @@ export default function CallbackManagement({ patient }: CallbackManagementProps)
                         )}
                       </div>
                       
+                      {/* 이벤트 타겟 설정 옵션 - 새로 추가 */}
+                      <label className="flex items-center gap-2 p-3 border rounded-md cursor-pointer hover:bg-light-bg/50">
+                        <input
+                          type="radio"
+                          name="nextStep"
+                          value="이벤트_타겟_설정"
+                          checked={nextStep === '이벤트_타겟_설정'}
+                          onChange={() => setNextStep('이벤트_타겟_설정')}
+                          className="w-4 h-4 accent-primary"
+                        />
+                        <span className="text-sm text-text-primary">이벤트 타겟 설정 (프로모션 대상자로 등록)</span>
+                      </label>
+
                       {/* 종결 처리 옵션 - 항상 표시 */}
                       <label className="flex items-center gap-2 p-3 border rounded-md cursor-pointer hover:bg-light-bg/50">
                         <input

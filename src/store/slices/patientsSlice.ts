@@ -74,7 +74,8 @@ export interface CallbackItem {
   cancelReason?: string;
   cancelDate?: string;
   isCompletionRecord?: boolean;
-  nextStep?: '2차_콜백' | '3차_콜백' | '4차_콜백' | '5차_콜백' | '예약_확정' | '종결_처리' | '';
+  // 🔥 이벤트 타겟 설정 단계 추가
+  nextStep?: '2차_콜백' | '3차_콜백' | '4차_콜백' | '5차_콜백' | '예약_확정' | '종결_처리' | '이벤트_타겟_설정' | '';
 }
 
 // 종결 처리를 위한 타입 정의
