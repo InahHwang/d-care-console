@@ -18,7 +18,9 @@ import {
   CallbackStatus,
   selectPatient,
   updateEventTargetInfo,
-  initializeEventTargets
+  initializeEventTargets,
+  EventTargetReason,
+  EventCategory
 } from '@/store/slices/patientsSlice'
 import { 
   HiOutlinePlus, 
@@ -59,6 +61,12 @@ export default function CallbackManagement({ patient }: CallbackManagementProps)
     return callback.status === '부재중';
   }
   
+  // 이벤트 타겟 설정 관련 상태 추가
+  const [eventTargetReason, setEventTargetReason] = useState<EventTargetReason>('price_hesitation')
+  const [eventTargetCategory, setEventTargetCategory] = useState<EventCategory>('discount') 
+  const [eventTargetNotes, setEventTargetNotes] = useState('')
+  const [eventTargetScheduledDate, setEventTargetScheduledDate] = useState(format(addDays(new Date(), 30), 'yyyy-MM-dd'))
+
   // 콜백 이력 상태 - 컴포넌트 내부에서 관리하도록 변경
   const [callbackType, setCallbackType] = useState<CallbackType>('1차');
   const [nextCallbackType, setNextCallbackType] = useState<string>('');
@@ -337,6 +345,10 @@ export default function CallbackManagement({ patient }: CallbackManagementProps)
     setNextStep('');
     setNextCallbackDate(format(addDays(new Date(), 7), 'yyyy-MM-dd')); // 초기화
     setNextCallbackPlan(''); // 다음 상담 계획 초기화 추가
+    setEventTargetReason('price_hesitation');
+    setEventTargetCategory('discount'); // 🔥 단일값으로 초기화
+    setEventTargetNotes('');
+    setEventTargetScheduledDate(format(addDays(new Date(), 30), 'yyyy-MM-dd'));
   };
  
 
@@ -537,9 +549,9 @@ export default function CallbackManagement({ patient }: CallbackManagementProps)
         patientId: patient.id,
         eventTargetInfo: {
           isEventTarget: true,
-          targetReason: 'price_hesitation', // 기본값으로 가격 망설임 설정
-          categories: ['discount'], // 기본값으로 할인 프로모션 설정
-          scheduledDate: format(addDays(new Date(), 30), 'yyyy-MM-dd'), // 30일 후
+          targetReason: eventTargetReason,
+          categories: [eventTargetCategory], // 🔥 단일값을 배열로 감싸서 전송
+          scheduledDate: eventTargetScheduledDate,
           notes: `콜백 완료 후 이벤트 타겟으로 설정됨\n상담 내용: ${resultNotes}`,
           createdAt: new Date().toISOString(),
           updatedAt: new Date().toISOString()
@@ -2894,18 +2906,85 @@ export default function CallbackManagement({ patient }: CallbackManagementProps)
                         )}
                       </div>
                       
-                      {/* 이벤트 타겟 설정 옵션 - 새로 추가 */}
-                      <label className="flex items-center gap-2 p-3 border rounded-md cursor-pointer hover:bg-light-bg/50">
-                        <input
-                          type="radio"
-                          name="nextStep"
-                          value="이벤트_타겟_설정"
-                          checked={nextStep === '이벤트_타겟_설정'}
-                          onChange={() => setNextStep('이벤트_타겟_설정')}
-                          className="w-4 h-4 accent-primary"
-                        />
-                        <span className="text-sm text-text-primary">이벤트 타겟 설정 (프로모션 대상자로 등록)</span>
-                      </label>
+                      {/* 이벤트 타겟 설정 옵션 - 확장된 폼으로 수정 */}
+                      <div className="border rounded-md overflow-hidden">
+                        <label className="flex items-center gap-2 p-3 cursor-pointer hover:bg-light-bg/50 border-b">
+                          <input
+                            type="radio"
+                            name="nextStep"
+                            value="이벤트_타겟_설정"
+                            checked={nextStep === '이벤트_타겟_설정'}
+                            onChange={() => setNextStep('이벤트_타겟_설정')}
+                            className="w-4 h-4 accent-primary"
+                          />
+                          <span className="text-sm text-text-primary">이벤트 타겟 설정 (프로모션 대상자로 등록)</span>
+                        </label>
+                        
+                        {/* 이벤트 타겟 설정 추가 정보 - 선택 시 표시 */}
+                        {nextStep === '이벤트_타겟_설정' && (
+                          <div className="p-3 bg-purple-50">
+                            {/* 타겟 사유 선택 */}
+                            <label className="block text-sm font-medium text-purple-700 mb-2">
+                              타겟 사유 <span className="text-error">*</span>
+                            </label>
+                            <select
+                              value={eventTargetReason}
+                              onChange={(e) => setEventTargetReason(e.target.value as EventTargetReason)}
+                              className="form-input w-full mb-3"
+                            >
+                              <option value="price_hesitation">가격 문의 후 망설임</option>
+                              <option value="treatment_consideration">치료 방법 고민 중</option>
+                              <option value="scheduling_issue">시간 조율 필요</option>
+                              <option value="competitor_comparison">경쟁업체 비교 중</option>
+                              <option value="other">기타</option>
+                            </select>
+                            
+                            {/* 이벤트 카테고리 선택 */}
+                            <label className="block text-sm font-medium text-purple-700 mb-2">
+                              이벤트 카테고리 <span className="text-error">*</span>
+                            </label>
+                            <div className="flex flex-wrap gap-2 mb-3">
+                              {[
+                                { value: 'discount', label: '할인 프로모션' },
+                                { value: 'new_treatment', label: '신규 치료법 안내' },
+                                { value: 'checkup', label: '정기 검진 리마인더' },
+                                { value: 'seasonal', label: '계절 이벤트' }
+                              ].map(category => (
+                                <label
+                                  key={category.value}
+                                  className="flex items-center gap-2 cursor-pointer"
+                                >
+                                  <input
+                                    type="radio"
+                                    name="eventTargetCategory"
+                                    value={category.value}
+                                    checked={eventTargetCategory === category.value}
+                                    onChange={() => setEventTargetCategory(category.value as EventCategory)}
+                                    className="w-4 h-4 accent-purple-600"
+                                  />
+                                  <span className="text-sm text-purple-700">{category.label}</span>
+                                </label>
+                              ))}
+                            </div>
+                            
+                            {/* 발송 예정일 */}
+                            <label className="block text-sm font-medium text-purple-700 mb-2">
+                              발송 예정일
+                            </label>
+                            <input
+                              type="date"
+                              value={eventTargetScheduledDate}
+                              onChange={(e) => setEventTargetScheduledDate(e.target.value)}
+                              className="form-input w-full mb-3"
+                              min={format(new Date(), 'yyyy-MM-dd')}
+                            />
+                            
+                            <p className="text-xs text-purple-600">
+                              환자를 이벤트 타겟으로 설정하여 추후 프로모션 발송 시 포함됩니다.
+                            </p>
+                          </div>
+                        )}
+                      </div>
 
                       {/* 종결 처리 옵션 - 항상 표시 */}
                       <label className="flex items-center gap-2 p-3 border rounded-md cursor-pointer hover:bg-light-bg/50">
