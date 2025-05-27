@@ -730,18 +730,33 @@ const patientsSlice = createSlice({
       })
       .addCase(deletePatient.fulfilled, (state, action: PayloadAction<string>) => {
         state.isLoading = false;
+        const deletedPatientId = action.payload;
+        
         // 환자 목록에서 삭제된 환자 제거 - _id 또는 id 기준으로 찾기
         state.patients = state.patients.filter((patient) => 
-          patient._id !== action.payload && patient.id !== action.payload
+          patient._id !== deletedPatientId && patient.id !== deletedPatientId
         );
+        
         // 필터링된 목록도 업데이트
         state.filteredPatients = state.filteredPatients.filter((patient) => 
-          patient._id !== action.payload && patient.id !== action.payload
+          patient._id !== deletedPatientId && patient.id !== deletedPatientId
         );
+        
+        // 🔥 이벤트 타겟 환자 목록에서도 삭제된 환자 제거 (추가)
+        const originalEventTargetLength = state.eventTargetPatients.length;
+        state.eventTargetPatients = state.eventTargetPatients.filter((patient) => 
+          patient._id !== deletedPatientId && patient.id !== deletedPatientId
+        );
+        
+        // 디버깅을 위한 로그
+        if (state.eventTargetPatients.length < originalEventTargetLength) {
+          console.log(`이벤트 타겟 목록에서 환자 삭제됨: ${deletedPatientId}`);
+          console.log(`이벤트 타겟 환자 수: ${originalEventTargetLength} → ${state.eventTargetPatients.length}`);
+        }
         
         // 현재 선택된 환자가 삭제되었으면 선택 취소
         if (state.selectedPatient && 
-            (state.selectedPatient._id === action.payload || state.selectedPatient.id === action.payload)) {
+            (state.selectedPatient._id === deletedPatientId || state.selectedPatient.id === deletedPatientId)) {
           state.selectedPatient = null;
         }
         
