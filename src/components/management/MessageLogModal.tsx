@@ -226,8 +226,8 @@ export default function MessageLogModal({ isOpen, onClose, patientId, embedded =
             {patientId ? '환자 문자 내역' : '문자 발송 내역'}
           </h3>
           <div className="flex items-center gap-2">
-            {/* 개발 환경에서만 표시되는 데이터 초기화 버튼 */}
-            {process.env.NODE_ENV === 'development' && (
+            {/* 임시로 운영 환경에서도 표시 - 테스트 로그 삭제 후 다시 원복 예정 */}
+            {(process.env.NODE_ENV === 'development' || true) && (
               <button
                 className="px-3 py-1.5 rounded-md text-sm font-medium hover:bg-red-100 text-red-700 flex items-center gap-1"
                 onClick={handleClearLogs}
@@ -236,9 +236,10 @@ export default function MessageLogModal({ isOpen, onClose, patientId, embedded =
                 <svg xmlns="http://www.w3.org/2000/svg" className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
                 </svg>
-                로그 초기화
+                로그 초기화 (임시)
               </button>
             )}
+
             <button
               className="px-3 py-1.5 rounded-md text-sm font-medium hover:bg-gray-100 flex items-center gap-1"
               onClick={() => setFilterVisible(!filterVisible)}
