@@ -3,7 +3,7 @@
 import { createSlice, createAsyncThunk, PayloadAction, createSelector } from '@reduxjs/toolkit'
 import { RootState } from '@/store'
 import { MessageLog, MessageStatus, MessageType, MessageLogSort, SortDirection } from '@/types/messageLog'
-import { EventCategory } from './patientsSlice'
+import { EventCategory } from '@/types/messageLog'
 import axios from 'axios';
 
 // API 클라이언트 설정
