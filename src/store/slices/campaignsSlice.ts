@@ -1,6 +1,8 @@
 // src/store/slices/campaignsSlice.ts
 import { createSlice, createAsyncThunk, PayloadAction } from '@reduxjs/toolkit';
-import { EventCategory, EventTargetReason } from './patientsSlice';
+import { EventTargetReason } from './patientsSlice';
+import { EventCategory } from '@/types/messageLog'
+
 
 // 캠페인 타입 정의
 export type CampaignStatus = 'draft' | 'scheduled' | 'in_progress' | 'completed' | 'cancelled';
