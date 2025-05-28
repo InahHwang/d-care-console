@@ -1,12 +1,15 @@
+//src/components/dashboard/TodayCallsTable.tsx
+
 'use client'
 
 import { useState } from 'react'
-import { Call, selectCall } from '@/store/slices/callsSlice'
-import { IconType } from 'react-icons'
-import { HiOutlineSearch, HiOutlineChevronLeft, HiOutlineChevronRight, HiOutlineArrowUp } from 'react-icons/hi'
+import { Call } from '@/store/slices/callsSlice'
+import { useAppDispatch, useAppSelector } from '@/hooks/reduxHooks'
+import { selectPatient } from '@/store/slices/patientsSlice'
+import { RootState } from '@/store'
+import { HiOutlineSearch, HiOutlineChevronLeft, HiOutlineChevronRight, HiOutlineEye } from 'react-icons/hi'
 import { Icon } from '../common/Icon'
-import { format } from 'date-fns'
-import { useAppDispatch } from '@/hooks/reduxHooks'
+import Link from 'next/link'
 
 interface TodayCallsTableProps {
   calls?: Call[]
@@ -15,11 +18,17 @@ interface TodayCallsTableProps {
 
 export default function TodayCallsTable({ calls = [], isLoading = false }: TodayCallsTableProps) {
   const dispatch = useAppDispatch()
+  const patients = useAppSelector((state: RootState) => state.patients.patients)
   const [searchTerm, setSearchTerm] = useState('')
   const [currentPage, setCurrentPage] = useState(1)
   const [filter, setFilter] = useState<string>('전체')
   
   const itemsPerPage = 5
+  
+  // 환자 정보 조회 헬퍼 함수
+  const getPatientInfo = (patientId: string) => {
+    return patients.find(patient => patient.id === patientId || patient.patientId === patientId)
+  }
   
   // 검색 및 필터링된 콜 목록
   const filteredCalls = calls.filter(call => {
@@ -41,10 +50,20 @@ export default function TodayCallsTable({ calls = [], isLoading = false }: Today
   const startIndex = (currentPage - 1) * itemsPerPage
   const paginatedCalls = filteredCalls.slice(startIndex, startIndex + itemsPerPage)
   
-  // 콜 디테일 페이지로 이동
-  const handleViewCallDetails = (callId: string) => {
-    dispatch(selectCall(callId))
-    // TODO: 콜 디테일 모달 또는 페이지 열기
+  // 환자 상세보기 모달 열기
+  const handleViewPatientDetails = (call: Call) => {
+    const patient = getPatientInfo(call.patientId)
+    
+    if (patient) {
+      // 환자 정보가 있는 경우 환자 ID로 선택
+      dispatch(selectPatient(patient.id))
+    } else {
+      // 환자 정보가 없는 경우 patientId로 시도
+      // 만약 selectPatient가 ID만 받는다면, 환자 데이터가 없는 경우 처리 필요
+      console.warn(`환자 정보를 찾을 수 없습니다. patientId: ${call.patientId}`);
+      // 일단 patientId로 시도해보고, 실패하면 다른 방법 필요
+      dispatch(selectPatient(call.patientId))
+    }
   }
   
   // 시도 횟수에 따른 배지 컬러
@@ -104,10 +123,11 @@ export default function TodayCallsTable({ calls = [], isLoading = false }: Today
             <tr className="bg-light-bg rounded-md">
               <th className="px-4 py-2 text-left text-sm font-semibold text-text-secondary">환자명</th>
               <th className="px-4 py-2 text-left text-sm font-semibold text-text-secondary">연락처</th>
-              <th className="px-4 py-2 text-left text-sm font-semibold text-text-secondary">시간</th>
+              <th className="px-4 py-2 text-left text-sm font-semibold text-text-secondary">나이</th>
+              <th className="px-4 py-2 text-left text-sm font-semibold text-text-secondary">지역</th>
               <th className="px-4 py-2 text-left text-sm font-semibold text-text-secondary">상태</th>
               <th className="px-4 py-2 text-left text-sm font-semibold text-text-secondary">시도</th>
-              <th className="px-4 py-2 text-center text-sm font-semibold text-text-secondary">액션</th>
+              <th className="px-4 py-2 text-center text-sm font-semibold text-text-secondary">상세보기</th>
             </tr>
           </thead>
           
@@ -115,21 +135,20 @@ export default function TodayCallsTable({ calls = [], isLoading = false }: Today
           <tbody>
             {isLoading ? (
               <tr>
-                <td colSpan={6} className="px-4 py-6 text-center text-text-secondary">
+                <td colSpan={7} className="px-4 py-6 text-center text-text-secondary">
                   불러오는 중...
                 </td>
               </tr>
             ) : paginatedCalls.length === 0 ? (
               <tr>
-                <td colSpan={6} className="px-4 py-6 text-center text-text-secondary">
+                <td colSpan={7} className="px-4 py-6 text-center text-text-secondary">
                   오늘 예정된 콜이 없습니다.
                 </td>
               </tr>
             ) : (
               paginatedCalls.map((call) => {
-                // 시간 포맷팅
-                const scheduledTime = new Date(call.scheduledTime)
-                const timeDisplay = format(scheduledTime, 'HH:mm')
+                // 해당 환자 정보 조회
+                const patient = getPatientInfo(call.patientId)
                 
                 // 홍길동만 하이라이트 (디자인에서 본 것처럼)
                 const isHighlighted = call.patientName === '홍길동'
@@ -149,7 +168,15 @@ export default function TodayCallsTable({ calls = [], isLoading = false }: Today
                       {call.phoneNumber}
                     </td>
                     <td className="px-4 py-4 text-sm text-text-secondary">
-                      {timeDisplay}
+                      {patient?.age ? `${patient.age}세` : '-'}
+                    </td>
+                    <td className="px-4 py-4 text-sm text-text-secondary">
+                      {patient?.region ? (
+                        <span>
+                          {patient.region.province}
+                          {patient.region.city && ` ${patient.region.city}`}
+                        </span>
+                      ) : '-'}
                     </td>
                     <td className="px-4 py-4">
                       <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-blue-100 text-blue-800">
@@ -168,12 +195,12 @@ export default function TodayCallsTable({ calls = [], isLoading = false }: Today
                     <td className="px-4 py-4 text-center">
                       <button
                         className="inline-flex items-center justify-center w-8 h-8 rounded-full bg-primary text-white hover:bg-primary/90 transition-colors duration-150"
-                        onClick={() => handleViewCallDetails(call.id)}
+                        onClick={() => handleViewPatientDetails(call)}
+                        title="환자 상세보기"
                       >
                         <Icon 
-                          icon={HiOutlineArrowUp} 
+                          icon={HiOutlineEye} 
                           size={16} 
-                          className="transform rotate-45" 
                         />
                       </button>
                     </td>
@@ -229,6 +256,21 @@ export default function TodayCallsTable({ calls = [], isLoading = false }: Today
           </button>
         </div>
       </div>
+      
+      {/* 하단 링크 - 모든 콜 보기 */}
+      {filteredCalls.length > 0 && (
+        <div className="pt-4 mt-2 border-t border-border flex justify-between items-center">
+          <span className="text-sm text-text-secondary">
+            총 {filteredCalls.length}개의 콜이 예정되어 있습니다.
+          </span>
+          <Link 
+            href="/management" 
+            className="text-sm text-primary hover:text-primary-dark font-medium transition-colors"
+          >
+            모든 콜 보기 →
+          </Link>
+        </div>
+      )}
     </div>
   )
 }
