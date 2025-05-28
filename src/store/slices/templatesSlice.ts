@@ -51,10 +51,10 @@ export const addTemplate = createAsyncThunk(
       // 새 템플릿 추가
       const updatedTemplates = [template, ...currentTemplates];
       
-      // localStorage에 저장 - 이 부분이 실행되는지 확인
+      // localStorage에 저장
       console.log('localStorage에 저장 시도:', updatedTemplates);
       localStorage.setItem('messageTemplates', JSON.stringify(updatedTemplates));
-      console.log('localStorage 저장 후:', localStorage.getItem('messageTemplates'));
+      console.log('localStorage 저장 완료');
       
       return template;
     } catch (error: any) {
@@ -69,6 +69,8 @@ export const updateTemplate = createAsyncThunk(
   'templates/updateTemplate',
   async (template: MessageTemplate, { getState, rejectWithValue }) => {
     try {
+      console.log('템플릿 업데이트 액션 시작:', template);
+      
       // 현재 템플릿 가져오기
       const state = getState() as RootState;
       const currentTemplates = [...state.templates.templates];
@@ -78,12 +80,14 @@ export const updateTemplate = createAsyncThunk(
         t.id === template.id ? template : t
       );
       
-      // localStorage에 저장 (실제 API 호출로 대체되어야 함)
+      // localStorage에 저장
       localStorage.setItem('messageTemplates', JSON.stringify(updatedTemplates));
+      console.log('템플릿 업데이트 완료');
       
       return template;
-    } catch (error) {
-      return rejectWithValue('템플릿을 업데이트하는 중 오류가 발생했습니다.');
+    } catch (error: any) {
+      console.error('템플릿 업데이트 오류:', error);
+      return rejectWithValue('템플릿을 업데이트하는 중 오류가 발생했습니다: ' + error.message);
     }
   }
 );
@@ -93,6 +97,8 @@ export const deleteTemplate = createAsyncThunk(
   'templates/deleteTemplate',
   async (templateId: string, { getState, rejectWithValue }) => {
     try {
+      console.log('템플릿 삭제 액션 시작:', templateId);
+      
       // 현재 템플릿 가져오기
       const state = getState() as RootState;
       const currentTemplates = [...state.templates.templates];
@@ -100,12 +106,14 @@ export const deleteTemplate = createAsyncThunk(
       // 템플릿 삭제
       const updatedTemplates = currentTemplates.filter(t => t.id !== templateId);
       
-      // localStorage에 저장 (실제 API 호출로 대체되어야 함)
+      // localStorage에 저장
       localStorage.setItem('messageTemplates', JSON.stringify(updatedTemplates));
+      console.log('템플릿 삭제 완료');
       
       return templateId;
-    } catch (error) {
-      return rejectWithValue('템플릿을 삭제하는 중 오류가 발생했습니다.');
+    } catch (error: any) {
+      console.error('템플릿 삭제 오류:', error);
+      return rejectWithValue('템플릿을 삭제하는 중 오류가 발생했습니다: ' + error.message);
     }
   }
 );
@@ -132,25 +140,56 @@ const templatesSlice = createSlice({
       .addCase(fetchTemplates.fulfilled, (state, action) => {
         state.templates = action.payload;
         state.isLoading = false;
+        console.log('fetchTemplates 완료 - 템플릿 수:', action.payload.length);
       })
       .addCase(fetchTemplates.rejected, (state, action) => {
         state.isLoading = false;
         state.error = action.payload as string;
       })
       // addTemplate
+      .addCase(addTemplate.pending, (state) => {
+        state.isLoading = true;
+        state.error = null;
+      })
       .addCase(addTemplate.fulfilled, (state, action) => {
         state.templates.unshift(action.payload);
+        state.isLoading = false;
+        console.log('addTemplate 완료 - 새 템플릿 추가됨:', action.payload.title);
+      })
+      .addCase(addTemplate.rejected, (state, action) => {
+        state.isLoading = false;
+        state.error = action.payload as string;
       })
       // updateTemplate
+      .addCase(updateTemplate.pending, (state) => {
+        state.isLoading = true;
+        state.error = null;
+      })
       .addCase(updateTemplate.fulfilled, (state, action) => {
         const index = state.templates.findIndex(t => t.id === action.payload.id);
         if (index !== -1) {
           state.templates[index] = action.payload;
         }
+        state.isLoading = false;
+        console.log('updateTemplate 완료 - 템플릿 수정됨:', action.payload.title);
+      })
+      .addCase(updateTemplate.rejected, (state, action) => {
+        state.isLoading = false;
+        state.error = action.payload as string;
       })
       // deleteTemplate
+      .addCase(deleteTemplate.pending, (state) => {
+        state.isLoading = true;
+        state.error = null;
+      })
       .addCase(deleteTemplate.fulfilled, (state, action) => {
         state.templates = state.templates.filter(t => t.id !== action.payload);
+        state.isLoading = false;
+        console.log('deleteTemplate 완료 - 템플릿 삭제됨:', action.payload);
+      })
+      .addCase(deleteTemplate.rejected, (state, action) => {
+        state.isLoading = false;
+        state.error = action.payload as string;
       });
   }
 });

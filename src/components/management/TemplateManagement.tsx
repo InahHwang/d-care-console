@@ -1,4 +1,4 @@
-//src/components/management/TemplateManagement.tsx
+// src/components/management/TemplateManagement.tsx
 
 'use client'
 
@@ -10,10 +10,10 @@ import {
   updateTemplate, 
   deleteTemplate 
 } from '@/store/slices/templatesSlice'
-import { fetchCategories } from '@/store/slices/categoriesSlice' // 추가
+import { fetchCategories } from '@/store/slices/categoriesSlice'
 import { MessageTemplate, MessageType, RcsButton } from '@/types/messageLog'
 import { EventCategory } from '@/types/messageLog'
-import { getEventCategoryOptions, getCategoryDisplayName } from '@/utils/categoryUtils' // 추가
+import { getEventCategoryOptions, getCategoryDisplayName } from '@/utils/categoryUtils'
 import { 
   HiOutlineTemplate, 
   HiOutlinePencil, 
@@ -32,7 +32,7 @@ export default function TemplateManagement() {
   const dispatch = useAppDispatch();
   const templates = useAppSelector(state => state.templates.templates);
   const isLoading = useAppSelector(state => state.templates.isLoading);
-  const { categories } = useAppSelector(state => state.categories); // 추가
+  const { categories } = useAppSelector(state => state.categories);
   
   const [isFormModalOpen, setIsFormModalOpen] = useState(false);
   const [isDeleteModalOpen, setIsDeleteModalOpen] = useState(false);
@@ -42,16 +42,25 @@ export default function TemplateManagement() {
   
   // 템플릿과 카테고리 불러오기
   useEffect(() => {
+    console.log('🔄 TemplateManagement 마운트 - 데이터 불러오기');
     dispatch(fetchTemplates());
-    dispatch(fetchCategories()); // 추가
+    dispatch(fetchCategories());
   }, [dispatch]);
   
-  // 템플릿과 카테고리에서 동적으로 카테고리 옵션 생성 - 수정된 부분
+  // 템플릿 상태 변화 감지
+  useEffect(() => {
+    console.log('📊 현재 템플릿 상태:', {
+      templatesCount: templates.length,
+      templates: templates.map(t => ({ id: t.id, title: t.title }))
+    });
+  }, [templates]);
+  
+  // 템플릿과 카테고리에서 동적으로 카테고리 옵션 생성
   const eventCategoryOptions = useMemo(() => {
     return getEventCategoryOptions(templates, categories);
   }, [templates, categories]);
   
-  // 카테고리 라벨 가져오기 - 수정된 부분
+  // 카테고리 라벨 가져오기
   const getCategoryLabel = (categoryValue: string) => {
     return getCategoryDisplayName(categoryValue, categories);
   }
@@ -71,12 +80,14 @@ export default function TemplateManagement() {
   
   // 템플릿 폼 모달 열기 (추가)
   const handleAddTemplate = () => {
+    console.log('🆕 새 템플릿 추가 버튼 클릭');
     setSelectedTemplate(null);
     setIsFormModalOpen(true);
   };
   
   // 템플릿 폼 모달 열기 (수정)
   const handleEditTemplate = (template: MessageTemplate) => {
+    console.log('✏️ 템플릿 수정 버튼 클릭:', template.title);
     setSelectedTemplate(template);
     setIsFormModalOpen(true);
   };
@@ -88,21 +99,42 @@ export default function TemplateManagement() {
   };
   
   // 템플릿 삭제 확인
-  const handleDeleteConfirm = () => {
+  const handleDeleteConfirm = async () => {
     if (selectedTemplate) {
-      dispatch(deleteTemplate(selectedTemplate.id));
+      console.log('🗑️ 템플릿 삭제:', selectedTemplate.title);
+      await dispatch(deleteTemplate(selectedTemplate.id));
       setIsDeleteModalOpen(false);
+      setSelectedTemplate(null);
     }
   };
   
-  // 템플릿 저장 (추가 또는 수정)
-  const handleSaveTemplate = (template: MessageTemplate) => {
-    if (template.id) {
-      dispatch(updateTemplate(template));
-    } else {
-      dispatch(addTemplate(template));
+  // 🔥 수정된 템플릿 저장 핸들러
+  const handleSaveTemplate = async (template: MessageTemplate): Promise<void> => {
+    console.log('💾 handleSaveTemplate 호출됨');
+    console.log('💾 받은 template:', template);
+    console.log('💾 현재 templates 배열:', templates);
+    
+    try {
+      // 기존 템플릿 찾기
+      const existingTemplate = templates.find(t => t.id === template.id);
+      console.log('💾 기존 템플릿 찾기 결과:', existingTemplate);
+      
+      if (existingTemplate) {
+        console.log('✏️ 수정 모드 - updateTemplate 호출');
+        await dispatch(updateTemplate(template)).unwrap();
+      } else {
+        console.log('➕ 추가 모드 - addTemplate 호출');
+        await dispatch(addTemplate(template)).unwrap();
+      }
+      
+      console.log('🔄 저장 완료 후 fetchTemplates 호출');
+      await dispatch(fetchTemplates()).unwrap();
+      
+      console.log('✅ 템플릿 저장 완료');
+    } catch (error) {
+      console.error('❌ 템플릿 저장 실패:', error);
+      throw error; // 에러를 다시 throw하여 모달에서 처리할 수 있도록 함
     }
-    setIsFormModalOpen(false);
   };
   
   return (
@@ -137,7 +169,7 @@ export default function TemplateManagement() {
           </div>
         </div>
         
-        {/* 동적 카테고리 필터 버튼 - 수정된 부분 */}
+        {/* 동적 카테고리 필터 버튼 */}
         <div className="flex flex-wrap gap-2">
           <button
             className={`px-3 py-1.5 rounded-md text-sm font-medium transition-colors ${
@@ -298,7 +330,7 @@ export default function TemplateManagement() {
       <TemplateFormModal 
         isOpen={isFormModalOpen}
         onClose={() => setIsFormModalOpen(false)}
-        onSave={handleSaveTemplate}
+        onSave={handleSaveTemplate}  
         template={selectedTemplate}
       />
       

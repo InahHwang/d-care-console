@@ -1,8 +1,8 @@
-//src/components/settings/TemplateSettings.tsx
+// src/components/settings/TemplateSettings.tsx
 
 'use client'
 
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useMemo } from 'react'
 import { useAppSelector, useAppDispatch } from '@/hooks/reduxHooks'
 import { 
   fetchTemplates, 
@@ -85,6 +85,14 @@ export default function TemplateSettings() {
     return categoryObj?.color || 'bg-gray-100 text-gray-800';
   };
   
+  // 카테고리 옵션 생성
+  const eventCategoryOptions = useMemo(() => {
+    return categories.filter(c => c.isActive).map(cat => ({
+      value: cat.id,
+      label: cat.displayName
+    }));
+  }, [categories]);
+  
   // 템플릿 필터링
   const filteredTemplates = templates.filter((template: MessageTemplate) => {
     if (activeCategory !== 'all' && template.category !== activeCategory) {
@@ -114,20 +122,40 @@ export default function TemplateSettings() {
     setIsDeleteModalOpen(true);
   };
   
-  const handleDeleteConfirm = () => {
+  const handleDeleteConfirm = async () => {
     if (selectedTemplate) {
-      dispatch(deleteTemplate(selectedTemplate.id));
+      await dispatch(deleteTemplate(selectedTemplate.id));
       setIsDeleteModalOpen(false);
+      setSelectedTemplate(null);
     }
   };
   
-  const handleSaveTemplate = (template: MessageTemplate) => {
-    if (template.id) {
-      dispatch(updateTemplate(template));
-    } else {
-      dispatch(addTemplate(template));
+  // 🔥 수정된 템플릿 저장 핸들러 - Promise<void> 반환하도록 변경
+  const handleSaveTemplate = async (template: MessageTemplate): Promise<void> => {
+    console.log('💾 TemplateSettings - handleSaveTemplate 호출됨');
+    console.log('💾 받은 template:', template);
+    
+    try {
+      // 기존 템플릿 찾기
+      const existingTemplate = templates.find(t => t.id === template.id);
+      console.log('💾 기존 템플릿 찾기 결과:', existingTemplate);
+      
+      if (existingTemplate) {
+        console.log('✏️ 수정 모드 - updateTemplate 호출');
+        await dispatch(updateTemplate(template)).unwrap();
+      } else {
+        console.log('➕ 추가 모드 - addTemplate 호출');
+        await dispatch(addTemplate(template)).unwrap();
+      }
+      
+      console.log('🔄 저장 완료 후 fetchTemplates 호출');
+      await dispatch(fetchTemplates()).unwrap();
+      
+      console.log('✅ TemplateSettings - 템플릿 저장 완료');
+    } catch (error) {
+      console.error('❌ TemplateSettings - 템플릿 저장 실패:', error);
+      throw error; // 에러를 다시 throw하여 모달에서 처리할 수 있도록 함
     }
-    setIsFormModalOpen(false);
   };
   
   // 카테고리 관련 핸들러들
@@ -271,17 +299,17 @@ export default function TemplateSettings() {
               >
                 전체
               </button>
-              {categories.filter(c => c.isActive).map((cat) => (
+              {eventCategoryOptions.map((cat) => (
                 <button
-                  key={cat.id}
+                  key={cat.value}
                   className={`px-3 py-1.5 rounded-md text-sm font-medium ${
-                    activeCategory === cat.id
-                      ? cat.color
+                    activeCategory === cat.value
+                      ? getCategoryColor(cat.value)
                       : 'bg-gray-100 text-text-secondary hover:bg-gray-200'
                   }`}
-                  onClick={() => setActiveCategory(cat.id)}
+                  onClick={() => setActiveCategory(cat.value)}
                 >
-                  {cat.displayName}
+                  {cat.label}
                 </button>
               ))}
             </div>
