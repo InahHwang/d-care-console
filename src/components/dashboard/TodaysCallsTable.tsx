@@ -1,177 +1,274 @@
 // src/components/dashboard/TodaysCallsTable.tsx
-import React from 'react';
 
-// 콜 데이터 타입 정의
-interface CallData {
-  id: string;
-  patientName: string;
-  phoneNumber: string;
-  scheduledTime: string;
-  status: string;
-  reminderStatus: string;
-  interestedServices: string;
-}
+'use client'
+
+import { useState } from 'react'
+import { Call } from '@/store/slices/callsSlice'
+import { useAppDispatch, useAppSelector } from '@/hooks/reduxHooks'
+import { selectPatient } from '@/store/slices/patientsSlice'
+import { RootState } from '@/store'
+import { HiOutlineSearch, HiOutlineChevronLeft, HiOutlineChevronRight, HiOutlineEye } from 'react-icons/hi'
+import { Icon } from '../common/Icon'
+import Link from 'next/link'
 
 interface TodaysCallsTableProps {
-  calls: CallData[];
+  calls?: Call[]
+  isLoading?: boolean
 }
 
-const TodaysCallsTable: React.FC<TodaysCallsTableProps> = ({ calls }) => {
-  // 시간 포맷 함수
-  const formatTime = (timeString: string) => {
-    try {
-      const date = new Date(timeString);
-      return date.toLocaleTimeString('ko-KR', { 
-        hour: '2-digit', 
-        minute: '2-digit',
-        hour12: false 
-      });
-    } catch (e) {
-      return timeString;
+export default function TodaysCallsTable({ calls = [], isLoading = false }: TodaysCallsTableProps) {
+  const dispatch = useAppDispatch()
+  const patients = useAppSelector((state: RootState) => state.patients.patients)
+  const [searchTerm, setSearchTerm] = useState('')
+  const [currentPage, setCurrentPage] = useState(1)
+  const [filter, setFilter] = useState<string>('전체')
+  
+  const itemsPerPage = 5
+  
+  // 환자 정보 조회 헬퍼 함수
+  const getPatientInfo = (patientId: string) => {
+    return patients.find(patient => patient.id === patientId || patient.patientId === patientId)
+  }
+  
+  // 검색 및 필터링된 콜 목록
+  const filteredCalls = calls.filter(call => {
+    const matchesSearch = 
+      call.patientName.toLowerCase().includes(searchTerm.toLowerCase()) ||
+      call.phoneNumber.includes(searchTerm)
+    
+    const matchesFilter = filter === '전체' || 
+      (filter === '초기' && call.attemptCount === 0) || 
+      (filter === '1차' && call.attemptCount === 1) || 
+      (filter === '2차' && call.attemptCount === 2) || 
+      (filter === '3차' && call.attemptCount === 3)
+    
+    return matchesSearch && matchesFilter
+  })
+  
+  // 페이지네이션
+  const totalPages = Math.ceil(filteredCalls.length / itemsPerPage)
+  const startIndex = (currentPage - 1) * itemsPerPage
+  const paginatedCalls = filteredCalls.slice(startIndex, startIndex + itemsPerPage)
+  
+  // 환자 상세보기 모달 열기
+  const handleViewPatientDetails = (call: Call) => {
+    const patient = getPatientInfo(call.patientId)
+    
+    if (patient) {
+      // 환자 정보가 있는 경우 환자 ID로 선택
+      dispatch(selectPatient(patient.id))
+    } else {
+      // 환자 정보가 없는 경우 patientId로 시도
+      console.warn(`환자 정보를 찾을 수 없습니다. patientId: ${call.patientId}`);
+      dispatch(selectPatient(call.patientId))
     }
-  };
-
+  }
+  
+  // 시도 횟수에 따른 배지 컬러
+  const getAttemptBadgeColor = (attemptCount: number) => {
+    switch (attemptCount) {
+      case 0: return 'text-text-secondary'
+      case 1: return 'bg-orange-100 text-orange-800'
+      case 2: return 'bg-orange-200 text-orange-900'
+      case 3: return 'bg-red-100 text-red-800'
+      default: return 'text-text-secondary'
+    }
+  }
+  
   return (
     <div className="card">
-      <div className="p-4 border-b border-border">
-        <h3 className="text-md font-semibold text-text-primary flex items-center">
-          <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5 mr-2 text-primary" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" />
-          </svg>
-          오늘 예정된 콜
-        </h3>
+      <div className="mb-4">
+        <h2 className="text-lg font-semibold text-text-primary">오늘의 예정된 콜</h2>
       </div>
       
+      {/* 필터 및 검색 */}
+      <div className="flex flex-col sm:flex-row gap-3 mb-4">
+        <div className="relative flex-1">
+          <input
+            type="text"
+            placeholder="환자명 또는 연락처 검색"
+            className="pl-10 pr-4 py-2 w-full bg-light-bg rounded-full text-sm focus:outline-none"
+            value={searchTerm}
+            onChange={(e) => setSearchTerm(e.target.value)}
+          />
+          <Icon 
+            icon={HiOutlineSearch} 
+            size={18} 
+            className="absolute left-3 top-1/2 transform -translate-y-1/2 text-text-muted" 
+          />
+        </div>
+        
+        <div className="flex gap-3">
+          <select
+            className="px-4 py-2 bg-light-bg rounded-full text-sm focus:outline-none text-text-secondary"
+            value={filter}
+            onChange={(e) => setFilter(e.target.value)}
+          >
+            <option value="전체">전체</option>
+            <option value="초기">초기</option>
+            <option value="1차">1차</option>
+            <option value="2차">2차</option>
+            <option value="3차">3차</option>
+          </select>
+        </div>
+      </div>
+      
+      {/* 테이블 */}
       <div className="overflow-x-auto">
-        {calls.length === 0 ? (
-          <div className="text-center py-8 text-text-secondary">
-            오늘 예정된 콜이 없습니다.
-          </div>
-        ) : (
-          <table className="min-w-full divide-y divide-border">
-            <thead className="bg-light-bg">
+        <table className="w-full min-w-[650px]">
+          {/* 테이블 헤더 */}
+          <thead>
+            <tr className="bg-light-bg rounded-md">
+              <th className="px-4 py-2 text-left text-sm font-semibold text-text-secondary">환자명</th>
+              <th className="px-4 py-2 text-left text-sm font-semibold text-text-secondary">연락처</th>
+              <th className="px-4 py-2 text-left text-sm font-semibold text-text-secondary">나이</th>
+              <th className="px-4 py-2 text-left text-sm font-semibold text-text-secondary">지역</th>
+              <th className="px-4 py-2 text-left text-sm font-semibold text-text-secondary">상태</th>
+              <th className="px-4 py-2 text-left text-sm font-semibold text-text-secondary">시도</th>
+              <th className="px-4 py-2 text-center text-sm font-semibold text-text-secondary">상세보기</th>
+            </tr>
+          </thead>
+          
+          {/* 테이블 바디 */}
+          <tbody>
+            {isLoading ? (
               <tr>
-                <th className="px-4 py-3 text-left text-xs font-semibold text-text-secondary">시간</th>
-                <th className="px-4 py-3 text-left text-xs font-semibold text-text-secondary">환자명</th>
-                <th className="px-4 py-3 text-left text-xs font-semibold text-text-secondary">연락처</th>
-                <th className="px-4 py-3 text-left text-xs font-semibold text-text-secondary">상태</th>
-                <th className="px-4 py-3 text-left text-xs font-semibold text-text-secondary">관심 분야</th>
-                <th className="px-4 py-3 text-center text-xs font-semibold text-text-secondary">액션</th>
+                <td colSpan={7} className="px-4 py-6 text-center text-text-secondary">
+                  불러오는 중...
+                </td>
               </tr>
-            </thead>
-            <tbody className="bg-white divide-y divide-border">
-              {calls.map((call) => (
-                <tr key={call.id} className="hover:bg-gray-50">
-                  <td className="px-4 py-3 whitespace-nowrap text-sm text-text-primary font-medium">
-                    {formatTime(call.scheduledTime)}
-                  </td>
-                  <td className="px-4 py-3 whitespace-nowrap text-sm font-medium text-text-primary">
-                    {call.patientName}
-                  </td>
-                  <td className="px-4 py-3 whitespace-nowrap text-sm text-text-secondary">
-                    {call.phoneNumber}
-                  </td>
-                  <td className="px-4 py-3 whitespace-nowrap">
-                    <StatusBadge status={call.status} reminderStatus={call.reminderStatus} />
-                  </td>
-                  <td className="px-4 py-3 whitespace-nowrap text-sm text-text-secondary max-w-[150px] truncate">
-                    {call.interestedServices}
-                  </td>
-                  <td className="px-4 py-3 whitespace-nowrap text-center">
-                    <div className="flex items-center justify-center space-x-2">
-                      {/* 전화 버튼 */}
-                      <button 
-                        className="w-8 h-8 rounded-full bg-green-100 text-green-600 hover:bg-green-200 flex items-center justify-center"
-                        title="전화 걸기"
+            ) : paginatedCalls.length === 0 ? (
+              <tr>
+                <td colSpan={7} className="px-4 py-6 text-center text-text-secondary">
+                  오늘 예정된 콜이 없습니다.
+                </td>
+              </tr>
+            ) : (
+              paginatedCalls.map((call) => {
+                // 해당 환자 정보 조회
+                const patient = getPatientInfo(call.patientId)
+                
+                // 홍길동만 하이라이트 (디자인에서 본 것처럼)
+                const isHighlighted = call.patientName === '홍길동'
+                
+                return (
+                  <tr 
+                    key={call.id} 
+                    className={`
+                      border-b border-border last:border-0 hover:bg-light-bg/50 transition-colors duration-150
+                      ${isHighlighted ? 'bg-red-50/30' : ''}
+                    `}
+                  >
+                    <td className={`px-4 py-4 text-sm ${isHighlighted ? 'text-red-600 font-medium' : 'text-text-primary'}`}>
+                      {call.patientName}
+                    </td>
+                    <td className="px-4 py-4 text-sm text-text-secondary">
+                      {call.phoneNumber}
+                    </td>
+                    <td className="px-4 py-4 text-sm text-text-secondary">
+                      {patient?.age ? `${patient.age}세` : '-'}
+                    </td>
+                    <td className="px-4 py-4 text-sm text-text-secondary">
+                      {patient?.region ? (
+                        <span>
+                          {patient.region.province}
+                          {patient.region.city && ` ${patient.region.city}`}
+                        </span>
+                      ) : '-'}
+                    </td>
+                    <td className="px-4 py-4">
+                      <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-blue-100 text-blue-800">
+                        {call.status}
+                      </span>
+                    </td>
+                    <td className="px-4 py-4">
+                      {call.attemptCount === 0 ? (
+                        <span className="text-sm text-text-secondary">초기</span>
+                      ) : (
+                        <span className={`inline-flex items-center justify-center w-6 h-6 rounded-full text-xs font-medium ${getAttemptBadgeColor(call.attemptCount)}`}>
+                          {call.attemptCount}
+                        </span>
+                      )}
+                    </td>
+                    <td className="px-4 py-4 text-center">
+                      <button
+                        className="inline-flex items-center justify-center w-8 h-8 rounded-full bg-primary text-white hover:bg-primary/90 transition-colors duration-150"
+                        onClick={() => handleViewPatientDetails(call)}
+                        title="환자 상세보기"
                       >
-                        <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 5a2 2 0 012-2h3.28a1 1 0 01.948.684l1.498 4.493a1 1 0 01-.502 1.21l-2.257 1.13a11.042 11.042 0 005.516 5.516l1.13-2.257a1 1 0 011.21-.502l4.493 1.498a1 1 0 01.684.949V19a2 2 0 01-2 2h-1C9.716 21 3 14.284 3 6V5z" />
-                        </svg>
+                        <Icon 
+                          icon={HiOutlineEye} 
+                          size={16} 
+                        />
                       </button>
-                      
-                      {/* 문자 발송 버튼 */}
-                      <button 
-                        className="w-8 h-8 rounded-full bg-blue-100 text-blue-600 hover:bg-blue-200 flex items-center justify-center"
-                        title="문자 발송"
-                      >
-                        <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 10h.01M12 10h.01M16 10h.01M9 16H5a2 2 0 01-2-2V6a2 2 0 012-2h14a2 2 0 012 2v8a2 2 0 01-2 2h-5l-5 5v-5z" />
-                        </svg>
-                      </button>
-                      
-                      {/* 상세 정보 버튼 */}
-                      <button 
-                        className="w-8 h-8 rounded-full bg-gray-100 text-gray-600 hover:bg-gray-200 flex items-center justify-center"
-                        title="환자 상세 정보"
-                      >
-                        <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
-                        </svg>
-                      </button>
-                    </div>
-                  </td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
-        )}
+                    </td>
+                  </tr>
+                )
+              })
+            )}
+          </tbody>
+        </table>
       </div>
       
-      {calls.length > 0 && (
-        <div className="p-4 border-t border-border flex justify-between items-center">
+      {/* 페이지네이션 */}
+      <div className="flex items-center justify-between pt-4 mt-2">
+        <div className="text-sm text-text-secondary">
+          {filteredCalls.length}개 항목 중 {Math.min(startIndex + 1, filteredCalls.length)}-{Math.min(startIndex + itemsPerPage, filteredCalls.length)} 표시
+        </div>
+        
+        <div className="flex items-center gap-2 bg-light-bg px-4 py-1.5 rounded-full">
+          <button
+            className="p-1 text-text-secondary disabled:text-text-muted disabled:cursor-not-allowed"
+            onClick={() => setCurrentPage(currentPage - 1)}
+            disabled={currentPage === 1}
+          >
+            <Icon 
+              icon={HiOutlineChevronLeft} 
+              size={20} 
+              className="text-current" 
+            />
+          </button>
+          
+          {Array.from({ length: Math.min(totalPages, 5) }, (_, i) => (
+            <button
+              key={i + 1}
+              className={`w-6 h-6 flex items-center justify-center rounded-md text-sm ${
+                currentPage === i + 1 ? 'bg-primary text-white' : 'text-text-secondary hover:bg-gray-200'
+              }`}
+              onClick={() => setCurrentPage(i + 1)}
+            >
+              {i + 1}
+            </button>
+          ))}
+          
+          <button
+            className="p-1 text-text-secondary disabled:text-text-muted disabled:cursor-not-allowed"
+            onClick={() => setCurrentPage(currentPage + 1)}
+            disabled={currentPage === totalPages}
+          >
+            <Icon 
+              icon={HiOutlineChevronRight} 
+              size={20} 
+              className="text-current" 
+            />
+          </button>
+        </div>
+      </div>
+      
+      {/* 하단 링크 - 모든 콜 보기 */}
+      {filteredCalls.length > 0 && (
+        <div className="pt-4 mt-2 border-t border-border flex justify-between items-center">
           <span className="text-sm text-text-secondary">
-            총 {calls.length}개의 콜이 예정되어 있습니다.
+            총 {filteredCalls.length}개의 콜이 예정되어 있습니다.
           </span>
-          <a href="#" className="text-sm text-primary hover:text-primary-dark font-medium">
+          <Link 
+            href="/management" 
+            className="text-sm text-primary hover:text-primary-dark font-medium transition-colors"
+          >
             모든 콜 보기 →
-          </a>
+          </Link>
         </div>
       )}
     </div>
-  );
-};
-
-// 상태 뱃지 컴포넌트
-const StatusBadge: React.FC<{ status: string; reminderStatus: string }> = ({ status, reminderStatus }) => {
-  let bgColor = 'bg-gray-100';
-  let textColor = 'text-gray-800';
-  
-  if (status === '콜백필요') {
-    bgColor = 'bg-yellow-100';
-    textColor = 'text-yellow-800';
-  } else if (status === '미응답') {
-    bgColor = 'bg-red-100';
-    textColor = 'text-red-800';
-  }
-  
-  // 리마인더 상태에 따른 표시
-  let reminderBadge = null;
-  if (reminderStatus && reminderStatus !== '초기') {
-    const reminderColors = {
-      '1차': 'bg-orange-100 text-orange-800',
-      '2차': 'bg-orange-200 text-orange-900',
-      '3차': 'bg-red-100 text-red-800',
-      '4차': 'bg-red-200 text-red-900',
-      '5차': 'bg-red-300 text-red-900',
-    };
-    
-    const reminderColor = reminderColors[reminderStatus as keyof typeof reminderColors] || 'bg-gray-100 text-gray-800';
-    
-    reminderBadge = (
-      <span className={`ml-2 inline-flex items-center justify-center w-5 h-5 rounded-full text-xs font-medium ${reminderColor}`}>
-        {reminderStatus.charAt(0)}
-      </span>
-    );
-  }
-  
-  return (
-    <div className="flex items-center">
-      <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${bgColor} ${textColor}`}>
-        {status}
-      </span>
-      {reminderBadge}
-    </div>
-  );
-};
-
-export default TodaysCallsTable;
+  )
+}

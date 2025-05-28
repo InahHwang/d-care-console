@@ -17,10 +17,11 @@ import { fetchMessageLogs } from '@/store/slices/messageLogsSlice';
 // 🎯 추가: 목표 관련 imports
 import { calculateCurrentProgress } from '@/store/slices/goalsSlice';
 import GoalsInitializer from '@/components/common/GoalsInitializer';
+import PatientDetailModal from '@/components/management/PatientDetailModal';
 
 export default function Home() {
   const dispatch = useAppDispatch();
-  const { patients, isLoading } = useAppSelector((state) => state.patients);
+  const { patients, isLoading, selectedPatient } = useAppSelector((state) => state.patients);
   const messageLogs = useAppSelector((state) => state.messageLogs.logs);
   
   // 월간 성과 데이터
@@ -260,13 +261,19 @@ export default function Home() {
         }
         
         return {
-          id: patient.id,
+          id: `call-${patient.id}-${Date.now()}-${index}`, // 고유한 콜 ID 생성
+          patientId: patient.id, // 중요: 환자 ID 추가
           patientName: patient.name,
           phoneNumber: patient.phoneNumber,
           scheduledTime: scheduledTime,
-          status: patient.status,
-          reminderStatus: patient.reminderStatus || '초기',
-          interestedServices: patient.interestedServices?.join(', ') || '-'
+          status: '예정' as const, // Call 타입의 status에 맞게
+          attemptCount: patient.reminderStatus === '초기' ? 0 : 
+                      patient.reminderStatus === '1차' ? 1 :
+                      patient.reminderStatus === '2차' ? 2 :
+                      patient.reminderStatus === '3차' ? 3 : 0,
+          notes: patient.notes || '',
+          createdAt: patient.createdAt || new Date().toISOString(),
+          updatedAt: patient.updatedAt || new Date().toISOString()
         };
       });
     
@@ -282,7 +289,7 @@ export default function Home() {
         <GoalsInitializer />
         
         {/* 페이지 제목 */}
-        <div className="flex items-center justify-between mb-6">
+         <div className="flex items-center justify-between mb-6">
           <h1 className="text-2xl font-bold text-text-primary">대시보드</h1>
           <div className="text-sm text-text-secondary">
             {isLoading ? '데이터 로딩 중...' : `마지막 업데이트: ${new Date().toLocaleString()}`}
@@ -316,6 +323,10 @@ export default function Home() {
           </div>
         </div>
       </div>
+
+      {/* 🎯 추가: 환자 상세보기 모달 */}
+      {selectedPatient && <PatientDetailModal />}
+      
     </AppLayout>
     </AuthGuard>
   );
