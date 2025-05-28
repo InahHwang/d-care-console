@@ -219,7 +219,7 @@ export default function TemplateFormModal({
       } else {
         // 추가 모드 - 기본값 설정
         setTitle('');
-        setContent('안녕하세요, [환자명]님. [병원명]입니다.');
+        setContent('(광고)안녕하세요, [환자명]님. 다산바른치과입니다.');
         setCategory('discount');
         setMessageType('SMS');
         setImageUrl('');

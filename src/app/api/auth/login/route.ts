@@ -11,11 +11,11 @@ const JWT_SECRET = process.env.JWT_SECRET as string;
 // 테스트용 임시 사용자 (실제 운영시에는 제거)
 const TEST_USERS = [
   {
-    _id: 'test_admin_001',
-    email: 'admin@dental.com',
-    password: 'admin123',
-    name: '관리자',
-    role: 'admin'
+    _id: 'master_001',
+    email: 'dsbradmin',
+    password: 'dsbr0909',
+    name: '마스터관리자',
+    role: 'master'
   },
   {
     _id: 'test_counselor_001', 
@@ -28,12 +28,12 @@ const TEST_USERS = [
 
 export async function POST(request: NextRequest) {
   try {
-    const { email, password } = await request.json();
+    const { email, password } = await request.json(); // 변수명은 그대로 둬도 됨
     
-    // 입력 유효성 검사
+    // 입력 유효성 검사 - 이메일 체크 제거
     if (!email || !password) {
       return NextResponse.json(
-        { success: false, message: '이메일과 비밀번호를 모두 입력해주세요.' },
+        { success: false, message: '아이디와 비밀번호를 모두 입력해주세요.' }, // 메시지만 변경
         { status: 400 }
       );
     }

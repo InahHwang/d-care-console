@@ -40,10 +40,12 @@ export default function LoginPage() {
     const newErrors: {[key: string]: string} = {};
 
     if (!formData.email.trim()) {
-      newErrors.email = '이메일을 입력해주세요.';
-    } else if (!/\S+@\S+\.\S+/.test(formData.email)) {
-      newErrors.email = '올바른 이메일 형식을 입력해주세요.';
+      newErrors.email = '아이디를 입력해주세요.';
     }
+    // 이메일 형식 검증 제거 - 이 부분 삭제
+    // } else if (!/\S+@\S+\.\S+/.test(formData.email)) {
+    //   newErrors.email = '올바른 이메일 형식을 입력해주세요.';
+    // }
 
     if (!formData.password.trim()) {
       newErrors.password = '비밀번호를 입력해주세요.';
@@ -128,14 +130,14 @@ export default function LoginPage() {
           {/* 이메일 입력 */}
           <div>
             <label htmlFor="email" className="block text-sm font-medium text-gray-700 mb-2">
-              이메일
+              아이디
             </label>
             <div className="relative">
               <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
                 <FiUser className="h-5 w-5 text-gray-400" />
               </div>
               <input
-                type="email"
+                type="text"
                 id="email"
                 name="email"
                 value={formData.email}
@@ -145,8 +147,8 @@ export default function LoginPage() {
                     ? 'border-red-300 bg-red-50' 
                     : 'border-gray-300 bg-white hover:border-gray-400'
                 }`}
-                placeholder="이메일을 입력하세요"
-                autoComplete="email"
+                placeholder="아이디를 입력하세요"
+                autoComplete="username"
               />
             </div>
             {errors.email && (

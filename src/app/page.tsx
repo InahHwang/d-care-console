@@ -2,6 +2,7 @@
 
 'use client'
 
+import AuthGuard from '@/components/auth/AuthGuard';
 import React, { useEffect, useState, useMemo } from 'react';
 import AppLayout from '@/components/layout/AppLayout';
 import PerformanceCards from '@/components/dashboard/PerformanceCards';
@@ -274,6 +275,7 @@ export default function Home() {
   }, [patients, messageLogs, dispatch]); // 🎯 수정: dispatch 의존성 추가
 
   return (
+    <AuthGuard>
     <AppLayout currentPage="dashboard">
       <div>
         {/* 🎯 추가: GoalsInitializer 컴포넌트 */}
@@ -315,5 +317,6 @@ export default function Home() {
         </div>
       </div>
     </AppLayout>
+    </AuthGuard>
   );
 }
