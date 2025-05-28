@@ -1,4 +1,4 @@
-//src/store/slices/templateSlice.ts
+//src/store/slices/templatesSlice.ts
 
 import { createSlice, createAsyncThunk, PayloadAction } from '@reduxjs/toolkit'
 import { RootState } from '@/store'

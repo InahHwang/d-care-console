@@ -1,6 +1,19 @@
 // src/types/messageLog.ts
 
-import { EventCategory } from '@/store/slices/patientsSlice';
+// 동적 카테고리 관련 타입들
+export interface MessageCategory {
+  id: string;
+  name: string;
+  displayName: string;
+  color: string;
+  isDefault: boolean; // 기본 카테고리는 삭제 불가
+  isActive: boolean;
+  createdAt: string;
+  updatedAt: string;
+}
+
+// EventCategory를 동적으로 만들 수 있도록 string으로 변경
+export type EventCategory = string;
 
 // 메시지 상태 타입
 export type MessageStatus = 'success' | 'failed' | 'pending'; 
@@ -33,7 +46,7 @@ export interface MessageTemplate {
   id: string;
   title: string;
   content: string;
-  category: EventCategory;
+  category: EventCategory; // 이제 동적 카테고리 ID
   type: MessageType;
   imageUrl?: string; // MMS용 이미지 URL
   rcsOptions?: RcsOptions;
@@ -53,7 +66,7 @@ export interface MessageLog {
   status: MessageStatus;
   createdAt: string;
   templateName?: string;
-  category?: EventCategory;
+  category?: EventCategory; // 동적 카테고리 ID
   messageId?: string;
   errorMessage?: string;
   operator?: string;

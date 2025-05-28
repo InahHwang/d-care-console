@@ -1,5 +1,4 @@
 // src/utils/messageLogUtils.ts
-
 import { format, parseISO } from 'date-fns';
 import { ko } from 'date-fns/locale/ko';
 import { 
@@ -8,9 +7,10 @@ import {
   MessageType,
   RcsOptions
 } from '@/types/messageLog';
-import { Patient, EventCategory } from '@/store/slices/patientsSlice';
+import { Patient } from '@/store/slices/patientsSlice';
+import { EventCategory } from '@/types/messageLog'
 import { saveMessageLog } from '@/store/slices/messageLogsSlice';
-import {store} from '@/store'; // 스토어 임포트 추가
+import { store } from '@/store'; // 스토어 임포트 추가
 
 // 간단한 고유 ID 생성 함수 (uuid 대체)
 export const generateId = (): string => {
@@ -56,19 +56,86 @@ export const getMessageTypeText = (type: MessageType): string => {
   return typeMap[type] || type;
 };
 
-// 카테고리 텍스트 반환
+// 카테고리 텍스트 반환 - 동적으로 템플릿에서 가져오도록 수정
 export const getCategoryText = (category?: EventCategory): string => {
   if (!category) return '-';
   
-  const categoryMap: Record<EventCategory, string> = {
-      'discount': '할인 프로모션',
-      'new_treatment': '신규 치료법',
-      'checkup': '정기 검진',
-      'seasonal': '계절 이벤트',
-      '': ''
+  // Redux 스토어에서 템플릿 정보 가져오기
+  const state = store.getState();
+  const templates = state.templates?.templates || [];
+  
+  // 템플릿에서 해당 카테고리의 라벨 찾기
+  const template = templates.find(t => t.category === category);
+  if (template) {
+    // 템플릿에서 카테고리 라벨 추출 (실제 구현에 따라 조정 필요)
+    // 만약 템플릿에 categoryLabel 필드가 있다면 그것을 사용
+    // 없다면 기본 매핑 사용
+  }
+  
+  // 기본 카테고리 매핑 (하위 호환성 유지)
+  const categoryMap: Record<string, string> = {
+    'discount': '할인 프로모션',
+    'new_treatment': '신규 치료법',
+    'checkup': '정기 검진',
+    'seasonal': '계절 이벤트',
+    '': ''
   };
   
   return categoryMap[category] || category;
+};
+
+// 템플릿에서 카테고리 옵션 가져오기 (유틸리티 함수)
+export const getEventCategoryOptions = () => {
+  const state = store.getState();
+  const templates = state.templates?.templates || [];
+  
+  if (templates.length === 0) {
+    // 템플릿이 없는 경우 기본 카테고리 반환
+    return [
+      { value: 'discount', label: '할인 프로모션' },
+      { value: 'new_treatment', label: '신규 치료법 안내' },
+      { value: 'checkup', label: '정기 검진 리마인더' },
+      { value: 'seasonal', label: '계절 이벤트' },
+    ];
+  }
+  
+  // 템플릿에서 카테고리 추출 및 중복 제거
+  const uniqueCategories = new Set<string>();
+  const categoryOptions: { value: string; label: string }[] = [];
+  
+  templates.forEach(template => {
+    if (template.category && !uniqueCategories.has(template.category)) {
+      uniqueCategories.add(template.category);
+      
+      // 카테고리 라벨 매핑 (기존 하드코딩된 라벨과 호환성 유지)
+      const categoryLabelMap: Record<string, string> = {
+        'discount': '할인 프로모션',
+        'new_treatment': '신규 치료법 안내',
+        'checkup': '정기 검진 리마인더',
+        'seasonal': '계절 이벤트',
+      };
+      
+      categoryOptions.push({
+        value: template.category,
+        label: categoryLabelMap[template.category] || template.category
+      });
+    }
+  });
+  
+  // 정렬 (기본 카테고리 우선, 나머지는 알파벳순)
+  const defaultOrder = ['discount', 'new_treatment', 'checkup', 'seasonal'];
+  return categoryOptions.sort((a, b) => {
+    const aIndex = defaultOrder.indexOf(a.value);
+    const bIndex = defaultOrder.indexOf(b.value);
+    
+    if (aIndex !== -1 && bIndex !== -1) {
+      return aIndex - bIndex;
+    }
+    if (aIndex !== -1) return -1;
+    if (bIndex !== -1) return 1;
+    
+    return a.label.localeCompare(b.label);
+  });
 };
 
 // 새 메시지 로그 생성
@@ -124,7 +191,6 @@ export const createMessageLog = (
   // 디버깅용
   console.log('생성된 메시지 로그:', JSON.stringify(messageLog).substring(0, 200) + '...');
   
-  // localStorage에 중복 백업 저장하지 않고 Redux 스토어에만 저장
   // Redux 스토어에 직접 저장 (비동기 작업)
   store.dispatch(saveMessageLog(messageLog));
   

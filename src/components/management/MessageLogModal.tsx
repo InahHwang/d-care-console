@@ -4,6 +4,8 @@
 import { clearMessageLogs } from '@/store/slices/messageLogsSlice';
 import { useState, useEffect, useMemo } from 'react'
 import { useAppSelector, useAppDispatch } from '@/hooks/reduxHooks'
+import { fetchCategories } from '@/store/slices/categoriesSlice'
+import { getCategoryDisplayName } from '@/utils/categoryUtils' 
 import { 
   initializeLogs, 
   setFilters, 
@@ -18,7 +20,7 @@ import {
   MessageLogSort,
   SortDirection
 } from '@/types/messageLog'
-import { EventCategory } from '@/store/slices/patientsSlice'
+import { EventCategory } from '@/types/messageLog'
 import { 
   formatMessageDate, 
   getMessagePreview, 
@@ -62,6 +64,7 @@ export default function MessageLogModal({ isOpen, onClose, patientId, embedded =
   const allLogs = useAppSelector(selectFilteredLogs);
   const filters = useAppSelector(state => state.messageLogs.filters);
   const sortOptions = useAppSelector(state => state.messageLogs.sort);
+  const { categories } = useAppSelector(state => state.categories); 
   
   // 로컬 상태
   const [filterVisible, setFilterVisible] = useState(false);
@@ -210,6 +213,7 @@ export default function MessageLogModal({ isOpen, onClose, patientId, embedded =
   useEffect(() => {
     if (isOpen) {
       dispatch(initializeLogs());
+      dispatch(fetchCategories()); 
       
       // 특정 환자의 로그만 표시
       if (patientId) {
@@ -230,6 +234,11 @@ export default function MessageLogModal({ isOpen, onClose, patientId, embedded =
   }, [isOpen]);
   
   if (!isOpen && !embedded) return null;
+
+  // 카테고리 텍스트를 동적으로 가져오는 함수 수정
+  const getCategoryText = (categoryId: string) => {
+    return getCategoryDisplayName(categoryId, categories);
+  };
 
   // 내장 모드에 따라 스타일 변경
   const containerClassName = embedded 

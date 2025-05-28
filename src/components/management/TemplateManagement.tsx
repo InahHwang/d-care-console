@@ -2,7 +2,7 @@
 
 'use client'
 
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useMemo } from 'react'
 import { useAppSelector, useAppDispatch } from '@/hooks/reduxHooks'
 import { 
   fetchTemplates, 
@@ -10,8 +10,10 @@ import {
   updateTemplate, 
   deleteTemplate 
 } from '@/store/slices/templatesSlice'
+import { fetchCategories } from '@/store/slices/categoriesSlice' // 추가
 import { MessageTemplate, MessageType, RcsButton } from '@/types/messageLog'
-import { EventCategory } from '@/store/slices/patientsSlice'
+import { EventCategory } from '@/types/messageLog'
+import { getEventCategoryOptions, getCategoryDisplayName } from '@/utils/categoryUtils' // 추가
 import { 
   HiOutlineTemplate, 
   HiOutlinePencil, 
@@ -30,6 +32,7 @@ export default function TemplateManagement() {
   const dispatch = useAppDispatch();
   const templates = useAppSelector(state => state.templates.templates);
   const isLoading = useAppSelector(state => state.templates.isLoading);
+  const { categories } = useAppSelector(state => state.categories); // 추가
   
   const [isFormModalOpen, setIsFormModalOpen] = useState(false);
   const [isDeleteModalOpen, setIsDeleteModalOpen] = useState(false);
@@ -37,10 +40,21 @@ export default function TemplateManagement() {
   const [activeCategory, setActiveCategory] = useState<EventCategory | 'all'>('all');
   const [searchTerm, setSearchTerm] = useState('');
   
-  // 템플릿 불러오기
+  // 템플릿과 카테고리 불러오기
   useEffect(() => {
     dispatch(fetchTemplates());
+    dispatch(fetchCategories()); // 추가
   }, [dispatch]);
+  
+  // 템플릿과 카테고리에서 동적으로 카테고리 옵션 생성 - 수정된 부분
+  const eventCategoryOptions = useMemo(() => {
+    return getEventCategoryOptions(templates, categories);
+  }, [templates, categories]);
+  
+  // 카테고리 라벨 가져오기 - 수정된 부분
+  const getCategoryLabel = (categoryValue: string) => {
+    return getCategoryDisplayName(categoryValue, categories);
+  }
   
   // 템플릿 필터링
   const filteredTemplates = templates.filter((template: MessageTemplate) => {
@@ -123,9 +137,10 @@ export default function TemplateManagement() {
           </div>
         </div>
         
+        {/* 동적 카테고리 필터 버튼 - 수정된 부분 */}
         <div className="flex flex-wrap gap-2">
           <button
-            className={`px-3 py-1.5 rounded-md text-sm font-medium ${
+            className={`px-3 py-1.5 rounded-md text-sm font-medium transition-colors ${
               activeCategory === 'all'
                 ? 'bg-blue-100 text-blue-800'
                 : 'bg-gray-100 text-text-secondary hover:bg-gray-200'
@@ -134,46 +149,24 @@ export default function TemplateManagement() {
           >
             전체
           </button>
-          <button
-            className={`px-3 py-1.5 rounded-md text-sm font-medium ${
-              activeCategory === 'discount'
-                ? 'bg-blue-100 text-blue-800'
-                : 'bg-gray-100 text-text-secondary hover:bg-gray-200'
-            }`}
-            onClick={() => setActiveCategory('discount')}
-          >
-            할인/프로모션
-          </button>
-          <button
-            className={`px-3 py-1.5 rounded-md text-sm font-medium ${
-              activeCategory === 'new_treatment'
-                ? 'bg-blue-100 text-blue-800'
-                : 'bg-gray-100 text-text-secondary hover:bg-gray-200'
-            }`}
-            onClick={() => setActiveCategory('new_treatment')}
-          >
-            신규 치료
-          </button>
-          <button
-            className={`px-3 py-1.5 rounded-md text-sm font-medium ${
-              activeCategory === 'checkup'
-                ? 'bg-blue-100 text-blue-800'
-                : 'bg-gray-100 text-text-secondary hover:bg-gray-200'
-            }`}
-            onClick={() => setActiveCategory('checkup')}
-          >
-            정기 검진
-          </button>
-          <button
-            className={`px-3 py-1.5 rounded-md text-sm font-medium ${
-              activeCategory === 'seasonal'
-                ? 'bg-blue-100 text-blue-800'
-                : 'bg-gray-100 text-text-secondary hover:bg-gray-200'
-            }`}
-            onClick={() => setActiveCategory('seasonal')}
-          >
-            계절 이벤트
-          </button>
+          {eventCategoryOptions.map(category => (
+            <button
+              key={category.value}
+              className={`px-3 py-1.5 rounded-md text-sm font-medium transition-colors ${
+                activeCategory === category.value
+                  ? 'bg-blue-100 text-blue-800'
+                  : 'bg-gray-100 text-text-secondary hover:bg-gray-200'
+              }`}
+              onClick={() => setActiveCategory(category.value as EventCategory)}
+            >
+              {category.label}
+            </button>
+          ))}
+          {eventCategoryOptions.length === 0 && (
+            <div className="text-sm text-text-secondary px-3 py-1.5">
+              템플릿을 추가하면 카테고리가 표시됩니다
+            </div>
+          )}
         </div>
       </div>
       
@@ -239,12 +232,11 @@ export default function TemplateManagement() {
                     <span className="px-2 py-0.5 bg-gray-100 text-text-secondary text-xs rounded">
                       {template.type}
                     </span>
-                    <span className="px-2 py-0.5 bg-blue-100 text-blue-800 text-xs rounded">
-                      {template.category === 'discount' && '할인/프로모션'}
-                      {template.category === 'new_treatment' && '신규 치료'}
-                      {template.category === 'checkup' && '정기 검진'}
-                      {template.category === 'seasonal' && '계절 이벤트'}
-                    </span>
+                    {template.category && (
+                      <span className="px-2 py-0.5 bg-blue-100 text-blue-800 text-xs rounded">
+                        {getCategoryLabel(template.category)}
+                      </span>
+                    )}
                   </div>
                   
                   {/* 이미지 표시 (MMS 또는 RCS인 경우) */}
@@ -280,16 +272,16 @@ export default function TemplateManagement() {
                   {/* RCS 버튼 (있는 경우) */}
                   {template.type === 'RCS' && template.rcsOptions?.buttons && template.rcsOptions.buttons.length > 0 && (
                     <div className="mt-3 pt-3 border-t border-border">
-                        <p className="text-xs text-text-muted mb-2">버튼</p>
-                        <div className="flex flex-wrap gap-2">
+                      <p className="text-xs text-text-muted mb-2">버튼</p>
+                      <div className="flex flex-wrap gap-2">
                         {template.rcsOptions.buttons.map((btn: RcsButton, idx: number) => (
-                            <span key={idx} className="px-2 py-1 bg-gray-100 text-text-primary text-sm rounded-md">
+                          <span key={idx} className="px-2 py-1 bg-gray-100 text-text-primary text-sm rounded-md">
                             {btn.buttonName}
-                            </span>
+                          </span>
                         ))}
-                        </div>
+                      </div>
                     </div>
-                    )}
+                  )}
                 </div>
                 
                 {/* 템플릿 푸터 */}

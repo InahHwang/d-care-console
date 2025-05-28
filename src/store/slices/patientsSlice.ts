@@ -1,6 +1,7 @@
 //src/store/slices/patientsSlice.ts
 
 import { createSlice, createAsyncThunk, PayloadAction } from '@reduxjs/toolkit';
+import { EventCategory } from '@/types/messageLog';
 
 // 이벤트 타겟 사유 타입
 export type EventTargetReason = 
@@ -9,14 +10,6 @@ export type EventTargetReason =
   | 'scheduling_issue'    // 시간 조율 필요
   | 'competitor_comparison' // 경쟁업체 비교 중
   | 'other'              // 기타 (직접 입력)
-  | '';
-
-// 이벤트 카테고리 타입
-export type EventCategory = 
-  | 'discount'         // 할인 프로모션
-  | 'new_treatment'    // 신규 치료법 안내
-  | 'checkup'          // 정기 검진 리마인더
-  | 'seasonal'         // 계절 이벤트
   | '';
 
 // 이벤트 타겟 정보 타입

@@ -3,16 +3,20 @@
 'use client'
 
 import { useState, useEffect } from 'react'
-import { useAppDispatch } from '@/hooks/reduxHooks'
+import { useAppDispatch, useAppSelector } from '@/hooks/reduxHooks'
 import { 
   Patient, 
   updateEventTargetInfo, 
   EventTargetInfo,
   EventTargetReason,
-  EventCategory,
   selectPatient,
-  initializeEventTargets  // 추가
+  initializeEventTargets
 } from '@/store/slices/patientsSlice'
+import { EventCategory } from '@/types/messageLog'
+import { fetchTemplates } from '@/store/slices/templatesSlice'
+import { fetchCategories } from '@/store/slices/categoriesSlice' 
+import { RootState } from '@/store'
+import { getEventCategoryOptions, getCategoryDisplayName } from '@/utils/categoryUtils'
 import { 
   HiOutlineVolumeUp, 
   HiOutlineCheck, 
@@ -37,20 +41,16 @@ const targetReasonOptions = [
   { value: 'other', label: '기타 (직접 입력)' },
 ]
 
-// 이벤트 카테고리 옵션
-const eventCategoryOptions = [
-  { value: 'discount', label: '할인 프로모션' },
-  { value: 'new_treatment', label: '신규 치료법 안내' },
-  { value: 'checkup', label: '정기 검진 리마인더' },
-  { value: 'seasonal', label: '계절 이벤트' },
-]
-
 interface EventTargetSectionProps {
   patient: Patient
 }
 
 export default function EventTargetSection({ patient }: EventTargetSectionProps) {
   const dispatch = useAppDispatch()
+  
+  // 템플릿과 카테고리 스토어에서 데이터 가져오기
+  const { templates } = useAppSelector((state: RootState) => state.templates)
+  const { categories } = useAppSelector((state: RootState) => state.categories) 
   
   // 초기 이벤트 타겟 상태 설정
   const [isEventTarget, setIsEventTarget] = useState(
@@ -81,6 +81,15 @@ export default function EventTargetSection({ patient }: EventTargetSectionProps)
   
   // 삭제 확인 모달
   const [isDeleteModalOpen, setIsDeleteModalOpen] = useState(false)
+  
+  // 컴포넌트 마운트 시 템플릿과 카테고리 불러오기
+  useEffect(() => {
+    dispatch(fetchTemplates())
+    dispatch(fetchCategories()) 
+  }, [dispatch])
+  
+  // 템플릿과 카테고리에서 고유한 카테고리 목록 추출 - 수정된 부분
+  const eventCategoryOptions = getEventCategoryOptions(templates, categories)
   
   // 환자 데이터가 변경되면 상태 업데이트
   useEffect(() => {
@@ -118,6 +127,11 @@ export default function EventTargetSection({ patient }: EventTargetSectionProps)
     return option?.label || '선택되지 않음';
   }
   
+  // 카테고리 라벨 가져오기 - 수정된 부분
+  const getCategoryLabel = (categoryValue: string) => {
+    return getCategoryDisplayName(categoryValue, categories)
+  }
+  
   // 이벤트 타겟 토글 처리
   const handleToggleEventTarget = async () => {
     // 종결 처리된 환자는 이벤트 타겟 설정 불가
@@ -147,7 +161,7 @@ export default function EventTargetSection({ patient }: EventTargetSectionProps)
         }
       })).unwrap()
       
-      // 환자 정보 최신화 - unwrap() 제거
+      // 환자 정보 최신화
       dispatch(selectPatient(patient.id))
       
       // 이벤트 타겟 리스트 새로고침 추가
@@ -177,7 +191,7 @@ export default function EventTargetSection({ patient }: EventTargetSectionProps)
     })
   }
   
-  // 이벤트 타겟 정보 저장 처리 - 주요 수정 부분
+  // 이벤트 타겟 정보 저장 처리
   const handleSaveEventTarget = async () => {
     // 종결 처리된 환자의 정보 업데이트 시 확인
     if (patient.isCompleted) {
@@ -227,19 +241,11 @@ export default function EventTargetSection({ patient }: EventTargetSectionProps)
         eventTargetInfo
       })).unwrap()
       
-      // 환자 정보 최신화 - unwrap() 제거
+      // 환자 정보 최신화
       dispatch(selectPatient(patient.id))
       
-      // 이벤트 타겟 리스트 강제 새로고침 - 핵심 추가!
+      // 이벤트 타겟 리스트 강제 새로고침
       await dispatch(initializeEventTargets()).unwrap()
-      
-      // 디버깅을 위한 로그 추가
-      console.log('이벤트 타겟 저장 완료:', {
-        patientId: patient.id,
-        patientName: patient.name,
-        isEventTarget: true,
-        eventTargetInfo
-      })
       
       // 성공 메시지 표시
       setShowSuccessMessage(true)
@@ -248,7 +254,7 @@ export default function EventTargetSection({ patient }: EventTargetSectionProps)
       // 편집 모드 종료
       setIsEditing(false)
       
-      // 성공 알림에 추가 정보 포함
+      // 성공 알림
       alert(`${patient.name} 환자가 이벤트 타겟으로 설정되었습니다.`)
       
     } catch (error) {
@@ -259,7 +265,7 @@ export default function EventTargetSection({ patient }: EventTargetSectionProps)
     }
   }
   
-  // 삭제 처리 - 수정
+  // 삭제 처리
   const handleDeleteEventTarget = async () => {
     try {
       setIsLoading(true)
@@ -278,7 +284,7 @@ export default function EventTargetSection({ patient }: EventTargetSectionProps)
         }
       })).unwrap()
       
-      // 환자 정보 최신화 - unwrap() 제거
+      // 환자 정보 최신화
       dispatch(selectPatient(patient.id))
       
       // 이벤트 타겟 리스트 새로고침 추가
@@ -453,6 +459,11 @@ export default function EventTargetSection({ patient }: EventTargetSectionProps)
                 </button>
               ))}
             </div>
+            {eventCategoryOptions.length === 0 && (
+              <p className="text-sm text-text-secondary mt-2">
+                아직 카테고리가 설정되지 않았습니다. 설정 메뉴에서 카테고리를 먼저 생성하거나 메시지 템플릿을 추가해주세요.
+              </p>
+            )}
           </div>
           
           <div>
@@ -516,17 +527,14 @@ export default function EventTargetSection({ patient }: EventTargetSectionProps)
               <p className="text-sm text-blue-700 font-medium">이벤트 카테고리</p>
               <div className="flex flex-wrap gap-1 mt-1">
                 {selectedCategories.length > 0 ? (
-                  selectedCategories.map((category, idx) => {
-                    const option = eventCategoryOptions.find(opt => opt.value === category);
-                    return (
-                      <span 
-                        key={idx}
-                        className="inline-block px-2 py-1 rounded-full text-xs bg-blue-50 text-blue-700"
-                      >
-                        {option?.label || category}
-                      </span>
-                    );
-                  })
+                  selectedCategories.map((category, idx) => (
+                    <span 
+                      key={idx}
+                      className="inline-block px-2 py-1 rounded-full text-xs bg-blue-50 text-blue-700"
+                    >
+                      {getCategoryLabel(category)}
+                    </span>
+                  ))
                 ) : (
                   <span className="text-text-secondary">선택된 카테고리 없음</span>
                 )}
@@ -592,8 +600,7 @@ export default function EventTargetSection({ patient }: EventTargetSectionProps)
                     <div className="text-text-secondary">카테고리:</div>
                     <div>
                       {selectedCategories.map((cat, idx) => {
-                        const option = eventCategoryOptions.find(opt => opt.value === cat);
-                        return idx === 0 ? option?.label || cat : `, ${option?.label || cat}`;
+                        return idx === 0 ? getCategoryLabel(cat) : `, ${getCategoryLabel(cat)}`;
                       }).join('')}
                     </div>
                   </div>

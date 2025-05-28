@@ -7,11 +7,14 @@ import { RootState } from '@/store'
 import { 
   Patient,
   EventTargetReason,
-  EventCategory,
   selectPatient,
   initializeEventTargets,
-  fetchPatients  // 추가
+  fetchPatients
 } from '@/store/slices/patientsSlice'
+import { EventCategory } from '@/types/messageLog'
+import { fetchTemplates } from '@/store/slices/templatesSlice'
+import { fetchCategories } from '@/store/slices/categoriesSlice' // 추가
+import { getEventCategoryOptions, getCategoryDisplayName } from '@/utils/categoryUtils' // 추가
 import { 
   HiOutlineSearch, 
   HiOutlineTag, 
@@ -25,7 +28,7 @@ import {
   HiOutlineAdjustments,
   HiOutlinePaperAirplane,
   HiOutlineExclamation,
-  HiOutlineRefresh  // 추가
+  HiOutlineRefresh
 } from 'react-icons/hi'
 import { Icon } from '../common/Icon'
 import { formatDistance } from 'date-fns'
@@ -42,17 +45,11 @@ const targetReasonOptions = [
   { value: 'other', label: '기타' },
 ]
 
-// 이벤트 카테고리 옵션
-const eventCategoryOptions = [
-  { value: 'discount', label: '할인 프로모션' },
-  { value: 'new_treatment', label: '신규 치료법 안내' },
-  { value: 'checkup', label: '정기 검진 리마인더' },
-  { value: 'seasonal', label: '계절 이벤트' },
-]
-
 export default function EventTargetList() {
   const dispatch = useAppDispatch()
   const { patients, selectedPatient, isLoading, eventTargetPatients } = useAppSelector((state: RootState) => state.patients)
+  const { templates, isLoading: templatesLoading } = useAppSelector((state: RootState) => state.templates)
+  const { categories } = useAppSelector((state: RootState) => state.categories) // 추가
   
   // 검색 및 필터 상태
   const [searchTerm, setSearchTerm] = useState('')
@@ -72,10 +69,15 @@ export default function EventTargetList() {
   // 메시지 발송 모달 상태
   const [messageSendModalOpen, setMessageSendModalOpen] = useState(false)
 
-  // 새로고침 상태 추가
+  // 새로고침 상태
   const [refreshing, setRefreshing] = useState(false)
 
-  // 컴포넌트 마운트 시 이벤트 타겟 초기화
+  // 템플릿과 카테고리에서 고유한 카테고리 목록 추출 - 수정된 부분
+  const eventCategoryOptions = useMemo(() => {
+    return getEventCategoryOptions(templates, categories)
+  }, [templates, categories])
+
+  // 컴포넌트 마운트 시 데이터 로드 - 수정된 부분
   useEffect(() => {
     console.log('EventTargetList 컴포넌트 마운트됨')
     
@@ -84,9 +86,11 @@ export default function EventTargetList() {
       try {
         setRefreshing(true)
         
-        // 환자 데이터와 이벤트 타겟 데이터를 순차적으로 로드
+        // 환자 데이터, 이벤트 타겟 데이터, 템플릿 데이터, 카테고리 데이터를 순차적으로 로드
         await dispatch(fetchPatients()).unwrap()
         await dispatch(initializeEventTargets()).unwrap()
+        await dispatch(fetchTemplates()).unwrap()
+        await dispatch(fetchCategories()).unwrap() // 추가
         
         console.log('초기 데이터 로드 완료')
       } catch (error) {
@@ -112,7 +116,7 @@ export default function EventTargetList() {
     })
   }, [eventTargetPatients, patients])
 
-  // 수동 새로고침 함수
+  // 수동 새로고침 함수 - 수정된 부분
   const handleRefresh = async () => {
     try {
       setRefreshing(true)
@@ -121,6 +125,8 @@ export default function EventTargetList() {
       // 순차적으로 데이터 새로고침
       await dispatch(fetchPatients()).unwrap()
       await dispatch(initializeEventTargets()).unwrap()
+      await dispatch(fetchTemplates()).unwrap()
+      await dispatch(fetchCategories()).unwrap() // 추가
       
       console.log('수동 새로고침 완료')
     } catch (error) {
@@ -266,6 +272,11 @@ export default function EventTargetList() {
     return option ? option.label : '-'
   }
   
+  // 카테고리 라벨 가져오기 - 수정된 부분
+  const getCategoryLabel = (categoryValue: string) => {
+    return getCategoryDisplayName(categoryValue, categories)
+  }
+  
   // 경과 시간 계산
   const getTimeAgo = (date: string) => {
     if (!date) return '-'
@@ -354,7 +365,7 @@ export default function EventTargetList() {
         <h1 className="text-2xl font-bold text-text-primary">이벤트 타겟 관리</h1>
         
         <div className="flex items-center gap-3">
-          {/* 새로고침 버튼 추가 */}
+          {/* 새로고침 버튼 */}
           <button
             className={`px-4 py-2 rounded-full text-sm font-medium transition-colors flex items-center gap-2 ${
               refreshing 
@@ -388,7 +399,7 @@ export default function EventTargetList() {
         </div>
       </div>
       
-      {/* 상태 표시 영역 추가 */}
+      {/* 상태 표시 영역 */}
       {eventTargetPatients && (
         <div className="card mb-4 bg-blue-50 border-blue-200">
           <div className="flex items-center justify-between">
@@ -477,7 +488,7 @@ export default function EventTargetList() {
                 </div>
               </div>
               
-              {/* 이벤트 카테고리 필터 */}
+              {/* 이벤트 카테고리 필터 - 동적으로 변경 */}
               <div>
                 <h3 className="text-sm font-medium text-text-primary mb-2">카테고리 필터</h3>
                 <div className="flex flex-wrap gap-2">
@@ -498,6 +509,11 @@ export default function EventTargetList() {
                     </button>
                   ))}
                 </div>
+                {eventCategoryOptions.length === 0 && (
+                  <p className="text-sm text-text-secondary mt-2">
+                    아직 카테고리가 설정되지 않았습니다. 설정 메뉴에서 카테고리를 먼저 생성하거나 메시지 템플릿을 추가해주세요.
+                  </p>
+                )}
               </div>
             </div>
             
@@ -671,17 +687,14 @@ export default function EventTargetList() {
                       </td>
                       <td className="px-4 py-4">
                         <div className="flex flex-wrap gap-1">
-                          {patient.eventTargetInfo?.categories?.map((category, idx) => {
-                            const option = eventCategoryOptions.find(opt => opt.value === category)
-                            return (
-                              <span 
-                                key={idx}
-                                className="inline-block px-2 py-1 rounded-full text-xs bg-blue-100 text-blue-800"
-                              >
-                                {option?.label || category}
-                              </span>
-                            )
-                          })}
+                          {patient.eventTargetInfo?.categories?.map((category, idx) => (
+                            <span 
+                              key={idx}
+                              className="inline-block px-2 py-1 rounded-full text-xs bg-blue-100 text-blue-800"
+                            >
+                              {getCategoryLabel(category)}
+                            </span>
+                          ))}
                         </div>
                       </td>
                       <td className="px-4 py-4 text-sm text-text-secondary">

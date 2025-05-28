@@ -16,7 +16,8 @@ import {
   MessageStatus, 
   MessageType 
 } from '@/types/messageLog'
-import { Patient, EventCategory } from '@/store/slices/patientsSlice'
+import { Patient } from '@/store/slices/patientsSlice'
+import { EventCategory } from '@/types/messageLog'
 import { 
   formatMessageDate, 
   getMessagePreview, 

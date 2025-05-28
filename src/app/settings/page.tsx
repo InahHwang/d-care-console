@@ -1,13 +1,20 @@
+//src/app/settings/page.tsx
+
 'use client'
 
 import { useState } from 'react'
 import AppLayout from '@/components/layout/AppLayout'
 import TemplateSettings from '@/components/settings/TemplateSettings'
 import GoalSettings from '@/components/settings/GoalSettings'
-import { HiOutlineTemplate, HiOutlineUserCircle, HiOutlineOfficeBuilding, HiOutlineTag } from 'react-icons/hi'
+import { 
+  HiOutlineTemplate, 
+  HiOutlineUserCircle, 
+  HiOutlineOfficeBuilding, 
+  HiOutlineTag
+} from 'react-icons/hi'
 import { Icon } from '@/components/common/Icon'
 
-type SettingsTab = 'account' | 'clinic' | 'templates' | 'goals'
+type SettingsTab = 'account' | 'clinic' | 'goals' | 'templates'
 
 export default function SettingsPage() {
   const [activeTab, setActiveTab] = useState<SettingsTab>('goals')

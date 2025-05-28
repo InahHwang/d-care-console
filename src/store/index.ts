@@ -6,8 +6,12 @@ import campaignsReducer from './slices/campaignsSlice';
 import messageLogsReducer from './slices/messageLogsSlice';
 import patientsReducer from './slices/patientsSlice';
 import templatesReducer from './slices/templatesSlice';
+import categoriesReducer from './slices/categoriesSlice'
 import uiReducer from './slices/uiSlice';
 import goalsReducer from './slices/goalsSlice';
+import categoriesSlice from './slices/categoriesSlice' 
+import authSlice from './slices/authSlice'
+import templatesSlice from './slices/templatesSlice'
 
 export const store = configureStore({
   reducer: {
@@ -17,6 +21,7 @@ export const store = configureStore({
     messageLogs: messageLogsReducer,
     patients: patientsReducer,
     templates: templatesReducer,
+    categories: categoriesSlice, 
     ui: uiReducer,
     goals: goalsReducer,
   },

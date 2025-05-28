@@ -1,4 +1,5 @@
 // src/components/management/MessageSendModal.tsx
+
 'use client'
 
 import { useState, useEffect } from 'react'
@@ -12,9 +13,12 @@ import {
   HiOutlinePhotograph
 } from 'react-icons/hi'
 import { Icon } from '../common/Icon'
-import { Patient, EventCategory } from '@/store/slices/patientsSlice'
+import { Patient } from '@/store/slices/patientsSlice'
+import { EventCategory } from '@/types/messageLog'
 import { MessageType, MessageTemplate } from '@/types/messageLog';
 import { useAppDispatch, useAppSelector } from '@/hooks/reduxHooks';
+import { fetchCategories } from '@/store/slices/categoriesSlice';
+import { getEventCategoryOptions, getCategoryDisplayName } from '@/utils/categoryUtils';
 import { 
   saveMessageLog, 
   saveMessageLogs, 
@@ -55,19 +59,24 @@ export default function MessageSendModal({
 
   const dispatch = useAppDispatch();
   
-  // 템플릿 스토어에서 템플릿 가져오기
+  // 템플릿과 카테고리 스토어에서 데이터 가져오기
   const { templates, isLoading: templatesLoading } = useAppSelector(
     (state: RootState) => state.templates
   );
+  const { categories } = useAppSelector((state: RootState) => state.categories); 
 
-  // 컴포넌트 마운트시 템플릿 불러오기
+  // 컴포넌트 마운트시 템플릿과 카테고리 불러오기
   useEffect(() => {
     if (isOpen) {
       dispatch(fetchTemplates());
+      dispatch(fetchCategories()); 
     }
   }, [dispatch, isOpen]);
 
-  // 선택된 카테고리와 환자 카테고리에 맞는 템플릿 필터링
+  // 템플릿과 카테고리에서 카테고리 옵션 가져오기 - 수정된 부분
+  const eventCategoryOptions = getEventCategoryOptions(templates, categories);
+
+  // 선택된 카테고리와 환자 카테고리에 맞는 템플릿 필터링 - 수정된 부분
   const getFilteredTemplates = () => {
     // 먼저 카테고리 필터 적용
     let filteredByCategory = templates;
@@ -371,6 +380,7 @@ export default function MessageSendModal({
       setIsSendComplete(false);
       setActiveCategory('all'); // 카테고리 필터 초기화
       dispatch(fetchTemplates()); // 템플릿 데이터 불러오기
+      dispatch(fetchCategories()); // 카테고리 데이터 불러오기
     }
   }, [isOpen, dispatch]);
   
@@ -430,7 +440,7 @@ export default function MessageSendModal({
             <div>
               <h4 className="text-md font-medium text-text-primary mb-3">메시지 템플릿 선택</h4>
               
-              {/* 카테고리 필터 추가 */}
+              {/* 카테고리 필터 - 동적으로 변경 */}
               <div className="mb-4 flex flex-wrap gap-2 border-b border-gray-100 pb-3">
                 <button
                   className={`px-3 py-1.5 rounded-md text-xs font-medium transition-colors ${
@@ -442,46 +452,20 @@ export default function MessageSendModal({
                 >
                   전체
                 </button>
-                <button
-                  className={`px-3 py-1.5 rounded-md text-xs font-medium transition-colors ${
-                    activeCategory === 'discount'
-                      ? 'bg-blue-100 text-blue-800'
-                      : 'bg-gray-100 text-text-secondary hover:bg-gray-200'
-                  }`}
-                  onClick={() => setActiveCategory('discount')}
-                >
-                  할인/프로모션
-                </button>
-                <button
-                  className={`px-3 py-1.5 rounded-md text-xs font-medium transition-colors ${
-                    activeCategory === 'new_treatment'
-                      ? 'bg-blue-100 text-blue-800'
-                      : 'bg-gray-100 text-text-secondary hover:bg-gray-200'
-                  }`}
-                  onClick={() => setActiveCategory('new_treatment')}
-                >
-                  신규 치료
-                </button>
-                <button
-                  className={`px-3 py-1.5 rounded-md text-xs font-medium transition-colors ${
-                    activeCategory === 'checkup'
-                      ? 'bg-blue-100 text-blue-800'
-                      : 'bg-gray-100 text-text-secondary hover:bg-gray-200'
-                  }`}
-                  onClick={() => setActiveCategory('checkup')}
-                >
-                  정기 검진
-                </button>
-                <button
-                  className={`px-3 py-1.5 rounded-md text-xs font-medium transition-colors ${
-                    activeCategory === 'seasonal'
-                      ? 'bg-blue-100 text-blue-800'
-                      : 'bg-gray-100 text-text-secondary hover:bg-gray-200'
-                  }`}
-                  onClick={() => setActiveCategory('seasonal')}
-                >
-                  계절 이벤트
-                </button>
+                
+                {eventCategoryOptions.map(category => (
+                  <button
+                    key={category.value}
+                    className={`px-3 py-1.5 rounded-md text-xs font-medium transition-colors ${
+                      activeCategory === category.value
+                        ? 'bg-blue-100 text-blue-800'
+                        : 'bg-gray-100 text-text-secondary hover:bg-gray-200'
+                    }`}
+                    onClick={() => setActiveCategory(category.value as EventCategory)}
+                  >
+                    {category.label}
+                  </button>
+                ))}
               </div>
               
               {templatesLoading ? (
@@ -521,10 +505,7 @@ export default function MessageSendModal({
                             {template.type}
                           </span>
                           <span className="text-xs bg-blue-100 text-blue-800 px-1.5 py-0.5 rounded">
-                            {template.category === 'discount' && '할인/프로모션'}
-                            {template.category === 'new_treatment' && '신규 치료'}
-                            {template.category === 'checkup' && '정기 검진'}
-                            {template.category === 'seasonal' && '계절 이벤트'}
+                            {getCategoryDisplayName(template.category, categories)}
                           </span>
                         </div>
                         <p className="text-sm text-text-secondary line-clamp-2 mt-1">
@@ -566,10 +547,7 @@ export default function MessageSendModal({
                     {selectedTemplate.type}
                   </span>
                   <span className="inline-block px-2 py-1 rounded-full text-xs bg-blue-100 text-blue-800">
-                    {selectedTemplate.category === 'discount' && '할인 프로모션'}
-                    {selectedTemplate.category === 'new_treatment' && '신규 치료법'}
-                    {selectedTemplate.category === 'checkup' && '정기 검진'}
-                    {selectedTemplate.category === 'seasonal' && '계절 이벤트'}
+                    {getCategoryDisplayName(selectedTemplate.category, categories)}
                   </span>
                   <button 
                     className="text-blue-600 hover:text-blue-800 underline text-xs"

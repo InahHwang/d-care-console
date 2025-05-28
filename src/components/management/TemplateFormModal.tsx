@@ -3,6 +3,8 @@
 'use client'
 
 import { useState, useEffect } from 'react'
+import { useAppSelector, useAppDispatch } from '@/hooks/reduxHooks'
+import { fetchCategories } from '@/store/slices/categoriesSlice'
 import { 
   HiOutlineX, 
   HiOutlineSave,
@@ -11,8 +13,7 @@ import {
   HiOutlinePlus
 } from 'react-icons/hi'
 import { Icon } from '../common/Icon'
-import { MessageTemplate, MessageType } from '@/types/messageLog'
-import { EventCategory } from '@/store/slices/patientsSlice'
+import { MessageTemplate, MessageType, EventCategory } from '@/types/messageLog'
 import { v4 as uuidv4 } from 'uuid'
 
 interface TemplateFormModalProps {
@@ -28,6 +29,9 @@ export default function TemplateFormModal({
   onSave,
   template
 }: TemplateFormModalProps) {
+  const dispatch = useAppDispatch();
+  const categories = useAppSelector(state => state.categories.categories);
+  
   // 폼 상태
   const [title, setTitle] = useState('');
   const [content, setContent] = useState('');
@@ -62,6 +66,24 @@ export default function TemplateFormModal({
     price: '',
     currencyUnit: '원'
   });
+  
+  // 카테고리 불러오기
+  useEffect(() => {
+    if (isOpen) {
+      dispatch(fetchCategories());
+    }
+  }, [isOpen, dispatch]);
+  
+  // 카테고리 관련 헬퍼 함수들
+  const getCategoryDisplayName = (categoryId: string) => {
+    const categoryObj = categories.find(c => c.id === categoryId);
+    return categoryObj?.displayName || categoryId;
+  };
+  
+  const getCategoryColor = (categoryId: string) => {
+    const categoryObj = categories.find(c => c.id === categoryId);
+    return categoryObj?.color || 'bg-gray-100 text-gray-800';
+  };
   
   // 이미지 업로드 처리 (개선된 버전)
   const handleImageChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -220,7 +242,9 @@ export default function TemplateFormModal({
         // 추가 모드 - 기본값 설정
         setTitle('');
         setContent('(광고)안녕하세요, [환자명]님. 다산바른치과입니다.');
-        setCategory('discount');
+        // 첫 번째 활성 카테고리를 기본값으로 설정
+        const activeCategories = categories.filter(c => c.isActive);
+        setCategory(activeCategories.length > 0 ? activeCategories[0].id : 'discount');
         setMessageType('SMS');
         setImageUrl('');
         setPreviewImage(null);
@@ -242,7 +266,7 @@ export default function TemplateFormModal({
       setUploadError(null);
       setImageInfo(null);
     }
-  }, [isOpen, template]);
+  }, [isOpen, template, categories]);
   
   // 폼 제출 처리 (간소화됨 - 이미지는 이미 업로드됨)
   const handleSubmit = async () => {
@@ -337,11 +361,21 @@ export default function TemplateFormModal({
                   onChange={(e) => setCategory(e.target.value as EventCategory)}
                   className="w-full p-2 border border-border rounded-md"
                 >
-                  <option value="discount">할인/프로모션</option>
-                  <option value="new_treatment">신규 치료</option>
-                  <option value="checkup">정기 검진</option>
-                  <option value="seasonal">계절 이벤트</option>
+                  {categories.filter(c => c.isActive).map((cat) => (
+                    <option key={cat.id} value={cat.id}>
+                      {cat.displayName}
+                    </option>
+                  ))}
                 </select>
+                
+                {/* 선택된 카테고리 미리보기 */}
+                {category && (
+                  <div className="mt-2">
+                    <span className={`inline-block px-2 py-1 text-xs rounded-md ${getCategoryColor(category)}`}>
+                      {getCategoryDisplayName(category)}
+                    </span>
+                  </div>
+                )}
               </div>
               
               <div className="mb-4">

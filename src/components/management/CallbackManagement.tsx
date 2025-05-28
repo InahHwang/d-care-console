@@ -5,7 +5,9 @@
 import { format, addDays } from 'date-fns';
 import EventTargetSection from './EventTargetSection'
 import { useState, useEffect } from 'react'
-import { useAppDispatch } from '@/hooks/reduxHooks'
+import { useAppDispatch, useAppSelector } from '@/hooks/reduxHooks'
+import { fetchCategories } from '@/store/slices/categoriesSlice' 
+import { getEventCategoryOptions, getCategoryDisplayName } from '@/utils/categoryUtils' 
 import { 
   Patient, 
   addCallback, 
@@ -20,8 +22,8 @@ import {
   updateEventTargetInfo,
   initializeEventTargets,
   EventTargetReason,
-  EventCategory
 } from '@/store/slices/patientsSlice'
+import { EventCategory } from '@/types/messageLog'
 import { 
   HiOutlinePlus, 
   HiOutlineCalendar, 
@@ -41,6 +43,7 @@ import {
   HiOutlineMinus
 } from 'react-icons/hi'
 import { Icon } from '../common/Icon'
+import { RootState } from '@/store';
 
 interface CallbackManagementProps {
   patient: Patient
@@ -50,6 +53,9 @@ type CallbackType = '1차' | '2차' | '3차' | '4차' | '5차';
 
 export default function CallbackManagement({ patient }: CallbackManagementProps) {
   const dispatch = useAppDispatch()
+
+  // Redux store에서 카테고리 데이터 가져오기 - 추가
+  const { categories } = useAppSelector((state: RootState) => state.categories)
 
   // 부재중 메시지 여부 확인
   const isMissedCallNote = (note?: string) => {
@@ -76,6 +82,11 @@ export default function CallbackManagement({ patient }: CallbackManagementProps)
   const [callbackResult, setCallbackResult] = useState<string>('상담중');
   const [terminationReason, setTerminationReason] = useState('');
   const [nextCallbackPlan, setNextCallbackPlan] = useState('');
+  
+  // 컴포넌트 마운트 시 카테고리 불러오기 - 추가
+  useEffect(() => {
+    dispatch(fetchCategories())
+  }, [dispatch])
   
   // 콜백 유형이 변경될 때 다음 콜백 유형 자동 설정
   useEffect(() => {
@@ -531,6 +542,28 @@ export default function CallbackManagement({ patient }: CallbackManagementProps)
         type: callbackToComplete.type,
         time: undefined
       };
+
+      // 이벤트 타겟으로 설정 - 카테고리 검증 추가
+        const availableCategories = getEventCategoryOptions([], categories);
+        const isValidCategory = availableCategories.some(cat => cat.value === eventTargetCategory);
+        
+        if (!isValidCategory && availableCategories.length > 0) {
+          // 유효하지 않은 카테고리인 경우 첫 번째 카테고리로 대체
+          setEventTargetCategory(availableCategories[0].value as EventCategory);
+        }
+        
+        await dispatch(updateEventTargetInfo({
+          patientId: patient.id,
+          eventTargetInfo: {
+            isEventTarget: true,
+            targetReason: eventTargetReason,
+            categories: [eventTargetCategory], // 단일값을 배열로 감싸서 전송
+            scheduledDate: eventTargetScheduledDate,
+            notes: `콜백 완료 후 이벤트 타겟으로 설정됨\n상담 내용: ${resultNotes}`,
+            createdAt: new Date().toISOString(),
+            updatedAt: new Date().toISOString()
+          }
+        })).unwrap();
       
       // 기존 콜백 삭제
       await dispatch(deleteCallback({
@@ -2647,12 +2680,12 @@ export default function CallbackManagement({ patient }: CallbackManagementProps)
                             <input
                               type="radio"
                               name="nextStep"
-                              value="5차_콜백"
-                              checked={nextStep === '5차_콜백'}
-                              onChange={() => setNextStep('5차_콜백')}
+                              value="이벤트_타겟_설정"
+                              checked={nextStep === '이벤트_타겟_설정'}
+                              onChange={() => setNextStep('이벤트_타겟_설정')}
                               className="w-4 h-4 accent-primary"
                             />
-                            <span className="text-sm text-text-primary">5차 콜백 예정</span>
+                            <span className="text-sm text-text-primary">이벤트 타겟 설정 (프로모션 대상자로 등록)</span>
                           </label>
                           
                           {/* 날짜 선택 및 상담 계획 - 5차 콜백이 선택된 경우만 표시 */}
@@ -2944,12 +2977,7 @@ export default function CallbackManagement({ patient }: CallbackManagementProps)
                               이벤트 카테고리 <span className="text-error">*</span>
                             </label>
                             <div className="flex flex-wrap gap-2 mb-3">
-                              {[
-                                { value: 'discount', label: '할인 프로모션' },
-                                { value: 'new_treatment', label: '신규 치료법 안내' },
-                                { value: 'checkup', label: '정기 검진 리마인더' },
-                                { value: 'seasonal', label: '계절 이벤트' }
-                              ].map(category => (
+                              {getEventCategoryOptions([], categories).map(category => (
                                 <label
                                   key={category.value}
                                   className="flex items-center gap-2 cursor-pointer"
