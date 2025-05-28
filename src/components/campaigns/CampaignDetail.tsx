@@ -14,9 +14,9 @@ import {
   updateCampaignStatus
 } from '@/store/slices/campaignsSlice'
 import {
-  EventCategory,
   EventTargetReason
 } from '@/store/slices/patientsSlice'
+import { EventCategory } from '@/types/messageLog'
 import { 
   HiOutlineX, 
   HiOutlineTag, 
