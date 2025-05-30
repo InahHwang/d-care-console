@@ -222,6 +222,34 @@ export const fetchPatients = createAsyncThunk(
   }
 );
 
+// 내원확정 토글 비동기 액션 (기존 동기 액션 대체)
+export const toggleVisitConfirmation = createAsyncThunk(
+  'patients/toggleVisitConfirmation',
+  async (patientId: string, { rejectWithValue }) => {
+    try {
+      const response = await fetch(`/api/patients/${patientId}/visit-confirmation`, {
+        method: 'PUT',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+      });
+      
+      if (!response.ok) {
+        const errorData = await response.json();
+        return rejectWithValue(errorData.error || '내원확정 상태 변경에 실패했습니다');
+      }
+      
+      const updatedPatient = await response.json();
+      return updatedPatient;
+    } catch (error) {
+      console.error('내원확정 API 오류:', error);
+      return rejectWithValue(
+        error instanceof Error ? error.message : '내원확정 상태 변경에 실패했습니다'
+      );
+    }
+  }
+);
+
 // 앱 시작 시 이벤트 타겟 정보 로드를 위한 액션 추가
 export const initializeEventTargets = createAsyncThunk(
   'patients/initializeEventTargets',
@@ -623,35 +651,7 @@ const patientsSlice = createSlice({
     setPage: (state, action: PayloadAction<number>) => {
       state.pagination.currentPage = action.payload;
     },
-    toggleVisitConfirmation: (state, action: PayloadAction<string>) => {
-      const patientId = action.payload;
-      const patient = state.patients.find(p => p.id === patientId);
-      if (patient) {
-        patient.visitConfirmed = !patient.visitConfirmed;
-        
-        // 필터링된 환자 목록도 업데이트
-        const filteredIndex = state.filteredPatients.findIndex(p => p.id === patientId);
-        if (filteredIndex !== -1) {
-          state.filteredPatients[filteredIndex].visitConfirmed = patient.visitConfirmed;
-        }
-        
-        // 선택된 환자도 업데이트
-        if (state.selectedPatient && state.selectedPatient.id === patientId) {
-          state.selectedPatient.visitConfirmed = patient.visitConfirmed;
-        }
-        
-        // 방문 확인 상태 업데이트 API 호출
-        fetch(`/api/patients/${patientId}/visit-confirmation`, {
-          method: 'PUT',
-          headers: {
-            'Content-Type': 'application/json',
-          },
-          body: JSON.stringify({ visitConfirmed: patient.visitConfirmed }),
-        }).catch(error => {
-          console.error('방문 확인 상태 업데이트 실패:', error);
-        });
-      }
-    },
+    // toggleVisitConfirmation 제거됨 - 비동기 thunk로 대체
   },
   extraReducers: (builder) => {
     builder
@@ -671,7 +671,53 @@ const patientsSlice = createSlice({
       .addCase(fetchPatients.rejected, (state, action: PayloadAction<any>) => {
         state.isLoading = false;
         state.error = action.payload;
-      })         
+      })
+      
+      // 내원확정 토글 처리 추가
+      .addCase(toggleVisitConfirmation.pending, (state) => {
+        // 로딩 상태는 설정하지 않음 (사용자 경험을 위해)
+        state.error = null;
+      })
+      .addCase(toggleVisitConfirmation.fulfilled, (state, action: PayloadAction<Patient>) => {
+        const updatedPatient = action.payload;
+        
+        // 환자 목록에서 해당 환자 업데이트 (_id 또는 id로 찾기)
+        const patientIndex = state.patients.findIndex(p => 
+          p._id === updatedPatient._id || p.id === updatedPatient.id
+        );
+        if (patientIndex !== -1) {
+          state.patients[patientIndex] = updatedPatient;
+        }
+        
+        // 필터링된 환자 목록도 업데이트
+        const filteredIndex = state.filteredPatients.findIndex(p => 
+          p._id === updatedPatient._id || p.id === updatedPatient.id
+        );
+        if (filteredIndex !== -1) {
+          state.filteredPatients[filteredIndex] = updatedPatient;
+        }
+        
+        // 선택된 환자도 업데이트
+        if (state.selectedPatient && 
+            (state.selectedPatient._id === updatedPatient._id || 
+             state.selectedPatient.id === updatedPatient.id)) {
+          state.selectedPatient = updatedPatient;
+        }
+        
+        console.log('내원확정 상태 업데이트 완료:', {
+          patientId: updatedPatient._id,
+          name: updatedPatient.name,
+          visitConfirmed: updatedPatient.visitConfirmed
+        });
+      })
+      .addCase(toggleVisitConfirmation.rejected, (state, action) => {
+        state.error = action.payload as string;
+        console.error('내원확정 변경 실패:', action.payload);
+        
+        // 실패 시 사용자에게 알림을 보여주거나 상태를 원복할 수 있음
+        // 필요하다면 여기서 토스트 메시지 등을 트리거할 수 있습니다
+      })
+         
       // createPatient 액션 처리
       .addCase(createPatient.pending, (state) => {
         state.isLoading = true;
@@ -962,80 +1008,6 @@ const patientsSlice = createSlice({
       .addCase(updateEventTargetInfo.pending, (state) => {
         state.isLoading = true;
       })
-      
-      /*
-      .addCase(updateEventTargetInfo.fulfilled, (state, action) => {
-        state.isLoading = false;
-        
-        const { patientId, eventTargetInfo } = action.payload;
-        
-        // 환자 목록에서 해당 환자 업데이트
-        const patientIndex = state.patients.findIndex(
-          (patient) => patient.id === patientId || patient._id === patientId
-        );
-        
-        if (patientIndex !== -1) {
-          // 이벤트 타겟 정보 업데이트
-          const currentEventTargetInfo = state.patients[patientIndex].eventTargetInfo || {};
-          state.patients[patientIndex].eventTargetInfo = {
-            ...currentEventTargetInfo,
-            ...eventTargetInfo
-          } as EventTargetInfo;
-
-          // 선택된 환자 업데이트
-          if (state.selectedPatient && 
-              (state.selectedPatient.id === patientId || state.selectedPatient._id === patientId)) {
-            state.selectedPatient.eventTargetInfo = state.patients[patientIndex].eventTargetInfo;
-          }
-          
-          // 필터링된 환자 목록 업데이트
-          const filteredIndex = state.filteredPatients.findIndex(
-            (patient) => patient.id === patientId || patient._id === patientId
-          );
-          
-          if (filteredIndex !== -1) {
-            state.filteredPatients[filteredIndex].eventTargetInfo = state.patients[patientIndex].eventTargetInfo;
-          }
-
-          // 이벤트 타겟 환자 목록 즉시 업데이트
-          if (eventTargetInfo.isEventTarget === true) {
-            // 이벤트 타겟으로 설정된 경우
-            const targetIndex = state.eventTargetPatients.findIndex(
-              (patient) => patient.id === patientId || patient._id === patientId
-            );
-            
-            if (targetIndex === -1) {
-              // 목록에 없으면 추가
-              state.eventTargetPatients.push(state.patients[patientIndex]);
-              console.log('이벤트 타겟 목록에 환자 추가:', state.patients[patientIndex].name);
-            } else {
-              // 있으면 업데이트
-              state.eventTargetPatients[targetIndex] = state.patients[patientIndex];
-              console.log('이벤트 타겟 목록에서 환자 정보 업데이트:', state.patients[patientIndex].name);
-            }
-          } else {
-            // 이벤트 타겟 해제된 경우
-            const originalLength = state.eventTargetPatients.length;
-            state.eventTargetPatients = state.eventTargetPatients.filter(
-              (patient) => patient.id !== patientId && patient._id !== patientId
-            );
-            
-            if (state.eventTargetPatients.length < originalLength) {
-              console.log('이벤트 타겟 목록에서 환자 제거:', patientId);
-            }
-          }
-          
-          console.log('이벤트 타겟 업데이트 완료:', {
-            patientId,
-            patientName: state.patients[patientIndex].name,
-            isEventTarget: eventTargetInfo.isEventTarget,
-            totalEventTargets: state.eventTargetPatients.length
-          });
-        } else {
-          console.error('업데이트할 환자를 찾을 수 없음:', patientId);
-        }
-      })
-      */
           
       .addCase(updateEventTargetInfo.rejected, (state, action) => {
         state.isLoading = false;
@@ -1103,5 +1075,5 @@ function applyFilters(state: PatientsState) {
   state.pagination.currentPage = 1; // 필터가 변경될 때마다 첫 페이지로 리셋
 }
 
-export const { selectPatient, clearSelectedPatient, setFilters, setPage, toggleVisitConfirmation  } = patientsSlice.actions;
+export const { selectPatient, clearSelectedPatient, setFilters, setPage } = patientsSlice.actions;
 export default patientsSlice.reducer;

@@ -108,7 +108,7 @@ export default function PatientList({ isLoading = false }: PatientListProps) {
 }
 
 // 내원 확정 토글 핸들러
-const handleToggleVisitConfirmation = (patient: Patient, e: React.MouseEvent) => {
+const handleToggleVisitConfirmation = async (patient: Patient, e: React.MouseEvent) => {
   e.stopPropagation(); // 이벤트 버블링 방지
   
   // patient 객체에서 _id나 id 확인
@@ -119,9 +119,25 @@ const handleToggleVisitConfirmation = (patient: Patient, e: React.MouseEvent) =>
     return; // ID가 없으면 처리하지 않음
   }
   
-  console.log('내원 확정 토글:', patientId);
-  dispatch(toggleVisitConfirmation(patientId));
-}
+  console.log('내원 확정 토글 시도:', patientId);
+  
+  try {
+    // 비동기 thunk 액션 디스패치
+    await dispatch(toggleVisitConfirmation(patientId)).unwrap();
+    console.log('내원확정 상태 변경 성공');
+    
+    // 성공 시 추가 처리가 필요하면 여기서
+    // 예: 토스트 메시지 표시
+    
+  } catch (error) {
+    console.error('내원확정 변경 실패:', error);
+    
+    // 에러 처리: 사용자에게 알림 표시
+    alert(`내원확정 상태 변경에 실패했습니다: ${error}`);
+    
+    // 또는 토스트 메시지나 다른 에러 표시 방법 사용
+  }
+};
   
   return (
     <>
