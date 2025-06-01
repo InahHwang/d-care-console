@@ -3,7 +3,7 @@ import React, { useState, useEffect } from 'react';
 import { useSelector, useDispatch } from 'react-redux';
 import { RootState } from '@/store';
 import { loadGoalsFromServer, saveGoalsToServer, clearError } from '@/store/slices/goalsSlice';
-import { HiOutlineTag, HiOutlineSave, HiOutlineRefresh, HiOutlineExclamationCircle } from 'react-icons/hi';
+import { HiOutlineTag, HiOutlineSave, HiOutlineRefresh, HiOutlineExclamationCircle, HiOutlineInformationCircle } from 'react-icons/hi';
 import { Icon } from '@/components/common/Icon';
 
 const GoalSettings: React.FC = () => {
@@ -16,10 +16,24 @@ const GoalSettings: React.FC = () => {
   });
   
   const [showSuccess, setShowSuccess] = useState(false);
+  const [isInherited, setIsInherited] = useState(false); // 상속 여부 상태
 
   // 컴포넌트 마운트 시 서버에서 목표 불러오기
   useEffect(() => {
-    dispatch(loadGoalsFromServer() as any);
+    const loadGoals = async () => {
+      try {
+        const result = await dispatch(loadGoalsFromServer() as any);
+        
+        // API 응답에서 상속 여부 확인
+        if (result.type === 'goals/loadFromServer/fulfilled' && result.payload.isInherited) {
+          setIsInherited(true);
+        }
+      } catch (error) {
+        console.error('목표 로딩 중 오류:', error);
+      }
+    };
+    
+    loadGoals();
   }, [dispatch]);
 
   // Redux 상태가 변경되면 로컬 상태도 업데이트
@@ -49,6 +63,7 @@ const GoalSettings: React.FC = () => {
       
       if (result.type === 'goals/saveToServer/fulfilled') {
         setShowSuccess(true);
+        setIsInherited(false); // 사용자가 직접 설정했으므로 상속 상태 해제
         setTimeout(() => setShowSuccess(false), 3000);
       }
     } catch (error) {
@@ -65,8 +80,19 @@ const GoalSettings: React.FC = () => {
     setTargets(defaultTargets);
   };
 
-  const handleRefresh = () => {
-    dispatch(loadGoalsFromServer() as any);
+  const handleRefresh = async () => {
+    try {
+      const result = await dispatch(loadGoalsFromServer() as any);
+      
+      // 새로고침 후 상속 여부 업데이트
+      if (result.type === 'goals/loadFromServer/fulfilled' && result.payload.isInherited) {
+        setIsInherited(true);
+      } else {
+        setIsInherited(false);
+      }
+    } catch (error) {
+      console.error('새로고침 중 오류:', error);
+    }
   };
 
   const getCurrentMonthName = () => {
@@ -120,10 +146,27 @@ const GoalSettings: React.FC = () => {
         </button>
       </div>
 
+      {/* 🔥 목표 상속 알림 */}
+      {isInherited && (
+        <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
+          <div className="flex items-center gap-2">
+            <Icon icon={HiOutlineInformationCircle} size={20} className="text-blue-500" />
+            <span className="text-blue-800 text-sm font-medium">이전 달 목표를 자동으로 가져왔습니다</span>
+          </div>
+          <p className="text-blue-700 text-sm mt-1">
+            {getCurrentMonthName()}에 새로 설정된 목표가 없어서 이전 달의 목표를 그대로 사용하고 있습니다. 
+            새로운 목표를 설정하려면 아래에서 수정 후 저장해주세요.
+          </p>
+        </div>
+      )}
+
       {/* 마지막 업데이트 정보 */}
       {lastUpdated && (
-        <div className="text-xs text-text-muted bg-gray-50 p-2 rounded">
-          마지막 업데이트: {formatLastUpdated(lastUpdated)}
+        <div className="text-xs text-text-muted bg-gray-50 p-2 rounded flex items-center justify-between">
+          <span>마지막 업데이트: {formatLastUpdated(lastUpdated)}</span>
+          {isInherited && (
+            <span className="text-blue-600 font-medium">이전 달에서 상속됨</span>
+          )}
         </div>
       )}
 
@@ -197,7 +240,12 @@ const GoalSettings: React.FC = () => {
 
       {/* 목표 설정 폼 */}
       <div className="card p-6">
-        <h4 className="text-md font-semibold text-text-primary mb-4">목표 수정</h4>
+        <h4 className="text-md font-semibold text-text-primary mb-4">
+          목표 수정
+          {isInherited && (
+            <span className="ml-2 text-sm text-blue-600 font-normal">(현재 이전 달 목표 사용 중)</span>
+          )}
+        </h4>
         
         <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
           {/* 신규 환자 목표 */}
@@ -253,7 +301,7 @@ const GoalSettings: React.FC = () => {
             className="btn-primary flex items-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed"
           >
             <Icon icon={HiOutlineSave} size={16} />
-            {isLoading ? '저장 중...' : '목표 저장'}
+            {isLoading ? '저장 중...' : isInherited ? '새 목표 설정' : '목표 저장'}
           </button>
           
           <button
@@ -275,6 +323,7 @@ const GoalSettings: React.FC = () => {
           <li>• 이전 달 성과를 참고하여 10-20% 향상된 목표를 권장합니다</li>
           <li>• 목표는 언제든지 수정할 수 있습니다</li>
           <li>• 달성률은 실시간으로 대시보드에 반영됩니다</li>
+          <li>• <strong>🔄 월이 바뀌어도 이전 달 목표가 자동으로 유지됩니다</strong></li>
           <li>• <strong>설정한 목표는 서버에 저장되어 모든 컴퓨터에서 동일하게 표시됩니다</strong></li>
         </ul>
       </div>

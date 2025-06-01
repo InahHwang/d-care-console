@@ -102,74 +102,87 @@ const goalsSlice = createSlice({
   name: 'goals',
   initialState,
   reducers: {
-  // 실제 환자 데이터 기반으로 현재 달성률 계산 (개선된 버전)
-  calculateCurrentProgress: (state, action: PayloadAction<{ patients: any[] }>) => {
-    const { patients } = action.payload;
-    const currentDate = new Date();
-    const currentMonth = currentDate.getMonth();
-    const currentYear = currentDate.getFullYear();
+    // 🔥 수정된 버전: 실제 환자 데이터 기반으로 현재 달성률 계산
+    calculateCurrentProgress: (state, action: PayloadAction<{ patients: any[] }>) => {
+      const { patients } = action.payload;
+      const currentDate = new Date();
+      const currentMonth = currentDate.getMonth();
+      const currentYear = currentDate.getFullYear();
 
-    console.log('🎯 목표 달성률 계산 시작:', patients.length, '명의 환자 데이터');
+      console.log('🎯 목표 달성률 계산 시작:', patients.length, '명의 환자 데이터');
 
-    // 이번 달 신규 환자 수 계산 (createdAt 기준)
-    const newPatientsThisMonth = patients.filter(patient => {
-      if (!patient.createdAt) return false;
-      
-      const createdDate = new Date(patient.createdAt);
-      const isThisMonth = createdDate.getMonth() === currentMonth && 
-                         createdDate.getFullYear() === currentYear;
-      
-      if (isThisMonth) {
-        console.log('✅ 신규 환자 발견:', patient.name, '등록일:', patient.createdAt);
-      }
-      return isThisMonth;
-    }).length;
+      // 이번 달 신규 환자 수 계산 (createdAt 기준)
+      const newPatientsThisMonth = patients.filter(patient => {
+        if (!patient.createdAt) return false;
+        
+        const createdDate = new Date(patient.createdAt);
+        const isThisMonth = createdDate.getMonth() === currentMonth && 
+                           createdDate.getFullYear() === currentYear;
+        
+        if (isThisMonth) {
+          console.log('✅ 신규 환자 발견:', patient.name, '등록일:', patient.createdAt);
+        }
+        return isThisMonth;
+      }).length;
 
-    // 이번 달 예약 건수 계산 (더 정확한 조건)
-    const appointmentsThisMonth = patients.filter(patient => {
-      // 1. 예약확정 상태인 환자
-      if (patient.status === '예약확정') {
-        console.log('✅ 예약확정 환자:', patient.name, '상태:', patient.status);
-        return true;
-      }
-      
-      // 2. 내원확정된 환자 (visitConfirmed가 true)
-      if (patient.visitConfirmed === true) {
-        console.log('✅ 내원확정 환자:', patient.name, '내원확정:', patient.visitConfirmed);
-        return true;
-      }
-      
-      // 3. 상태가 '내원완료'인 환자도 포함
-      if (patient.status === '내원완료') {
-        console.log('✅ 내원완료 환자:', patient.name, '상태:', patient.status);
-        return true;
-      }
-      
-      return false;
-    }).length;
+      // 🔥 수정: 이번 달 예약 건수 계산 (월별 필터링 추가)
+      const appointmentsThisMonth = patients.filter(patient => {
+        // 🎯 1단계: 먼저 이번 달에 등록된 환자인지 확인
+        if (!patient.createdAt) return false;
+        
+        const createdDate = new Date(patient.createdAt);
+        const isThisMonth = createdDate.getMonth() === currentMonth && 
+                           createdDate.getFullYear() === currentYear;
+        
+        // 이번 달 환자가 아니면 제외
+        if (!isThisMonth) return false;
+        
+        // 🎯 2단계: 이번 달 환자 중에서 예약/내원 조건 확인
+        let isQualified = false;
+        
+        // 1. 예약확정 상태인 환자
+        if (patient.status === '예약확정') {
+          console.log('✅ 이번달 예약확정 환자:', patient.name, '상태:', patient.status, '등록일:', patient.createdAt);
+          isQualified = true;
+        }
+        
+        // 2. 내원확정된 환자 (visitConfirmed가 true)
+        if (patient.visitConfirmed === true) {
+          console.log('✅ 이번달 내원확정 환자:', patient.name, '내원확정:', patient.visitConfirmed, '등록일:', patient.createdAt);
+          isQualified = true;
+        }
+        
+        // 3. 상태가 '내원완료'인 환자도 포함
+        if (patient.status === '내원완료') {
+          console.log('✅ 이번달 내원완료 환자:', patient.name, '상태:', patient.status, '등록일:', patient.createdAt);
+          isQualified = true;
+        }
+        
+        return isQualified;
+      }).length;
 
-    console.log('📊 계산 결과:');
-    console.log('   - 신규 환자:', newPatientsThisMonth, '명');
-    console.log('   - 예약/내원:', appointmentsThisMonth, '건');
+      console.log('📊 계산 결과 (월별 필터링 적용):');
+      console.log('   - 신규 환자:', newPatientsThisMonth, '명');
+      console.log('   - 예약/내원:', appointmentsThisMonth, '건 (이번달 등록 환자 중)');
 
-    // 상태 업데이트
-    state.currentMonth.newPatients.current = newPatientsThisMonth;
-    state.currentMonth.appointments.current = appointmentsThisMonth;
+      // 상태 업데이트
+      state.currentMonth.newPatients.current = newPatientsThisMonth;
+      state.currentMonth.appointments.current = appointmentsThisMonth;
 
-    // 달성률 재계산
-    state.currentMonth.newPatients.percentage = calculatePercentage(
-      newPatientsThisMonth,
-      state.currentMonth.newPatients.target
-    );
-    state.currentMonth.appointments.percentage = calculatePercentage(
-      appointmentsThisMonth,
-      state.currentMonth.appointments.target
-    );
+      // 달성률 재계산
+      state.currentMonth.newPatients.percentage = calculatePercentage(
+        newPatientsThisMonth,
+        state.currentMonth.newPatients.target
+      );
+      state.currentMonth.appointments.percentage = calculatePercentage(
+        appointmentsThisMonth,
+        state.currentMonth.appointments.target
+      );
 
-    console.log('📈 최종 달성률:');
-    console.log('   - 신규 환자:', state.currentMonth.newPatients.percentage + '%');
-    console.log('   - 예약 건수:', state.currentMonth.appointments.percentage + '%');
-  },
+      console.log('📈 최종 달성률:');
+      console.log('   - 신규 환자:', state.currentMonth.newPatients.percentage + '%');
+      console.log('   - 예약 건수:', state.currentMonth.appointments.percentage + '%');
+    },
     
     // 로딩 상태 관리
     setLoading: (state, action: PayloadAction<boolean>) => {
