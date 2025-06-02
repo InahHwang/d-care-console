@@ -250,6 +250,26 @@ export const toggleVisitConfirmation = createAsyncThunk(
   }
 );
 
+// 상태별 환자 목록 가져오기 비동기 액션
+export const fetchPatientsByStatus = createAsyncThunk(
+  'patients/fetchPatientsByStatus',
+  async (filterType: 'callbackNeeded' | 'absent' | 'todayScheduled' | 'newPatients', { rejectWithValue }) => {
+    try {
+      const response = await fetch(`/api/patients/status-filter?type=${filterType}`);
+      
+      if (!response.ok) {
+        const errorData = await response.json();
+        return rejectWithValue(errorData.error || '환자 목록을 불러오는데 실패했습니다.');
+      }
+      
+      const patients = await response.json();
+      return { filterType, patients };
+    } catch (error: any) {
+      return rejectWithValue(error.message || '환자 목록을 불러오는데 실패했습니다.');
+    }
+  }
+);
+
 // 앱 시작 시 이벤트 타겟 정보 로드를 위한 액션 추가
 export const initializeEventTargets = createAsyncThunk(
   'patients/initializeEventTargets',
@@ -1038,6 +1058,23 @@ const patientsSlice = createSlice({
       .addCase(filterEventTargets.rejected, (state, action) => {
         state.isLoading = false;
         state.error = action.error.message || '이벤트 타겟 필터링 실패';
+      })
+      // fetchPatientsByStatus 액션 처리 (추가)
+      .addCase(fetchPatientsByStatus.pending, (state) => {
+        state.isLoading = true;
+        state.error = null;
+      })
+      .addCase(fetchPatientsByStatus.fulfilled, (state, action: PayloadAction<{ 
+        filterType: string, 
+        patients: Patient[] 
+      }>) => {
+        state.isLoading = false;
+        // 이 액션은 모달에서만 사용되므로 상태를 직접 업데이트하지 않습니다.
+        console.log(`${action.payload.filterType} 필터로 ${action.payload.patients.length}명 조회 완료`);
+      })
+      .addCase(fetchPatientsByStatus.rejected, (state, action: PayloadAction<any>) => {
+        state.isLoading = false;
+        state.error = action.payload;
       });
   },
 });
