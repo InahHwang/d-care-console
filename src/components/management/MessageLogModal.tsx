@@ -752,6 +752,8 @@ export default function MessageLogModal({ isOpen, onClose, patientId, embedded =
                         <span className={`inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium ${
                           selectedLog.messageType === 'SMS' 
                             ? 'bg-blue-100 text-blue-800' 
+                            : selectedLog.messageType === 'MMS'
+                            ? 'bg-green-100 text-green-800'
                             : 'bg-purple-100 text-purple-800'
                         }`}>
                           {selectedLog.messageType}
@@ -771,6 +773,31 @@ export default function MessageLogModal({ isOpen, onClose, patientId, embedded =
                       </div>
                     )}
                   </div>
+                  
+                  {/* MMS 이미지 표시 추가 */}
+                  {selectedLog.messageType === 'MMS' && selectedLog.imageUrl && (
+                    <div>
+                      <p className="text-xs text-text-secondary">첨부 이미지</p>
+                      <div className="mt-1 w-32 h-32 bg-gray-100 rounded-md overflow-hidden border border-border">
+                        <img 
+                          src={selectedLog.imageUrl} 
+                          alt="MMS 첨부 이미지" 
+                          className="w-full h-full object-cover"
+                          onError={(e) => {
+                            const target = e.target as HTMLImageElement;
+                            target.style.display = 'none';
+                            const parent = target.parentElement;
+                            if (parent) {
+                              parent.innerHTML = '<div class="w-full h-full flex items-center justify-center text-gray-400 text-xs">이미지 로드 실패</div>';
+                            }
+                          }}
+                        />
+                      </div>
+                      <p className="text-xs text-text-muted mt-1">
+                        {selectedLog.imageUrl.startsWith('data:') ? 'Base64 이미지' : '파일 경로: ' + selectedLog.imageUrl}
+                      </p>
+                    </div>
+                  )}
                   <div>
                     <p className="text-xs text-text-secondary">내용</p>
                     <div className="mt-1 p-3 bg-gray-50 rounded-md border border-border text-sm whitespace-pre-line">

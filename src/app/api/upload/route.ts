@@ -280,12 +280,13 @@ async function handleLocalUpload(buffer: Buffer, file: File) {
     fileName: finalFileName,
     size: `${(finalSize / 1024).toFixed(1)}KB`,
     dimensions: `${finalMetadata.width}x${finalMetadata.height}`,
-    format: finalMetadata.format
+    format: finalMetadata.format,
+    accessUrl: fileUrl
   });
 
   return NextResponse.json({
     success: true,
-    imageUrl: fileUrl,
+    imageUrl: fileUrl, // 절대 경로가 아닌 상대 경로 반환
     fileName: finalFileName,
     originalSize: `${(buffer.length / 1024).toFixed(1)}KB`,
     optimizedSize: `${(finalSize / 1024).toFixed(1)}KB`,

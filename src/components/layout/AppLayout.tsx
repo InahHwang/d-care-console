@@ -3,12 +3,13 @@
 'use client'
 
 import { ReactNode, useEffect } from 'react'
-import { useDispatch } from 'react-redux'
-import { AppDispatch } from '@/store' // AppDispatch 타입 import 추가
+import { useDispatch, useSelector } from 'react-redux'
+import { AppDispatch, RootState } from '@/store' // RootState 추가
 import { setCurrentMenuItem } from '@/store/slices/uiSlice'
 import { fetchPatients } from '@/store/slices/patientsSlice'
 import Sidebar from './Sidebar'
 import Header from './Header'
+import InboundWidget from '../widget/InboundWidget' // 🔥 인바운드 위젯 import
 
 interface AppLayoutProps {
   children: ReactNode
@@ -33,6 +34,9 @@ const getMenuItemFromPage = (page?: string) => {
 export default function AppLayout({ children, currentPage = 'dashboard' }: AppLayoutProps) {
   // 타입을 AppDispatch로 지정
   const dispatch = useDispatch<AppDispatch>()
+  
+  // 🔥 위젯 표시 여부를 Redux에서 가져오기
+  const { widget } = useSelector((state: RootState) => state.ui)
 
   // 현재 페이지에 따라 사이드바 메뉴 아이템 설정
   useEffect(() => {
@@ -47,7 +51,7 @@ export default function AppLayout({ children, currentPage = 'dashboard' }: AppLa
   }, [currentPage, dispatch]);
 
   return (
-    <div className="min-h-screen flex bg-light-bg w-full">
+    <div className="min-h-screen flex bg-light-bg w-full relative">
       {/* 사이드바 */}
       <div className="w-56 flex-shrink-0">
         <Sidebar />
@@ -63,6 +67,9 @@ export default function AppLayout({ children, currentPage = 'dashboard' }: AppLa
           {children}
         </main>
       </div>
+      
+      {/* 🔥 인바운드 위젯 - 모든 페이지에서 표시 */}
+      <InboundWidget isVisible={widget.isVisible} />
     </div>
   )
 }

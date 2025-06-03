@@ -30,7 +30,7 @@ export default function PatientFormModal() {
   // 현재 날짜 설정
   const today = new Date().toISOString().split('T')[0]
   
-  // 폼 상태 관리
+  // 🔥 폼 상태 관리 - consultationType 필드 추가
   const [formValues, setFormValues] = useState<CreatePatientData>({
     name: '',
     phoneNumber: '',
@@ -40,6 +40,7 @@ export default function PatientFormModal() {
     callInDate: today, // 기본값으로 오늘 날짜 설정
     age: undefined,
     region: undefined,
+    consultationType: 'outbound', // 🔥 기본값으로 아웃바운드 설정 (신규 환자 등록은 주로 아웃바운드)
   })
   
   // 지역 선택 상태
@@ -87,7 +88,7 @@ export default function PatientFormModal() {
   // 모달 닫기
   const handleClose = () => {
     dispatch(closePatientForm())
-    // 폼 상태 초기화
+    // 🔥 폼 상태 초기화 - consultationType 포함
     setFormValues({
       name: '',
       phoneNumber: '',
@@ -97,6 +98,7 @@ export default function PatientFormModal() {
       callInDate: today,      
       age: undefined,
       region: undefined,
+      consultationType: 'outbound', // 🔥 초기화 시에도 포함
     })
     setSelectedProvince('')
     setSelectedCity('')
@@ -200,11 +202,14 @@ export default function PatientFormModal() {
     if (!isValid) return
     
     try {
-      // 환자 상태는 '잠재고객'으로 고정
-      const patientData = {
+      // 🔥 환자 상태는 '잠재고객'으로 고정, consultationType은 'outbound'로 설정
+      const patientData: CreatePatientData = {
         ...formValues,
-        status: '잠재고객' as PatientStatus
+        status: '잠재고객' as PatientStatus,
+        consultationType: 'outbound' // 신규 환자 등록은 아웃바운드로 설정
       };
+      
+      console.log('신규 환자 등록 데이터:', patientData); // 디버깅용
       
       // Redux 액션 디스패치하여 환자 생성
       await dispatch(createPatient(patientData)).unwrap()

@@ -154,158 +154,175 @@ export default function MessageSendModal({
 
   // 문자 발송 처리
   const handleSendMessages = async () => {
-    if (selectedPatients.length === 0) return;
+  if (selectedPatients.length === 0) return;
+  
+  setIsLoading(true);
+  setStep('confirm');
+  
+  try {
+    console.log('메시지 발송 시작 - 선택된 환자 수:', selectedPatients.length);
+    const messageLogs: MessageLog[] = [];
     
-    setIsLoading(true);
-    setStep('confirm');
-    
-    try {
-      console.log('메시지 발송 시작 - 선택된 환자 수:', selectedPatients.length);
-      const messageLogs: MessageLog[] = [];
-      
-      // 실제 API 호출
-      const responses = await Promise.all(
-        selectedPatients.map(async (patient) => {
-          // 환자 정보 검증
-          if (!patient || !patient.id || !patient.name || !patient.phoneNumber) {
-            return { 
-              patient: { name: patient?.name || '알 수 없음', id: patient?.id || 'unknown' }, 
-              success: false, 
-              reason: '환자 정보 오류' 
-            };
-          }
+    const responses = await Promise.all(
+      selectedPatients.map(async (patient) => {
+        if (!patient || !patient.id || !patient.name || !patient.phoneNumber) {
+          return { 
+            patient: { name: patient?.name || '알 수 없음', id: patient?.id || 'unknown' }, 
+            success: false, 
+            reason: '환자 정보 오류' 
+          };
+        }
 
-          try {
-            // 개별 환자별 메시지 내용 생성
-            const personalizedContent = getPreviewContent(patient);
-            
-            // 템플릿에 지정된 메시지 타입 또는 내용 길이에 따른 타입 결정
-            const msgType: MessageType = selectedTemplate?.type || 
-              (personalizedContent.length > 90 ? 'LMS' : 'SMS');
-            
-            // 요청 데이터 준비 - 메시지 타입에 따라 다른 필드 포함
-            const requestBody: Record<string, any> = {
-              phoneNumber: patient.phoneNumber,
-              content: personalizedContent,
-              messageType: msgType
-            };
-            
-            // MMS 또는 RCS인 경우 이미지 URL 추가
-            if ((msgType === 'MMS' || msgType === 'RCS') && selectedTemplate?.imageUrl) {
-            // 이미지 URL이 상대 경로인 경우 처리
+        try {
+          const personalizedContent = getPreviewContent(patient);
+          
+          const msgType: MessageType = selectedTemplate?.type || 
+            (personalizedContent.length > 90 ? 'LMS' : 'SMS');
+          
+          const requestBody: Record<string, any> = {
+            phoneNumber: patient.phoneNumber,
+            content: personalizedContent,
+            messageType: msgType
+          };
+          
+          // MMS 또는 RCS인 경우 이미지 URL 처리 개선
+          if ((msgType === 'MMS' || msgType === 'RCS') && selectedTemplate?.imageUrl) {
             let imageUrlToSend = selectedTemplate.imageUrl;
             
-            // 이미지 URL이 상대 경로인 경우 절대 경로로 변환 (필요시)
-            if (imageUrlToSend.startsWith('/')) {
-              // 상대 경로를 전송 (서버에서 public 폴더로 처리함)
-              // 서버에서 제대로 처리할 수 있도록 경로 유지
+            console.log(`🖼️ [${patient.name}] 원본 이미지 URL:`, imageUrlToSend);
+            
+            // Base64 데이터 URL이 아닌 경우 (파일 경로인 경우)
+            if (!imageUrlToSend.startsWith('data:image/')) {
+              // 상대 경로를 절대 URL로 변환하지 않고 그대로 전송
+              // 서버에서 public 폴더 기준으로 처리하도록 함
+              if (imageUrlToSend.startsWith('/')) {
+                // 이미 올바른 상대 경로 형태
+                console.log(`📁 [${patient.name}] 상대 경로 이미지:`, imageUrlToSend);
+              } else {
+                // uploads/ 등으로 시작하는 경우 앞에 / 추가
+                imageUrlToSend = '/' + imageUrlToSend;
+                console.log(`📁 [${patient.name}] 경로 수정:`, imageUrlToSend);
+              }
+            } else {
+              console.log(`💾 [${patient.name}] Base64 이미지 데이터 사용`);
             }
             
             requestBody.imageUrl = imageUrlToSend;
             requestBody.messageType = 'MMS'; // 명시적으로 MMS 타입 지정
+            
+            console.log(`🎯 [${patient.name}] 최종 이미지 URL:`, imageUrlToSend.substring(0, 50) + '...');
           }
+          
+          // RCS인 경우 버튼 정보 추가
+          if (msgType === 'RCS' && selectedTemplate?.rcsOptions) {
+            requestBody.rcsOptions = selectedTemplate.rcsOptions;
+          }
+          
+          console.log(`📤 [${patient.name}] 요청 데이터:`, {
+            phoneNumber: requestBody.phoneNumber,
+            messageType: requestBody.messageType,
+            contentLength: requestBody.content.length,
+            hasImageUrl: !!requestBody.imageUrl,
+            imageUrlType: requestBody.imageUrl ? 
+              (requestBody.imageUrl.startsWith('data:') ? 'base64' : 'path') : 'none'
+          });
+          
+          // 실제 메시지 발송 API 호출
+          const response = await fetch('/api/messages/send', {
+            method: 'POST',
+            headers: {
+              'Content-Type': 'application/json',
+            },
+            body: JSON.stringify(requestBody),
+            signal: AbortSignal.timeout(30000),
+          });
+          
+          // 응답 처리
+          if (!response.ok) {
+            const errorData = await response.json();
             
-            // RCS인 경우 버튼 정보 추가
-            if (msgType === 'RCS' && selectedTemplate?.rcsOptions) {
-              requestBody.rcsOptions = selectedTemplate.rcsOptions;
-            }
-            
-            // 실제 메시지 발송 API 호출
-            const response = await fetch('/api/messages/send', {
-              method: 'POST',
-              headers: {
-                'Content-Type': 'application/json',
-              },
-              body: JSON.stringify(requestBody),
-              // fetch 시간 제한 설정 (30초)
-              signal: AbortSignal.timeout(30000),
-            });
-            
-            // 응답 처리
-            if (!response.ok) {
-              const errorData = await response.json();
-              
-              // 실패 로그 생성
-              const messageId = `fail_${Date.now()}_${Math.random().toString(36).substring(2, 9)}_${patient.id.substring(0, 8)}`;
-              const failedLog = createMessageLog(
-                patient,
-                personalizedContent,
-                msgType,
-                'failed',
-                {
-                  templateName: selectedTemplate?.title,
-                  category: selectedTemplate?.category,
-                  messageId: messageId, // 고유한 ID 생성
-                  errorMessage: errorData.message || `상태 코드: ${response.status}`,
-                  operator: '관리자', // 실제 사용자 정보로 대체 가능
-                  imageUrl: selectedTemplate?.imageUrl,
-                  rcsOptions: selectedTemplate?.rcsOptions
-                }
-              );
-
-              // 로그 배열에 추가
-              messageLogs.push(failedLog);
-              
-              return { 
-                patient, 
-                success: false,
-                reason: errorData.message || `상태 코드: ${response.status}`
-              };
-            } else {
-              const responseData = await response.json();
-              
-              // 성공 로그 생성
-              const messageId = responseData.messageId || `success_${Date.now()}_${Math.random().toString(36).substring(2, 9)}_${patient.id.substring(0, 8)}`;
-              const successLog = createMessageLog(
-                patient,
-                personalizedContent,
-                msgType,
-                'success',
-                {
-                  templateName: selectedTemplate?.title,
-                  category: selectedTemplate?.category,
-                  messageId: messageId, // API에서 반환된 ID 또는 고유 ID 생성
-                  operator: '관리자', // 실제 사용자 정보로 대체 가능
-                  imageUrl: selectedTemplate?.imageUrl,
-                  rcsOptions: selectedTemplate?.rcsOptions
-                }
-              );
-              
-              // 로그 배열에 추가
-              messageLogs.push(successLog);
-              
-              return { patient, success: true, reason: '' };
-            }
-          } catch (error) {
-            // 에러 타입 안전하게 처리
-            const errorMessage = error instanceof Error ? error.message : '알 수 없는 오류';
-            console.error(`환자 ${patient.name}에게 메시지 발송 실패:`, errorMessage);
-            
-            // 예외 로그 생성
-            const msgType: MessageType = selectedTemplate?.type || 
-              (getPreviewContent(patient).length > 90 ? 'LMS' : 'SMS');
-              
-            const messageId = `error_${Date.now()}_${Math.random().toString(36).substring(2, 9)}_${patient.id.substring(0, 8)}`;
-            const errorLog = createMessageLog(
+            // 실패 로그 생성
+            const messageId = `fail_${Date.now()}_${Math.random().toString(36).substring(2, 9)}_${patient.id.substring(0, 8)}`;
+            const failedLog = createMessageLog(
               patient,
-              getPreviewContent(patient),
+              personalizedContent,
               msgType,
               'failed',
               {
                 templateName: selectedTemplate?.title,
                 category: selectedTemplate?.category,
-                messageId: messageId, // 고유한 ID 생성
-                errorMessage: errorMessage,
-                operator: '관리자', // 실제 사용자 정보로 대체 가능
+                messageId: messageId,
+                errorMessage: errorData.message || `상태 코드: ${response.status}`,
+                operator: '관리자',
                 imageUrl: selectedTemplate?.imageUrl,
                 rcsOptions: selectedTemplate?.rcsOptions
               }
             );
+
+            messageLogs.push(failedLog);
             
-            // 로그 배열에 추가
-            messageLogs.push(errorLog);
-                        
             return { 
+              patient, 
+              success: false,
+              reason: errorData.message || `상태 코드: ${response.status}`
+            };
+          } else {
+            const responseData = await response.json();
+            
+            console.log(`✅ [${patient.name}] 발송 성공:`, responseData);
+            
+            // 실제 발송된 타입 확인 (서버에서 MMS가 LMS로 변경되었을 수도 있음)
+            const actualMessageType = responseData.actualType || msgType;
+            
+            // 성공 로그 생성
+            const messageId = responseData.messageId || `success_${Date.now()}_${Math.random().toString(36).substring(2, 9)}_${patient.id.substring(0, 8)}`;
+            const successLog = createMessageLog(
+              patient,
+              personalizedContent,
+              actualMessageType, // 실제 발송된 타입 사용
+              'success',
+              {
+                templateName: selectedTemplate?.title,
+                category: selectedTemplate?.category,
+                messageId: messageId,
+                operator: '관리자',
+                imageUrl: actualMessageType === 'MMS' ? selectedTemplate?.imageUrl : undefined, // MMS가 아니면 이미지 URL 제거
+                rcsOptions: selectedTemplate?.rcsOptions
+              }
+            );
+            
+            messageLogs.push(successLog);
+            
+            return { patient, success: true, reason: '' };
+          }
+        } catch (error) {
+          const errorMessage = error instanceof Error ? error.message : '알 수 없는 오류';
+          console.error(`❌ [${patient.name}] 메시지 발송 실패:`, errorMessage);
+          
+          // 예외 로그 생성
+          const msgType: MessageType = selectedTemplate?.type || 
+            (getPreviewContent(patient).length > 90 ? 'LMS' : 'SMS');
+            
+          const messageId = `error_${Date.now()}_${Math.random().toString(36).substring(2, 9)}_${patient.id.substring(0, 8)}`;
+          const errorLog = createMessageLog(
+            patient,
+            getPreviewContent(patient),
+            msgType,
+            'failed',
+            {
+              templateName: selectedTemplate?.title,
+              category: selectedTemplate?.category,
+              messageId: messageId,
+              errorMessage: errorMessage,
+              operator: '관리자',
+              imageUrl: selectedTemplate?.imageUrl,
+              rcsOptions: selectedTemplate?.rcsOptions
+            }
+          );
+          
+          messageLogs.push(errorLog);
+                      
+          return { 
             patient, 
             success: false,
             reason: errorMessage
@@ -314,11 +331,11 @@ export default function MessageSendModal({
       })
     );
     
-    // 결과 집계
+    // 나머지 코드는 동일...
     const successCount = responses.filter(r => r.success).length;
     const failedResponses = responses.filter(r => !r.success);
         
-      setSendResult({
+    setSendResult({
       success: successCount,
       failed: selectedPatients.length - successCount,
       total: selectedPatients.length,
@@ -330,32 +347,28 @@ export default function MessageSendModal({
     
     setIsSendComplete(true);
     setStep('result');
-      
-      // 성공 콜백 호출
     onSendComplete();
 
-    } catch (error) {
-      // 에러 타입 안전하게 처리
-      const errorMessage = error instanceof Error ? error.message : '알 수 없는 오류';
-      console.error('메시지 발송 중 오류 발생:', errorMessage);
-      
-      // 에러 상태로 결과 페이지 표시
-      setSendResult({
-        success: 0,
-        failed: selectedPatients.length,
-        total: selectedPatients.length,
-        failedPatients: [{ 
-          name: '전체', 
-          reason: errorMessage
-        }]
-      });
-      
-      setIsSendComplete(true);
-      setStep('result');
-    } finally {
-      setIsLoading(false);
-    }
+  } catch (error) {
+    const errorMessage = error instanceof Error ? error.message : '알 수 없는 오류';
+    console.error('메시지 발송 중 오류 발생:', errorMessage);
+    
+    setSendResult({
+      success: 0,
+      failed: selectedPatients.length,
+      total: selectedPatients.length,
+      failedPatients: [{ 
+        name: '전체', 
+        reason: errorMessage
+      }]
+    });
+    
+    setIsSendComplete(true);
+    setStep('result');
+  } finally {
+    setIsLoading(false);
   }
+}
 
   // 모달 닫기 처리
   const handleClose = () => {
@@ -519,6 +532,14 @@ export default function MessageSendModal({
                               src={template.imageUrl} 
                               alt="템플릿 이미지" 
                               className="w-full h-full object-cover"
+                              onError={(e) => {
+                                const target = e.target as HTMLImageElement;
+                                target.style.display = 'none';
+                                const parent = target.parentElement;
+                                if (parent) {
+                                  parent.innerHTML = '<div class="w-full h-full flex items-center justify-center text-gray-400 text-xs">로드 실패</div>';
+                                }
+                              }}
                             />
                           </div>
                         )}
@@ -570,11 +591,19 @@ export default function MessageSendModal({
                         src={selectedTemplate.imageUrl} 
                         alt="메시지 이미지" 
                         className="w-full h-full object-contain"
+                        onError={(e) => {
+                          const target = e.target as HTMLImageElement;
+                          target.style.display = 'none';
+                          const parent = target.parentElement;
+                          if (parent) {
+                            parent.innerHTML = '<div class="w-full h-full flex items-center justify-center text-gray-400">이미지를 불러올 수 없습니다</div>';
+                          }
+                        }}
                       />
                     </div>
                   </div>
                   <p className="text-xs text-text-secondary mt-1">
-                    이미지는 함께 전송됩니다.
+                    이미지는 MMS로 함께 전송됩니다.
                   </p>
                 </div>
               )}

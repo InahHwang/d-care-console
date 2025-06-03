@@ -88,25 +88,42 @@ export async function PUT(
     // 한국 시간 기준 오늘 날짜
     const todayKorean = getKoreanToday();
     
-    // 콜백 이력 업데이트 - 수정된 부분
+    // 콜백 이력 업데이트 - 🔥 핵심 수정 부분
     const callbackHistory = patient.callbackHistory || [];
     
-    // 실제 콜백 완료 기록 추가 (바로 종결/예약완료 처리된 경우)
-    const actualCallbackRecord = {
-      id: `callback-${Date.now()}-${generateUUID()}`,
-      date: todayKorean,
-      status: '완료',
-      notes: isReservationCompletion 
-        ? `[상담 내용]\n${reason.replace(/\[예약완료\].*?예약일시:\s*[\d-]+\s+[\d:]+\s*/, '').trim() || '예약 완료 상담'}`
-        : `[상담 내용]\n${reason}`,
-      type: getCallbackTypeBasedOnHistory(callbackHistory), // 콜백 이력을 바탕으로 타입 결정
-      time: undefined,
-      customerResponse: 'positive', // 예약완료/종결이므로 긍정적으로 간주
-      nextStep: isReservationCompletion ? '예약_확정' : '종결_처리',
-      createdAt: new Date().toISOString()
-    };
+    // 🔥 오늘 날짜에 이미 완료된 콜백이 있는지 확인
+    const todayCompletedCallback = callbackHistory.find((cb: { date: string; status: string; isCompletionRecord: any; }) => 
+      cb.date === todayKorean && 
+      cb.status === '완료' && 
+      !cb.isCompletionRecord
+    );
     
-    // 종결 기록 생성
+    // 🔥 오늘 완료된 콜백이 있으면 추가 콜백 기록을 생성하지 않음
+    let updatedCallbackHistory = [...callbackHistory];
+    
+    if (!todayCompletedCallback) {
+      // 오늘 완료된 콜백이 없는 경우에만 실제 콜백 완료 기록 추가
+      const actualCallbackRecord = {
+        id: `callback-${Date.now()}-${generateUUID()}`,
+        date: todayKorean,
+        status: '완료',
+        notes: isReservationCompletion 
+          ? `[상담 내용]\n${reason.replace(/\[예약완료\].*?예약일시:\s*[\d-]+\s+[\d:]+\s*/, '').trim() || '예약 완료 상담'}`
+          : `[상담 내용]\n${reason}`,
+        type: getCallbackTypeBasedOnHistory(callbackHistory),
+        time: undefined,
+        customerResponse: 'positive',
+        nextStep: isReservationCompletion ? '예약_확정' : '종결_처리',
+        createdAt: new Date().toISOString()
+      };
+      
+      updatedCallbackHistory.push(actualCallbackRecord);
+      console.log('새로운 콜백 완료 기록 추가:', actualCallbackRecord.type);
+    } else {
+      console.log('오늘 이미 완료된 콜백이 있어서 추가 콜백 기록을 생성하지 않음:', todayCompletedCallback.type);
+    }
+    
+    // 종결 기록은 항상 추가 (예약 완료든 일반 종결이든)
     const completionRecord = {
       id: `completion-${Date.now()}-${generateUUID()}`,
       date: todayKorean,
@@ -118,8 +135,7 @@ export async function PUT(
       createdAt: new Date().toISOString()
     };
 
-    // 콜백 이력에 실제 콜백 완료 기록과 종결 기록 모두 추가
-    const updatedCallbackHistory = [...callbackHistory, actualCallbackRecord, completionRecord];
+    updatedCallbackHistory.push(completionRecord);
 
     // 환자 정보 업데이트
     const updateData = {

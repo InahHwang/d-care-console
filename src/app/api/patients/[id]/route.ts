@@ -41,6 +41,8 @@ export async function PUT(
     const id = params.id;
     const data = await request.json();
     
+    console.log('API: 환자 업데이트 요청', { id, data });
+    
     // 업데이트 데이터 준비
     const updateData = {
       ...data,
@@ -50,12 +52,14 @@ export async function PUT(
     
     let result;
     if (ObjectId.isValid(id)) {
+      console.log('API: ObjectId로 업데이트 시도', id);
       result = await db.collection('patients').findOneAndUpdate(
         { _id: new ObjectId(id) },
         { $set: updateData },
         { returnDocument: 'after' }
       );
     } else {
+      console.log('API: patientId로 업데이트 시도', id);
       result = await db.collection('patients').findOneAndUpdate(
         { patientId: id },
         { $set: updateData },
@@ -64,10 +68,25 @@ export async function PUT(
     }
     
     if (!result) {
+      console.error('API: 환자를 찾을 수 없음', id);
       return NextResponse.json({ error: '환자를 찾을 수 없습니다.' }, { status: 404 });
     }
     
-    return NextResponse.json(result, { status: 200 });
+    // 🔥 업데이트된 환자 데이터 로깅
+    console.log('API: 환자 업데이트 성공', {
+      _id: result._id,
+      name: result.name,
+      consultationType: result.consultationType
+    });
+    
+    // 🔥 응답 데이터 구조 확인 및 정규화
+    const responseData = {
+      ...result,
+      _id: result._id.toString(), // ObjectId를 문자열로 변환
+      id: result.id || result._id.toString() // id 필드 보장
+    };
+    
+    return NextResponse.json(responseData, { status: 200 });
   } catch (error) {
     console.error('환자 정보 업데이트 실패:', error);
     return NextResponse.json({ error: '환자 정보 수정에 실패했습니다.' }, { status: 500 });
@@ -82,7 +101,7 @@ export async function DELETE(
     const { db } = await connectToDatabase();
     const id = params.id;
 
-    console.log(`삭제 시도: 환자 ID = ${id}`); // 로깅 추가
+    console.log(`삭제 시도: 환자 ID = ${id}`);
 
     // 먼저 환자 찾기 시도
     let patient;

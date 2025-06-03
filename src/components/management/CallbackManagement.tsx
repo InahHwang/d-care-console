@@ -613,11 +613,11 @@ export default function CallbackManagement({ patient }: CallbackManagementProps)
       }
 
       const completedCallbackData: Omit<CallbackItem, 'id'> = {
-        date: format(new Date(), 'yyyy-MM-dd'), // 오늘 날짜로 업데이트
+        date: format(new Date(), 'yyyy-MM-dd'),
         status: '완료',
-        notes: completedCallbackNotes, // 구조화된 메모 포맷 사용
-        customerResponse: customerResponse as any, // 고객 반응 추가
-        nextStep: nextStep as any, // 다음 단계 추가
+        notes: completedCallbackNotes,
+        customerResponse: customerResponse as any,
+        nextStep: nextStep as any,
         type: callbackToComplete.type,
         time: undefined
       };
@@ -645,14 +645,15 @@ export default function CallbackManagement({ patient }: CallbackManagementProps)
         
         // 다음 콜백 날짜 - 사용자가 선택한 날짜 사용
         const nextCallbackDateFormatted = nextCallbackDate;
-        
+      
         // 다음 단계 콜백 타입 결정
         const nextCallbackType = nextStep === '2차_콜백' ? '2차' :
                                 nextStep === '3차_콜백' ? '3차' : 
                                 nextStep === '4차_콜백' ? '4차' : '5차';
         
-        // 간단한 메모만 포함 (상세 내용은 이전 완료된 콜백에서 확인 가능)
+        // 간단한 메모만 포함
         const notes = `다음 ${nextCallbackType} 콜백 예정`;
+
 
         // 다음 콜백 자동 예약
         await dispatch(addCallback({

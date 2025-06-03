@@ -20,6 +20,7 @@ import {
   HiOutlineLocationMarker, 
   HiOutlineCake 
 } from 'react-icons/hi'
+import { FiPhone, FiPhoneCall } from 'react-icons/fi'
 import { Icon } from '../common/Icon'
 import { provinces, getCitiesByProvince } from '@/constants/regionData'
 
@@ -36,11 +37,11 @@ const patientStatusOptions = [
   { value: '부재중', label: '부재중' },
   { value: '활성고객', label: '활성고객' },
   { value: 'VIP', label: 'VIP' },
-  { value: '예약확정', label: '예약 확정' }, // 띄어쓰기 추가
-  { value: '종결', label: '종결' }, // 종결 상태 추가
+  { value: '예약확정', label: '예약 확정' },
+  { value: '종결', label: '종결' },
 ]
 
-// 관심 분야 옵션 (업데이트됨)
+// 관심 분야 옵션
 const interestAreaOptions = [
   { value: '풀케이스', label: '풀케이스' },
   { value: '임플란트', label: '임플란트' },
@@ -54,7 +55,7 @@ const interestAreaOptions = [
 export default function PatientEditForm({ patient, onClose, onSuccess }: PatientEditFormProps) {
   const dispatch = useAppDispatch()
   
-  // 폼 상태 관리
+  // 🔥 폼 상태 관리 - consultationType 기본값 설정 개선
   const [formValues, setFormValues] = useState<UpdatePatientData>({
     name: patient.name,
     phoneNumber: patient.phoneNumber,
@@ -65,6 +66,7 @@ export default function PatientEditForm({ patient, onClose, onSuccess }: Patient
     firstConsultDate: patient.firstConsultDate,
     age: patient.age,
     region: patient.region ? { ...patient.region } : undefined,
+    consultationType: patient.consultationType || 'outbound', // 🔥 기본값 명시적 설정
   })
   
   // 지역 선택 상태
@@ -78,7 +80,6 @@ export default function PatientEditForm({ patient, onClose, onSuccess }: Patient
     phoneNumber: '',
     age: '',
     callInDate: '',
-    firstConsultDate: '',
   })
   
   // 로딩 상태
@@ -116,44 +117,86 @@ export default function PatientEditForm({ patient, onClose, onSuccess }: Patient
     }
   }, [selectedProvince, selectedCity])
   
-  // 폼 변경 감지
+  // 🔥 폼 변경 감지 개선 - 더 안정적인 비교 로직
   useEffect(() => {
-    // 모든 필드를 비교하여 변경 여부 확인
-    const isNameChanged = formValues.name !== patient.name
-    const isPhoneChanged = formValues.phoneNumber !== patient.phoneNumber
-    const isStatusChanged = formValues.status !== patient.status
-    const isAgeChanged = formValues.age !== patient.age
-    const isCallInDateChanged = formValues.callInDate !== patient.callInDate
-    const isFirstConsultDateChanged = formValues.firstConsultDate !== patient.firstConsultDate
-    const isNotesChanged = formValues.notes !== patient.notes
+    // 원본 환자 데이터 정규화
+    const originalPatient = {
+      name: patient.name || '',
+      phoneNumber: patient.phoneNumber || '',
+      status: patient.status,
+      age: patient.age,
+      callInDate: patient.callInDate || '',
+      notes: patient.notes || '',
+      consultationType: patient.consultationType || 'outbound',
+      interestedServices: patient.interestedServices || [],
+      region: patient.region || undefined
+    };
+
+    // 현재 폼 데이터 정규화
+    const currentForm = {
+      name: formValues.name || '',
+      phoneNumber: formValues.phoneNumber || '',
+      status: formValues.status,
+      age: formValues.age,
+      callInDate: formValues.callInDate || '',
+      notes: formValues.notes || '',
+      consultationType: formValues.consultationType || 'outbound',
+      interestedServices: formValues.interestedServices || [],
+      region: formValues.region || undefined
+    };
+
+    // 각 필드별 변경 여부 확인
+    const isNameChanged = currentForm.name !== originalPatient.name;
+    const isPhoneChanged = currentForm.phoneNumber !== originalPatient.phoneNumber;
+    const isStatusChanged = currentForm.status !== originalPatient.status;
+    const isAgeChanged = currentForm.age !== originalPatient.age;
+    const isCallInDateChanged = currentForm.callInDate !== originalPatient.callInDate;
+    const isNotesChanged = currentForm.notes !== originalPatient.notes;
+    const isConsultationTypeChanged = currentForm.consultationType !== originalPatient.consultationType;
     
-    // 관심 분야 비교
+    // 관심 분야 비교 개선
     const isInterestChanged = 
-      formValues.interestedServices?.length !== patient.interestedServices.length ||
-      !formValues.interestedServices?.every(service => patient.interestedServices.includes(service))
+      currentForm.interestedServices.length !== originalPatient.interestedServices.length ||
+      !currentForm.interestedServices.every(service => originalPatient.interestedServices.includes(service)) ||
+      !originalPatient.interestedServices.every(service => currentForm.interestedServices.includes(service));
     
-    // 지역 비교
-    let isRegionChanged = false
-    if (formValues.region && patient.region) {
+    // 지역 비교 개선
+    let isRegionChanged = false;
+    if (currentForm.region && originalPatient.region) {
       isRegionChanged = 
-        formValues.region.province !== patient.region.province ||
-        formValues.region.city !== patient.region.city
-    } else if (formValues.region !== patient.region) {
-      isRegionChanged = true
+        currentForm.region.province !== originalPatient.region.province ||
+        currentForm.region.city !== originalPatient.region.city;
+    } else if (currentForm.region !== originalPatient.region) {
+      isRegionChanged = true;
     }
     
-    setIsChanged(
+    const newIsChanged = 
       isNameChanged || 
       isPhoneChanged || 
       isStatusChanged || 
       isAgeChanged || 
       isCallInDateChanged || 
-      isFirstConsultDateChanged || 
       isNotesChanged || 
       isInterestChanged || 
-      isRegionChanged
-    )
-  }, [formValues, patient])
+      isRegionChanged ||
+      isConsultationTypeChanged;
+    
+    console.log('=== 폼 변경 감지 (개선된 버전) ===');
+    console.log('변경 사항:', {
+      name: isNameChanged,
+      phone: isPhoneChanged,
+      status: isStatusChanged,
+      age: isAgeChanged,
+      callInDate: isCallInDateChanged,
+      notes: isNotesChanged,
+      consultationType: isConsultationTypeChanged,
+      interest: isInterestChanged,
+      region: isRegionChanged
+    });
+    console.log('최종 isChanged:', newIsChanged);
+    
+    setIsChanged(newIsChanged);
+  }, [formValues, patient]);
   
   // 입력값 변경 처리
   const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement | HTMLTextAreaElement>) => {
@@ -248,6 +291,11 @@ export default function PatientEditForm({ patient, onClose, onSuccess }: Patient
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
     
+    console.log('=== 폼 제출 시작 ===');
+    console.log('isChanged:', isChanged);
+    console.log('isLoading:', isLoading);
+    console.log('formValues:', formValues);
+    
     // 유효성 검사
     let isValid = true
     const newErrors = { 
@@ -255,7 +303,6 @@ export default function PatientEditForm({ patient, onClose, onSuccess }: Patient
       phoneNumber: '', 
       age: '',
       callInDate: '',
-      firstConsultDate: '',
     }
     
     if (!formValues.name || !formValues.name.trim()) {
@@ -281,11 +328,6 @@ export default function PatientEditForm({ patient, onClose, onSuccess }: Patient
       isValid = false
     }
     
-    if (!formValues.firstConsultDate) {
-      newErrors.firstConsultDate = '첫 상담 날짜를 입력해주세요'
-      isValid = false
-    }
-    
     setErrors(newErrors)
     
     if (!isValid) return
@@ -293,11 +335,24 @@ export default function PatientEditForm({ patient, onClose, onSuccess }: Patient
     try {
       setIsLoading(true)
       
+      // 🔥 환자 ID 확인 개선 - _id 우선 사용
+      const patientId = patient._id || patient.id;
+      if (!patientId) {
+        throw new Error('환자 ID를 찾을 수 없습니다.');
+      }
+      
+      console.log('환자 정보 수정 시도:', {
+        patientId,
+        formValues
+      });
+      
       // Redux 액션 디스패치
-      await dispatch(updatePatient({
-        patientId: patient.id,
+      const result = await dispatch(updatePatient({
+        patientId: patientId,
         patientData: formValues
       })).unwrap()
+      
+      console.log('수정 성공 결과:', result);
       
       // 성공 처리
       alert('환자 정보가 성공적으로 수정되었습니다!')
@@ -305,7 +360,7 @@ export default function PatientEditForm({ patient, onClose, onSuccess }: Patient
       onClose()
     } catch (error) {
       console.error('환자 정보 수정 오류:', error)
-      alert('환자 정보 수정 중 오류가 발생했습니다.')
+      alert(`환자 정보 수정 중 오류가 발생했습니다: ${error}`)
     } finally {
       setIsLoading(false)
     }
@@ -336,6 +391,37 @@ export default function PatientEditForm({ patient, onClose, onSuccess }: Patient
               </label>
               <div className="form-input bg-gray-50 text-text-secondary cursor-not-allowed">
                 {patient.patientId}
+              </div>
+            </div>
+            
+            {/* 🔥 상담 타입 표시 (수정 불가) */}
+            <div>
+              <label className="block text-sm font-medium text-text-primary mb-1">
+                상담 타입
+              </label>
+              <div className="flex items-center space-x-2">
+                <div className={`inline-flex items-center px-3 py-2 rounded-full text-sm font-medium ${
+                  (patient.consultationType || 'outbound') === 'inbound' 
+                    ? 'bg-green-100 text-green-800' 
+                    : 'bg-blue-100 text-blue-800'
+                }`}>
+                  {(patient.consultationType || 'outbound') === 'inbound' ? (
+                    <>
+                      <FiPhone className="w-4 h-4 mr-1" />
+                      인바운드
+                    </>
+                  ) : (
+                    <>
+                      <FiPhoneCall className="w-4 h-4 mr-1" />
+                      아웃바운드
+                    </>
+                  )}
+                </div>
+                {patient.consultationType === 'inbound' && patient.inboundPhoneNumber && (
+                  <span className="text-sm text-gray-500">
+                    (입력번호: {patient.inboundPhoneNumber})
+                  </span>
+                )}
               </div>
             </div>
             
@@ -489,8 +575,7 @@ export default function PatientEditForm({ patient, onClose, onSuccess }: Patient
               )}
             </div>            
             
-            
-            {/* 관심 분야 (업데이트됨) */}
+            {/* 관심 분야 */}
             <div>
               <label className="block text-sm font-medium text-text-primary mb-2">
                 관심 분야
@@ -546,7 +631,7 @@ export default function PatientEditForm({ patient, onClose, onSuccess }: Patient
             </button>
             <button 
               type="submit" 
-              className="btn btn-primary"
+              className={`btn btn-primary ${(!isChanged || isLoading) ? 'opacity-50 cursor-not-allowed' : ''}`}
               disabled={isLoading || !isChanged}
             >
               {isLoading ? '처리 중...' : '저장하기'}

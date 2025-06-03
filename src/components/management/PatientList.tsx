@@ -8,6 +8,7 @@ import { setPage, selectPatient, Patient, toggleVisitConfirmation } from '@/stor
 import { openDeleteConfirm } from '@/store/slices/uiSlice'
 import { IconType } from 'react-icons'
 import { HiOutlineChevronLeft, HiOutlineChevronRight, HiOutlineArrowUp, HiOutlineTrash, HiOutlineCheck } from 'react-icons/hi'
+import { FiPhone, FiPhoneCall } from 'react-icons/fi'
 import { Icon } from '../common/Icon'
 import { useState, useEffect } from 'react'
 import PatientDetailModal from './PatientDetailModal'
@@ -33,6 +34,31 @@ const PatientStatusBadge = ({ status }: { status: string }) => {
     </span>
   )
 }
+
+// 🔥 상담 타입 배지 컴포넌트 추가
+const ConsultationTypeBadge = ({ type, inboundPhoneNumber }: { type: 'inbound' | 'outbound', inboundPhoneNumber?: string }) => {
+  if (type === 'inbound') {
+    return (
+      <div className="flex items-center space-x-1">
+        <span className="inline-flex items-center px-2 py-1 rounded-full text-xs font-medium bg-green-100 text-green-800">
+          <FiPhone className="w-3 h-3 mr-1" />
+          인바운드
+        </span>
+        {inboundPhoneNumber && (
+          <span className="text-xs text-gray-500" title="입력된 번호">
+          </span>
+        )}
+      </div>
+    );
+  }
+  
+  return (
+    <span className="inline-flex items-center px-2 py-1 rounded-full text-xs font-medium bg-blue-100 text-blue-800">
+      <FiPhoneCall className="w-3 h-3 mr-1" />
+      아웃바운드
+    </span>
+  );
+};
 
 // 총 콜백 횟수 표시를 위한 컴포넌트
 const CallbackCountBadge = ({ patient }: { patient: Patient }) => {
@@ -95,59 +121,60 @@ export default function PatientList({ isLoading = false }: PatientListProps) {
   
   // 디테일 보기 핸들러
   const handleViewDetails = (patient: Patient) => {
-  // patient 객체에서 _id나 id 확인
-  const patientId = patient._id || patient.id;
-  
-  if (!patientId) {
-    console.error('환자 ID가 없습니다:', patient);
-    return; // ID가 없으면 처리하지 않음
+    // patient 객체에서 _id나 id 확인
+    const patientId = patient._id || patient.id;
+    
+    if (!patientId) {
+      console.error('환자 ID가 없습니다:', patient);
+      return; // ID가 없으면 처리하지 않음
+    }
+    
+    console.log('상세 보기 선택:', patientId);
+    dispatch(selectPatient(patientId));
   }
-  
-  console.log('상세 보기 선택:', patientId);
-  dispatch(selectPatient(patientId));
-}
 
-// 내원 확정 토글 핸들러
-const handleToggleVisitConfirmation = async (patient: Patient, e: React.MouseEvent) => {
-  e.stopPropagation(); // 이벤트 버블링 방지
-  
-  // patient 객체에서 _id나 id 확인
-  const patientId = patient._id || patient.id;
-  
-  if (!patientId) {
-    console.error('환자 ID가 없습니다:', patient);
-    return; // ID가 없으면 처리하지 않음
-  }
-  
-  console.log('내원 확정 토글 시도:', patientId);
-  
-  try {
-    // 비동기 thunk 액션 디스패치
-    await dispatch(toggleVisitConfirmation(patientId)).unwrap();
-    console.log('내원확정 상태 변경 성공');
+  // 내원 확정 토글 핸들러
+  const handleToggleVisitConfirmation = async (patient: Patient, e: React.MouseEvent) => {
+    e.stopPropagation(); // 이벤트 버블링 방지
     
-    // 성공 시 추가 처리가 필요하면 여기서
-    // 예: 토스트 메시지 표시
+    // patient 객체에서 _id나 id 확인
+    const patientId = patient._id || patient.id;
     
-  } catch (error) {
-    console.error('내원확정 변경 실패:', error);
+    if (!patientId) {
+      console.error('환자 ID가 없습니다:', patient);
+      return; // ID가 없으면 처리하지 않음
+    }
     
-    // 에러 처리: 사용자에게 알림 표시
-    alert(`내원확정 상태 변경에 실패했습니다: ${error}`);
+    console.log('내원 확정 토글 시도:', patientId);
     
-    // 또는 토스트 메시지나 다른 에러 표시 방법 사용
-  }
-};
+    try {
+      // 비동기 thunk 액션 디스패치
+      await dispatch(toggleVisitConfirmation(patientId)).unwrap();
+      console.log('내원확정 상태 변경 성공');
+      
+      // 성공 시 추가 처리가 필요하면 여기서
+      // 예: 토스트 메시지 표시
+      
+    } catch (error) {
+      console.error('내원확정 변경 실패:', error);
+      
+      // 에러 처리: 사용자에게 알림 표시
+      alert(`내원확정 상태 변경에 실패했습니다: ${error}`);
+      
+      // 또는 토스트 메시지나 다른 에러 표시 방법 사용
+    }
+  };
   
   return (
     <>
       <div className="card p-0 w-full">
         <div className="overflow-x-auto">
-        <table className="w-full min-w-[800px] table-auto">
-            {/* 테이블 헤더 */}
+          <table className="w-full min-w-[900px] table-auto">
+            {/* 테이블 헤더 - 🔥 상담 타입 컬럼 추가 */}
             <thead>
               <tr className="bg-light-bg">
                 <th className="px-4 py-3 text-left text-xs font-semibold text-text-secondary">환자 ID</th>
+                <th className="px-4 py-3 text-left text-xs font-semibold text-text-secondary">상담 타입</th>
                 <th className="px-4 py-3 text-left text-xs font-semibold text-text-secondary">이름</th>
                 <th className="px-4 py-3 text-left text-xs font-semibold text-text-secondary">나이</th>
                 <th className="px-4 py-3 text-left text-xs font-semibold text-text-secondary">지역</th>
@@ -165,13 +192,13 @@ const handleToggleVisitConfirmation = async (patient: Patient, e: React.MouseEve
             <tbody>
               {isLoading ? (
                 <tr>
-                  <td colSpan={11} className="px-4 py-8 text-center text-text-secondary">
+                  <td colSpan={12} className="px-4 py-8 text-center text-text-secondary">
                     불러오는 중...
                   </td>
                 </tr>
               ) : paginatedPatients.length === 0 ? (
                 <tr>
-                  <td colSpan={11} className="px-4 py-8 text-center text-text-secondary">
+                  <td colSpan={12} className="px-4 py-8 text-center text-text-secondary">
                     {filters.searchTerm ? (
                       <>검색 결과가 없습니다: <strong>{filters.searchTerm}</strong></>
                     ) : (
@@ -188,8 +215,10 @@ const handleToggleVisitConfirmation = async (patient: Patient, e: React.MouseEve
                       console.log('부재중 콜백이 있는 환자:', patient._id, patient.name, '- 상태:', patient.status);
                     }
                   }
-                  // 특수 환자 강조 표시 (VIP, 미응답 등)
+                  
+                  // 🔥 인바운드 환자 강조 표시 추가
                   const rowColor = 
+                    patient.consultationType === 'inbound' ? 'bg-green-50/30' : // 인바운드 강조
                     patient.status === 'VIP' ? 'bg-purple-50/30' :
                     patient.status === '부재중' ? 'bg-red-50/30' : // 미응답 -> 부재중으로 변경
                     patient.status === '콜백필요' ? 'bg-yellow-50/30' :
@@ -208,6 +237,13 @@ const handleToggleVisitConfirmation = async (patient: Patient, e: React.MouseEve
                     >
                       <td className="px-4 py-4 text-sm text-text-secondary">
                         {patient.patientId}
+                      </td>
+                      {/* 🔥 상담 타입 컬럼 추가 */}
+                      <td className="px-4 py-4">
+                        <ConsultationTypeBadge 
+                          type={patient.consultationType || 'outbound'} 
+                          inboundPhoneNumber={patient.inboundPhoneNumber}
+                        />
                       </td>
                       <td className={`px-4 py-4 text-sm font-medium ${isVip ? 'text-purple-800' : 'text-text-primary'}`}>
                         <button 

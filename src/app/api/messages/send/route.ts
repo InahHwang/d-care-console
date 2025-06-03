@@ -2,21 +2,20 @@
 import { NextRequest, NextResponse } from 'next/server';
 import fs from 'fs';
 import path from 'path';
-import sharp from 'sharp'; // 이미지 처리용 라이브러리
+import sharp from 'sharp';
 
 // Vercel 환경 감지
 const isVercel = process.env.VERCEL === '1';
 
 // 메시지 타입을 바이트 크기에 따라 결정하는 함수 (한글 고려)
 function getMessageType(text: string): string {
-  // 한글은 3바이트, 영문/숫자/기호는 1바이트로 계산
   let byteLength = 0;
   for (let i = 0; i < text.length; i++) {
     const char = text.charAt(i);
     if (char.match(/[가-힣]/)) {
-      byteLength += 3; // 한글
+      byteLength += 3;
     } else {
-      byteLength += 1; // 영문/숫자/기호
+      byteLength += 1;
     }
   }
   
@@ -27,35 +26,49 @@ function getMessageType(text: string): string {
   } else if (byteLength <= 2000) {
     return 'LMS';
   } else {
-    return 'LMS'; // 2000바이트 초과해도 LMS로
+    return 'LMS';
   }
 }
 
-// 이미지를 MMS 조건에 맞게 최적화 (Vercel 호환)
+// Base64 데이터 URL인지 확인하는 함수
+function isBase64DataUrl(str: string): boolean {
+  return str.startsWith('data:image/');
+}
+
+// 이미지를 MMS 조건에 맞게 최적화 (개선된 버전)
 async function optimizeImageForMMS(imageInput: string | Buffer): Promise<{ success: boolean; buffer?: Buffer; error?: string }> {
   try {
     let imageBuffer: Buffer;
     
-    if (isVercel) {
-      // Vercel 환경: Base64 데이터 처리
-      if (typeof imageInput === 'string' && imageInput.startsWith('data:image')) {
+    if (typeof imageInput === 'string') {
+      if (isBase64DataUrl(imageInput)) {
+        // Base64 데이터 URL 처리 (Vercel과 로컬 모두 지원)
         const base64Data = imageInput.split(',')[1];
         imageBuffer = Buffer.from(base64Data, 'base64');
-        console.log('📱 Vercel 환경: Base64 이미지 처리');
+        console.log('📱 Base64 이미지 처리');
       } else {
-        throw new Error('Vercel 환경에서는 Base64 이미지만 지원됩니다.');
+        // 파일 경로 처리 (로컬 환경)
+        let imagePath = imageInput;
+        
+        // 상대 경로를 절대 경로로 변환
+        if (imagePath.startsWith('/uploads/')) {
+          imagePath = path.join(process.cwd(), 'public', imagePath);
+        } else if (imagePath.startsWith('/')) {
+          imagePath = path.join(process.cwd(), 'public', imagePath);
+        }
+        
+        console.log('🔍 이미지 파일 경로:', imagePath);
+        
+        if (!fs.existsSync(imagePath)) {
+          console.error('❌ 이미지 파일이 존재하지 않습니다:', imagePath);
+          return { success: false, error: '이미지 파일을 찾을 수 없습니다.' };
+        }
+        
+        imageBuffer = fs.readFileSync(imagePath);
+        console.log('🏠 파일 시스템에서 이미지 로드 성공');
       }
     } else {
-      // 로컬 환경: 파일 경로 처리
-      if (typeof imageInput === 'string') {
-        if (!fs.existsSync(imageInput)) {
-          throw new Error('이미지 파일이 존재하지 않습니다.');
-        }
-        imageBuffer = fs.readFileSync(imageInput);
-        console.log('🏠 로컬 환경: 파일 시스템에서 이미지 로드');
-      } else {
-        imageBuffer = imageInput;
-      }
+      imageBuffer = imageInput;
     }
 
     const image = sharp(imageBuffer);
@@ -68,10 +81,11 @@ async function optimizeImageForMMS(imageInput: string | Buffer): Promise<{ succe
       size: imageBuffer.length
     });
 
-    // JPG가 아니면 변환
+    // 이미지 처리가 필요한지 확인
     let needsProcessing = false;
     let processedImage = image;
 
+    // JPG가 아니면 변환
     if (metadata.format !== 'jpeg') {
       console.log('🔄 JPG로 포맷 변환');
       processedImage = processedImage.jpeg({ quality: 85 });
@@ -90,7 +104,7 @@ async function optimizeImageForMMS(imageInput: string | Buffer): Promise<{ succe
 
     // 파일 크기가 200KB를 초과하는 경우 품질 조정
     let quality = 85;
-    let finalBuffer: Buffer = imageBuffer; // 기본값 설정
+    let finalBuffer: Buffer = imageBuffer;
     
     if (needsProcessing || imageBuffer.length > 200 * 1024) {
       while (quality > 20) {
@@ -119,9 +133,14 @@ async function optimizeImageForMMS(imageInput: string | Buffer): Promise<{ succe
       finalBuffer = await processedImage.toBuffer();
     }
 
+    console.log('✅ 이미지 최적화 성공:', {
+      size: `${(finalBuffer.length / 1024).toFixed(1)}KB`,
+      originalSize: `${(imageBuffer.length / 1024).toFixed(1)}KB`
+    });
+
     return { success: true, buffer: finalBuffer };
   } catch (error: any) {
-    console.error('이미지 최적화 실패:', error.message);
+    console.error('💥 이미지 최적화 실패:', error.message);
     return { success: false, error: error.message };
   }
 }
@@ -131,7 +150,6 @@ let coolsmsService: any = null;
 let sdkImportError: string | null = null;
 
 try {
-  // Vercel 환경에서 더 안전한 임포트 방식
   if (isVercel) {
     const coolsmsModule = require('coolsms-node-sdk');
     coolsmsService = coolsmsModule.default || coolsmsModule;
@@ -175,13 +193,11 @@ export async function POST(request: NextRequest) {
     let imageUrl = '';
     
     if (body.patients && Array.isArray(body.patients)) {
-      // 다중 발송 요청
       patients = body.patients;
       content = body.content || '';
       messageType = body.messageType || 'SMS';
       imageUrl = body.imageUrl || '';
     } else {
-      // 단일 발송 요청 (기존 형태)
       patients = [{
         id: body.patientId || 'single',
         name: body.patientName || '고객',
@@ -239,8 +255,9 @@ export async function POST(request: NextRequest) {
     // 메시지 타입 결정
     let actualMessageType = getMessageType(content);
     
-    // MMS 요청이고 이미지가 있으면 MMS로 처리
-    if (messageType === 'MMS' && imageUrl) {
+    // MMS 요청이고 이미지가 있으면 MMS로 처리 시도
+    let shouldAttemptMMS = messageType === 'MMS' && imageUrl;
+    if (shouldAttemptMMS) {
       console.log('🖼️ MMS 요청 - 이미지 처리 시작');
       actualMessageType = 'MMS';
     }
@@ -267,73 +284,74 @@ export async function POST(request: NextRequest) {
 
       try {
         // MMS 이미지 처리
-        if (actualMessageType === 'MMS' && imageUrl) {
-          console.log(`📁 [${patient.name}] 이미지 처리 시작`);
+        if (shouldAttemptMMS && imageUrl) {
+          console.log(`📁 [${patient.name}] MMS 이미지 처리 시작`);
           
-          let imageProcessResult;
-          
-          if (isVercel) {
-            // Vercel: Base64 이미지 처리
-            imageProcessResult = await optimizeImageForMMS(imageUrl);
-          } else {
-            // 로컬: 파일 경로 처리
-            const imagePath = path.join(process.cwd(), 'public', imageUrl);
-            imageProcessResult = await optimizeImageForMMS(imagePath);
-          }
+          // 이미지 최적화
+          const imageProcessResult = await optimizeImageForMMS(imageUrl);
           
           if (!imageProcessResult.success) {
-            console.log(`❌ [${patient.name}] 이미지 최적화 실패, LMS로 대체:`, imageProcessResult.error);
+            console.log(`⚠️ [${patient.name}] 이미지 최적화 실패, LMS로 대체:`, imageProcessResult.error);
+            
+            // LMS로 대체하되, 이미지 실패 안내 문구는 추가하지 않음
             actualMessageType = 'LMS';
             messageOptions.type = 'LMS';
-            messageOptions.text += '\n\n※ 이미지는 별도로 확인해주세요.';
+            // messageOptions.text += '\n\n※ 이미지는 별도로 확인해주세요.'; // 이 줄 제거
             patientResult.actualType = 'LMS';
+            patientResult.error = `이미지 처리 실패로 LMS 발송: ${imageProcessResult.error}`;
           } else {
             console.log(`✅ [${patient.name}] 이미지 최적화 완료: ${(imageProcessResult.buffer!.length / 1024).toFixed(1)}KB`);
             
             try {
-              // Vercel 환경에서는 Buffer를 임시 파일로 저장 후 업로드
+              // 임시 파일 생성 및 CoolSMS 업로드
               let tempFilePath = '';
               
               if (isVercel) {
-                // 임시 파일 생성 (Vercel /tmp 디렉토리 사용)
-                tempFilePath = `/tmp/temp_${Date.now()}.jpg`;
-                fs.writeFileSync(tempFilePath, imageProcessResult.buffer!);
+                tempFilePath = `/tmp/temp_${Date.now()}_${patient.id}.jpg`;
               } else {
-                // 로컬에서는 최적화된 이미지 경로 사용
-                tempFilePath = path.join(process.cwd(), 'public/uploads', `temp_${Date.now()}.jpg`);
-                fs.writeFileSync(tempFilePath, imageProcessResult.buffer!);
+                const uploadsDir = path.join(process.cwd(), 'public/uploads');
+                if (!fs.existsSync(uploadsDir)) {
+                  fs.mkdirSync(uploadsDir, { recursive: true });
+                }
+                tempFilePath = path.join(uploadsDir, `temp_${Date.now()}_${patient.id}.jpg`);
               }
               
+              // 최적화된 이미지를 임시 파일로 저장
+              fs.writeFileSync(tempFilePath, imageProcessResult.buffer!);
+              
+              console.log(`🔄 [${patient.name}] MMS 이미지 업로드 시도: ${tempFilePath}`);
+              
               // CoolSMS 이미지 업로드
-              console.log(`🔄 [${patient.name}] MMS 이미지 업로드 시도`);
-              const imageId = await messageService.uploadFile(tempFilePath, "MMS")
-                .then((res: { fileId: any; }) => res.fileId);
+              const uploadResult = await messageService.uploadFile(tempFilePath, "MMS");
+              const imageId = uploadResult.fileId;
               
               console.log(`✅ [${patient.name}] 이미지 업로드 성공, imageId:`, imageId);
               
               // MMS 옵션 설정
               messageOptions.imageId = imageId;
-              delete messageOptions.subject;
+              messageOptions.type = 'MMS';
+              patientResult.actualType = 'MMS';
               
               // 임시 파일 정리
               try {
                 fs.unlinkSync(tempFilePath);
-                console.log(`🗑️ [${patient.name}] 임시 파일 삭제`);
-              } catch (e) {
-                console.log(`⚠️ [${patient.name}] 임시 파일 삭제 실패`);
+                console.log(`🗑️ [${patient.name}] 임시 파일 삭제 완료`);
+              } catch (cleanupError) {
+                console.log(`⚠️ [${patient.name}] 임시 파일 삭제 실패:`, cleanupError);
               }
               
             } catch (uploadError: any) {
               console.log(`❌ [${patient.name}] 이미지 업로드 실패:`, uploadError.message);
               console.log(`🔄 [${patient.name}] LMS로 대체 발송`);
               
+              // LMS로 대체하되, 이미지 실패 안내 문구는 추가하지 않음
               actualMessageType = 'LMS';
               messageOptions.type = 'LMS';
-              messageOptions.text += '\n\n※ 이미지는 별도로 확인해주세요.';
+              // messageOptions.text += '\n\n※ 이미지는 별도로 확인해주세요.'; // 이 줄 제거
               
               delete messageOptions.imageId;
-              delete messageOptions.subject;
               patientResult.actualType = 'LMS';
+              patientResult.error = `이미지 업로드 실패로 LMS 발송: ${uploadError.message}`;
             }
           }
         }
@@ -371,7 +389,6 @@ export async function POST(request: NextRequest) {
     
     // 응답 (기존 형태와 호환)
     if (patients.length === 1) {
-      // 단일 발송 응답
       const result = results[0];
       return NextResponse.json({
         success: result.success,
@@ -381,7 +398,6 @@ export async function POST(request: NextRequest) {
         actualType: result.actualType
       });
     } else {
-      // 다중 발송 응답
       return NextResponse.json({
         success: successCount > 0,
         totalCount: results.length,

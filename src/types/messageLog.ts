@@ -85,3 +85,53 @@ export interface MessageLogSort {
   field: MessageLogSortField;
   direction: SortDirection;
 }
+
+// 이미지 URL이 유효한지 확인하는 함수
+export const validateImageUrl = (imageUrl: string): boolean => {
+  if (!imageUrl) return false;
+  
+  // Base64 데이터 URL인 경우
+  if (imageUrl.startsWith('data:image/')) {
+    return true;
+  }
+  
+  // 파일 경로인 경우
+  if (imageUrl.startsWith('/uploads/') || imageUrl.startsWith('/')) {
+    return true;
+  }
+  
+  // HTTP URL인 경우
+  if (imageUrl.startsWith('http://') || imageUrl.startsWith('https://')) {
+    return true;
+  }
+  
+  return false;
+};
+
+// 이미지 URL을 표시용으로 변환하는 함수
+export const getDisplayImageUrl = (imageUrl: string): string => {
+  if (!imageUrl) return '';
+  
+  // Base64 데이터 URL은 그대로 반환
+  if (imageUrl.startsWith('data:image/')) {
+    return imageUrl;
+  }
+  
+  // 상대 경로인 경우 그대로 반환 (브라우저가 자동으로 처리)
+  if (imageUrl.startsWith('/')) {
+    return imageUrl;
+  }
+  
+  // uploads/로 시작하는 경우 앞에 / 추가
+  if (imageUrl.startsWith('uploads/')) {
+    return '/' + imageUrl;
+  }
+  
+  // HTTP URL은 그대로 반환
+  if (imageUrl.startsWith('http://') || imageUrl.startsWith('https://')) {
+    return imageUrl;
+  }
+  
+  // 기타 경우 uploads 폴더로 처리
+  return '/uploads/' + imageUrl;
+};

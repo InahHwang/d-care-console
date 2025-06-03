@@ -22,6 +22,7 @@ import {
   HiOutlineUserAdd,
   HiOutlineDocumentText 
 } from 'react-icons/hi'
+import { FiPhone, FiPhoneCall } from 'react-icons/fi'
 import { Icon } from '../common/Icon'
 import EventTargetList from './EventTargetList'
 import DeleteConfirmModal from './DeleteConfirmModal'
@@ -31,7 +32,7 @@ export default function PatientManagement() {
   const searchParams = useSearchParams()
   
   const { currentMenuItem } = useSelector((state: RootState) => state.ui)
-  const { isLoading, selectedPatient, patients } = useSelector((state: RootState) => state.patients)
+  const { isLoading, selectedPatient, patients, filters } = useSelector((state: RootState) => state.patients)
   
   // 현재 탭 상태를 별도로 관리
   const [activeTab, setActiveTab] = useState('환자 목록')
@@ -39,6 +40,7 @@ export default function PatientManagement() {
   const [searchTerm, setSearchTerm] = useState('')
   const [statusFilter, setStatusFilter] = useState('all')
   const [interestFilter, setInterestFilter] = useState('all')
+  const [consultationTypeFilter, setConsultationTypeFilter] = useState<'all' | 'inbound' | 'outbound'>('all') // 🔥 상담 타입 필터 추가
   
   // 데이터 로딩 상태 추가
   const [isDataLoaded, setIsDataLoaded] = useState(false)
@@ -89,19 +91,20 @@ export default function PatientManagement() {
     }
   }, [dispatch, patients]);
 
-  // 필터 적용
+  // 🔥 필터 적용 - consultationTypeFilter 추가
   useEffect(() => {
     const debounceTimer = setTimeout(() => {
       dispatch(setFilters({
         searchTerm,
         status: statusFilter as any,
         interestArea: interestFilter,
+        consultationType: consultationTypeFilter // 🔥 상담 타입 필터 추가
       }))
       dispatch(setPage(1)) // 필터 변경 시 첫 페이지로 이동
     }, 300)
     
     return () => clearTimeout(debounceTimer)
-  }, [searchTerm, statusFilter, interestFilter, dispatch])
+  }, [searchTerm, statusFilter, interestFilter, consultationTypeFilter, dispatch]) // 🔥 의존성에 consultationTypeFilter 추가
 
   // 탭 변경 핸들러
   const handleTabChange = (tab: string) => {
@@ -117,11 +120,36 @@ export default function PatientManagement() {
     }
   }
 
+  // 🔥 현재 필터 상태를 확인하여 통계 표시
+  const getFilterStats = () => {
+    const inboundCount = patients.filter(p => p.consultationType === 'inbound').length;
+    const outboundCount = patients.filter(p => p.consultationType === 'outbound').length;
+    const totalCount = patients.length;
+    
+    return { inboundCount, outboundCount, totalCount };
+  };
+
+  const { inboundCount, outboundCount, totalCount } = getFilterStats();
+
   return (
     <div>
       {/* 페이지 제목 */}
       <div className="flex items-center justify-between mb-6">
-        <h1 className="text-2xl font-bold text-text-primary">상담 관리</h1>
+        <div>
+          <h1 className="text-2xl font-bold text-text-primary">상담 관리</h1>
+          {/* 🔥 상담 타입별 통계 표시 */}
+          <div className="flex items-center space-x-4 mt-1">
+            <span className="text-sm text-gray-600">
+              전체: <strong>{totalCount}명</strong>
+            </span>
+            <span className="text-sm text-green-600">
+              인바운드: <strong>{inboundCount}명</strong>
+            </span>
+            <span className="text-sm text-blue-600">
+              아웃바운드: <strong>{outboundCount}명</strong>
+            </span>
+          </div>
+        </div>
         
         {/* 🎯 개발 중 디버깅 정보 (나중에 제거) */}
         {process.env.NODE_ENV === 'development' && (
@@ -220,7 +248,7 @@ export default function PatientManagement() {
         </div>
       </div>
 
-      {/* 필터 영역 - 탭에 따라 다른 UI 표시 */}
+      {/* 🔥 필터 영역 - 상담 타입 필터 추가 */}
       {activeTab === '환자 목록' && (
         <div className="card mb-6">
           <div className="flex flex-col md:flex-row items-start md:items-center gap-4">
@@ -239,6 +267,17 @@ export default function PatientManagement() {
               />
             </div>
 
+            {/* 🔥 상담 타입 필터 추가 */}
+            <select
+              className="px-4 py-2 bg-light-bg rounded-full text-sm focus:outline-none text-text-secondary md:w-40"
+              value={consultationTypeFilter}
+              onChange={(e) => setConsultationTypeFilter(e.target.value as 'all' | 'inbound' | 'outbound')}
+            >
+              <option value="all">상담 타입 ▼</option>
+              <option value="inbound">🟢 인바운드</option>
+              <option value="outbound">🔵 아웃바운드</option>
+            </select>
+
             <select
               className="px-4 py-2 bg-light-bg rounded-full text-sm focus:outline-none text-text-secondary md:w-36"
               value={statusFilter}
@@ -250,8 +289,8 @@ export default function PatientManagement() {
               <option value="부재중">부재중</option>
               <option value="활성고객">활성고객</option>
               <option value="VIP">VIP</option>
-              <option value="예약확정">예약 확정</option> {/* 추가 */}
-              <option value="종결">종결</option> {/* 추가 */}
+              <option value="예약확정">예약 확정</option>
+              <option value="종결">종결</option>
             </select>
 
             <select
@@ -275,6 +314,48 @@ export default function PatientManagement() {
               <span>+ 신규 환자</span>
             </button>
           </div>
+
+          {/* 🔥 필터 결과 요약 표시 */}
+          {(consultationTypeFilter !== 'all' || statusFilter !== 'all' || interestFilter !== 'all' || searchTerm) && (
+            <div className="mt-4 p-3 bg-blue-50 rounded-lg">
+              <div className="flex items-center justify-between">
+                <div className="flex items-center space-x-2 text-sm text-blue-800">
+                  <span>🔍 필터링 결과:</span>
+                  {consultationTypeFilter !== 'all' && (
+                    <span className="inline-flex items-center px-2 py-1 rounded-full text-xs bg-blue-200 text-blue-800">
+                      {consultationTypeFilter === 'inbound' ? '🟢 인바운드' : '🔵 아웃바운드'}
+                    </span>
+                  )}
+                  {statusFilter !== 'all' && (
+                    <span className="inline-flex items-center px-2 py-1 rounded-full text-xs bg-blue-200 text-blue-800">
+                      {statusFilter}
+                    </span>
+                  )}
+                  {interestFilter !== 'all' && (
+                    <span className="inline-flex items-center px-2 py-1 rounded-full text-xs bg-blue-200 text-blue-800">
+                      {interestFilter}
+                    </span>
+                  )}
+                  {searchTerm && (
+                    <span className="inline-flex items-center px-2 py-1 rounded-full text-xs bg-blue-200 text-blue-800">
+                      "{searchTerm}"
+                    </span>
+                  )}
+                </div>
+                <button
+                  onClick={() => {
+                    setSearchTerm('');
+                    setStatusFilter('all');
+                    setInterestFilter('all');
+                    setConsultationTypeFilter('all');
+                  }}
+                  className="text-xs text-blue-600 hover:text-blue-800 underline"
+                >
+                  전체 보기
+                </button>
+              </div>
+            </div>
+          )}
         </div>
       )}
 
