@@ -7,7 +7,7 @@ import { useAppDispatch, useAppSelector } from '@/hooks/reduxHooks'
 import { RootState } from '@/store'
 import { closePatientForm } from '@/store/slices/uiSlice'
 import { createPatient, CreatePatientData, PatientStatus } from '@/store/slices/patientsSlice'
-import { HiOutlineX, HiOutlineUser, HiOutlinePhone, HiOutlineCalendar, HiOutlineStar, HiOutlineLocationMarker, HiOutlineCake } from 'react-icons/hi'
+import { HiOutlineX, HiOutlineUser, HiOutlinePhone, HiOutlineCalendar, HiOutlineStar, HiOutlineLocationMarker, HiOutlineCake, HiOutlineGlobeAlt } from 'react-icons/hi'
 import { Icon } from '../common/Icon'
 import { provinces, getCitiesByProvince } from '@/constants/regionData'
 
@@ -22,6 +22,17 @@ const interestAreaOptions = [
   { value: '기타', label: '기타' },
 ]
 
+// 🔥 유입경로 옵션 추가
+const referralSourceOptions = [
+  { value: '', label: '선택 안함' },
+  { value: '유튜브', label: '유튜브' },
+  { value: '블로그', label: '블로그' },
+  { value: '홈페이지', label: '홈페이지' },
+  { value: '소개환자', label: '소개환자' },
+  { value: '제휴', label: '제휴' },
+  { value: '기타', label: '기타' },
+]
+
 export default function PatientFormModal() {
   const dispatch = useAppDispatch()
   const isOpen = useAppSelector((state: RootState) => state.ui.isPatientFormOpen)
@@ -30,7 +41,7 @@ export default function PatientFormModal() {
   // 현재 날짜 설정
   const today = new Date().toISOString().split('T')[0]
   
-  // 🔥 폼 상태 관리 - consultationType 필드 추가
+  // 🔥 폼 상태 관리 - consultationType, referralSource 필드 추가
   const [formValues, setFormValues] = useState<CreatePatientData>({
     name: '',
     phoneNumber: '',
@@ -41,6 +52,7 @@ export default function PatientFormModal() {
     age: undefined,
     region: undefined,
     consultationType: 'outbound', // 🔥 기본값으로 아웃바운드 설정 (신규 환자 등록은 주로 아웃바운드)
+    referralSource: '', // 🔥 유입경로 기본값
   })
   
   // 지역 선택 상태
@@ -88,7 +100,7 @@ export default function PatientFormModal() {
   // 모달 닫기
   const handleClose = () => {
     dispatch(closePatientForm())
-    // 🔥 폼 상태 초기화 - consultationType 포함
+    // 🔥 폼 상태 초기화 - consultationType, referralSource 포함
     setFormValues({
       name: '',
       phoneNumber: '',
@@ -99,6 +111,7 @@ export default function PatientFormModal() {
       age: undefined,
       region: undefined,
       consultationType: 'outbound', // 🔥 초기화 시에도 포함
+      referralSource: '', // 🔥 유입경로 초기화
     })
     setSelectedProvince('')
     setSelectedCity('')
@@ -401,6 +414,34 @@ export default function PatientFormModal() {
                     ▼
                   </span>
                 </div>
+              </div>
+            </div>
+            
+            {/* 🔥 유입경로 필드 추가 */}
+            <div>
+              <label htmlFor="referralSource" className="block text-sm font-medium text-text-primary mb-1">
+                유입경로
+              </label>
+              <div className="relative">
+                <select
+                  id="referralSource"
+                  name="referralSource"
+                  value={formValues.referralSource}
+                  onChange={handleChange}
+                  className="form-input pl-10 appearance-none"
+                >
+                  {referralSourceOptions.map(option => (
+                    <option key={option.value} value={option.value}>
+                      {option.label}
+                    </option>
+                  ))}
+                </select>
+                <span className="absolute left-3 top-1/2 transform -translate-y-1/2 text-text-muted">
+                  <Icon icon={HiOutlineGlobeAlt} size={18} />
+                </span>
+                <span className="absolute right-3 top-1/2 transform -translate-y-1/2 text-text-muted">
+                  ▼
+                </span>
               </div>
             </div>
             

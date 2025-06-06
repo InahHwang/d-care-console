@@ -25,7 +25,15 @@ export async function GET(
       return NextResponse.json({ error: '환자를 찾을 수 없습니다.' }, { status: 404 });
     }
     
-    return NextResponse.json(patient, { status: 200 });
+    // 🔥 기존 환자 데이터 호환성 보장
+    const responsePatient = {
+      ...patient,
+      _id: patient._id.toString(),
+      consultationType: patient.consultationType || 'outbound',
+      referralSource: patient.referralSource || '' // 🔥 유입경로 기본값 설정
+    };
+    
+    return NextResponse.json(responsePatient, { status: 200 });
   } catch (error) {
     console.error('환자 조회 실패:', error);
     return NextResponse.json({ error: '환자 정보를 불러오는데 실패했습니다.' }, { status: 500 });
@@ -46,9 +54,15 @@ export async function PUT(
     // 업데이트 데이터 준비
     const updateData = {
       ...data,
-      updatedAt: new Date().toISOString()
+      updatedAt: new Date().toISOString(),
+      // 🔥 유입경로 필드 처리 - 빈 문자열도 허용
+      referralSource: data.referralSource !== undefined ? data.referralSource : '',
+      // 🔥 상담 타입 기본값 보장
+      consultationType: data.consultationType || 'outbound'
     };
     delete updateData._id; // _id는 업데이트 불가
+    
+    console.log('API: 처리된 업데이트 데이터', updateData);
     
     let result;
     if (ObjectId.isValid(id)) {
@@ -76,14 +90,18 @@ export async function PUT(
     console.log('API: 환자 업데이트 성공', {
       _id: result._id,
       name: result.name,
-      consultationType: result.consultationType
+      consultationType: result.consultationType,
+      referralSource: result.referralSource // 🔥 유입경로 로깅 추가
     });
     
     // 🔥 응답 데이터 구조 확인 및 정규화
     const responseData = {
       ...result,
       _id: result._id.toString(), // ObjectId를 문자열로 변환
-      id: result.id || result._id.toString() // id 필드 보장
+      id: result.id || result._id.toString(), // id 필드 보장
+      // 🔥 기존 환자 데이터 호환성 보장
+      consultationType: result.consultationType || 'outbound',
+      referralSource: result.referralSource || '' // 🔥 유입경로 기본값 보장
     };
     
     return NextResponse.json(responseData, { status: 200 });

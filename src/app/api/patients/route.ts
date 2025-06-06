@@ -13,6 +13,7 @@ interface PatientFromDB {
   phoneNumber: string;
   consultationType?: 'inbound' | 'outbound'; // 🔥 추가
   inboundPhoneNumber?: string; // 🔥 추가
+  referralSource?: string; // 🔥 유입경로 추가
   // 기타 필요한 필드들...
   [key: string]: any; // 다른 모든 필드를 허용
 }
@@ -32,7 +33,9 @@ export async function GET(request: NextRequest) {
         ...patient,
         _id: patient._id.toString(),
         // 🔥 기존 환자들은 기본적으로 아웃바운드로 설정 (호환성을 위해)
-        consultationType: patient.consultationType || 'outbound'
+        consultationType: patient.consultationType || 'outbound',
+        // 🔥 기존 환자들 유입경로 기본값 설정 (호환성을 위해)
+        referralSource: patient.referralSource || ''
       };
       
       // id 필드가 없다면 _id를 복사해서 id 필드 추가 (기존 코드 호환성)
@@ -108,7 +111,9 @@ export async function POST(request: NextRequest) {
       reminderStatus: '초기',
       visitConfirmed: false,
       // 🔥 상담 타입 기본값 설정 (명시되지 않으면 아웃바운드)
-      consultationType: data.consultationType || 'outbound'
+      consultationType: data.consultationType || 'outbound',
+      // 🔥 유입경로 기본값 설정 (명시되지 않으면 빈 문자열)
+      referralSource: data.referralSource || ''
     };
 
     const result = await db.collection('patients').insertOne(newPatient);

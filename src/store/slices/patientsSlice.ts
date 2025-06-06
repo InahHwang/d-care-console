@@ -1,10 +1,20 @@
-//src/store/slices/patientsSlice.ts
+// src/store/slices/patientsSlice.ts
 
 import { createSlice, createAsyncThunk, PayloadAction } from '@reduxjs/toolkit';
 import { EventCategory } from '@/types/messageLog';
 
 // 🔥 상담 타입 추가
 export type ConsultationType = 'inbound' | 'outbound';
+
+// 🔥 유입경로 타입 추가
+export type ReferralSource = 
+  | '유튜브'
+  | '블로그'
+  | '홈페이지'
+  | '소개환자'
+  | '제휴'
+  | '기타'
+  | '';
 
 // 이벤트 타겟 사유 타입
 export type EventTargetReason = 
@@ -87,7 +97,7 @@ export interface QuickInboundPatient {
   consultationType: 'inbound';
 }
 
-// 환자 타입 정의 (MongoDB ID 추가) - 🔥 consultationType 필드 추가
+// 환자 타입 정의 (MongoDB ID 추가) - 🔥 consultationType, referralSource 필드 추가
 export interface Patient {
   _id: string;            // MongoDB ID 필드 추가
   nextCallbackDate: string;
@@ -119,9 +129,10 @@ export interface Patient {
   // 🔥 새로 추가된 필드들
   consultationType: ConsultationType; // 인바운드/아웃바운드 구분
   inboundPhoneNumber?: string; // 인바운드일 때 입력받은 번호 (표시용)
+  referralSource?: ReferralSource; // 🔥 유입경로 필드 추가
 }
 
-// 환자 생성을 위한 타입 - 🔥 consultationType 추가
+// 환자 생성을 위한 타입 - 🔥 consultationType, referralSource 추가
 export interface CreatePatientData {
   name: string;
   phoneNumber: string;
@@ -137,9 +148,10 @@ export interface CreatePatientData {
   };
   consultationType: ConsultationType; // 🔥 추가
   inboundPhoneNumber?: string; // 🔥 추가
+  referralSource?: ReferralSource; // 🔥 유입경로 추가
 }
 
-// 환자 수정을 위한 타입
+// 환자 수정을 위한 타입 - 🔥 referralSource 추가
 export interface UpdatePatientData {
   name?: string;
   phoneNumber?: string;
@@ -159,6 +171,7 @@ export interface UpdatePatientData {
   completedReason?: string; // 종결 사유 필드 추가
   callbackHistory?: CallbackItem[];
   consultationType?: ConsultationType; // 🔥 추가
+  referralSource?: ReferralSource; // 🔥 유입경로 추가
 }
 
 export interface PatientsState {
@@ -176,13 +189,14 @@ export interface PatientsState {
     status: PatientStatus | 'all';
     interestArea: string | 'all';
     consultationType: ConsultationType | 'all'; // 🔥 필터에 상담 타입 추가
+    referralSource: ReferralSource | 'all'; // 🔥 필터에 유입경로 추가
   };
   isLoading: boolean;
   error: string | null;
   eventTargetPatients: Patient[];  // 이벤트 타겟 환자 목록
 }
 
-// 초기 상태 정의 - 🔥 필터에 consultationType 추가
+// 초기 상태 정의 - 🔥 필터에 consultationType, referralSource 추가
 const initialState: PatientsState = {
   patients: [], // 빈 배열로 초기화
   filteredPatients: [], // 빈 배열로 초기화
@@ -197,7 +211,8 @@ const initialState: PatientsState = {
     searchTerm: '',
     status: 'all',
     interestArea: 'all',
-    consultationType: 'all' // 🔥 추가
+    consultationType: 'all', // 🔥 추가
+    referralSource: 'all' // 🔥 유입경로 필터 추가
   },
   isLoading: true,
   error: null,
@@ -1202,11 +1217,11 @@ const patientsSlice = createSlice({
   },
 });
 
-// 필터 적용 헬퍼 함수 - 🔥 consultationType 필터 추가
+// 필터 적용 헬퍼 함수 - 🔥 consultationType, referralSource 필터 추가
 function applyFilters(state: PatientsState) {
   let filtered = [...state.patients];
   
-  const { status, interestArea, searchTerm, consultationType } = state.filters;
+  const { status, interestArea, searchTerm, consultationType, referralSource } = state.filters;
   
   // 상태 기준 필터링
   if (status !== 'all') {
@@ -1223,6 +1238,11 @@ function applyFilters(state: PatientsState) {
   // 🔥 상담 타입 기준 필터링 추가
   if (consultationType !== 'all') {
     filtered = filtered.filter(patient => patient.consultationType === consultationType);
+  }
+  
+  // 🔥 유입경로 기준 필터링 추가
+  if (referralSource !== 'all') {
+    filtered = filtered.filter(patient => patient.referralSource === referralSource);
   }
   
   // 검색어 기준 필터링

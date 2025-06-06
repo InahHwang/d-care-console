@@ -111,16 +111,16 @@ const goalsSlice = createSlice({
 
       console.log('🎯 목표 달성률 계산 시작:', patients.length, '명의 환자 데이터');
 
-      // 이번 달 신규 환자 수 계산 (createdAt 기준)
+      // 🔥 createdAt 대신 callInDate 기준으로 변경
       const newPatientsThisMonth = patients.filter(patient => {
-        if (!patient.createdAt) return false;
+        if (!patient.callInDate) return false; // createdAt → callInDate로 변경
         
-        const createdDate = new Date(patient.createdAt);
-        const isThisMonth = createdDate.getMonth() === currentMonth && 
-                           createdDate.getFullYear() === currentYear;
+        const callInDate = new Date(patient.callInDate); // createdDate → callInDate로 변경
+        const isThisMonth = callInDate.getMonth() === currentMonth && 
+                          callInDate.getFullYear() === currentYear;
         
         if (isThisMonth) {
-          console.log('✅ 신규 환자 발견:', patient.name, '등록일:', patient.createdAt);
+          console.log('✅ 신규 환자 발견:', patient.name, '등록일:', patient.callInDate);
         }
         return isThisMonth;
       }).length;

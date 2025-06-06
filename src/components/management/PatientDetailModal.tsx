@@ -6,7 +6,8 @@ import { useState, useEffect } from 'react'
 import { useAppDispatch, useAppSelector } from '@/hooks/reduxHooks'
 import { RootState } from '@/store'
 import { clearSelectedPatient, Patient } from '@/store/slices/patientsSlice'
-import { HiOutlineX, HiOutlinePhone, HiOutlineCalendar, HiOutlineUser, HiOutlineLocationMarker, HiOutlineCake, HiOutlineClipboardList, HiOutlinePencil, HiOutlineCheck, HiOutlineStop, HiOutlineRefresh } from 'react-icons/hi'
+import { HiOutlineX, HiOutlinePhone, HiOutlineCalendar, HiOutlineUser, HiOutlineLocationMarker, HiOutlineCake, HiOutlineClipboardList, HiOutlinePencil, HiOutlineCheck, HiOutlineStop, HiOutlineRefresh, HiOutlineGlobeAlt } from 'react-icons/hi'
+import { FiPhone, FiPhoneCall } from 'react-icons/fi'
 import { formatDistance } from 'date-fns'
 import { ko } from 'date-fns/locale/ko'
 import { Icon } from '../common/Icon'
@@ -188,6 +189,12 @@ const timeSinceFirstConsult = selectedPatient.firstConsultDate && selectedPatien
   
     return <span className={`text-sm ${colorMap[status]}`}>{status}</span>
   }
+
+  // 🔥 유입경로 표시 텍스트
+  const getReferralSourceText = (source?: string) => {
+    if (!source || source === '') return '-';
+    return source;
+  }
   
   return (
     <div className="fixed inset-0 bg-black/30 flex items-center justify-center z-50 p-4">
@@ -200,6 +207,24 @@ const timeSinceFirstConsult = selectedPatient.firstConsultDate && selectedPatien
             </h2>
             <StatusBadge status={selectedPatient.status} />
             <ReminderBadge status={selectedPatient.reminderStatus} />
+            {/* 🔥 상담 타입 뱃지 추가 */}
+            <div className={`inline-flex items-center px-2.5 py-1 rounded-full text-xs font-medium ${
+              (selectedPatient.consultationType || 'outbound') === 'inbound' 
+                ? 'bg-green-100 text-green-800' 
+                : 'bg-blue-100 text-blue-800'
+            }`}>
+              {(selectedPatient.consultationType || 'outbound') === 'inbound' ? (
+                <>
+                  <FiPhone className="w-3 h-3 mr-1" />
+                  인바운드
+                </>
+              ) : (
+                <>
+                  <FiPhoneCall className="w-3 h-3 mr-1" />
+                  아웃바운드
+                </>
+              )}
+            </div>
           </div>
           <div className="flex items-center gap-2">
             {/* 문자 발송 버튼 추가 */}
@@ -304,6 +329,41 @@ const timeSinceFirstConsult = selectedPatient.firstConsultDate && selectedPatien
                     <div>
                       <p className="text-sm text-text-secondary">연락처</p>
                       <p className="text-text-primary">{selectedPatient.phoneNumber}</p>
+                    </div>
+                  </div>
+
+                  {/* 🔥 상담 타입 정보 추가 */}
+                  <div className="flex items-start gap-2">
+                    <Icon 
+                      icon={(selectedPatient.consultationType || 'outbound') === 'inbound' ? FiPhone : FiPhoneCall} 
+                      size={18} 
+                      className="text-text-muted mt-0.5" 
+                    />
+                    <div>
+                      <p className="text-sm text-text-secondary">상담 타입</p>
+                      <div className="flex items-center gap-2">
+                        <p className="text-text-primary">
+                          {(selectedPatient.consultationType || 'outbound') === 'inbound' ? '인바운드' : '아웃바운드'}
+                        </p>
+                        {selectedPatient.consultationType === 'inbound' && selectedPatient.inboundPhoneNumber && (
+                          <span className="text-xs text-gray-500">
+                            (입력번호: {selectedPatient.inboundPhoneNumber})
+                          </span>
+                        )}
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* 🔥 유입경로 정보 추가 */}
+                  <div className="flex items-start gap-2">
+                    <Icon 
+                      icon={HiOutlineGlobeAlt} 
+                      size={18} 
+                      className="text-text-muted mt-0.5" 
+                    />
+                    <div>
+                      <p className="text-sm text-text-secondary">유입경로</p>
+                      <p className="text-text-primary">{getReferralSourceText(selectedPatient.referralSource)}</p>
                     </div>
                   </div>
                   

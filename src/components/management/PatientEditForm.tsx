@@ -18,7 +18,8 @@ import {
   HiOutlineClipboardList, 
   HiOutlineStar, 
   HiOutlineLocationMarker, 
-  HiOutlineCake 
+  HiOutlineCake,
+  HiOutlineGlobeAlt 
 } from 'react-icons/hi'
 import { FiPhone, FiPhoneCall } from 'react-icons/fi'
 import { Icon } from '../common/Icon'
@@ -52,10 +53,21 @@ const interestAreaOptions = [
   { value: '기타', label: '기타' },
 ]
 
+// 🔥 유입경로 옵션 추가
+const referralSourceOptions = [
+  { value: '', label: '선택 안함' },
+  { value: '유튜브', label: '유튜브' },
+  { value: '블로그', label: '블로그' },
+  { value: '홈페이지', label: '홈페이지' },
+  { value: '소개환자', label: '소개환자' },
+  { value: '제휴', label: '제휴' },
+  { value: '기타', label: '기타' },
+]
+
 export default function PatientEditForm({ patient, onClose, onSuccess }: PatientEditFormProps) {
   const dispatch = useAppDispatch()
   
-  // 🔥 폼 상태 관리 - consultationType 기본값 설정 개선
+  // 🔥 폼 상태 관리 - consultationType, referralSource 기본값 설정 개선
   const [formValues, setFormValues] = useState<UpdatePatientData>({
     name: patient.name,
     phoneNumber: patient.phoneNumber,
@@ -67,6 +79,7 @@ export default function PatientEditForm({ patient, onClose, onSuccess }: Patient
     age: patient.age,
     region: patient.region ? { ...patient.region } : undefined,
     consultationType: patient.consultationType || 'outbound', // 🔥 기본값 명시적 설정
+    referralSource: patient.referralSource || '', // 🔥 유입경로 기본값 설정
   })
   
   // 지역 선택 상태
@@ -117,7 +130,7 @@ export default function PatientEditForm({ patient, onClose, onSuccess }: Patient
     }
   }, [selectedProvince, selectedCity])
   
-  // 🔥 폼 변경 감지 개선 - 더 안정적인 비교 로직
+  // 🔥 폼 변경 감지 개선 - referralSource 포함
   useEffect(() => {
     // 원본 환자 데이터 정규화
     const originalPatient = {
@@ -128,6 +141,7 @@ export default function PatientEditForm({ patient, onClose, onSuccess }: Patient
       callInDate: patient.callInDate || '',
       notes: patient.notes || '',
       consultationType: patient.consultationType || 'outbound',
+      referralSource: patient.referralSource || '', // 🔥 유입경로 포함
       interestedServices: patient.interestedServices || [],
       region: patient.region || undefined
     };
@@ -141,6 +155,7 @@ export default function PatientEditForm({ patient, onClose, onSuccess }: Patient
       callInDate: formValues.callInDate || '',
       notes: formValues.notes || '',
       consultationType: formValues.consultationType || 'outbound',
+      referralSource: formValues.referralSource || '', // 🔥 유입경로 포함
       interestedServices: formValues.interestedServices || [],
       region: formValues.region || undefined
     };
@@ -153,6 +168,7 @@ export default function PatientEditForm({ patient, onClose, onSuccess }: Patient
     const isCallInDateChanged = currentForm.callInDate !== originalPatient.callInDate;
     const isNotesChanged = currentForm.notes !== originalPatient.notes;
     const isConsultationTypeChanged = currentForm.consultationType !== originalPatient.consultationType;
+    const isReferralSourceChanged = currentForm.referralSource !== originalPatient.referralSource; // 🔥 유입경로 변경 감지
     
     // 관심 분야 비교 개선
     const isInterestChanged = 
@@ -179,9 +195,10 @@ export default function PatientEditForm({ patient, onClose, onSuccess }: Patient
       isNotesChanged || 
       isInterestChanged || 
       isRegionChanged ||
-      isConsultationTypeChanged;
+      isConsultationTypeChanged ||
+      isReferralSourceChanged; // 🔥 유입경로 변경 포함
     
-    console.log('=== 폼 변경 감지 (개선된 버전) ===');
+    console.log('=== 폼 변경 감지 (유입경로 포함) ===');
     console.log('변경 사항:', {
       name: isNameChanged,
       phone: isPhoneChanged,
@@ -190,6 +207,7 @@ export default function PatientEditForm({ patient, onClose, onSuccess }: Patient
       callInDate: isCallInDateChanged,
       notes: isNotesChanged,
       consultationType: isConsultationTypeChanged,
+      referralSource: isReferralSourceChanged, // 🔥 유입경로 변경 로그
       interest: isInterestChanged,
       region: isRegionChanged
     });
@@ -549,6 +567,34 @@ export default function PatientEditForm({ patient, onClose, onSuccess }: Patient
                     ▼
                   </span>
                 </div>
+              </div>
+            </div>
+            
+            {/* 🔥 유입경로 필드 추가 */}
+            <div>
+              <label htmlFor="referralSource" className="block text-sm font-medium text-text-primary mb-1">
+                유입경로
+              </label>
+              <div className="relative">
+                <select
+                  id="referralSource"
+                  name="referralSource"
+                  value={formValues.referralSource || ''}
+                  onChange={handleChange}
+                  className="form-input pl-10 appearance-none"
+                >
+                  {referralSourceOptions.map(option => (
+                    <option key={option.value} value={option.value}>
+                      {option.label}
+                    </option>
+                  ))}
+                </select>
+                <span className="absolute left-3 top-1/2 transform -translate-y-1/2 text-text-muted">
+                  <Icon icon={HiOutlineGlobeAlt} size={18} />
+                </span>
+                <span className="absolute right-3 top-1/2 transform -translate-y-1/2 text-text-muted">
+                  ▼
+                </span>
               </div>
             </div>
             
