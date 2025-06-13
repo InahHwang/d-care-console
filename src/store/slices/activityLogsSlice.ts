@@ -133,7 +133,7 @@ const activityLogsSlice = createSlice({
         state.isLoading = false;
         state.logs = action.payload.logs;
         state.totalLogs = action.payload.total;
-        state.currentPage = action.payload.page;
+        state.currentPage = action.payload.page ?? state.currentPage;
         state.totalPages = Math.ceil(action.payload.total / (action.payload.limit || 20));
       })
       .addCase(fetchActivityLogs.rejected, (state, action) => {
