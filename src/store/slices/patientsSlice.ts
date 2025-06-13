@@ -2,6 +2,8 @@
 
 import { createSlice, createAsyncThunk, PayloadAction } from '@reduxjs/toolkit';
 import { EventCategory } from '@/types/messageLog';
+// 🔥 활동 로거 import 추가
+import { PatientActivityLogger, CallbackActivityLogger, EventTargetActivityLogger } from '@/utils/activityLogger';
 
 // 🔥 상담 타입 추가
 export type ConsultationType = 'inbound' | 'outbound';
@@ -66,7 +68,7 @@ export type CallbackStatus =
   | '부재중'  
   | '예약확정';  // 이 부분을 추가
 
-// 콜백 아이템 타입 정의
+// 🔥 콜백 아이템 타입 정의 - 담당자 정보 추가
 export interface CallbackItem {
   completedAt?: string;  // 선택적 필드로 변경 (물음표 추가)
   time: string | undefined; 
@@ -82,6 +84,12 @@ export interface CallbackItem {
   isCompletionRecord?: boolean;
   // 🔥 이벤트 타겟 설정 단계 추가
   nextStep?: '2차_콜백' | '3차_콜백' | '4차_콜백' | '5차_콜백' | '예약_확정' | '종결_처리' | '이벤트_타겟_설정' | '';
+  
+  // 🔥 담당자 정보 추가
+  handledBy?: string;          // 처리한 담당자 ID
+  handledByName?: string;      // 처리한 담당자 이름
+  createdBy?: string;          // 콜백을 생성한 담당자 ID
+  createdByName?: string;      // 콜백을 생성한 담당자 이름
 }
 
 // 종결 처리를 위한 타입 정의
@@ -97,7 +105,7 @@ export interface QuickInboundPatient {
   consultationType: 'inbound';
 }
 
-// 환자 타입 정의 (MongoDB ID 추가) - 🔥 consultationType, referralSource 필드 추가
+// 🔥 환자 타입 정의 (MongoDB ID 추가) - consultationType, referralSource, 담당자 필드 추가
 export interface Patient {
   _id: string;            // MongoDB ID 필드 추가
   nextCallbackDate: string;
@@ -130,9 +138,16 @@ export interface Patient {
   consultationType: ConsultationType; // 인바운드/아웃바운드 구분
   inboundPhoneNumber?: string; // 인바운드일 때 입력받은 번호 (표시용)
   referralSource?: ReferralSource; // 🔥 유입경로 필드 추가
+  
+  // 🔥 담당자 정보 추가
+  createdBy?: string;          // 등록한 담당자 ID
+  createdByName?: string;      // 등록한 담당자 이름
+  lastModifiedBy?: string;     // 마지막 수정자 ID
+  lastModifiedByName?: string; // 마지막 수정자 이름
+  lastModifiedAt?: string;     // 마지막 수정 일시
 }
 
-// 환자 생성을 위한 타입 - 🔥 consultationType, referralSource 추가
+// 🔥 환자 생성을 위한 타입 - consultationType, referralSource, 담당자 정보 추가
 export interface CreatePatientData {
   name: string;
   phoneNumber: string;
@@ -149,9 +164,12 @@ export interface CreatePatientData {
   consultationType: ConsultationType; // 🔥 추가
   inboundPhoneNumber?: string; // 🔥 추가
   referralSource?: ReferralSource; // 🔥 유입경로 추가
+  
+  // 🔥 담당자 정보는 자동으로 설정되므로 CreatePatientData에서는 제외
+  // (API에서 현재 로그인한 사용자 정보를 자동으로 설정)
 }
 
-// 환자 수정을 위한 타입 - 🔥 referralSource 추가
+// 🔥 환자 수정을 위한 타입 - referralSource, 담당자 정보 추가
 export interface UpdatePatientData {
   name?: string;
   phoneNumber?: string;
@@ -172,6 +190,11 @@ export interface UpdatePatientData {
   callbackHistory?: CallbackItem[];
   consultationType?: ConsultationType; // 🔥 추가
   referralSource?: ReferralSource; // 🔥 유입경로 추가
+  
+  // 🔥 담당자 정보 (수정 시에는 lastModifiedBy만 업데이트)
+  lastModifiedBy?: string;
+  lastModifiedByName?: string;
+  lastModifiedAt?: string;
 }
 
 export interface PatientsState {
@@ -219,7 +242,7 @@ const initialState: PatientsState = {
   eventTargetPatients: []
 };
 
-// 🔥 인바운드 환자 빠른 등록 비동기 액션 추가
+// 🔥 인바운드 환자 빠른 등록 비동기 액션 추가 - 활동 로그 연동
 export const createQuickInboundPatient = createAsyncThunk(
   'patients/createQuickInboundPatient',
   async (phoneNumber: string, { rejectWithValue }) => {
@@ -238,6 +261,14 @@ export const createQuickInboundPatient = createAsyncThunk(
       }
       
       const newPatient = await response.json();
+      
+      // 🔥 활동 로그 기록
+      await PatientActivityLogger.create(
+        newPatient.id,
+        newPatient.name,
+        { consultationType: 'inbound', phoneNumber }
+      );
+      
       return newPatient;
     } catch (error: any) {
       return rejectWithValue(error.message || '인바운드 환자 등록에 실패했습니다.');
@@ -282,7 +313,7 @@ export const fetchPatients = createAsyncThunk(
   }
 );
 
-// 내원확정 토글 비동기 액션 (기존 동기 액션 대체)
+// 🔥 내원확정 토글 비동기 액션 - 활동 로그 연동
 export const toggleVisitConfirmation = createAsyncThunk(
   'patients/toggleVisitConfirmation',
   async (patientId: string, { rejectWithValue }) => {
@@ -300,6 +331,14 @@ export const toggleVisitConfirmation = createAsyncThunk(
       }
       
       const updatedPatient = await response.json();
+      
+      // 🔥 활동 로그 기록
+      await PatientActivityLogger.toggleVisitConfirmation(
+        updatedPatient.id,
+        updatedPatient.name,
+        updatedPatient.visitConfirmed
+      );
+      
       return updatedPatient;
     } catch (error) {
       console.error('내원확정 API 오류:', error);
@@ -380,10 +419,10 @@ export const initializeEventTargets = createAsyncThunk(
   }
 );
 
-// 이벤트 타겟 설정 액션
+// 🔥 이벤트 타겟 설정 액션 - 활동 로그 연동
 export const updateEventTargetInfo = createAsyncThunk(
   'patients/updateEventTargetInfo',
-  async ({ patientId, eventTargetInfo }: { patientId: string, eventTargetInfo: Partial<EventTargetInfo> }, { rejectWithValue }) => {
+  async ({ patientId, eventTargetInfo }: { patientId: string, eventTargetInfo: Partial<EventTargetInfo> }, { rejectWithValue, getState }) => {
     try {
       const response = await fetch(`/api/patients/${patientId}/event-target`, {
         method: 'PUT',
@@ -399,6 +438,20 @@ export const updateEventTargetInfo = createAsyncThunk(
       }
       
       const updatedPatient = await response.json();
+      
+      // 🔥 활동 로그 기록
+      if (eventTargetInfo.isEventTarget) {
+        await EventTargetActivityLogger.create(
+          patientId,
+          updatedPatient.name,
+          eventTargetInfo
+        );
+      } else {
+        await EventTargetActivityLogger.delete(
+          patientId,
+          updatedPatient.name
+        );
+      }
       
       return {
         patientId,
@@ -446,7 +499,7 @@ export const filterEventTargets = createAsyncThunk(
   }
 );
 
-// 신규 환자 등록 비동기 액션
+// 🔥 신규 환자 등록 비동기 액션 - 활동 로그 연동
 export const createPatient = createAsyncThunk(
   'patients/createPatient',
   async (patientData: CreatePatientData, { rejectWithValue }) => {
@@ -465,6 +518,14 @@ export const createPatient = createAsyncThunk(
       }
       
       const newPatient = await response.json();
+      
+      // 🔥 활동 로그 기록
+      await PatientActivityLogger.create(
+        newPatient.id,
+        newPatient.name,
+        patientData
+      );
+      
       return newPatient;
     } catch (error: any) {
       return rejectWithValue(error.message || '환자 등록에 실패했습니다.');
@@ -472,7 +533,7 @@ export const createPatient = createAsyncThunk(
   }
 );
 
-// 환자 정보 수정 비동기 액션
+// 🔥 환자 정보 수정 비동기 액션 - 활동 로그 연동
 export const updatePatient = createAsyncThunk(
   'patients/updatePatient',
   async ({ 
@@ -481,12 +542,18 @@ export const updatePatient = createAsyncThunk(
   }: { 
     patientId: string, 
     patientData: UpdatePatientData 
-  }, { rejectWithValue }) => {
+  }, { rejectWithValue, getState }) => {
     try {
+      // 이전 환자 데이터 가져오기 (로그용)
+      const state = getState() as { patients: PatientsState };
+      const previousPatient = state.patients.patients.find(p => p._id === patientId || p.id === patientId);
+      
       const response = await fetch(`/api/patients/${patientId}`, {
         method: 'PUT',
         headers: {
           'Content-Type': 'application/json',
+          // 🔥 헤더에 로깅 방식 전달 - API에서 로깅하지 않도록 지시
+          'X-Skip-Activity-Log': 'true'
         },
         body: JSON.stringify(patientData),
       });
@@ -497,6 +564,23 @@ export const updatePatient = createAsyncThunk(
       }
       
       const updatedPatient = await response.json();
+      
+      // 🔥 활동 로그는 프론트엔드에서만 기록 (중복 방지)
+      if (previousPatient) {
+        try {
+          await PatientActivityLogger.update(
+            updatedPatient.id || updatedPatient._id,
+            updatedPatient.name,
+            previousPatient,
+            patientData
+          );
+          console.log('✅ 환자 정보 수정 로그 기록 완료');
+        } catch (logError) {
+          console.warn('⚠️ 활동 로그 기록 실패:', logError);
+          // 로그 실패는 무시하고 계속 진행
+        }
+      }
+      
       return updatedPatient;
     } catch (error: any) {
       return rejectWithValue(error.message || '환자 정보 수정에 실패했습니다.');
@@ -504,11 +588,15 @@ export const updatePatient = createAsyncThunk(
   }
 );
 
-// deletePatient 액션 수정
+// 🔥 deletePatient 액션 수정 - 활동 로그 연동
 export const deletePatient = createAsyncThunk(
   'patients/deletePatient',
-  async (patientId: string, { rejectWithValue }) => {
+  async (patientId: string, { rejectWithValue, getState }) => {
     try {
+      // 삭제할 환자 정보 가져오기 (로그용)
+      const state = getState() as { patients: PatientsState };
+      const patientToDelete = state.patients.patients.find(p => p._id === patientId || p.id === patientId);
+      
       console.log(`Redux: 환자 ID ${patientId} 삭제 시도`);
       const response = await fetch(`/api/patients/${patientId}`, {
         method: 'DELETE',
@@ -522,6 +610,14 @@ export const deletePatient = createAsyncThunk(
         return rejectWithValue(errorData.error || '환자 삭제에 실패했습니다.');
       }
 
+      // 🔥 활동 로그 기록
+      if (patientToDelete) {
+        await PatientActivityLogger.delete(
+          patientToDelete.id,
+          patientToDelete.name
+        );
+      }
+
       console.log('환자 삭제 성공');
       return patientId; // 삭제 성공 시 ID 반환
     } catch (error: any) {
@@ -531,14 +627,18 @@ export const deletePatient = createAsyncThunk(
   }
 );
 
-// 환자 종결 처리 액션
+// 🔥 환자 종결 처리 액션 - 활동 로그 연동
 export const completePatient = createAsyncThunk(
   'patients/completePatient',
   async ({ 
     patientId, 
     reason 
-  }: CompletePatientData, { rejectWithValue }) => {
+  }: CompletePatientData, { rejectWithValue, getState }) => {
     try {
+      // 환자 정보 가져오기 (로그용)
+      const state = getState() as { patients: PatientsState };
+      const patient = state.patients.patients.find(p => p._id === patientId || p.id === patientId);
+      
       const response = await fetch(`/api/patients/${patientId}/complete`, {
         method: 'PUT',
         headers: {
@@ -553,6 +653,16 @@ export const completePatient = createAsyncThunk(
       }
       
       const result = await response.json();
+      
+      // 🔥 활동 로그 기록
+      if (patient) {
+        await PatientActivityLogger.complete(
+          patient.id,
+          patient.name,
+          reason
+        );
+      }
+      
       return { 
         patientId, 
         updatedPatient: result.updatedPatient,
@@ -565,11 +675,15 @@ export const completePatient = createAsyncThunk(
   }
 );
 
-// 환자 종결 취소 액션
+// 🔥 환자 종결 취소 액션 - 활동 로그 연동
 export const cancelPatientCompletion = createAsyncThunk(
   'patients/cancelPatientCompletion',
-  async (patientId: string, { rejectWithValue }) => {
+  async (patientId: string, { rejectWithValue, getState }) => {
     try {
+      // 환자 정보 가져오기 (로그용)
+      const state = getState() as { patients: PatientsState };
+      const patient = state.patients.patients.find(p => p._id === patientId || p.id === patientId);
+      
       const response = await fetch(`/api/patients/${patientId}/cancel-completion`, {
         method: 'PUT',
       });
@@ -580,6 +694,15 @@ export const cancelPatientCompletion = createAsyncThunk(
       }
       
       const result = await response.json();
+      
+      // 🔥 활동 로그 기록
+      if (patient) {
+        await PatientActivityLogger.cancelComplete(
+          patient.id,
+          patient.name
+        );
+      }
+      
       return { patientId, updatedPatient: result };
     } catch (error: any) {
       return rejectWithValue(error.message || '환자 종결 취소에 실패했습니다.');
@@ -587,7 +710,7 @@ export const cancelPatientCompletion = createAsyncThunk(
   }
 );
 
-// 콜백 추가 비동기 액션
+// 🔥 콜백 추가 비동기 액션 - 활동 로그 연동
 export const addCallback = createAsyncThunk(
   'patients/addCallback',
   async ({ 
@@ -596,7 +719,7 @@ export const addCallback = createAsyncThunk(
   }: { 
     patientId: string, 
     callbackData: Omit<CallbackItem, 'id'> 
-  }, { rejectWithValue }) => {
+  }, { rejectWithValue, getState }) => {
     try {
       console.log(`콜백 추가 시도: 환자 ID = ${patientId}, 데이터:`, callbackData);
       
@@ -604,6 +727,10 @@ export const addCallback = createAsyncThunk(
         console.error('환자 ID가 undefined입니다!');
         return rejectWithValue('환자 ID가 없습니다.');
       }
+      
+      // 환자 정보 가져오기 (로그용)
+      const state = getState() as { patients: PatientsState };
+      const patient = state.patients.patients.find(p => p._id === patientId || p.id === patientId);
       
       const response = await fetch(`/api/patients/${patientId}/callbacks`, {
         method: 'POST',
@@ -621,6 +748,16 @@ export const addCallback = createAsyncThunk(
       
       const updatedPatient = await response.json();
       console.log('콜백 추가 성공. 업데이트된 환자:', updatedPatient);
+      
+      // 🔥 활동 로그 기록
+      if (patient) {
+        await CallbackActivityLogger.create(
+          patient.id,
+          patient.name,
+          callbackData
+        );
+      }
+      
       return { patientId, updatedPatient };
     } catch (error) {
       console.error('[addCallback] 오류 발생:', error);
@@ -632,7 +769,7 @@ export const addCallback = createAsyncThunk(
   }
 );
 
-// 콜백 취소 액션
+// 🔥 콜백 취소 액션 - 활동 로그 연동
 export const cancelCallback = createAsyncThunk(
   'patients/cancelCallback',
   async ({ 
@@ -643,8 +780,12 @@ export const cancelCallback = createAsyncThunk(
     patientId: string,
     callbackId: string,
     cancelReason?: string
-  }, { rejectWithValue }) => {
+  }, { rejectWithValue, getState }) => {
     try {
+      // 환자 정보 가져오기 (로그용)
+      const state = getState() as { patients: PatientsState };
+      const patient = state.patients.patients.find(p => p._id === patientId || p.id === patientId);
+      
       const response = await fetch(`/api/patients/${patientId}/callbacks/${callbackId}/cancel`, {
         method: 'PUT',
         headers: {
@@ -659,6 +800,17 @@ export const cancelCallback = createAsyncThunk(
       }
       
       const updatedPatient = await response.json();
+      
+      // 🔥 활동 로그 기록
+      if (patient) {
+        await CallbackActivityLogger.cancel(
+          patient.id,
+          patient.name,
+          callbackId,
+          cancelReason || '사유 없음'
+        );
+      }
+      
       return { patientId, updatedPatient };
     } catch (error: any) {
       return rejectWithValue(error.message || '콜백 취소에 실패했습니다.');
@@ -666,7 +818,7 @@ export const cancelCallback = createAsyncThunk(
   }
 );
 
-// 콜백 삭제 액션
+// 🔥 콜백 삭제 액션 - 활동 로그 연동
 export const deleteCallback = createAsyncThunk(
   'patients/deleteCallback',
   async ({ 
@@ -675,8 +827,12 @@ export const deleteCallback = createAsyncThunk(
   }: { 
     patientId: string,
     callbackId: string
-  }, { rejectWithValue }) => {
+  }, { rejectWithValue, getState }) => {
     try {
+      // 환자 정보 가져오기 (로그용)
+      const state = getState() as { patients: PatientsState };
+      const patient = state.patients.patients.find(p => p._id === patientId || p.id === patientId);
+      
       const response = await fetch(`/api/patients/${patientId}/callbacks/${callbackId}`, {
         method: 'DELETE',
       });
@@ -687,6 +843,16 @@ export const deleteCallback = createAsyncThunk(
       }
       
       const result = await response.json();
+      
+      // 🔥 활동 로그 기록
+      if (patient) {
+        await CallbackActivityLogger.delete(
+          patient.id,
+          patient.name,
+          callbackId
+        );
+      }
+      
       return { 
         patientId, 
         updatedPatient: result.updatedPatient,
@@ -714,7 +880,8 @@ const patientsSlice = createSlice({
       
       if (updatedPatient) {
         console.log('환자 찾음:', updatedPatient);
-        state.selectedPatient = updatedPatient;
+        state.selectedPatient = updatedPatient;        
+       
       } else {
         console.error('환자를 찾을 수 없음:', patientId);
         state.selectedPatient = null;
@@ -731,7 +898,6 @@ const patientsSlice = createSlice({
     setPage: (state, action: PayloadAction<number>) => {
       state.pagination.currentPage = action.payload;
     },
-    // toggleVisitConfirmation 제거됨 - 비동기 thunk로 대체
   },
   extraReducers: (builder) => {
     builder

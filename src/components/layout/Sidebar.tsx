@@ -1,3 +1,5 @@
+//src/components/layout/Sidebar.tsx
+
 'use client'
 
 import { useDispatch, useSelector } from 'react-redux'
@@ -82,18 +84,7 @@ export default function Sidebar() {
         />
       </nav>
 
-      {/* 사용자 정보 */}
-      <div className="px-3 mb-6">
-        <div className="bg-sidebar-active p-3 rounded-lg flex items-center">
-          <div className="w-10 h-10 rounded-full bg-primary/20 flex items-center justify-center text-white">
-            <span>홍</span>
-          </div>
-          <div className="ml-3 overflow-hidden">
-            <div className="text-sm font-medium text-white truncate">홍길동</div>
-            <div className="text-xs text-text-muted truncate">상담 실장</div>
-          </div>
-        </div>
-      </div>
+      
     </aside>
   )
 }

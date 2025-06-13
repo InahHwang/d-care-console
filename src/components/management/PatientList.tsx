@@ -1,4 +1,4 @@
-// src/components/management/PatientList.tsx
+// src/components/management/PatientList.tsx - 툴팁 새로고침 연동
 
 'use client'
 
@@ -12,6 +12,7 @@ import { FiPhone, FiPhoneCall } from 'react-icons/fi'
 import { Icon } from '../common/Icon'
 import { useState, useEffect } from 'react'
 import PatientDetailModal from './PatientDetailModal'
+import PatientTooltip from './PatientTooltip'
 
 interface PatientListProps {
   isLoading?: boolean
@@ -35,7 +36,7 @@ const PatientStatusBadge = ({ status }: { status: string }) => {
   )
 }
 
-// 🔥 상담 타입 배지 컴포넌트 추가
+// 상담 타입 배지 컴포넌트 추가
 const ConsultationTypeBadge = ({ type, inboundPhoneNumber }: { type: 'inbound' | 'outbound', inboundPhoneNumber?: string }) => {
   if (type === 'inbound') {
     return (
@@ -92,11 +93,16 @@ export default function PatientList({ isLoading = false }: PatientListProps) {
   // 클라이언트 사이드 마운트 여부를 확인하기 위한 상태 추가
   const [isMounted, setIsMounted] = useState(false)
   
+  // 🔥 툴팁 새로고침을 위한 트리거 상태 추가
+  const [tooltipRefreshTrigger, setTooltipRefreshTrigger] = useState(0)
+  
   const { 
     filteredPatients, 
     pagination: { currentPage, totalPages, itemsPerPage, totalItems },
     filters,
     selectedPatient,
+    // 🔥 patients 상태 변경을 감지하여 툴팁 새로고침
+    patients, // 전체 환자 목록 상태
   } = useSelector((state: RootState) => state.patients)
   
   // 컴포넌트가 마운트되면 상태 업데이트
@@ -104,6 +110,14 @@ export default function PatientList({ isLoading = false }: PatientListProps) {
     console.log('PatientList 컴포넌트 마운트됨');
     setIsMounted(true);
   }, [])
+
+  // 🔥 환자 데이터가 업데이트되면 툴팁 새로고침 트리거
+  useEffect(() => {
+    if (isMounted && patients.length > 0) {
+      console.log('🔥 PatientList: 환자 데이터 변경 감지, 툴팁 새로고침 트리거');
+      setTooltipRefreshTrigger(prev => prev + 1);
+    }
+  }, [patients, isMounted]); // patients 배열이 변경될 때마다 실행
   
   console.log('PatientList 렌더링 - isMounted:', isMounted);
   console.log('filteredPatients 수:', filteredPatients.length);
@@ -152,16 +166,14 @@ export default function PatientList({ isLoading = false }: PatientListProps) {
       await dispatch(toggleVisitConfirmation(patientId)).unwrap();
       console.log('내원확정 상태 변경 성공');
       
-      // 성공 시 추가 처리가 필요하면 여기서
-      // 예: 토스트 메시지 표시
+      // 🔥 내원 확정 변경 후 툴팁 새로고침 트리거
+      setTooltipRefreshTrigger(prev => prev + 1);
       
     } catch (error) {
       console.error('내원확정 변경 실패:', error);
       
       // 에러 처리: 사용자에게 알림 표시
       alert(`내원확정 상태 변경에 실패했습니다: ${error}`);
-      
-      // 또는 토스트 메시지나 다른 에러 표시 방법 사용
     }
   };
   
@@ -170,7 +182,7 @@ export default function PatientList({ isLoading = false }: PatientListProps) {
       <div className="card p-0 w-full">
         <div className="overflow-x-auto">
           <table className="w-full min-w-[900px] table-auto">
-            {/* 테이블 헤더 - 🔥 상담 타입 컬럼 추가 */}
+            {/* 테이블 헤더 - 상담 타입 컬럼 추가 */}
             <thead>
               <tr className="bg-light-bg">
                 <th className="px-4 py-3 text-left text-xs font-semibold text-text-secondary">환자 ID</th>
@@ -216,7 +228,7 @@ export default function PatientList({ isLoading = false }: PatientListProps) {
                     }
                   }
                   
-                  // 🔥 인바운드 환자 강조 표시 추가
+                  // 인바운드 환자 강조 표시 추가
                   const rowColor = 
                     patient.consultationType === 'inbound' ? 'bg-green-50/30' : // 인바운드 강조
                     patient.status === 'VIP' ? 'bg-purple-50/30' :
@@ -238,20 +250,27 @@ export default function PatientList({ isLoading = false }: PatientListProps) {
                       <td className="px-4 py-4 text-sm text-text-secondary">
                         {patient.patientId}
                       </td>
-                      {/* 🔥 상담 타입 컬럼 추가 */}
+                      {/* 상담 타입 컬럼 추가 */}
                       <td className="px-4 py-4">
                         <ConsultationTypeBadge 
                           type={patient.consultationType || 'outbound'} 
                           inboundPhoneNumber={patient.inboundPhoneNumber}
                         />
                       </td>
+                      {/* 🔥 툴팁이 적용된 환자 이름 - refreshTrigger 전달 */}
                       <td className={`px-4 py-4 text-sm font-medium ${isVip ? 'text-purple-800' : 'text-text-primary'}`}>
-                        <button 
-                          onClick={() => handleViewDetails(patient)}
-                          className="hover:underline"
+                        <PatientTooltip
+                          patientId={patientId}
+                          patientName={patient.name}
+                          refreshTrigger={tooltipRefreshTrigger} // 🔥 새로고침 트리거 전달
                         >
-                          {patient.name}
-                        </button>
+                          <button 
+                            onClick={() => handleViewDetails(patient)}
+                            className="hover:underline"
+                          >
+                            {patient.name}
+                          </button>
+                        </PatientTooltip>
                       </td>
                       <td className="px-4 py-4 text-sm text-text-secondary">
                         {patient.age || '-'}

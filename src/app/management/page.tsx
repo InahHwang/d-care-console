@@ -1,3 +1,5 @@
+//src/app/management/page.tsx
+
 import { Suspense } from 'react'
 import AppLayout from '@/components/layout/AppLayout'
 import PatientManagement from '@/components/management/PatientManagement'

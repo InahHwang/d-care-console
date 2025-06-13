@@ -412,35 +412,35 @@ export default function PatientEditForm({ patient, onClose, onSuccess }: Patient
               </div>
             </div>
             
-            {/* 🔥 상담 타입 표시 (수정 불가) */}
+            {/* 🔥 상담 타입 선택 (수정 가능) */}
             <div>
-              <label className="block text-sm font-medium text-text-primary mb-1">
+              <label htmlFor="consultationType" className="block text-sm font-medium text-text-primary mb-1">
                 상담 타입
               </label>
-              <div className="flex items-center space-x-2">
-                <div className={`inline-flex items-center px-3 py-2 rounded-full text-sm font-medium ${
-                  (patient.consultationType || 'outbound') === 'inbound' 
-                    ? 'bg-green-100 text-green-800' 
-                    : 'bg-blue-100 text-blue-800'
-                }`}>
-                  {(patient.consultationType || 'outbound') === 'inbound' ? (
-                    <>
-                      <FiPhone className="w-4 h-4 mr-1" />
-                      인바운드
-                    </>
-                  ) : (
-                    <>
-                      <FiPhoneCall className="w-4 h-4 mr-1" />
-                      아웃바운드
-                    </>
-                  )}
-                </div>
-                {patient.consultationType === 'inbound' && patient.inboundPhoneNumber && (
-                  <span className="text-sm text-gray-500">
-                    (입력번호: {patient.inboundPhoneNumber})
-                  </span>
-                )}
+              <div className="relative">
+                <select
+                  id="consultationType"
+                  name="consultationType"
+                  value={formValues.consultationType || 'outbound'}
+                  onChange={handleChange}
+                  className="form-input pl-10 appearance-none"
+                >
+                  <option value="outbound">아웃바운드</option>
+                  <option value="inbound">인바운드</option>
+                </select>
+                <span className="absolute left-3 top-1/2 transform -translate-y-1/2 text-text-muted">
+                  <Icon icon={FiPhoneCall} size={18} />
+                </span>
+                <span className="absolute right-3 top-1/2 transform -translate-y-1/2 text-text-muted">
+                  ▼
+                </span>
               </div>
+              {/* 인바운드일 때 입력번호 표시 (참고용) */}
+              {patient.consultationType === 'inbound' && patient.inboundPhoneNumber && (
+                <p className="text-sm text-gray-500 mt-1">
+                  기존 입력번호: {patient.inboundPhoneNumber}
+                </p>
+              )}
             </div>
             
             {/* 이름 */}

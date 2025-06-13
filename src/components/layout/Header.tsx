@@ -1,9 +1,13 @@
+//src/components/layout/Header.tsx
+
 'use client'
 
 import { useState } from 'react'
-import { useSelector } from 'react-redux'
+import { useRouter } from 'next/navigation'
+import { useAppSelector, useAppDispatch } from '@/hooks/reduxHooks'
+import { logout } from '@/store/slices/authSlice'
+import { logActivity } from '@/utils/activityLogger'
 import { Icon } from '../common/Icon';
-import { RootState } from '@/store'
 import { 
   HiOutlineSearch, 
   HiOutlinePlus, 
@@ -13,7 +17,10 @@ import {
   HiOutlinePhone,
   HiOutlineMail,
   HiOutlineCalendar,
-  HiOutlineDocumentReport
+  HiOutlineDocumentReport,
+  HiOutlineUser,
+  HiOutlineLogout,
+  HiOutlineShieldCheck
 } from 'react-icons/hi'
 import { format } from 'date-fns'
 import { ko } from 'date-fns/locale'
@@ -22,7 +29,52 @@ import Link from 'next/link'
 export default function Header() {
   const [showQuickActions, setShowQuickActions] = useState(false)
   const [showHelp, setShowHelp] = useState(false)
+  const [showUserMenu, setShowUserMenu] = useState(false)
+  
+  const router = useRouter()
+  const dispatch = useAppDispatch()
+  const { user, isAuthenticated } = useAppSelector(state => state.auth)
+  
   const today = format(new Date(), "yyyy년 M월 d일 eeee", { locale: ko })
+
+  const handleLogout = async () => {
+    try {
+      // 로그아웃 활동 로그 기록
+      if (user) {
+        await logActivity(
+          'logout',
+          'system', 
+          user._id || '',
+          user.name || '',
+          {
+            userName: user.username || '',
+            userRole: user.role || 'staff',
+            metadata: {
+              logoutTime: new Date().toISOString()
+            }
+          }
+        );
+      }
+    } catch (error) {
+      console.error('Failed to log logout activity:', error);
+    } finally {
+      // 로그아웃 처리
+      dispatch(logout())
+      localStorage.removeItem('token')
+      router.push('/login')
+    }
+  }
+
+  const getRoleDisplayName = (role: string) => {
+    switch (role) {
+      case 'master':
+        return '마스터 관리자'
+      case 'staff':
+        return '일반 담당자'
+      default:
+        return '담당자'
+    }
+  }
 
   return (
     <header className="h-16 bg-white border-b border-border flex items-center justify-between px-4 md:px-6 shadow-sm">
@@ -194,15 +246,109 @@ export default function Header() {
             </div>
           )}
         </div>
+
+        {/* 사용자 메뉴 (새로 추가) */}
+        {isAuthenticated && user && (
+          <div className="relative">
+            <button 
+              onClick={() => setShowUserMenu(!showUserMenu)}
+              className="flex items-center gap-2 pl-3 pr-4 py-2 bg-light-bg rounded-full hover:bg-gray-200 transition-colors"
+            >
+              <div className="w-7 h-7 bg-primary text-white rounded-full flex items-center justify-center text-sm font-medium">
+                {user.name?.charAt(0).toUpperCase() || 'U'}
+              </div>
+              <div className="hidden sm:block text-left">
+                <div className="text-xs font-medium text-text-primary">
+                  {user.name || 'Unknown User'}
+                </div>
+                <div className="text-xs text-text-muted">
+                  {getRoleDisplayName(user.role || 'staff')}
+                </div>
+              </div>
+            </button>
+            
+            {/* 사용자 메뉴 드롭다운 */}
+            {showUserMenu && (
+              <div className="absolute right-0 top-12 w-56 bg-white rounded-lg shadow-lg border border-border py-2 z-50">
+                {/* 사용자 정보 */}
+                <div className="px-4 py-3 border-b border-border">
+                  <div className="flex items-center gap-3">
+                    <div className="w-10 h-10 bg-primary text-white rounded-full flex items-center justify-center font-medium">
+                      {user.name?.charAt(0).toUpperCase() || 'U'}
+                    </div>
+                    <div>
+                      <div className="font-medium text-text-primary">
+                        {user.name || 'Unknown User'}
+                      </div>
+                      <div className="text-sm text-text-muted">
+                        {user.username || user.email || 'N/A'}
+                      </div>
+                      <div className="flex items-center gap-1 text-xs">
+                        {user.role === 'master' ? (
+                          <Icon icon={HiOutlineShieldCheck} size={12} className="text-red-500" />
+                        ) : (
+                          <Icon icon={HiOutlineUser} size={12} className="text-blue-500" />
+                        )}
+                        <span className={user.role === 'master' ? 'text-red-600' : 'text-blue-600'}>
+                          {getRoleDisplayName(user.role || 'staff')}
+                        </span>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+
+                {/* 마스터 관리자 전용 메뉴 */}
+                {user.role === 'master' && (
+                  <>
+                    <Link href="/admin">
+                      <button 
+                        className="w-full flex items-center gap-3 px-4 py-2 text-sm text-text-primary hover:bg-gray-50 transition-colors"
+                        onClick={() => setShowUserMenu(false)}
+                      >
+                        <Icon icon={HiOutlineShieldCheck} size={18} className="text-red-600" />
+                        관리자 페이지
+                      </button>
+                    </Link>
+                    <hr className="my-2 border-border" />
+                  </>
+                )}
+
+                {/* 내 정보 */}
+                <button 
+                  className="w-full flex items-center gap-3 px-4 py-2 text-sm text-text-primary hover:bg-gray-50 transition-colors"
+                  onClick={() => setShowUserMenu(false)}
+                >
+                  <Icon icon={HiOutlineUser} size={18} className="text-gray-600" />
+                  내 정보
+                </button>
+
+                <hr className="my-2 border-border" />
+
+                {/* 로그아웃 */}
+                <button 
+                  onClick={() => {
+                    setShowUserMenu(false)
+                    handleLogout()
+                  }}
+                  className="w-full flex items-center gap-3 px-4 py-2 text-sm text-red-600 hover:bg-red-50 transition-colors"
+                >
+                  <Icon icon={HiOutlineLogout} size={18} />
+                  로그아웃
+                </button>
+              </div>
+            )}
+          </div>
+        )}
       </div>
 
       {/* 드롭다운 외부 클릭시 닫기 */}
-      {(showQuickActions || showHelp) && (
+      {(showQuickActions || showHelp || showUserMenu) && (
         <div 
           className="fixed inset-0 z-40" 
           onClick={() => {
             setShowQuickActions(false)
             setShowHelp(false)
+            setShowUserMenu(false)
           }}
         />
       )}

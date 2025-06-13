@@ -1,16 +1,15 @@
-//src/app/login/page.tsx
-
 'use client';
 
 import { useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { useAppDispatch } from '@/hooks/reduxHooks';
 import { loginStart, loginSuccess, loginFailure } from '@/store/slices/authSlice';
+import { logActivity } from '@/utils/activityLogger';
 import { FiUser, FiLock, FiEye, FiEyeOff } from 'react-icons/fi';
 
 export default function LoginPage() {
   const [formData, setFormData] = useState({
-    email: '',
+    username: '',
     password: ''
   });
   const [showPassword, setShowPassword] = useState(false);
@@ -39,13 +38,11 @@ export default function LoginPage() {
   const validateForm = () => {
     const newErrors: {[key: string]: string} = {};
 
-    if (!formData.email.trim()) {
-      newErrors.email = '아이디를 입력해주세요.';
+    if (!formData.username.trim()) {
+      newErrors.username = '아이디를 입력해주세요.';
+    } else if (formData.username.length < 3) {
+      newErrors.username = '아이디는 최소 3자 이상이어야 합니다.';
     }
-    // 이메일 형식 검증 제거 - 이 부분 삭제
-    // } else if (!/\S+@\S+\.\S+/.test(formData.email)) {
-    //   newErrors.email = '올바른 이메일 형식을 입력해주세요.';
-    // }
 
     if (!formData.password.trim()) {
       newErrors.password = '비밀번호를 입력해주세요.';
@@ -72,7 +69,7 @@ export default function LoginPage() {
           'Content-Type': 'application/json',
         },
         body: JSON.stringify({
-          email: formData.email,
+          email: formData.username,    // 🔥 username을 email 필드로 전송
           password: formData.password
         }),
       });
@@ -89,12 +86,36 @@ export default function LoginPage() {
         // 토큰을 localStorage에 저장
         localStorage.setItem('token', data.token);
         
-        // 대시보드로 리다이렉션
-        router.push('/');
+        // 로그인 활동 로그 기록
+        try {
+          await logActivity(
+            'login',
+            'system', 
+            data.user.id,          // 🔥 _id 대신 id 사용
+            data.user.name,
+            {
+              userName: data.user.username,
+              userRole: data.user.role,
+              metadata: {
+                loginTime: new Date().toISOString()
+              },
+              callbackNumber: ''
+            }
+          );
+        } catch (logError) {
+          console.error('Failed to log login activity:', logError);
+        }
+        
+        // 권한별 리다이렉션
+        if (data.user.role === 'master') {
+          router.push('/admin');
+        } else {
+          router.push('/');
+        }
       } else {
         // 로그인 실패
         dispatch(loginFailure(data.message || '로그인에 실패했습니다.'));
-        setErrors({ general: data.message || '로그인에 실패했습니다.' });
+        setErrors({ general: data.message || '아이디 또는 비밀번호가 올바르지 않습니다.' });
       }
     } catch (error) {
       console.error('Login error:', error);
@@ -127,9 +148,9 @@ export default function LoginPage() {
             </div>
           )}
 
-          {/* 이메일 입력 */}
+          {/* 아이디 입력 */}
           <div>
-            <label htmlFor="email" className="block text-sm font-medium text-gray-700 mb-2">
+            <label htmlFor="username" className="block text-sm font-medium text-gray-700 mb-2">
               아이디
             </label>
             <div className="relative">
@@ -138,12 +159,12 @@ export default function LoginPage() {
               </div>
               <input
                 type="text"
-                id="email"
-                name="email"
-                value={formData.email}
+                id="username"
+                name="username"
+                value={formData.username}
                 onChange={handleInputChange}
                 className={`block w-full pl-10 pr-3 py-3 border rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-colors ${
-                  errors.email 
+                  errors.username 
                     ? 'border-red-300 bg-red-50' 
                     : 'border-gray-300 bg-white hover:border-gray-400'
                 }`}
@@ -151,8 +172,8 @@ export default function LoginPage() {
                 autoComplete="username"
               />
             </div>
-            {errors.email && (
-              <p className="mt-1 text-sm text-red-600">{errors.email}</p>
+            {errors.username && (
+              <p className="mt-1 text-sm text-red-600">{errors.username}</p>
             )}
           </div>
 
@@ -221,9 +242,9 @@ export default function LoginPage() {
         <div className="mt-8 text-center">
           <p className="text-sm text-gray-500">
             관리자 계정이 필요하신가요?{' '}
-            <button className="text-blue-600 hover:text-blue-700 font-medium">
-              문의하기
-            </button>
+            <span className="text-blue-600 font-medium cursor-pointer hover:text-blue-700">
+              마스터 관리자에게 문의하세요
+            </span>
           </p>
         </div>
       </div>

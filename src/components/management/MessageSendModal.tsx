@@ -29,6 +29,7 @@ import { createMessageLog, personalizeMessageContent } from '@/utils/messageLogU
 import { MessageLog } from '@/types/messageLog';
 import { fetchTemplates } from '@/store/slices/templatesSlice';
 import { RootState } from '@/store';
+import { useActivityLogger } from '@/hooks/useActivityLogger' 
 
 // 모달 Props
 interface MessageSendModalProps {
@@ -58,7 +59,8 @@ export default function MessageSendModal({
   }>({ success: 0, failed: 0, total: 0, failedPatients: [] })
 
   const dispatch = useAppDispatch();
-  
+
+  const { logMessageAction } = useActivityLogger()
   // 템플릿과 카테고리 스토어에서 데이터 가져오기
   const { templates, isLoading: templatesLoading } = useAppSelector(
     (state: RootState) => state.templates
@@ -114,6 +116,23 @@ export default function MessageSendModal({
 
   // 템플릿 선택 핸들러
   const handleSelectTemplate = (template: MessageTemplate) => {
+    // 🔥 템플릿 선택 로깅
+    if (selectedPatients.length > 0) {
+      const patientNames = selectedPatients.map(p => p.name).join(', ')
+      logMessageAction(
+        'message_template_used',
+        selectedPatients[0].id,
+        `템플릿 선택: ${patientNames}`,
+        {
+          templateId: template.id,
+          templateName: template.title,
+          templateType: template.type,
+          templateCategory: template.category,
+          recipientCount: selectedPatients.length,
+          notes: `${template.title} 템플릿 선택`
+        }
+      ).catch(error => console.warn('활동 로그 기록 실패:', error))
+    }
     setSelectedTemplate(template);
     
     // 환자명 치환 처리 (다중 선택 시)
@@ -161,11 +180,38 @@ export default function MessageSendModal({
   
   try {
     console.log('메시지 발송 시작 - 선택된 환자 수:', selectedPatients.length);
+     // 🔥 메시지 발송 시작 로깅
+      await logMessageAction(
+        'message_send',
+        selectedPatients[0].id,
+        `메시지 발송 시작 (${selectedPatients.length}명)`,
+        {
+          templateName: selectedTemplate?.title,
+          messageType: selectedTemplate?.type || 'SMS',
+          recipientCount: selectedPatients.length,
+          patientIds: selectedPatients.map(p => p.id),
+          patientNames: selectedPatients.map(p => p.name),
+          notes: '메시지 발송 프로세스 시작'
+        }
+      ).catch(error => console.warn('활동 로그 기록 실패:', error))
+
     const messageLogs: MessageLog[] = [];
     
     const responses = await Promise.all(
       selectedPatients.map(async (patient) => {
         if (!patient || !patient.id || !patient.name || !patient.phoneNumber) {
+          // 🔥 환자 정보 오류 로깅
+            await logMessageAction(
+              'message_send',
+              patient?.id || 'unknown',
+              patient?.name || '알 수 없음',
+              {
+                error: '환자 정보 오류',
+                templateName: selectedTemplate?.title,
+                notes: '환자 정보가 올바르지 않아 메시지 발송 실패'
+              }
+            ).catch(error => console.warn('활동 로그 기록 실패:', error))
+
           return { 
             patient: { name: patient?.name || '알 수 없음', id: patient?.id || 'unknown' }, 
             success: false, 
@@ -240,6 +286,20 @@ export default function MessageSendModal({
           // 응답 처리
           if (!response.ok) {
             const errorData = await response.json();
+
+            // 🔥 메시지 발송 실패 로깅
+              await logMessageAction(
+                'message_send',
+                patient.id,
+                patient.name,
+                {
+                  error: errorData.message || `상태 코드: ${response.status}`,
+                  messageType: msgType,
+                  templateName: selectedTemplate?.title,
+                  phoneNumber: patient.phoneNumber,
+                  notes: '메시지 발송 실패'
+                }
+              ).catch(error => console.warn('활동 로그 기록 실패:', error))
             
             // 실패 로그 생성
             const messageId = `fail_${Date.now()}_${Math.random().toString(36).substring(2, 9)}_${patient.id.substring(0, 8)}`;
@@ -268,6 +328,21 @@ export default function MessageSendModal({
             };
           } else {
             const responseData = await response.json();
+            // 🔥 메시지 발송 성공 로깅
+              await logMessageAction(
+                'message_send',
+                patient.id,
+                patient.name,
+                {
+                  messageId: responseData.messageId,
+                  messageType: responseData.actualType || msgType,
+                  templateName: selectedTemplate?.title,
+                  phoneNumber: patient.phoneNumber,
+                  contentLength: personalizedContent.length,
+                  hasImage: !!(selectedTemplate?.imageUrl),
+                  notes: '메시지 발송 성공'
+                }
+              ).catch(error => console.warn('활동 로그 기록 실패:', error))
             
             console.log(`✅ [${patient.name}] 발송 성공:`, responseData);
             
@@ -297,6 +372,19 @@ export default function MessageSendModal({
           }
         } catch (error) {
           const errorMessage = error instanceof Error ? error.message : '알 수 없는 오류';
+          // 🔥 메시지 발송 예외 로깅
+            await logMessageAction(
+              'message_send',
+              patient.id,
+              patient.name,
+              {
+                error: errorMessage,
+                templateName: selectedTemplate?.title,
+                phoneNumber: patient.phoneNumber,
+                notes: '메시지 발송 중 예외 발생'
+              }
+            ).catch(error => console.warn('활동 로그 기록 실패:', error))
+
           console.error(`❌ [${patient.name}] 메시지 발송 실패:`, errorMessage);
           
           // 예외 로그 생성
@@ -334,6 +422,21 @@ export default function MessageSendModal({
     // 나머지 코드는 동일...
     const successCount = responses.filter(r => r.success).length;
     const failedResponses = responses.filter(r => !r.success);
+
+    // 🔥 메시지 발송 완료 로깅
+      await logMessageAction(
+        'message_send',
+        selectedPatients[0].id,
+        `메시지 발송 완료 (${selectedPatients.length}명)`,
+        {
+          templateName: selectedTemplate?.title,
+          totalRecipients: selectedPatients.length,
+          successCount: successCount,
+          failedCount: failedResponses.length,
+          successRate: `${Math.round((successCount / selectedPatients.length) * 100)}%`,
+          notes: `메시지 발송 완료 - 성공: ${successCount}건, 실패: ${failedResponses.length}건`
+        }
+      ).catch(error => console.warn('활동 로그 기록 실패:', error))
         
     setSendResult({
       success: successCount,
@@ -352,6 +455,19 @@ export default function MessageSendModal({
   } catch (error) {
     const errorMessage = error instanceof Error ? error.message : '알 수 없는 오류';
     console.error('메시지 발송 중 오류 발생:', errorMessage);
+
+    // 🔥 메시지 발송 전체 실패 로깅
+      await logMessageAction(
+        'message_send',
+        selectedPatients[0]?.id || 'unknown',
+        `메시지 발송 전체 실패 (${selectedPatients.length}명)`,
+        {
+          error: errorMessage,
+          templateName: selectedTemplate?.title,
+          totalRecipients: selectedPatients.length,
+          notes: '메시지 발송 프로세스 전체 실패'
+        }
+      ).catch(error => console.warn('활동 로그 기록 실패:', error))
     
     setSendResult({
       success: 0,

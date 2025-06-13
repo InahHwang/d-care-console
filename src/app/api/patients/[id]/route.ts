@@ -49,7 +49,14 @@ export async function PUT(
     const id = params.id;
     const data = await request.json();
     
-    console.log('API: 환자 업데이트 요청', { id, data });
+    // 🔥 프론트엔드에서 로깅 처리하는 경우 백엔드 로깅 스킵
+    const skipLog = request.headers.get('X-Skip-Activity-Log') === 'true';
+    
+    console.log('API: 환자 업데이트 요청', { 
+      id, 
+      skipLog, // 🔥 로깅 스킵 여부 확인
+      hasData: !!data 
+    });
     
     // 업데이트 데이터 준비
     const updateData = {
@@ -91,8 +98,18 @@ export async function PUT(
       _id: result._id,
       name: result.name,
       consultationType: result.consultationType,
-      referralSource: result.referralSource // 🔥 유입경로 로깅 추가
+      referralSource: result.referralSource, // 🔥 유입경로 로깅 추가
+      skipLog // 🔥 로깅 스킵 여부도 표시
     });
+    
+    // 🔥 백엔드에서 별도 활동 로그 기록이 있었다면 여기서 스킵
+    if (!skipLog) {
+      // 만약 여기서 활동 로그를 기록하는 코드가 있었다면, 
+      // skipLog가 false일 때만 실행되도록 해야 함
+      console.log('API: 백엔드 활동 로그 기록 (현재는 없음)');
+    } else {
+      console.log('API: 🚫 프론트엔드에서 로깅 처리하므로 백엔드 로깅 스킵');
+    }
     
     // 🔥 응답 데이터 구조 확인 및 정규화
     const responseData = {

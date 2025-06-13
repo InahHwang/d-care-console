@@ -10,6 +10,7 @@ import { createPatient, CreatePatientData, PatientStatus } from '@/store/slices/
 import { HiOutlineX, HiOutlineUser, HiOutlinePhone, HiOutlineCalendar, HiOutlineStar, HiOutlineLocationMarker, HiOutlineCake, HiOutlineGlobeAlt } from 'react-icons/hi'
 import { Icon } from '../common/Icon'
 import { provinces, getCitiesByProvince } from '@/constants/regionData'
+import { useActivityLogger } from '@/hooks/useActivityLogger' // 🔥 활동 로깅 훅 추가
 
 // 관심 분야 옵션
 const interestAreaOptions = [
@@ -37,6 +38,12 @@ export default function PatientFormModal() {
   const dispatch = useAppDispatch()
   const isOpen = useAppSelector((state: RootState) => state.ui.isPatientFormOpen)
   const isLoading = useAppSelector((state: RootState) => state.patients.isLoading)
+  
+  // 🔥 현재 로그인한 사용자 정보 가져오기
+  const currentUser = useAppSelector((state: RootState) => state.auth.user)
+  
+  // 🔥 활동 로깅 훅 추가
+  const { logPatientAction } = useActivityLogger()
   
   // 현재 날짜 설정
   const today = new Date().toISOString().split('T')[0]
@@ -178,6 +185,12 @@ export default function PatientFormModal() {
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
     
+    // 🔥 로그인 사용자 확인
+    if (!currentUser) {
+      alert('로그인이 필요합니다.');
+      return;
+    }
+    
     // 유효성 검사
     let isValid = true
     const newErrors = { 
@@ -216,6 +229,7 @@ export default function PatientFormModal() {
     
     try {
       // 🔥 환자 상태는 '잠재고객'으로 고정, consultationType은 'outbound'로 설정
+      // 담당자 정보는 API에서 자동으로 설정됨
       const patientData: CreatePatientData = {
         ...formValues,
         status: '잠재고객' as PatientStatus,
@@ -223,15 +237,65 @@ export default function PatientFormModal() {
       };
       
       console.log('신규 환자 등록 데이터:', patientData); // 디버깅용
+      console.log('등록자 정보:', { 
+        userId: currentUser.id, 
+        userName: currentUser.name 
+      }); // 🔥 등록자 정보 로깅
       
       // Redux 액션 디스패치하여 환자 생성
-      await dispatch(createPatient(patientData)).unwrap()
+      const result = await dispatch(createPatient(patientData)).unwrap()
+      
+      // 🔥 환자 등록 성공 시 활동 로그 기록
+      try {
+        await logPatientAction(
+          'patient_create',
+          result.id, // 생성된 환자 ID
+          result.name, // 생성된 환자 이름
+          {
+            patientId: result.id,
+            patientName: result.name,
+            phoneNumber: result.phoneNumber,
+            age: result.age,
+            status: result.status,
+            consultationType: result.consultationType,
+            referralSource: result.referralSource,
+            interestedServices: result.interestedServices,
+            region: result.region,
+            callInDate: result.callInDate,
+            handledBy: currentUser.name,
+            notes: `신규 환자 등록 완료`
+          }
+        );
+        console.log('✅ 환자 등록 활동 로그 기록 성공');
+      } catch (logError) {
+        console.warn('⚠️ 활동 로그 기록 실패:', logError);
+        // 로그 실패해도 메인 기능에는 영향 없도록 처리
+      }
       
       // 성공 처리
-      alert('신규 환자가 등록되었습니다!')
+      alert(`신규 환자가 등록되었습니다!\n등록자: ${currentUser.name}`)
       handleClose()
     } catch (error) {
       console.error('환자 등록 오류:', error)
+      
+      // 🔥 환자 등록 실패 시에도 로그 기록
+      try {
+        await logPatientAction(
+          'patient_create',
+          'failed',
+          formValues.name,
+          {
+            patientName: formValues.name,
+            phoneNumber: formValues.phoneNumber,
+            error: error instanceof Error ? error.message : '알 수 없는 오류',
+            attemptedBy: currentUser.name,
+            notes: '신규 환자 등록 실패'
+          }
+        );
+      } catch (logError) {
+        console.warn('활동 로그 기록 실패:', logError);
+      }
+      
       alert('환자 등록 중 오류가 발생했습니다.')
     }
   }
@@ -277,7 +341,15 @@ export default function PatientFormModal() {
       <div className="bg-white rounded-lg shadow-lg w-full max-w-lg max-h-[90vh] overflow-auto">
         {/* 모달 헤더 */}
         <div className="px-6 py-4 border-b border-border flex items-center justify-between">
-          <h2 className="text-lg font-semibold text-text-primary">신규 환자 등록</h2>
+          <div>
+            <h2 className="text-lg font-semibold text-text-primary">신규 환자 등록</h2>
+            {/* 🔥 등록자 정보 표시 */}
+            {currentUser && (
+              <p className="text-sm text-text-secondary mt-1">
+                등록자: {currentUser.name} ({currentUser.role === 'master' ? '마스터' : '직원'})
+              </p>
+            )}
+          </div>
           <button 
             className="text-text-secondary hover:text-text-primary" 
             onClick={handleClose}
@@ -527,11 +599,20 @@ export default function PatientFormModal() {
             <button 
               type="submit" 
               className="btn btn-primary"
-              disabled={isLoading}
+              disabled={isLoading || !currentUser} // 🔥 로그인 안된 경우 비활성화
             >
               {isLoading ? '처리 중...' : '등록하기'}
             </button>
           </div>
+          
+          {/* 🔥 로그인 안된 경우 안내 메시지 */}
+          {!currentUser && (
+            <div className="mt-4 p-3 bg-yellow-50 border border-yellow-200 rounded-md">
+              <p className="text-sm text-yellow-700">
+                환자 등록을 위해서는 로그인이 필요합니다.
+              </p>
+            </div>
+          )}
         </form>
       </div>
     </div>

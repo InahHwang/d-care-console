@@ -1,9 +1,9 @@
 // src/components/dashboard/PerformanceCards.tsx
 import React from 'react';
 
-// 성과 데이터 타입 정의
+// 성과 데이터 타입 정의 - 🔥 totalInquiries 필드 추가
 interface PerformanceData {
-  outboundCalls: {
+  totalInquiries: {  // 🔥 변경: outboundCalls → totalInquiries
     count: number;
     trend: number;
   };
@@ -24,26 +24,26 @@ interface PerformanceCardsProps {
 const PerformanceCards: React.FC<PerformanceCardsProps> = ({ performance }) => {
   return (
     <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-      {/* 이번달 신규 아웃바운드 콜 */}
+      {/* 🔥 수정: 이번달 신규 문의(인+아웃바운드) */}
       <div className="card p-4">
         <div className="flex flex-col">
           <div className="flex items-center justify-between mb-2">
-            <h3 className="text-sm font-medium text-text-secondary">이번달 신규 아웃바운드</h3>
-            <TrendBadge value={performance.outboundCalls.trend} />
+            <h3 className="text-sm font-medium text-text-secondary">이번달 신규 문의(인+아웃바운드)</h3>
+            <TrendBadge value={performance.totalInquiries.trend} />
           </div>
           <div className="flex items-baseline">
-            <span className="text-3xl font-bold text-text-primary">{performance.outboundCalls.count}</span>
-            <span className="ml-2 text-sm text-text-secondary">콜</span>
+            <span className="text-3xl font-bold text-text-primary">{performance.totalInquiries.count}</span>
+            <span className="ml-2 text-sm text-text-secondary">건</span>
           </div>
           <div className="mt-2 text-xs text-text-muted">
-            전월 대비 {Math.abs(performance.outboundCalls.trend)}% {performance.outboundCalls.trend >= 0 ? '증가' : '감소'}
+            전월 대비 {Math.abs(performance.totalInquiries.trend)}% {performance.totalInquiries.trend >= 0 ? '증가' : '감소'}
           </div>
           {/* 스파크라인 차트 자리 */}
           <div className="mt-2 h-8 bg-gray-50 rounded-md"></div>
         </div>
       </div>
 
-      {/* 예약 완료 전환율 */}
+      {/* 예약 완료 전환율 - 기존 그대로 */}
       <div className="card p-4">
         <div className="flex flex-col">
           <div className="flex items-center justify-between mb-2">
@@ -62,7 +62,7 @@ const PerformanceCards: React.FC<PerformanceCardsProps> = ({ performance }) => {
         </div>
       </div>
 
-      {/* 내원율 */}
+      {/* 내원율 - 기존 그대로 */}
       <div className="card p-4">
         <div className="flex flex-col">
           <div className="flex items-center justify-between mb-2">
@@ -84,7 +84,7 @@ const PerformanceCards: React.FC<PerformanceCardsProps> = ({ performance }) => {
   );
 };
 
-// 증가/감소 추세를 보여주는 뱃지 컴포넌트
+// 증가/감소 추세를 보여주는 뱃지 컴포넌트 - 기존 그대로
 const TrendBadge: React.FC<{ value: number }> = ({ value }) => {
   // 0 이상이면 증가, 0 미만이면 감소
   const isPositive = value >= 0;

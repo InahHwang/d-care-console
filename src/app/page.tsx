@@ -1,4 +1,4 @@
-// src/app/page.tsx
+// src/app/page.tsx - 수정된 버전
 
 'use client'
 
@@ -21,7 +21,11 @@ import PatientDetailModal from '@/components/management/PatientDetailModal';
 
 export default function Home() {
   const dispatch = useAppDispatch();
-  const { isLoading, selectedPatient } = useAppSelector((state) => state.patients);
+  
+  // 🔧 수정: 안전한 patients 상태 접근
+  const patientsState = useAppSelector((state) => state.patients);
+  const isLoading = patientsState?.isLoading || false;
+  const selectedPatient = patientsState?.selectedPatient || null;
   
   // 🎯 새로운 방식: 확장된 useGoalsCalculation 훅에서 모든 데이터 가져오기
   const {
@@ -60,51 +64,51 @@ export default function Home() {
 
   return (
     <AuthGuard>
-    <AppLayout currentPage="dashboard">
-      <div>
-        {/* 🎯 기존 그대로: GoalsInitializer 컴포넌트 */}
-        <GoalsInitializer />
-        
-        {/* 🎯 기존 그대로: 페이지 제목 */}
-         <div className="flex items-center justify-between mb-6">
-          <h1 className="text-2xl font-bold text-text-primary">대시보드</h1>
-          <div className="text-sm text-text-secondary">
-            {isLoading ? '데이터 로딩 중...' : `마지막 업데이트: ${new Date().toLocaleString()}`}
-          </div>
-        </div>
-
-        {/* 🎯 수정: 새로운 훅에서 가져온 performance 데이터 사용 */}
-        <div className="mb-6">
-          <PerformanceCards performance={performance} />
-        </div>
-
-        {/* 🎯 수정: 새로운 훅에서 가져온 statusCounts 데이터 사용 */}
-        <div className="mb-6">
-          <PatientStatusCards statusCounts={statusCounts} />
-        </div>
-
-        {/* 🎯 기존 그대로: 2단 레이아웃 */}
-        <div className="flex flex-col lg:flex-row gap-6 mb-6">
-          {/* 🎯 수정: 새로운 훅에서 가져온 todayCalls 데이터 사용 */}
-          <div className="flex-1">
-            <TodaysCallsTable calls={todayCalls} />
-          </div>
-
-          {/* 🎯 기존 그대로: 오른쪽 칼럼 */}
-          <div className="lg:w-80">
-            <div className="mb-6">
-              {/* 🎯 기존 그대로: ProgressGoals는 Redux에서 데이터 가져옴 */}
-              <ProgressGoals />
+      <AppLayout currentPage="dashboard">
+        <div>
+          {/* 🎯 기존 그대로: GoalsInitializer 컴포넌트 */}
+          <GoalsInitializer />
+          
+          {/* 🎯 기존 그대로: 페이지 제목 */}
+          <div className="flex items-center justify-between mb-6">
+            <h1 className="text-2xl font-bold text-text-primary">대시보드</h1>
+            <div className="text-sm text-text-secondary">
+              {isLoading ? '데이터 로딩 중...' : `마지막 업데이트: ${new Date().toLocaleString()}`}
             </div>
-            <QuickActions />
+          </div>
+
+          {/* 🎯 수정: 새로운 훅에서 가져온 performance 데이터 사용 */}
+          <div className="mb-6">
+            <PerformanceCards performance={performance} />
+          </div>
+
+          {/* 🎯 수정: 새로운 훅에서 가져온 statusCounts 데이터 사용 */}
+          <div className="mb-6">
+            <PatientStatusCards statusCounts={statusCounts} />
+          </div>
+
+          {/* 🎯 기존 그대로: 2단 레이아웃 */}
+          <div className="flex flex-col lg:flex-row gap-6 mb-6">
+            {/* 🎯 수정: 새로운 훅에서 가져온 todayCalls 데이터 사용 */}
+            <div className="flex-1">
+              <TodaysCallsTable calls={todayCalls} />
+            </div>
+
+            {/* 🎯 기존 그대로: 오른쪽 칼럼 */}
+            <div className="lg:w-80">
+              <div className="mb-6">
+                {/* 🎯 기존 그대로: ProgressGoals는 Redux에서 데이터 가져옴 */}
+                <ProgressGoals />
+              </div>
+              <QuickActions />
+            </div>
           </div>
         </div>
-      </div>
 
-      {/* 🎯 기존 그대로: 환자 상세보기 모달 */}
-      {selectedPatient && <PatientDetailModal />}
-      
-    </AppLayout>
+        {/* 🎯 기존 그대로: 환자 상세보기 모달 */}
+        {selectedPatient && <PatientDetailModal />}
+        
+      </AppLayout>
     </AuthGuard>
   );
 }

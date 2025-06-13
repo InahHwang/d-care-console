@@ -15,9 +15,9 @@ interface CurrentMonthGoals {
   appointments: GoalData;
 }
 
-// 🎯 새로 추가: 성과 지표 타입
+// 🎯 수정: 성과 지표 타입 - totalInquiries로 변경
 interface PerformanceData {
-  outboundCalls: {
+  totalInquiries: {  // 🔥 변경: outboundCalls → totalInquiries
     count: number;
     trend: number;
   };
@@ -31,7 +31,7 @@ interface PerformanceData {
   };
 }
 
-// 🎯 새로 추가: 환자 상태 카운트 타입
+// 🎯 환자 상태 카운트 타입
 interface PatientStatusCounts {
   callbackNeeded: number;
   absentCount: number;
@@ -39,7 +39,7 @@ interface PatientStatusCounts {
   newPatients: number;
 }
 
-// 🎯 새로 추가: 오늘 콜 데이터 타입
+// 🎯 오늘 콜 데이터 타입
 interface TodayCall {
   id: string;
   patientId: string;
@@ -59,13 +59,13 @@ interface UseGoalsCalculationResult {
   newPatients: GoalData;
   appointments: GoalData;
   
-  // 🎯 새로 추가: 성과 지표
+  // 🎯 수정된 성과 지표
   performance: PerformanceData;
   
-  // 🎯 새로 추가: 환자 상태 카운트
+  // 🎯 환자 상태 카운트
   statusCounts: PatientStatusCounts;
   
-  // 🎯 새로 추가: 오늘 예정된 콜
+  // 🎯 오늘 예정된 콜
   todayCalls: TodayCall[];
 }
 
@@ -79,12 +79,12 @@ export const useGoalsCalculation = (): UseGoalsCalculationResult => {
     dispatch(loadGoalsFromServer() as any);
   }, [dispatch]);
 
-  // 🎯 새로 추가: page.tsx의 계산 로직을 그대로 복사
+  // 🎯 수정된 계산 로직: 인바운드+아웃바운드 합계 계산
   const calculatePerformanceMetrics = () => {
   if (patients.length === 0) {
     return {
       performance: {
-        outboundCalls: { count: 0, trend: 0 },
+        totalInquiries: { count: 0, trend: 0 },  // 🔥 변경
         appointmentRate: { value: 0, trend: 0 },
         visitRate: { value: 0, trend: 0 }
       },
@@ -107,23 +107,25 @@ export const useGoalsCalculation = (): UseGoalsCalculationResult => {
   const lastDayOfPrevMonth = new Date(firstDayOfMonth);
   lastDayOfPrevMonth.setDate(lastDayOfPrevMonth.getDate() - 1);
   
-  // 1. 월간 성과 데이터 계산
-  // 1.1 이번달 아웃바운드 콜 수 (환자의 콜인 날짜 기준으로 계산)
-  const currentMonthCalls = patients.filter(patient => {
+  // 🔥 1. 월간 신규 문의 데이터 계산 (인바운드 + 아웃바운드 합계)
+  // 1.1 이번달 전체 신규 문의 수 (상담관리에 등록된 모든 환자)
+  const currentMonthInquiries = patients.filter(patient => {
     const callInDate = new Date(patient.callInDate);
     return callInDate >= firstDayOfMonth && callInDate <= today;
+    // 🔥 consultationType 필터 제거 - 인바운드+아웃바운드 모두 포함
   }).length;
   
-  // 1.2 지난달 아웃바운드 콜 수 계산
-  const prevMonthCalls = patients.filter(patient => {
+  // 1.2 지난달 전체 신규 문의 수 계산
+  const prevMonthInquiries = patients.filter(patient => {
     const callInDate = new Date(patient.callInDate);
     return callInDate >= firstDayOfPrevMonth && callInDate < firstDayOfMonth;
+    // 🔥 consultationType 필터 제거 - 인바운드+아웃바운드 모두 포함
   }).length;
   
   // 1.3 전월 대비 증감률 계산
-  let callsTrend = 0;
-  if (prevMonthCalls > 0) {
-    callsTrend = Math.round(((currentMonthCalls - prevMonthCalls) / prevMonthCalls) * 100);
+  let inquiriesTrend = 0;
+  if (prevMonthInquiries > 0) {
+    inquiriesTrend = Math.round(((currentMonthInquiries - prevMonthInquiries) / prevMonthInquiries) * 100);
   }
   
   // 🔥 2. 예약 전환율 계산 - 월별 기준으로 수정
@@ -264,7 +266,9 @@ export const useGoalsCalculation = (): UseGoalsCalculationResult => {
       };
     });
 
-  console.log('🔥 월별 성과 지표 계산 결과:');
+  // 🔥 로그 메시지 업데이트
+  console.log('🔥 월별 성과 지표 계산 결과 (인바운드+아웃바운드 합계):');
+  console.log('   - 이번달 전체 신규문의:', currentMonthInquiries, '건');
   console.log('   - 이번달 신규환자:', currentMonthNewPatients);
   console.log('   - 이번달 예약확정:', currentMonthConfirmedAppointments);
   console.log('   - 이번달 예약전환율:', Math.round(appointmentRate * 10) / 10, '%');
@@ -273,9 +277,9 @@ export const useGoalsCalculation = (): UseGoalsCalculationResult => {
 
   return {
     performance: {
-      outboundCalls: {
-        count: currentMonthCalls,
-        trend: callsTrend,
+      totalInquiries: {  // 🔥 변경: outboundCalls → totalInquiries
+        count: currentMonthInquiries,
+        trend: inquiriesTrend,
       },
       appointmentRate: {
         value: Math.round(appointmentRate * 10) / 10,
@@ -313,7 +317,7 @@ export const useGoalsCalculation = (): UseGoalsCalculationResult => {
       percentage: currentMonth.appointments.percentage,
     },
     
-    // 🎯 새로 추가된 성과 지표들
+    // 🎯 수정된 성과 지표들
     performance: metrics.performance,
     statusCounts: metrics.statusCounts,
     todayCalls: metrics.todayCalls

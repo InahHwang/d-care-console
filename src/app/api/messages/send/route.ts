@@ -4,6 +4,36 @@ import fs from 'fs';
 import path from 'path';
 import sharp from 'sharp';
 
+// 🔥 활동 로깅을 위한 함수 추가
+async function logActivityToDatabase(activityData: any) {
+  try {
+    const { connectToDatabase } = await import('@/utils/mongodb');
+    const { db } = await connectToDatabase();
+    
+    const logEntry = {
+      ...activityData,
+      timestamp: new Date().toISOString(),
+      source: 'backend_api',
+      level: 'audit'
+    };
+    
+    await db.collection('activity_logs').insertOne(logEntry);
+    console.log('✅ 백엔드 활동 로그 기록 완료:', activityData.action);
+  } catch (error) {
+    console.warn('⚠️ 백엔드 활동 로그 기록 실패:', error);
+    // 로그 실패는 무시하고 계속 진행
+  }
+}
+
+// 요청 헤더에서 사용자 정보 추출 (임시)
+function getCurrentUser(request: NextRequest) {
+  // 실제로는 JWT 토큰에서 추출해야 함
+  return {
+    id: 'temp-user-001',
+    name: '임시 관리자'
+  };
+}
+
 // Vercel 환경 감지
 const isVercel = process.env.VERCEL === '1';
 
@@ -173,10 +203,26 @@ export async function POST(request: NextRequest) {
   console.log('======= 메시지 발송 API 시작 =======');
   console.log('🌍 환경:', isVercel ? 'Vercel (Serverless)' : 'Local Development');
   
+  const currentUser = getCurrentUser(request);
+  
   try {
     // SDK 임포트 상태 확인
     if (sdkImportError) {
       console.error('SDK 임포트 에러:', sdkImportError);
+      
+      // 🔥 백엔드 로그 - SDK 임포트 실패
+      await logActivityToDatabase({
+        action: 'message_send_api_error',
+        targetId: 'system',
+        targetName: 'SMS 서비스',
+        userId: currentUser.id,
+        userName: currentUser.name,
+        details: {
+          error: `SDK 임포트 실패: ${sdkImportError}`,
+          apiEndpoint: '/api/messages/send'
+        }
+      });
+      
       return NextResponse.json(
         { success: false, message: `SDK 임포트 실패: ${sdkImportError}` },
         { status: 500 }
@@ -185,6 +231,9 @@ export async function POST(request: NextRequest) {
 
     const body = await request.json();
     console.log('📥 요청 본문:', body);
+
+    // 🔥 프론트엔드 로깅 스킵 여부 확인
+    const skipFrontendLog = request.headers.get('X-Skip-Activity-Log') === 'true';
     
     // 요청 형태 확인 (단일 vs 다중)
     let patients: any[] = [];
@@ -210,6 +259,21 @@ export async function POST(request: NextRequest) {
     
     // 필수 필드 검증
     if (patients.length === 0 || !patients[0].phoneNumber || !content) {
+      // 🔥 백엔드 로그 - 필수 필드 누락
+      await logActivityToDatabase({
+        action: 'message_send_api_error',
+        targetId: patients[0]?.id || 'unknown',
+        targetName: patients[0]?.name || '알 수 없음',
+        userId: currentUser.id,
+        userName: currentUser.name,
+        details: {
+          error: '필수 필드 누락',
+          phoneNumber: patients[0]?.phoneNumber || 'missing',
+          contentLength: content.length,
+          apiEndpoint: '/api/messages/send'
+        }
+      });
+      
       return NextResponse.json(
         { success: false, message: '전화번호와 내용은 필수입니다.' },
         { status: 400 }
@@ -224,6 +288,19 @@ export async function POST(request: NextRequest) {
     });
     
     if (!COOLSMS_CONFIG.API_KEY || !COOLSMS_CONFIG.API_SECRET || !COOLSMS_CONFIG.SENDER_NUMBER) {
+      // 🔥 백엔드 로그 - 설정 오류
+      await logActivityToDatabase({
+        action: 'message_send_api_error',
+        targetId: 'system',
+        targetName: 'SMS 서비스',
+        userId: currentUser.id,
+        userName: currentUser.name,
+        details: {
+          error: 'CoolSMS 설정 누락',
+          apiEndpoint: '/api/messages/send'
+        }
+      });
+      
       return NextResponse.json(
         { success: false, message: 'CoolSMS 설정이 올바르지 않습니다.' },
         { status: 500 }
@@ -242,6 +319,21 @@ export async function POST(request: NextRequest) {
     }
 
     if (contentByteLength > 2000) {
+      // 🔥 백엔드 로그 - 내용 길이 초과
+      await logActivityToDatabase({
+        action: 'message_send_api_error',
+        targetId: patients[0]?.id || 'unknown',
+        targetName: patients[0]?.name || '알 수 없음',
+        userId: currentUser.id,
+        userName: currentUser.name,
+        details: {
+          error: '메시지 내용 길이 초과',
+          contentLength: content.length,
+          contentByteLength: contentByteLength,
+          apiEndpoint: '/api/messages/send'
+        }
+      });
+      
       return NextResponse.json(
         { success: false, message: '메시지 내용이 2000바이트를 초과합니다.' },
         { status: 400 }
@@ -264,6 +356,25 @@ export async function POST(request: NextRequest) {
 
     // 각 환자별로 발송 처리
     const results = [];
+    
+    // 🔥 백엔드 로그 - 메시지 발송 시작 (프론트엔드 로깅이 없는 경우에만)
+    if (!skipFrontendLog) {
+      await logActivityToDatabase({
+        action: 'message_send_api_start',
+        targetId: patients[0]?.id || 'batch',
+        targetName: patients.length === 1 ? patients[0]?.name : `${patients.length}명`,
+        userId: currentUser.id,
+        userName: currentUser.name,
+        details: {
+          recipientCount: patients.length,
+          messageType: actualMessageType,
+          contentLength: content.length,
+          hasImage: !!imageUrl,
+          apiEndpoint: '/api/messages/send',
+          userAgent: request.headers.get('user-agent')?.substring(0, 100)
+        }
+      });
+    }
     
     for (const patient of patients) {
       const messageOptions: any = {
@@ -296,7 +407,6 @@ export async function POST(request: NextRequest) {
             // LMS로 대체하되, 이미지 실패 안내 문구는 추가하지 않음
             actualMessageType = 'LMS';
             messageOptions.type = 'LMS';
-            // messageOptions.text += '\n\n※ 이미지는 별도로 확인해주세요.'; // 이 줄 제거
             patientResult.actualType = 'LMS';
             patientResult.error = `이미지 처리 실패로 LMS 발송: ${imageProcessResult.error}`;
           } else {
@@ -347,7 +457,6 @@ export async function POST(request: NextRequest) {
               // LMS로 대체하되, 이미지 실패 안내 문구는 추가하지 않음
               actualMessageType = 'LMS';
               messageOptions.type = 'LMS';
-              // messageOptions.text += '\n\n※ 이미지는 별도로 확인해주세요.'; // 이 줄 제거
               
               delete messageOptions.imageId;
               patientResult.actualType = 'LMS';
@@ -371,11 +480,49 @@ export async function POST(request: NextRequest) {
         
         patientResult.success = true;
         patientResult.actualType = messageOptions.type;
+
+        // 🔥 백엔드 로그 - 개별 메시지 발송 성공 (프론트엔드 로깅이 없는 경우에만)
+        if (!skipFrontendLog) {
+          await logActivityToDatabase({
+            action: 'message_send_api_success',
+            targetId: patient.id,
+            targetName: patient.name,
+            userId: currentUser.id,
+            userName: currentUser.name,
+            details: {
+              phoneNumber: patient.phoneNumber,
+              messageType: patientResult.actualType,
+              contentLength: messageOptions.text.length,
+              hasImage: !!messageOptions.imageId,
+              messageId: result.messageId || 'unknown',
+              apiEndpoint: '/api/messages/send'
+            }
+          });
+        }
         
       } catch (error: any) {
-        console.error(`💥 [${patient.name}] 메시지 발송 실패:`, error.message);
+        const errorMessage = error instanceof Error ? error.message : '알 수 없는 오류';
+        console.error(`❌ [${patient.name}] 메시지 발송 실패:`, errorMessage);
+        
         patientResult.success = false;
-        patientResult.error = error.message;
+        patientResult.error = errorMessage;
+
+        // 🔥 백엔드 로그 - 개별 메시지 발송 실패 (프론트엔드 로깅이 없는 경우에만)
+        if (!skipFrontendLog) {
+          await logActivityToDatabase({
+            action: 'message_send_api_error',
+            targetId: patient.id,
+            targetName: patient.name,
+            userId: currentUser.id,
+            userName: currentUser.name,
+            details: {
+              error: errorMessage,
+              phoneNumber: patient.phoneNumber,
+              messageType: messageOptions.type,
+              apiEndpoint: '/api/messages/send'
+            }
+          });
+        }
       }
       
       results.push(patientResult);
@@ -386,6 +533,24 @@ export async function POST(request: NextRequest) {
     const failCount = results.length - successCount;
     
     console.log(`📊 발송 결과: 성공 ${successCount}건, 실패 ${failCount}건`);
+
+    // 🔥 백엔드 로그 - 메시지 발송 완료 (프론트엔드 로깅이 없는 경우에만)
+    if (!skipFrontendLog) {
+      await logActivityToDatabase({
+        action: 'message_send_api_complete',
+        targetId: patients[0]?.id || 'batch',
+        targetName: patients.length === 1 ? patients[0]?.name : `${patients.length}명`,
+        userId: currentUser.id,
+        userName: currentUser.name,
+        details: {
+          totalRecipients: patients.length,
+          successCount: successCount,
+          failCount: failCount,
+          successRate: `${Math.round((successCount / patients.length) * 100)}%`,
+          apiEndpoint: '/api/messages/send'
+        }
+      });
+    }
     
     // 응답 (기존 형태와 호환)
     if (patients.length === 1) {
@@ -412,6 +577,24 @@ export async function POST(request: NextRequest) {
     console.error('💥 메시지 발송 실패:', error);
     console.error('에러 상세:', error.message);
     console.error('스택:', error.stack);
+
+    // 🔥 백엔드 로그 - 전체 예외 발생
+    try {
+      await logActivityToDatabase({
+        action: 'message_send_api_exception',
+        targetId: 'system',
+        targetName: 'SMS 서비스',
+        userId: currentUser.id,
+        userName: currentUser.name,
+        details: {
+          error: error.message || '알 수 없는 오류',
+          stack: error.stack?.substring(0, 500),
+          apiEndpoint: '/api/messages/send'
+        }
+      });
+    } catch (logError) {
+      console.warn('예외 로그 기록 실패:', logError);
+    }
     
     return NextResponse.json(
       { 

@@ -44,6 +44,7 @@ import {
 } from 'react-icons/hi'
 import { Icon } from '../common/Icon'
 import { RootState } from '@/store';
+import { useActivityLogger } from '@/hooks/useActivityLogger' 
 
 interface CallbackManagementProps {
   patient: Patient
@@ -53,6 +54,21 @@ type CallbackType = '1차' | '2차' | '3차' | '4차' | '5차';
 
 export default function CallbackManagement({ patient }: CallbackManagementProps) {
   const dispatch = useAppDispatch()
+  const currentUser = useAppSelector((state: RootState) => state.auth.user)
+  
+  // ✅ 컴포넌트 내부에서 훅 호출
+  const { logCallbackAction, logPatientCompleteAction } = useActivityLogger()
+  
+
+  // 🔥 임시: 로그인 시스템이 구현되기 전까지 기본 사용자 사용
+  const effectiveUser = currentUser || {
+      id: 'temp-user-001',
+      name: '임시 관리자',
+      username: 'temp-admin',
+      email: 'temp@example.com',
+      role: 'staff' as const,
+      isActive: true
+    }
 
   // Redux store에서 카테고리 데이터 가져오기 - 추가
   const { categories } = useAppSelector((state: RootState) => state.categories)
@@ -252,6 +268,14 @@ export default function CallbackManagement({ patient }: CallbackManagementProps)
   const [customerResponse, setCustomerResponse] = useState<string>('neutral');
   const [nextStep, setNextStep] = useState<string>('');
 
+  // 🔥 담당자 정보 표시 함수 (getUserDisplayName 함수 근처에 추가)
+  const getUserDisplayName = (userId?: string, userName?: string) => {
+    if (!userId && !userName) return '';
+    if (userName) return userName;
+    if (userId === 'system') return '시스템';
+    return userId || '';
+  }
+
   // 1. resetEditForm 함수 추가
   // 수정 모달을 초기화하는 별도의 함수 추가
   const resetEditForm = () => {
@@ -331,20 +355,52 @@ export default function CallbackManagement({ patient }: CallbackManagementProps)
         
         // selectPatient를 호출하여 환자 정보 새로고침
         dispatch(selectPatient(patient.id));
+
+        await logCallbackAction(
+          'callback_update', // 수정 액션
+          patient.id,
+          patient.name,
+          {
+            callbackId: callbackToEdit.id,
+            callbackType: callbackToEdit.type,
+            callbackDate: editDate,
+            previousNotes: callbackToEdit.notes,
+            newNotes: editNotes,
+            handledBy: effectiveUser.name,
+            notes: `${callbackToEdit.type} 콜백 수정`
+          }
+        );
         
         // 성공 처리
         resetEditForm();
-        alert('콜백 정보가 수정되었습니다.');
-      } else {
-        throw new Error('수정할 콜백을 찾을 수 없습니다.');
+          alert('콜백 정보가 수정되었습니다.');
+        } else {
+          throw new Error('수정할 콜백을 찾을 수 없습니다.');
+        }
+      } catch (error) {
+        console.error('콜백 수정 오류:', error);
+
+        // 🔥 에러 로깅도 수정
+        try {
+          await logCallbackAction(
+            'callback_update', // ✅ 수정
+            patient.id,
+            patient.name,
+            {
+              error: error instanceof Error ? error.message : '알 수 없는 오류',
+              callbackType: callbackToEdit.type, // ✅ 수정
+              attemptedBy: effectiveUser.name
+            }
+          )
+        } catch (logError) {
+          console.warn('활동 로그 기록 실패:', logError)
+        }
+        
+        alert('콜백 수정 중 오류가 발생했습니다.') // ✅ 메시지 수정
+      } finally {
+        setIsLoading(false)
       }
-    } catch (error) {
-      console.error('콜백 수정 오류:', error);
-      alert('콜백 수정 중 오류가 발생했습니다.');
-    } finally {
-      setIsLoading(false);
     }
-  };
 
   // 완료 처리 모달 초기화
   const resetMarkCompleteForm = () => {
@@ -424,6 +480,20 @@ export default function CallbackManagement({ patient }: CallbackManagementProps)
         patientId: patient.id,
         callbackData: nextCallbackData
       })).unwrap();
+
+      // 🔥 활동 로그 기록 - 부재중 처리
+        await logCallbackAction(
+          'callback_complete',
+          patient.id,
+          patient.name,
+          {
+            callbackType: callbackToComplete.type,
+            result: '부재중',
+            nextCallbackDate: nextCallbackDate,
+            handledBy: effectiveUser.name,
+            notes: `${callbackToComplete.type} 콜백 - 부재중 처리 후 재콜백 예약`
+          }
+        )
       
       // 환자 정보 새로고침
       dispatch(selectPatient(patient.id));
@@ -477,6 +547,22 @@ export default function CallbackManagement({ patient }: CallbackManagementProps)
           patientId: patient.id,
           reason: reservationNote
         })).unwrap();
+
+        // 🔥 활동 로그 기록 - 예약 확정
+        await logPatientCompleteAction( // 🔥 함수명 변경
+          'patient_complete',
+          patient.id,
+          patient.name,
+          {
+            callbackType: callbackToComplete.type,
+            result: '예약확정',
+            reservationDate: reservationDate,
+            reservationTime: reservationTime,
+            consultationNotes: resultNotes,
+            handledBy: effectiveUser.name,
+            notes: `${callbackToComplete.type} 콜백 완료 - 예약 확정`
+          }
+        )
         
         // 환자 정보 새로고침
         dispatch(selectPatient(patient.id));
@@ -520,6 +606,20 @@ export default function CallbackManagement({ patient }: CallbackManagementProps)
         patientId: patient.id,
         reason: terminationNote
       })).unwrap();
+
+      // 🔥 활동 로그 기록 - 종결 처리
+        await logCallbackAction(
+          'callback_complete',
+          patient.id,
+          patient.name,
+          {
+            callbackType: callbackToComplete.type,
+            result: '종결처리',
+            consultationNotes: resultNotes,
+            handledBy: effectiveUser.name,
+            notes: `${callbackToComplete.type} 콜백 완료 - 종결 처리`
+          }
+        )
       
       // 환자 정보 새로고침
       dispatch(selectPatient(patient.id));
@@ -594,6 +694,23 @@ export default function CallbackManagement({ patient }: CallbackManagementProps)
       // 이벤트 타겟 목록 새로고침
       await dispatch(initializeEventTargets()).unwrap();
       
+      // 🔥 활동 로그 기록 - 이벤트 타겟 설정
+              await logCallbackAction(
+                'callback_complete',
+                patient.id,
+                patient.name,
+                {
+                  callbackType: callbackToComplete.type,
+                  result: '이벤트타겟설정',
+                  eventTargetReason: eventTargetReason,
+                  eventTargetCategory: eventTargetCategory,
+                  scheduledDate: eventTargetScheduledDate,
+                  consultationNotes: resultNotes,
+                  handledBy: effectiveUser.name,
+                  notes: `${callbackToComplete.type} 콜백 완료 - 이벤트 타겟 설정`
+                }
+              )
+
       // 환자 정보 새로고침
       dispatch(selectPatient(patient.id));
       
@@ -619,7 +736,12 @@ export default function CallbackManagement({ patient }: CallbackManagementProps)
         customerResponse: customerResponse as any,
         nextStep: nextStep as any,
         type: callbackToComplete.type,
-        time: undefined
+        time: undefined,
+        // 🔥 담당자 정보 추가
+        handledBy: effectiveUser.id,
+        handledByName: effectiveUser.name,
+        createdBy: callbackToComplete.createdBy || effectiveUser.id,
+        createdByName: callbackToComplete.createdByName || effectiveUser.name
       };
       
       // 기존 콜백 삭제
@@ -666,6 +788,23 @@ export default function CallbackManagement({ patient }: CallbackManagementProps)
             time: undefined
           }
         })).unwrap();
+
+        
+      // 🔥 활동 로그 기록 - 일반 콜백 완료
+      await logCallbackAction(
+        'callback_complete',
+        patient.id,
+        patient.name,
+        {
+          callbackType: callbackToComplete.type,
+          result: '완료',
+          nextStep: nextStep,
+          consultationNotes: resultNotes,
+          customerResponse: customerResponse,
+          handledBy: effectiveUser.name,
+          notes: `${callbackToComplete.type} 콜백 완료`
+        }
+      )
         
         // 환자 정보 새로고침
         dispatch(selectPatient(patient.id));
@@ -677,6 +816,23 @@ export default function CallbackManagement({ patient }: CallbackManagementProps)
       
     } catch (error) {
       console.error('콜백 완료 처리 오류:', error);
+      
+      // 🔥 활동 로그 기록 - 콜백 완료 실패
+      try {
+        await logCallbackAction(
+          'callback_complete',
+          patient.id,
+          patient.name,
+          {
+            error: error instanceof Error ? error.message : '알 수 없는 오류',
+            callbackType: callbackToComplete.type,
+            attemptedBy: effectiveUser.name
+          }
+        )
+      } catch (logError) {
+        console.warn('활동 로그 기록 실패:', logError)
+      }
+
       alert('콜백 완료 처리 중 오류가 발생했습니다.');
     } finally {
       setIsLoading(false);
@@ -881,7 +1037,7 @@ export default function CallbackManagement({ patient }: CallbackManagementProps)
           nextStepValue = ''; // 재검토는 빈 문자열로 처리
         }
 
-      // 1. 현재 상담 완료 처리
+      // 1. 현재 상담 완료 처리 부분
       await dispatch(addCallback({
         patientId: patient.id,
         callbackData: {
@@ -890,9 +1046,30 @@ export default function CallbackManagement({ patient }: CallbackManagementProps)
           notes: combinedNotes,
           type: callbackType,
           time: undefined,
-          nextStep: nextStepValue as any 
+          nextStep: nextStepValue as any,
+          // 🔥 담당자 정보 추가
+          handledBy: effectiveUser.id,
+          handledByName: effectiveUser.name,
+          createdBy: effectiveUser.id,
+          createdByName: effectiveUser.name
         }
       })).unwrap();
+
+      // 🔥 활동 로그 기록 - 콜백 완료
+        await logCallbackAction(
+          'callback_complete',
+          patient.id,
+          patient.name,
+          {
+            callbackType: callbackType,
+            callbackDate: callbackDate,
+            result: '상담중',
+            nextStep: nextStepValue,
+            handledBy: effectiveUser.name,
+            handledByName: effectiveUser.name,
+            notes: `${callbackType} 콜백 완료 - 다음 단계: ${nextCallbackType}`
+          }
+        )
       
       // 2. 다음 상담 예약 자동 생성
       if (nextCallbackType !== '예약완료' && nextCallbackType !== '재검토') {
@@ -906,6 +1083,20 @@ export default function CallbackManagement({ patient }: CallbackManagementProps)
             time: undefined
           }
         })).unwrap();
+
+        // 🔥 이 부분 추가 - 다음 콜백 등록 로깅
+        await logCallbackAction(
+          'callback_create',
+          patient.id,
+          patient.name,
+          {
+            callbackType: nextCallbackType,
+            callbackDate: nextCallbackDate,
+            status: '예정',
+            handledBy: effectiveUser.name,
+            notes: `${nextCallbackType} 콜백 예약 등록`
+          }
+        )      
       }
       
     } else if (callbackResult === '부재중') {
@@ -919,9 +1110,15 @@ export default function CallbackManagement({ patient }: CallbackManagementProps)
           status: '부재중',
           notes: notes,
           type: callbackType,
-          time: undefined
+          time: undefined,
+          // 🔥 담당자 정보 추가
+          handledBy: effectiveUser.id,
+          handledByName: effectiveUser.name,
+          createdBy: effectiveUser.id,
+          createdByName: effectiveUser.name
         }
       })).unwrap()
+
       
       // 마지막 콜백(3차)이 부재중인 경우 '부재중'으로 상태 변경
       if (callbackType === '3차') {
@@ -948,6 +1145,20 @@ export default function CallbackManagement({ patient }: CallbackManagementProps)
         patientId: patient.id,
         reason: terminationNote
       })).unwrap();
+
+      // 🔥 활동 로그 기록 - 부재중
+        await logPatientCompleteAction( // 🔥 함수명 변경
+          'patient_complete',
+            patient.id,
+            patient.name,
+            {
+              callbackType: callbackType,
+              result: '종결',
+              terminationReason: terminationReason,
+              handledBy: effectiveUser.name,
+              notes: `${callbackType} 콜백 - 종결 처리`
+            }
+          )
       
       // 환자 정보 새로고침
       dispatch(selectPatient(patient.id));
@@ -960,6 +1171,20 @@ export default function CallbackManagement({ patient }: CallbackManagementProps)
           patientId: patient.id,
           reason: terminationReason
         })).unwrap();
+
+         // 🔥 활동 로그 기록 - 종결 처리
+        await logPatientCompleteAction(
+          'patient_complete',
+          patient.id,
+          patient.name,
+          {
+            callbackType: callbackType,
+            result: '종결',
+            terminationReason: terminationReason,
+            handledBy: effectiveUser.name,
+            notes: `${callbackType} 콜백 - 종결 처리`
+          }
+        )
         
         // 환자 정보 새로고침
         dispatch(selectPatient(patient.id));
@@ -1063,6 +1288,21 @@ export default function CallbackManagement({ patient }: CallbackManagementProps)
         callbackId: selectedCallback.id,
         cancelReason: cancelReason
       })).unwrap()
+
+      // 🔥 이 부분 추가
+      await logCallbackAction(
+        'callback_cancel',
+        patient.id,
+        patient.name,
+        {
+          callbackId: selectedCallback.id,
+          callbackType: selectedCallback.type,
+          callbackDate: selectedCallback.date,
+          cancelReason: cancelReason,
+          handledBy: effectiveUser.name,
+          notes: `${selectedCallback.type} 콜백 취소`
+        }
+      )
       
       // selectPatient를 호출하여 환자 정보 새로고침
       // 이 시점에서 Redux 스토어는 이미 업데이트되었고, useEffect에 의해 
@@ -1074,6 +1314,36 @@ export default function CallbackManagement({ patient }: CallbackManagementProps)
       resetCancelForm()
     } catch (error) {
       console.error('콜백 취소 오류:', error)
+
+      // 🔥 활동 로그 기록 - 콜백 취소 실패
+      try {
+        await logCallbackAction(
+          'callback_cancel',
+          patient.id,
+          patient.name,
+          {
+            error: error instanceof Error ? error.message : '알 수 없는 오류',
+            callbackId: selectedCallback.id,
+            attemptedBy: effectiveUser.name
+          }
+        )
+      } catch (error) {
+    // 🔥 에러 로깅도 추가
+    try {
+      await logCallbackAction(
+        'callback_cancel',
+        patient.id,
+        patient.name,
+        {
+          error: error instanceof Error ? error.message : '알 수 없는 오류',
+          callbackId: selectedCallback.id,
+          attemptedBy: effectiveUser.name
+        }
+      )
+    } catch (logError) {
+      console.warn('활동 로그 기록 실패:', logError)
+    } }
+
       alert('콜백 취소 중 오류가 발생했습니다.')
     } finally {
       setIsLoading(false)
@@ -1099,6 +1369,20 @@ export default function CallbackManagement({ patient }: CallbackManagementProps)
         patientId: patient.id,
         callbackId: callbackToDelete.id
       })).unwrap()
+
+      // 🔥 활동 로그 기록 - 콜백 삭제
+      await logCallbackAction(
+        'callback_delete', // 새로운 액션 타입 필요
+        patient.id,
+        patient.name,
+        {
+          callbackId: callbackToDelete.id,
+          callbackType: callbackToDelete.type,
+          callbackDate: callbackToDelete.date,
+          handledBy: effectiveUser.name,
+          notes: `${callbackToDelete.type} 콜백 삭제`
+        }
+      )
       
       // selectPatient를 호출하여 환자 정보 새로고침
       // 이 시점에서 Redux 스토어는 이미 업데이트되었고, useEffect에 의해 
@@ -1305,6 +1589,36 @@ export default function CallbackManagement({ patient }: CallbackManagementProps)
 
   return (
     <div className="space-y-6">
+    {/* 🔥 헤더 추가 */}
+    <div className="bg-white p-6 rounded-lg shadow-sm border border-gray-200">
+      <div className="flex items-center justify-between mb-6">
+        <h2 className="text-xl font-semibold text-gray-800">콜백 관리</h2>
+        <div className="flex items-center space-x-4">
+          {effectiveUser && (
+            <div className="text-sm text-gray-600 bg-gray-50 px-3 py-1 rounded-full">
+              담당자: {effectiveUser.name}
+            </div>
+          )}
+          
+          {/* 콜백 현황 표시 */}
+          <div className="flex items-center space-x-3 text-sm">
+            <div className="flex items-center space-x-1">
+              <Icon icon={HiOutlineClipboardCheck} className="text-blue-500" />
+              <span className="text-gray-600">예정: {scheduledCallbacks}건</span>
+            </div>
+            <div className="flex items-center space-x-1">
+              <Icon icon={HiOutlineCheck} className="text-green-500" />
+              <span className="text-gray-600">완료: {displayCompletedCallbacks}건</span>
+            </div>
+            <div className="flex items-center space-x-1">
+              <Icon icon={HiOutlineBan} className="text-orange-500" />
+              <span className="text-gray-600">부재중: {missedCallbacks}건</span>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+    
       {/* 콜백 요약 정보 - 수정된 부분 */}
       <div className="card bg-blue-50 border-blue-200">
         <h3 className="text-md font-semibold text-blue-800 mb-3">콜백 현황</h3>
@@ -1916,6 +2230,19 @@ export default function CallbackManagement({ patient }: CallbackManagementProps)
                         <>
                           <div className="text-sm text-text-secondary">
                             {callback.date}
+                          </div>
+                          {/* 🔥 담당자 정보 추가 */}
+                          <div className="flex items-center space-x-4 mb-2 text-xs text-gray-500">
+                            {callback.handledBy && (
+                              <span>
+                                처리자: {getUserDisplayName(callback.handledBy, callback.handledByName)}
+                              </span>
+                            )}
+                            {callback.createdBy && (
+                              <span>
+                                등록자: {getUserDisplayName(callback.createdBy, callback.createdByName)}
+                              </span>
+                            )}
                           </div>
                           <div className="flex items-center gap-2">
                             {isTerminated ? (

@@ -4,6 +4,35 @@ import { NextRequest, NextResponse } from 'next/server';
 import { connectToDatabase } from '@/utils/mongodb';
 import { ObjectId } from 'mongodb';
 
+// 🔥 활동 로깅을 위한 함수 추가
+async function logActivityToDatabase(activityData: any) {
+  try {
+    const { db } = await connectToDatabase();
+    
+    const logEntry = {
+      ...activityData,
+      timestamp: new Date().toISOString(),
+      source: 'backend_api',
+      level: 'audit'
+    };
+    
+    await db.collection('activity_logs').insertOne(logEntry);
+    console.log('✅ 백엔드 활동 로그 기록 완료:', activityData.action);
+  } catch (error) {
+    console.warn('⚠️ 백엔드 활동 로그 기록 실패:', error);
+    // 로그 실패는 무시하고 계속 진행
+  }
+}
+
+// 요청 헤더에서 사용자 정보 추출 (임시)
+function getCurrentUser(request: NextRequest) {
+  // 실제로는 JWT 토큰에서 추출해야 함
+  return {
+    id: 'temp-user-001',
+    name: '임시 관리자'
+  };
+}
+
 // UUID 생성 유틸리티 함수
 function generateUUID() {
   return 'xxxx-xxxx-xxxx-xxxx'.replace(/[x]/g, function(c) {
@@ -52,8 +81,12 @@ export async function PUT(
     const patientId = params.id;
     const data = await request.json();
     const reason = data.reason || '종결 사유 없음';
+    const currentUser = getCurrentUser(request);
 
     console.log(`환자 종결 처리 시도 - 환자 ID: ${patientId}, 사유: ${reason}`);
+
+    // 🔥 프론트엔드 로깅 스킵 여부 확인
+    const skipFrontendLog = request.headers.get('X-Skip-Activity-Log') === 'true';
 
     // 환자 검색
     let patient;
@@ -74,11 +107,41 @@ export async function PUT(
     }
     
     if (!patient) {
+      // 🔥 백엔드 로그 - 환자 찾기 실패
+      await logActivityToDatabase({
+        action: 'patient_complete_api_error',
+        targetId: patientId,
+        targetName: '알 수 없음',
+        userId: currentUser.id,
+        userName: currentUser.name,
+        details: {
+          error: '환자를 찾을 수 없음',
+          reason: reason,
+          apiEndpoint: '/api/patients/[id]/complete'
+        }
+      });
+      
       return NextResponse.json({ error: "환자를 찾을 수 없습니다." }, { status: 404 });
     }
 
     // 이미 종결 처리된 경우
     if (patient.isCompleted) {
+      // 🔥 백엔드 로그 - 이미 종결됨
+      await logActivityToDatabase({
+        action: 'patient_complete_api_error',
+        targetId: patientId,
+        targetName: patient.name,
+        userId: currentUser.id,
+        userName: currentUser.name,
+        details: {
+          error: '이미 종결 처리된 환자',
+          reason: reason,
+          previousCompletedAt: patient.completedAt,
+          previousCompletedReason: patient.completedReason,
+          apiEndpoint: '/api/patients/[id]/complete'
+        }
+      });
+      
       return NextResponse.json({ error: "이미 종결 처리된 환자입니다." }, { status: 400 });
     }
 
@@ -170,6 +233,21 @@ export async function PUT(
     }
 
     if (!result) {
+      // 🔥 백엔드 로그 - 업데이트 실패
+      await logActivityToDatabase({
+        action: 'patient_complete_api_error',
+        targetId: patientId,
+        targetName: patient.name,
+        userId: currentUser.id,
+        userName: currentUser.name,
+        details: {
+          error: '환자 정보 업데이트 실패',
+          reason: reason,
+          isReservationCompletion: isReservationCompletion,
+          apiEndpoint: '/api/patients/[id]/complete'
+        }
+      });
+      
       return NextResponse.json({ error: "환자 정보 업데이트에 실패했습니다." }, { status: 500 });
     }
 
@@ -185,6 +263,30 @@ export async function PUT(
       updatedPatient.id = updatedPatient._id;
     }
 
+    // 🔥 백엔드 로그 - 환자 종결 성공 (프론트엔드 로깅이 없는 경우에만)
+    if (!skipFrontendLog) {
+      await logActivityToDatabase({
+        action: 'patient_complete_api',
+        targetId: patient.id || patient._id,
+        targetName: patient.name,
+        userId: currentUser.id,
+        userName: currentUser.name,
+        details: {
+          reason: reason,
+          isReservationCompletion: isReservationCompletion,
+          completedAt: todayKorean,
+          previousStatus: patient.status,
+          newStatus: updateData.status,
+          hadTodayCallback: !!todayCompletedCallback,
+          callbackRecordsAdded: todayCompletedCallback ? 1 : 2, // 종결 기록만 또는 콜백+종결 기록
+          apiEndpoint: '/api/patients/[id]/complete',
+          userAgent: request.headers.get('user-agent')?.substring(0, 100)
+        }
+      });
+    }
+
+    console.log(`환자 종결 처리 성공 - 환자 ID: ${patientId}`);
+
     return NextResponse.json({
       updatedPatient,
       callbackHistory: updatedCallbackHistory,
@@ -192,6 +294,26 @@ export async function PUT(
     }, { status: 200 });
   } catch (error) {
     console.error('환자 종결 처리 오류:', error);
+    
+    // 🔥 백엔드 로그 - 예외 발생
+    try {
+      const currentUser = getCurrentUser(request);
+      await logActivityToDatabase({
+        action: 'patient_complete_api_exception',
+        targetId: params.id,
+        targetName: '알 수 없음',
+        userId: currentUser.id,
+        userName: currentUser.name,
+        details: {
+          error: error instanceof Error ? error.message : '알 수 없는 오류',
+          stack: error instanceof Error ? error.stack?.substring(0, 500) : undefined,
+          apiEndpoint: '/api/patients/[id]/complete'
+        }
+      });
+    } catch (logError) {
+      console.warn('예외 로그 기록 실패:', logError);
+    }
+    
     return NextResponse.json({ error: "환자 종결 처리에 실패했습니다." }, { status: 500 });
   }
 }

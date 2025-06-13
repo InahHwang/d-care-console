@@ -1,4 +1,4 @@
-//src/components/management/PatientDetailModal.tsx
+// src/components/management/PatientDetailModal.tsx - 활동 로그 실시간 업데이트 개선
 
 'use client'
 
@@ -6,7 +6,7 @@ import { useState, useEffect } from 'react'
 import { useAppDispatch, useAppSelector } from '@/hooks/reduxHooks'
 import { RootState } from '@/store'
 import { clearSelectedPatient, Patient } from '@/store/slices/patientsSlice'
-import { HiOutlineX, HiOutlinePhone, HiOutlineCalendar, HiOutlineUser, HiOutlineLocationMarker, HiOutlineCake, HiOutlineClipboardList, HiOutlinePencil, HiOutlineCheck, HiOutlineStop, HiOutlineRefresh, HiOutlineGlobeAlt } from 'react-icons/hi'
+import { HiOutlineX, HiOutlinePhone, HiOutlineCalendar, HiOutlineUser, HiOutlineLocationMarker, HiOutlineCake, HiOutlineClipboardList, HiOutlinePencil, HiOutlineCheck, HiOutlineStop, HiOutlineRefresh, HiOutlineGlobeAlt, HiOutlineUserGroup } from 'react-icons/hi'
 import { FiPhone, FiPhoneCall } from 'react-icons/fi'
 import { formatDistance } from 'date-fns'
 import { ko } from 'date-fns/locale/ko'
@@ -21,6 +21,9 @@ export default function PatientDetailModal() {
   const selectedPatient = useAppSelector((state: RootState) => state.patients.selectedPatient)
   const isLoading = useAppSelector((state: RootState) => state.patients.isLoading)
   
+  // 🔥 활동 로그 업데이트 트리거를 위한 상태
+  const [refreshTrigger, setRefreshTrigger] = useState(0)
+  
   // 탭 상태 관리
   const [activeTab, setActiveTab] = useState('환자정보')
   
@@ -32,15 +35,18 @@ export default function PatientDetailModal() {
   
   // 선택된 환자 변경 감지
   useEffect(() => {
-    // 환자 데이터가 변경되면 상태를 업데이트
     if (selectedPatient) {
-      // 콜백 관리 페이지에서 종결 처리했다면, 환자 정보 탭에서 즉시 볼 수 있도록 설정
-      if (selectedPatient.isCompleted && activeTab === '콜백관리') {
-        // 종결 처리되면 환자 정보 탭으로 자동 전환 (선택 사항)
-        // setActiveTab('환자정보'); 
-      }
+      console.log('환자 상세 정보 표시:', selectedPatient.name);
+      // 🔥 환자가 변경되면 새로고침 트리거 초기화
+      setRefreshTrigger(0);
     }
-  }, [selectedPatient, activeTab]);
+  }, [selectedPatient]);
+  
+  // 탭 변경 핸들러
+  const handleTabChange = (newTab: string) => {
+    setActiveTab(newTab)
+    console.log('탭 변경:', newTab);
+  }
   
   // 모달 닫기
   const handleClose = () => {
@@ -49,13 +55,24 @@ export default function PatientDetailModal() {
   
   // 환자 수정 모달 열기
   const handleOpenEditModal = () => {
+    console.log('환자 정보 수정 모달 열기');
     setIsEditModalOpen(true)
   }
   
-  // 환자 수정 완료 처리
+  // 🔥 환자 수정 완료 처리 - 활동 로그 새로고침 트리거 추가
   const handleEditSuccess = () => {
     // 환자 정보 탭으로 돌아가기
     setActiveTab('환자정보')
+    console.log('🔥 환자 정보 수정 완료 - 활동 로그 새로고침 트리거');
+    
+    // 🔥 활동 로그 새로고침을 위한 트리거 업데이트
+    setRefreshTrigger(prev => prev + 1);
+    
+    // 약간의 지연 후 추가 새로고침 (로그 기록이 완료될 시간 확보)
+    setTimeout(() => {
+      setRefreshTrigger(prev => prev + 1);
+      console.log('🔥 지연된 활동 로그 새로고침 트리거');
+    }, 1000);
   }
   
   // 문자 발송 완료 핸들러
@@ -63,6 +80,13 @@ export default function PatientDetailModal() {
     // 필요한 경우 환자 상태 업데이트 또는 메시지 갱신
     // 문자 내역 탭으로 전환
     setActiveTab('문자내역')
+    console.log('문자 발송 완료');
+  }
+  
+  // 문자 발송 모달 열기
+  const handleOpenMessageModal = () => {
+    console.log('문자 발송 모달 열기');
+    setIsMessageSendModalOpen(true)
   }
   
   // 기본 정보가 없으면 렌더링하지 않음
@@ -190,10 +214,31 @@ const timeSinceFirstConsult = selectedPatient.firstConsultDate && selectedPatien
     return <span className={`text-sm ${colorMap[status]}`}>{status}</span>
   }
 
-  // 🔥 유입경로 표시 텍스트
+  // 유입경로 표시 텍스트
   const getReferralSourceText = (source?: string) => {
     if (!source || source === '') return '-';
     return source;
+  }
+
+  // 담당자 정보 표시 함수
+  const getUserDisplayName = (userId?: string, userName?: string) => {
+    if (!userId && !userName) return '-';
+    if (userName) return userName;
+    if (userId === 'system') return '시스템';
+    return userId || '-';
+  }
+
+  // 마지막 수정 시간 포맷팅
+  const formatLastModified = (dateString?: string) => {
+    if (!dateString) return '';
+    try {
+      return formatDistance(new Date(dateString), new Date(), { 
+        addSuffix: true, 
+        locale: ko 
+      });
+    } catch {
+      return dateString;
+    }
   }
   
   return (
@@ -207,7 +252,7 @@ const timeSinceFirstConsult = selectedPatient.firstConsultDate && selectedPatien
             </h2>
             <StatusBadge status={selectedPatient.status} />
             <ReminderBadge status={selectedPatient.reminderStatus} />
-            {/* 🔥 상담 타입 뱃지 추가 */}
+            {/* 상담 타입 뱃지 추가 */}
             <div className={`inline-flex items-center px-2.5 py-1 rounded-full text-xs font-medium ${
               (selectedPatient.consultationType || 'outbound') === 'inbound' 
                 ? 'bg-green-100 text-green-800' 
@@ -230,7 +275,7 @@ const timeSinceFirstConsult = selectedPatient.firstConsultDate && selectedPatien
             {/* 문자 발송 버튼 추가 */}
             <button 
               className="text-primary hover:text-primary-dark flex items-center gap-1"
-              onClick={() => setIsMessageSendModalOpen(true)}
+              onClick={handleOpenMessageModal}
             >
               <svg xmlns="http://www.w3.org/2000/svg" className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 8l7.89 5.26a2 2 0 002.22 0L21 8M5 19h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z" />
@@ -261,7 +306,7 @@ const timeSinceFirstConsult = selectedPatient.firstConsultDate && selectedPatien
                 ? 'text-primary'
                 : 'text-text-secondary hover:text-text-primary'
             }`}
-            onClick={() => setActiveTab('환자정보')}
+            onClick={() => handleTabChange('환자정보')}
           >
             환자 정보
             {activeTab === '환자정보' && (
@@ -274,7 +319,7 @@ const timeSinceFirstConsult = selectedPatient.firstConsultDate && selectedPatien
                 ? 'text-primary'
                 : 'text-text-secondary hover:text-text-primary'
             }`}
-            onClick={() => setActiveTab('콜백관리')}
+            onClick={() => handleTabChange('콜백관리')}
           >
             콜백 관리
             {activeTab === '콜백관리' && (
@@ -287,7 +332,7 @@ const timeSinceFirstConsult = selectedPatient.firstConsultDate && selectedPatien
                 ? 'text-primary'
                 : 'text-text-secondary hover:text-text-primary'
             }`}
-            onClick={() => setActiveTab('문자내역')}
+            onClick={() => handleTabChange('문자내역')}
           >
             문자내역
             {activeTab === '문자내역' && (
@@ -332,7 +377,7 @@ const timeSinceFirstConsult = selectedPatient.firstConsultDate && selectedPatien
                     </div>
                   </div>
 
-                  {/* 🔥 상담 타입 정보 추가 */}
+                  {/* 상담 타입 정보 추가 */}
                   <div className="flex items-start gap-2">
                     <Icon 
                       icon={(selectedPatient.consultationType || 'outbound') === 'inbound' ? FiPhone : FiPhoneCall} 
@@ -345,6 +390,14 @@ const timeSinceFirstConsult = selectedPatient.firstConsultDate && selectedPatien
                         <p className="text-text-primary">
                           {(selectedPatient.consultationType || 'outbound') === 'inbound' ? '인바운드' : '아웃바운드'}
                         </p>
+                        {/* 🔥 변경 버튼 추가 */}
+                        <button
+                          className="text-xs text-primary hover:text-primary-dark underline"
+                          onClick={handleOpenEditModal}
+                          title="상담 타입을 변경하려면 수정 모달에서 변경할 수 있습니다"
+                        >
+                          변경
+                        </button>
                         {selectedPatient.consultationType === 'inbound' && selectedPatient.inboundPhoneNumber && (
                           <span className="text-xs text-gray-500">
                             (입력번호: {selectedPatient.inboundPhoneNumber})
@@ -354,7 +407,7 @@ const timeSinceFirstConsult = selectedPatient.firstConsultDate && selectedPatien
                     </div>
                   </div>
 
-                  {/* 🔥 유입경로 정보 추가 */}
+                  {/* 유입경로 정보 추가 */}
                   <div className="flex items-start gap-2">
                     <Icon 
                       icon={HiOutlineGlobeAlt} 
@@ -470,6 +523,53 @@ const timeSinceFirstConsult = selectedPatient.firstConsultDate && selectedPatien
                   </div>
                 </div>
               </div>
+
+              {/* 담당자 정보 카드 추가 */}
+              <div className="card">
+                <h3 className="text-md font-semibold text-text-primary mb-4">담당자 정보</h3>
+                
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  {/* 등록 담당자 */}
+                  <div className="flex items-start gap-2">
+                    <Icon 
+                      icon={HiOutlineUserGroup} 
+                      size={18} 
+                      className="text-text-muted mt-0.5" 
+                    />
+                    <div>
+                      <p className="text-sm text-text-secondary">등록 담당자</p>
+                      <p className="text-text-primary">
+                        {getUserDisplayName(selectedPatient.createdBy, selectedPatient.createdByName)}
+                      </p>
+                      {selectedPatient.createdAt && (
+                        <p className="text-xs text-text-muted">
+                          {selectedPatient.createdAt} 등록
+                        </p>
+                      )}
+                    </div>
+                  </div>
+                  
+                  {/* 최종 수정자 */}
+                  <div className="flex items-start gap-2">
+                    <Icon 
+                      icon={HiOutlinePencil} 
+                      size={18} 
+                      className="text-text-muted mt-0.5" 
+                    />
+                    <div>
+                      <p className="text-sm text-text-secondary">최종 수정자</p>
+                      <p className="text-text-primary">
+                        {getUserDisplayName(selectedPatient.lastModifiedBy, selectedPatient.lastModifiedByName)}
+                      </p>
+                      {selectedPatient.lastModifiedAt && (
+                        <p className="text-xs text-text-muted">
+                          {formatLastModified(selectedPatient.lastModifiedAt)} 수정
+                        </p>
+                      )}
+                    </div>
+                  </div>
+                </div>
+              </div>
               
               {/* 메모 카드 */}
               {selectedPatient.notes && (
@@ -489,7 +589,7 @@ const timeSinceFirstConsult = selectedPatient.firstConsultDate && selectedPatien
                     </div>
                     <button
                       className="px-4 py-2 bg-yellow-100 text-yellow-800 rounded-md hover:bg-yellow-200 transition-colors"
-                      onClick={() => setActiveTab('콜백관리')}
+                      onClick={() => handleTabChange('콜백관리')}
                     >
                       콜백 관리로 이동
                     </button>
@@ -565,7 +665,7 @@ const timeSinceFirstConsult = selectedPatient.firstConsultDate && selectedPatien
                           ? 'bg-green-500 hover:bg-green-600'
                           : 'bg-gray-500 hover:bg-gray-600'
                       } text-white rounded-md transition-colors flex items-center gap-2`}
-                      onClick={() => setActiveTab('콜백관리')}
+                      onClick={() => handleTabChange('콜백관리')}
                     >
                       <Icon icon={HiOutlineRefresh} size={18} />
                       <span>{isReservationCompleted(selectedPatient) ? '예약 취소' : '종결 취소'}</span>
@@ -588,9 +688,10 @@ const timeSinceFirstConsult = selectedPatient.firstConsultDate && selectedPatien
         </div>
       </div>
       
-      {/* 환자 수정 모달 */}
+      {/* 🔥 환자 수정 모달 - refreshTrigger를 key로 전달하여 강제 리렌더링 */}
       {isEditModalOpen && (
         <PatientEditForm 
+          key={`edit-${selectedPatient._id}-${refreshTrigger}`} // 🔥 key 추가로 강제 리렌더링
           patient={selectedPatient} 
           onClose={() => setIsEditModalOpen(false)} 
           onSuccess={handleEditSuccess}

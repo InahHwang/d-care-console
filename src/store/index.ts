@@ -6,12 +6,12 @@ import campaignsReducer from './slices/campaignsSlice';
 import messageLogsReducer from './slices/messageLogsSlice';
 import patientsReducer from './slices/patientsSlice';
 import templatesReducer from './slices/templatesSlice';
-import categoriesReducer from './slices/categoriesSlice'
+import categoriesReducer from './slices/categoriesSlice';
 import uiReducer from './slices/uiSlice';
 import goalsReducer from './slices/goalsSlice';
-import categoriesSlice from './slices/categoriesSlice' 
-import authSlice from './slices/authSlice'
-import templatesSlice from './slices/templatesSlice'
+// 새로 추가된 slice들
+import usersReducer from './slices/usersSlice';
+import activityLogsReducer from './slices/activityLogsSlice';
 
 export const store = configureStore({
   reducer: {
@@ -21,9 +21,12 @@ export const store = configureStore({
     messageLogs: messageLogsReducer,
     patients: patientsReducer,
     templates: templatesReducer,
-    categories: categoriesSlice, 
+    categories: categoriesReducer,
     ui: uiReducer,
     goals: goalsReducer,
+    // 새로 추가된 reducer들
+    users: usersReducer,
+    activityLogs: activityLogsReducer,
   },
   middleware: (getDefaultMiddleware) =>
     getDefaultMiddleware({
