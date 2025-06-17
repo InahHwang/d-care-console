@@ -2,21 +2,20 @@
 import React, { useState } from 'react';
 import PatientListModal from '../management/PatientListModal';
 
-
-// 환자 상태별 카운트 타입 정의
+// 환자 상태별 카운트 타입 정의 - 🔥 수정: newPatients 제거, overdueCallbacks 추가
 interface PatientStatusCounts {
+  overdueCallbacks: number;  // 🔥 새로 추가: 미처리 콜백
   callbackNeeded: number;
   absentCount: number;
   todayScheduled: number;
-  newPatients: number;
 }
 
 interface PatientStatusCardsProps {
   statusCounts: PatientStatusCounts;
 }
 
-// 필터 타입 정의
-export type PatientFilterType = 'callbackNeeded' | 'absent' | 'todayScheduled' | 'newPatients';
+// 필터 타입 정의 - 🔥 수정: newPatients 제거, overdueCallbacks 추가
+export type PatientFilterType = 'overdueCallbacks' | 'callbackNeeded' | 'absent' | 'todayScheduled';
 
 const PatientStatusCards: React.FC<PatientStatusCardsProps> = ({ statusCounts }) => {
   const [isModalOpen, setIsModalOpen] = useState(false);
@@ -34,14 +33,14 @@ const PatientStatusCards: React.FC<PatientStatusCardsProps> = ({ statusCounts })
 
   const getModalTitle = (filterType: PatientFilterType | null) => {
     switch (filterType) {
+      case 'overdueCallbacks':
+        return '🚨 미처리 콜백 - 즉시 대응 필요';
       case 'callbackNeeded':
         return '콜백이 필요한 환자';
       case 'absent':
         return '부재중 환자';
       case 'todayScheduled':
         return '오늘 예정된 콜백';
-      case 'newPatients':
-        return '이번달 신규 환자';
       default:
         return '환자 목록';
     }
@@ -50,6 +49,29 @@ const PatientStatusCards: React.FC<PatientStatusCardsProps> = ({ statusCounts })
   return (
     <>
       <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+        {/* 🔥 새로 추가: 미처리 콜백 (첫 번째 자리) */}
+        <div 
+          className="card p-4 cursor-pointer hover:shadow-lg transition-shadow duration-200 hover:bg-red-50 border-l-4 border-red-500"
+          onClick={() => handleCardClick('overdueCallbacks')}
+        >
+          <div className="flex items-center mb-2">
+            <div className="w-8 h-8 bg-red-100 rounded-full flex items-center justify-center mr-3">
+              <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4 text-red-600" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-2.5L13.732 4c-.77-.833-1.964-.833-2.732 0L3.732 16.5c-.77.833.192 2.5 1.732 2.5z" />
+              </svg>
+            </div>
+            <div>
+              <p className="text-sm font-medium text-red-700">🚨 미처리 콜백</p>
+              <p className="text-xl font-bold text-red-600 hover:text-red-700 transition-colors">
+                {statusCounts.overdueCallbacks}건
+              </p>
+            </div>
+          </div>
+          <div className="mt-1 text-xs text-red-600">
+            예정 날짜가 지난 미처리 콜백
+          </div>
+        </div>
+
         {/* 콜백 필요 환자 수 */}
         <div 
           className="card p-4 cursor-pointer hover:shadow-lg transition-shadow duration-200 hover:bg-gray-50"
@@ -69,7 +91,7 @@ const PatientStatusCards: React.FC<PatientStatusCardsProps> = ({ statusCounts })
             </div>
           </div>
           <div className="mt-1 text-xs text-text-muted">
-            즉시 조치가 필요한 환자 수
+            콜백 조치가 필요한 환자 수
           </div>
         </div>
 
@@ -116,29 +138,6 @@ const PatientStatusCards: React.FC<PatientStatusCardsProps> = ({ statusCounts })
           </div>
           <div className="mt-1 text-xs text-text-muted">
             오늘 스케줄된 콜백 업무량
-          </div>
-        </div>
-
-        {/* 이번달 신규 환자 */}
-        <div 
-          className="card p-4 cursor-pointer hover:shadow-lg transition-shadow duration-200 hover:bg-gray-50"
-          onClick={() => handleCardClick('newPatients')}
-        >
-          <div className="flex items-center mb-2">
-            <div className="w-8 h-8 bg-green-100 rounded-full flex items-center justify-center mr-3">
-              <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4 text-green-600" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M18 9v3m0 0v3m0-3h3m-3 0h-3m-2-5a4 4 0 11-8 0 4 4 0 018 0zM3 20a6 6 0 0112 0v1H3v-1z" />
-              </svg>
-            </div>
-            <div>
-              <p className="text-sm font-medium text-text-secondary">이번달 신규 환자</p>
-              <p className="text-xl font-bold text-green-600 hover:text-green-700 transition-colors">
-                {statusCounts.newPatients}명
-              </p>
-            </div>
-          </div>
-          <div className="mt-1 text-xs text-text-muted">
-            이번달 등록된 신규 환자 수
           </div>
         </div>
       </div>

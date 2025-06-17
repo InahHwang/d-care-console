@@ -26,36 +26,102 @@ export async function GET(request: NextRequest) {
     const thisMonthStart = new Date(today.getFullYear(), today.getMonth(), 1);
 
     let filter = {};
+    let patients = [];
     
     switch (filterType) {
+      case 'overdueCallbacks': {
+        // 🔥 새로 추가: 미처리 콜백 환자들
+        // 1. 모든 환자를 가져와서 callbackHistory 확인
+        const allPatients = await db.collection('patients')
+          .find({
+            $or: [
+              { isCompleted: { $ne: true } },
+              { isCompleted: { $exists: false } }
+            ]
+          })
+          .toArray();
+        
+        patients = allPatients.filter((patient: { callbackHistory: any[]; }) => {
+          // callbackHistory가 없으면 제외
+          if (!patient.callbackHistory || patient.callbackHistory.length === 0) {
+            return false;
+          }
+          
+          // 예정된 콜백 중에서 날짜가 지난 것이 있는지 확인
+          const hasOverdueCallback = patient.callbackHistory.some(callback => {
+            if (callback.status !== '예정') return false;
+            
+            const callbackDate = new Date(callback.date);
+            callbackDate.setHours(0, 0, 0, 0);
+            
+            return callbackDate < todayStart; // 오늘보다 이전 날짜
+          });
+          
+          return hasOverdueCallback;
+        });
+        
+        console.log(`[API] 미처리 콜백 환자 ${patients.length}명 조회 완료`);
+        break;
+      }
+      
       case 'callbackNeeded':
         // 콜백이 필요한 환자: 상태가 '콜백필요'인 환자
         filter = { status: '콜백필요' };
+        patients = await db.collection('patients')
+          .find({
+            ...filter,
+            $or: [
+              { isCompleted: { $ne: true } },
+              { isCompleted: { $exists: false } }
+            ]
+          })
+          .sort({ updatedAt: -1 })
+          .toArray();
         break;
         
       case 'absent':
         // 부재중 환자: 상태가 '부재중'인 환자
         filter = { status: '부재중' };
+        patients = await db.collection('patients')
+          .find({
+            ...filter,
+            $or: [
+              { isCompleted: { $ne: true } },
+              { isCompleted: { $exists: false } }
+            ]
+          })
+          .sort({ updatedAt: -1 })
+          .toArray();
         break;
         
-      case 'todayScheduled':
-        // 오늘 예정된 콜백: nextCallbackDate가 오늘인 환자들
-        filter = {
-          nextCallbackDate: {
-            $gte: todayStart.toISOString(),
-            $lt: todayEnd.toISOString()
-          }
-        };
-        break;
+      case 'todayScheduled': {
+        // 오늘 예정된 콜백이 있는 환자들
+        const allPatients = await db.collection('patients')
+          .find({
+            $or: [
+              { isCompleted: { $ne: true } },
+              { isCompleted: { $exists: false } }
+            ]
+          })
+          .toArray();
         
-      case 'newPatients':
-        // 이번달 신규 환자: createdAt이 이번 달인 환자들
-        filter = {
-          createdAt: {
-            $gte: thisMonthStart.toISOString()
+        patients = allPatients.filter((patient: { callbackHistory: any[]; }) => {
+          if (!patient.callbackHistory || patient.callbackHistory.length === 0) {
+            return false;
           }
-        };
+          
+          // 오늘 예정된 콜백이 있는지 확인
+          const hasTodayCallback = patient.callbackHistory.some(callback => {
+            if (callback.status !== '예정') return false;
+            
+            const callbackDate = new Date(callback.date);
+            return callbackDate >= todayStart && callbackDate < todayEnd;
+          });
+          
+          return hasTodayCallback;
+        });
         break;
+      }
         
       default:
         return NextResponse.json(
@@ -64,22 +130,11 @@ export async function GET(request: NextRequest) {
         );
     }
 
-    // 환자 목록 조회 (종결되지 않은 환자만)
-    const patients = await db.collection('patients')
-      .find({
-        ...filter,
-        $or: [
-          { isCompleted: { $ne: true } },
-          { isCompleted: { $exists: false } }
-        ]
-      })
-      .sort({ updatedAt: -1 })
-      .toArray();
-
     // MongoDB ObjectId를 문자열로 변환
     const processedPatients = patients.map((patient: { _id: { toString: () => any; }; }) => ({
       ...patient,
-      _id: patient._id.toString()
+      _id: patient._id.toString(),
+      id: patient._id.toString() // 호환성을 위해 id 필드도 추가
     }));
 
     console.log(`[API] ${filterType} 필터로 ${processedPatients.length}명의 환자를 조회했습니다.`);

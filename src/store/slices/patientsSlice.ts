@@ -4,6 +4,7 @@ import { createSlice, createAsyncThunk, PayloadAction } from '@reduxjs/toolkit';
 import { EventCategory } from '@/types/messageLog';
 // 🔥 활동 로거 import 추가
 import { PatientActivityLogger, CallbackActivityLogger, EventTargetActivityLogger } from '@/utils/activityLogger';
+import { ConsultationInfo } from '@/types/patient'
 
 // 🔥 상담 타입 추가
 export type ConsultationType = 'inbound' | 'outbound';
@@ -98,6 +99,83 @@ export interface CompletePatientData {
   reason: string;
 }
 
+// 🔥 상담/결제 정보 업데이트 액션
+export const updateConsultationInfo = createAsyncThunk(
+  'patients/updateConsultationInfo',
+  async ({ 
+    patientId, 
+    consultationData 
+  }: { 
+    patientId: string, 
+    consultationData: Partial<ConsultationInfo> 
+  }, { rejectWithValue, getState }) => {
+    try {
+      // 환자 정보 가져오기 (로그용)
+      const state = getState() as { patients: PatientsState }
+      const patient = state.patients.patients.find(p => p._id === patientId || p.id === patientId)
+      
+      const response = await fetch(`/api/patients/${patientId}/consultation`, {
+        method: 'PUT',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify(consultationData),
+      })
+      
+      if (!response.ok) {
+        const errorData = await response.json()
+        return rejectWithValue(errorData.error || '상담 정보 업데이트에 실패했습니다.')
+      }
+      
+      const result = await response.json()
+      
+      // 🔥 활동 로그 기록 (필요한 경우)
+      if (patient) {
+        console.log('상담/결제 정보 업데이트 완료:', patient.name)
+        // 여기서 활동 로그를 기록할 수 있습니다
+      }
+      
+      return {
+        patientId,
+        consultation: result.consultation,
+        updatedPatient: result.patient
+      }
+    } catch (error: any) {
+      return rejectWithValue(error.message || '상담 정보 업데이트에 실패했습니다.')
+    }
+  }
+)
+
+// 🔥 상담/결제 정보 삭제 액션
+export const deleteConsultationInfo = createAsyncThunk(
+  'patients/deleteConsultationInfo',
+  async (patientId: string, { rejectWithValue, getState }) => {
+    try {
+      // 환자 정보 가져오기 (로그용)
+      const state = getState() as { patients: PatientsState }
+      const patient = state.patients.patients.find(p => p._id === patientId || p.id === patientId)
+      
+      const response = await fetch(`/api/patients/${patientId}/consultation`, {
+        method: 'DELETE',
+      })
+      
+      if (!response.ok) {
+        const errorData = await response.json()
+        return rejectWithValue(errorData.error || '상담 정보 삭제에 실패했습니다.')
+      }
+      
+      // 🔥 활동 로그 기록 (필요한 경우)
+      if (patient) {
+        console.log('상담/결제 정보 삭제 완료:', patient.name)
+      }
+      
+      return patientId
+    } catch (error: any) {
+      return rejectWithValue(error.message || '상담 정보 삭제에 실패했습니다.')
+    }
+  }
+)
+
 // 🔥 인바운드 환자 빠른 등록용 타입 추가
 export interface QuickInboundPatient {
   phoneNumber: string;
@@ -107,6 +185,7 @@ export interface QuickInboundPatient {
 
 // 🔥 환자 타입 정의 (MongoDB ID 추가) - consultationType, referralSource, 담당자 필드 추가
 export interface Patient {
+  consultation: any;
   _id: string;            // MongoDB ID 필드 추가
   nextCallbackDate: string;
   id: string;
@@ -1284,6 +1363,93 @@ const patientsSlice = createSlice({
           state.selectedPatient = action.payload.updatedPatient;
         }
       })
+
+       // updateConsultationInfo 액션 처리
+      .addCase(updateConsultationInfo.pending, (state) => {
+        state.isLoading = true
+        state.error = null
+      })
+      .addCase(updateConsultationInfo.fulfilled, (state, action: PayloadAction<{
+        patientId: string,
+        consultation: ConsultationInfo,
+        updatedPatient: Patient
+      }>) => {
+        state.isLoading = false
+        
+        const { patientId, consultation, updatedPatient } = action.payload
+        
+        // 환자 목록에서 해당 환자 업데이트
+        const patientIndex = state.patients.findIndex(p => 
+          p._id === patientId || p.id === patientId
+        )
+        if (patientIndex !== -1) {
+          state.patients[patientIndex] = updatedPatient
+        }
+        
+        // 필터링된 목록에서도 해당 환자 업데이트
+        const filteredIndex = state.filteredPatients.findIndex(p => 
+          p._id === patientId || p.id === patientId
+        )
+        if (filteredIndex !== -1) {
+          state.filteredPatients[filteredIndex] = updatedPatient
+        }
+        
+        // 현재 선택된 환자가 업데이트 대상이면 업데이트
+        if (state.selectedPatient && 
+            (state.selectedPatient._id === patientId || 
+             state.selectedPatient.id === patientId)) {
+          state.selectedPatient = updatedPatient
+        }
+        
+        console.log('Redux: 상담 정보 업데이트 완료')
+      })
+      .addCase(updateConsultationInfo.rejected, (state, action: PayloadAction<any>) => {
+        state.isLoading = false
+        state.error = action.payload
+        console.error('Redux: 상담 정보 업데이트 실패', action.payload)
+      })
+      
+      // deleteConsultationInfo 액션 처리
+      .addCase(deleteConsultationInfo.pending, (state) => {
+        state.isLoading = true
+        state.error = null
+      })
+      .addCase(deleteConsultationInfo.fulfilled, (state, action: PayloadAction<string>) => {
+        state.isLoading = false
+        
+        const patientId = action.payload
+        
+        // 환자 목록에서 해당 환자의 상담 정보 제거
+        const patientIndex = state.patients.findIndex(p => 
+          p._id === patientId || p.id === patientId
+        )
+        if (patientIndex !== -1) {
+          delete state.patients[patientIndex].consultation
+        }
+        
+        // 필터링된 목록에서도 해당 환자의 상담 정보 제거
+        const filteredIndex = state.filteredPatients.findIndex(p => 
+          p._id === patientId || p.id === patientId
+        )
+        if (filteredIndex !== -1) {
+          delete state.filteredPatients[filteredIndex].consultation
+        }
+        
+        // 현재 선택된 환자가 대상이면 상담 정보 제거
+        if (state.selectedPatient && 
+            (state.selectedPatient._id === patientId || 
+             state.selectedPatient.id === patientId)) {
+          delete state.selectedPatient.consultation
+        }
+        
+        console.log('Redux: 상담 정보 삭제 완료')
+      })
+      .addCase(deleteConsultationInfo.rejected, (state, action: PayloadAction<any>) => {
+        state.isLoading = false
+        state.error = action.payload
+        console.error('Redux: 상담 정보 삭제 실패', action.payload)
+      })
+
       .addCase(deleteCallback.rejected, (state, action: PayloadAction<any>) => {
         state.isLoading = false;
         state.error = action.payload;
@@ -1427,4 +1593,5 @@ function applyFilters(state: PatientsState) {
 }
 
 export const { selectPatient, clearSelectedPatient, setFilters, setPage } = patientsSlice.actions;
+// 🔥 새로운 액션들도 export
 export default patientsSlice.reducer;

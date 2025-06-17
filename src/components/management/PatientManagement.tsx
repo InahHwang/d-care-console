@@ -32,7 +32,21 @@ export default function PatientManagement() {
   const searchParams = useSearchParams()
   
   const { currentMenuItem } = useSelector((state: RootState) => state.ui)
-  const { isLoading, selectedPatient, patients, filters } = useSelector((state: RootState) => state.patients)
+  
+  // 🔥 안전한 상태 접근 - 기본값 제공
+  const patientsState = useSelector((state: RootState) => state.patients)
+  const { 
+    isLoading = true, 
+    selectedPatient = null, 
+    patients = [], 
+    filters = {
+      searchTerm: '',
+      status: 'all',
+      interestArea: 'all',
+      consultationType: 'all',
+      referralSource: 'all'
+    }
+  } = patientsState || {}
   
   // 현재 탭 상태를 별도로 관리
   const [activeTab, setActiveTab] = useState('환자 목록')
@@ -44,6 +58,16 @@ export default function PatientManagement() {
   
   // 데이터 로딩 상태 추가
   const [isDataLoaded, setIsDataLoaded] = useState(false)
+
+  // 🔥 상태가 초기화되지 않은 경우 로딩 표시
+  if (!patientsState) {
+    return (
+      <div className="flex items-center justify-center h-64">
+        <div className="w-8 h-8 border-2 border-blue-500 border-t-transparent rounded-full animate-spin"></div>
+        <span className="ml-2 text-gray-600">환자 데이터를 불러오는 중...</span>
+      </div>
+    )
+  }
 
   // URL 파라미터에서 탭 정보 가져오기
   useEffect(() => {

@@ -118,6 +118,33 @@ const PatientListModal: React.FC<PatientListModalProps> = ({
     return scheduledCallback;
   };
 
+  // 🔥 새로 추가: 미처리 콜백 찾기 (날짜가 지났는데 추가 액션이 없는 콜백)
+  const getOverdueCallback = (patient: Patient) => {
+    if (!patient.callbackHistory || patient.callbackHistory.length === 0) {
+      return null;
+    }
+    
+    const today = new Date();
+    today.setHours(0, 0, 0, 0); // 오늘 00:00:00으로 설정
+    
+    // 예정된 콜백 중에서 날짜가 지난 것 찾기
+    const overdueCallbacks = patient.callbackHistory.filter(callback => {
+      if (callback.status !== '예정') return false;
+      
+      const callbackDate = new Date(callback.date);
+      callbackDate.setHours(0, 0, 0, 0);
+      
+      return callbackDate < today; // 오늘보다 이전 날짜
+    });
+    
+    // 가장 오래된 미처리 콜백 반환
+    if (overdueCallbacks.length > 0) {
+      return overdueCallbacks.sort((a, b) => new Date(a.date).getTime() - new Date(b.date).getTime())[0];
+    }
+    
+    return null;
+  };
+
   // 다음 콜백 날짜 상태 확인 (오늘 기준)
   const getCallbackDateStatus = (callbackDate: string) => {
     const today = new Date();
@@ -132,6 +159,15 @@ const PatientListModal: React.FC<PatientListModalProps> = ({
     } else {
       return { type: 'scheduled', text: '예정', color: 'text-blue-600 bg-blue-50' };
     }
+  };
+
+  // 🔥 새로 추가: 미처리 콜백 경과 일수 계산
+  const getOverdueDays = (callbackDate: string) => {
+    const today = new Date();
+    const callback = new Date(callbackDate);
+    const diffTime = today.getTime() - callback.getTime();
+    const diffDays = Math.floor(diffTime / (1000 * 60 * 60 * 24));
+    return diffDays;
   };
 
   if (!isOpen) return null;
@@ -189,6 +225,7 @@ const PatientListModal: React.FC<PatientListModalProps> = ({
                 
                 {patients.map((patient) => {
                   const nextCallback = getNextCallback(patient);
+                  const overdueCallback = getOverdueCallback(patient); // 🔥 새로 추가
                   
                   return (
                   <div
@@ -202,6 +239,12 @@ const PatientListModal: React.FC<PatientListModalProps> = ({
                         <span className={`px-2 py-1 rounded-full text-xs font-medium ${getStatusBadgeColor(patient.status)}`}>
                           {patient.status}
                         </span>
+                        {/* 🔥 새로 추가: 미처리 콜백 필터일 때 경고 뱃지 표시 */}
+                        {filterType === 'overdueCallbacks' && overdueCallback && (
+                          <span className="px-2 py-1 rounded-full text-xs font-medium bg-red-100 text-red-800">
+                            {getOverdueDays(overdueCallback.date)}일 지연
+                          </span>
+                        )}
                       </div>
                       <div className="text-sm text-gray-500">
                         {patient.patientId}
@@ -224,8 +267,37 @@ const PatientListModal: React.FC<PatientListModalProps> = ({
                       </div>
                     </div>
 
-                    {/* 다음 콜백 일정 - callbackHistory에서 예정된 콜백 표시 */}
-                    {nextCallback && (
+                    {/* 🔥 수정: 미처리 콜백 정보 표시 (overdueCallbacks 필터일 때) */}
+                    {filterType === 'overdueCallbacks' && overdueCallback && (
+                      <div className="mb-3">
+                        <div className="flex items-center justify-between p-3 bg-red-50 rounded-lg border-l-4 border-red-500">
+                          <div className="flex items-center">
+                            <svg className="w-5 h-5 mr-2 text-red-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-2.5L13.732 4c-.77-.833-1.964-.833-2.732 0L3.732 16.5c-.77.833.192 2.5 1.732 2.5z" />
+                            </svg>
+                            <div>
+                              <div className="text-sm font-medium text-red-900">
+                                🚨 {overdueCallback.type} 콜백 미처리 ({getOverdueDays(overdueCallback.date)}일 지연)
+                              </div>
+                              <div className="text-sm text-red-700">
+                                예정일: {formatDateWithTime(overdueCallback.date)}
+                              </div>
+                              {overdueCallback.notes && (
+                                <div className="text-xs text-red-600 mt-1">
+                                  {overdueCallback.notes}
+                                </div>
+                              )}
+                            </div>
+                          </div>
+                          <div className="px-2 py-1 rounded text-xs font-medium bg-red-200 text-red-800">
+                            긴급
+                          </div>
+                        </div>
+                      </div>
+                    )}
+
+                    {/* 다음 콜백 일정 - callbackHistory에서 예정된 콜백 표시 (다른 필터들) */}
+                    {filterType !== 'overdueCallbacks' && nextCallback && (
                       <div className="mb-3">
                         <div className="flex items-center justify-between p-3 bg-gray-50 rounded-lg border-l-4 border-blue-400">
                           <div className="flex items-center">

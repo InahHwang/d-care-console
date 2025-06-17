@@ -1,4 +1,4 @@
-// src/components/management/PatientTooltip.tsx - 실시간 업데이트 개선
+// src/components/management/PatientTooltip.tsx - 툴팁 잘림 현상 해결
 
 'use client';
 
@@ -13,7 +13,7 @@ interface PatientTooltipProps {
   patientName: string;
   children: React.ReactNode;
   className?: string;
-  refreshTrigger?: number; // 🔥 외부에서 새로고침을 트리거할 수 있는 prop 추가
+  refreshTrigger?: number;
 }
 
 interface PatientHistoryData {
@@ -27,18 +27,17 @@ interface PatientHistoryData {
 
 // 툴팁에서 제외할 액션들 (조회성 액션들만 제외)
 const EXCLUDED_ACTIONS = [
-  'patient_view',           // 환자 조회 - 제외
-  'message_log_view',       // 메시지 로그 조회
-  'login',                  // 로그인
-  'logout',                 // 로그아웃
+  'patient_view',
+  'message_log_view',
+  'login',
+  'logout',
 ];
 
-// 중복 로그 제거 함수 (동일한 액션+시간+사용자 기준)
+// 중복 로그 제거 함수
 const removeDuplicateLogs = (logs: ActivityLog[]): ActivityLog[] => {
   const seen = new Set<string>();
   
   return logs.filter(log => {
-    // 중복 판별 키: 액션 + 환자ID + 사용자 + 시간(분 단위까지만)
     const timestamp = new Date(log.timestamp);
     const timeKey = `${timestamp.getFullYear()}-${timestamp.getMonth()}-${timestamp.getDate()}-${timestamp.getHours()}-${timestamp.getMinutes()}`;
     const key = `${log.action}-${log.targetId}-${log.userId}-${timeKey}`;
@@ -53,19 +52,15 @@ const removeDuplicateLogs = (logs: ActivityLog[]): ActivityLog[] => {
   });
 };
 
-// 중요한 액션들만 필터링하는 함수 (모든 의미있는 액션 포함)
+// 중요한 액션들만 필터링하는 함수
 const filterImportantActions = (logs: ActivityLog[]): ActivityLog[] => {
   const filtered = logs.filter(log => {
-    // 제외 액션이 아니면서
     if (EXCLUDED_ACTIONS.includes(log.action)) {
       return false;
     }
-    
-    // 모든 의미있는 액션을 포함
     return true;
   });
   
-  // 중복 제거 적용
   return removeDuplicateLogs(filtered);
 };
 
@@ -74,10 +69,9 @@ export default function PatientTooltip({
   patientName, 
   children, 
   className = "",
-  refreshTrigger = 0 // 🔥 새로고침 트리거 prop
+  refreshTrigger = 0
 }: PatientTooltipProps) {
   const [isVisible, setIsVisible] = useState(false);
-  const [isExpanded, setIsExpanded] = useState(false);
   const [historyData, setHistoryData] = useState<PatientHistoryData>({
     logs: [],
     isLoading: false,
@@ -86,8 +80,10 @@ export default function PatientTooltip({
     totalCount: 0
   });
   const [timeoutId, setTimeoutId] = useState<NodeJS.Timeout | null>(null);
+  // 🔥 툴팁 위치 상태 추가
+  const [tooltipPosition, setTooltipPosition] = useState({ x: 0, y: 0 });
 
-  // 🔥 refreshTrigger가 변경되면 데이터 강제 새로고침
+  // refreshTrigger가 변경되면 데이터 강제 새로고침
   useEffect(() => {
     if (refreshTrigger > 0 && isVisible) {
       console.log('🔥 PatientTooltip: 외부 트리거로 새로고침', { 
@@ -95,29 +91,58 @@ export default function PatientTooltip({
         patientName, 
         refreshTrigger 
       });
-      fetchPatientHistory(1, false, true); // 강제 새로고침
+      fetchPatientHistory(1, false, true);
     }
   }, [refreshTrigger, isVisible, patientId]);
 
-  // 툴팁 표시 지연 함수
-  const showTooltip = () => {
+  // 🔥 마우스 위치 기반 툴팁 표시
+  const showTooltip = (event: React.MouseEvent) => {
+    const rect = event.currentTarget.getBoundingClientRect();
+    
+    // 뷰포트 크기 가져오기
+    const viewportWidth = window.innerWidth;
+    const viewportHeight = window.innerHeight;
+    
+    // 툴팁 예상 크기 (실제 크기는 다를 수 있지만 대략적으로)
+    const tooltipWidth = 500;
+    const tooltipHeight = 400;
+    
+    // 기본 위치는 마우스 커서 위
+    let x = rect.left + rect.width / 2;
+    let y = rect.top;
+    
+    // 오른쪽으로 넘어가면 왼쪽으로 이동
+    if (x + tooltipWidth / 2 > viewportWidth - 20) {
+      x = viewportWidth - tooltipWidth / 2 - 20;
+    }
+    
+    // 왼쪽으로 넘어가면 오른쪽으로 이동
+    if (x - tooltipWidth / 2 < 20) {
+      x = tooltipWidth / 2 + 20;
+    }
+    
+    // 위로 넘어가면 아래쪽에 표시
+    if (y - tooltipHeight < 20) {
+      y = rect.bottom + 10; // 마우스 아래쪽에 표시
+    }
+    
+    setTooltipPosition({ x, y });
+    
     const id = setTimeout(() => {
       setIsVisible(true);
-      fetchPatientHistory(1, false, false); // 일반 로딩
-    }, 800); // 0.8초 후 표시
+      fetchPatientHistory(1, false, false);
+    }, 800);
     setTimeoutId(id);
   };
 
-  // 툴팁 숨김 함수 (지연 적용)
+  // 툴팁 숨김 함수
   const hideTooltip = () => {
     if (timeoutId) {
       clearTimeout(timeoutId);
     }
     
-    // 300ms 지연 후 툴팁 숨김
     const hideId = setTimeout(() => {
       setIsVisible(false);
-      setIsExpanded(false); // 툴팁 숨길 때 확장 상태도 초기화
       setTimeoutId(null);
     }, 300);
     
@@ -132,19 +157,17 @@ export default function PatientTooltip({
     }
   };
 
-  // 🔥 환자 편집 이력 가져오기 - 실시간 업데이트 개선
+  // 환자 편집 이력 가져오기
   const fetchPatientHistory = async (page: number = 1, append: boolean = false, forceRefresh: boolean = false) => {
-    // 🔥 강제 새로고침이 아니고 이미 로드된 경우 재요청 방지
     if (!append && !forceRefresh && historyData.logs.length > 0 && page === 1) return;
 
     setHistoryData(prev => ({ ...prev, isLoading: true }));
 
     try {
       const token = localStorage.getItem('token');
-      const limit = 100; // 더 많이 가져와서 필터링 후에도 충분한 양 확보
+      const limit = 100;
       const skip = (page - 1) * limit;
       
-      // 🔥 캐시 버스팅을 위한 타임스탬프 추가 (강제 새로고침 시)
       const cacheBuster = forceRefresh ? `&_t=${Date.now()}` : '';
       
       const response = await fetch(`/api/activity-logs/target/${patientId}?limit=${limit}&skip=${skip}${cacheBuster}`, {
@@ -160,7 +183,6 @@ export default function PatientTooltip({
 
       const data = await response.json();
       
-      // 중요한 액션들만 필터링 (중복 제거 포함)
       const allLogs = data.logs || [];
       const filteredLogs = filterImportantActions(allLogs);
       
@@ -170,12 +192,12 @@ export default function PatientTooltip({
         total: allLogs.length,
         filtered: filteredLogs.length,
         duplicatesRemoved: allLogs.length - filteredLogs.length,
-        forceRefresh, // 🔥 강제 새로고침 여부 로깅
+        forceRefresh,
         actions: filteredLogs.map(log => ({ 
           action: log.action, 
           source: log.source,
           user: log.userName,
-          time: log.timestamp.substring(11, 16) // HH:MM만 표시
+          time: log.timestamp.substring(11, 16)
         }))
       });
       
@@ -184,7 +206,7 @@ export default function PatientTooltip({
         isLoading: false,
         hasMore: data.hasNext || false,
         currentPage: page,
-        totalCount: filteredLogs.length // 필터링된 로그 수로 업데이트
+        totalCount: filteredLogs.length
       }));
     } catch (error) {
       console.error('Failed to fetch patient history:', error);
@@ -203,10 +225,9 @@ export default function PatientTooltip({
     }
   };
 
-  // 액션별 아이콘 및 라벨 가져오기 (콜백/메시지 액션들 추가)
+  // 액션별 아이콘 및 라벨 가져오기
   const getActionInfo = (action: string) => {
     switch (action) {
-      // 환자 관련
       case 'patient_create':
         return { icon: FiUserPlus, label: '환자 최초 등록', color: 'text-green-600' };
       case 'patient_update':
@@ -217,8 +238,6 @@ export default function PatientTooltip({
         return { icon: FiCheckCircle, label: '환자 종결 처리', color: 'text-green-600' };
       case 'patient_complete_cancel':
         return { icon: FiClock, label: '환자 종결 취소', color: 'text-orange-600' };
-        
-      // 콜백 관련 액션들 추가 (모든 콜백 액션 포함)
       case 'callback_create':
         return { icon: FiPhone, label: '콜백 등록', color: 'text-purple-600' };
       case 'callback_update':
@@ -231,14 +250,10 @@ export default function PatientTooltip({
         return { icon: FiTrash, label: '콜백 삭제', color: 'text-red-600' };
       case 'callback_reschedule':
         return { icon: FiClock, label: '콜백 일정변경', color: 'text-blue-600' };
-        
-      // 메시지 관련 액션들 추가
       case 'message_send':
         return { icon: FiMessageSquare, label: '메시지 발송', color: 'text-cyan-600' };
       case 'message_template_used':
         return { icon: FiMessageSquare, label: '템플릿 메시지', color: 'text-cyan-500' };
-        
-      // 기존 액션들
       case 'patient_status_change':
         return { icon: FiEdit, label: '환자 상태 변경', color: 'text-blue-600' };
       case 'visit_confirmation_toggle':
@@ -264,20 +279,17 @@ export default function PatientTooltip({
     }
   };
 
-  // 액션별 상세 정보 표시 함수 (콜백/메시지 관련 정보 추가)
+  // 액션별 상세 정보 표시 함수
   const getActionDetails = (log: ActivityLog) => {
     const details = log.details;
     
-    // 콜백 관련 상세 정보
     if (log.action.includes('callback')) {
       let info = '';
       
-      // 콜백 타입 정보
       if (details?.callbackType) {
         info += ` (${details.callbackType})`;
       }
       
-      // 콜백 결과 정보
       if (details?.result && log.action === 'callback_complete') {
         const resultMap: { [key: string]: string } = {
           '완료': '상담 완료',
@@ -290,7 +302,6 @@ export default function PatientTooltip({
         info += ` → ${resultText}`;
       }
       
-      // 다음 단계 정보
       if (details?.nextStep && log.action === 'callback_complete') {
         const nextStepMap: { [key: string]: string } = {
           '2차_콜백': '2차 콜백',
@@ -305,7 +316,6 @@ export default function PatientTooltip({
         info += ` → ${nextStepText}`;
       }
       
-      // 취소 사유
       if (details?.cancelReason && log.action === 'callback_cancel') {
         info += ` (${details.cancelReason})`;
       }
@@ -313,26 +323,21 @@ export default function PatientTooltip({
       return info;
     }
     
-    // 메시지 관련 상세 정보
     if (log.action.includes('message')) {
       let info = '';
       
-      // 메시지 타입
       if (details?.messageType) {
         info += ` (${details.messageType})`;
       }
       
-      // 발송 대상 수
       if (details?.recipientCount && details.recipientCount > 1) {
         info += ` → ${details.recipientCount}명`;
       }
       
-      // 템플릿 이름
       if (details?.templateName && log.action === 'message_template_used') {
         info += ` → ${details.templateName}`;
       }
       
-      // 성공/실패 정보
       if (details?.successCount !== undefined && details?.totalRecipients !== undefined) {
         const successRate = Math.round((details.successCount / details.totalRecipients) * 100);
         info += ` → 성공률 ${successRate}%`;
@@ -341,12 +346,10 @@ export default function PatientTooltip({
       return info;
     }
     
-    // 환자 정보 수정 - 변경사항 상세 표시
     if (log.action === 'patient_update') {
       if (details?.changeDetails) {
         return ` (${details.changeDetails})`;
       }
-      // 이전 버전 호환성을 위한 fallback
       if (details?.notes && details.notes.includes('환자 정보 수정:')) {
         const changeInfo = details.notes.replace('환자 정보 수정:', '').trim();
         return changeInfo ? ` (${changeInfo})` : '';
@@ -354,21 +357,18 @@ export default function PatientTooltip({
       return '';
     }
     
-    // 상태 변경 정보
     if (log.action === 'patient_status_change') {
       if (details?.previousStatus && details?.newStatus) {
         return ` (${details.previousStatus} → ${details.newStatus})`;
       }
     }
     
-    // 내원 확정 정보
     if (log.action === 'visit_confirmation_toggle') {
       if (details?.newStatus) {
         return details.newStatus === '내원확정' ? ' (확정)' : ' (취소)';
       }
     }
     
-    // 이벤트 타겟 관련 정보
     if (log.action.includes('event_target')) {
       if (details?.targetReason) {
         return ` (${details.targetReason})`;
@@ -378,21 +378,21 @@ export default function PatientTooltip({
     return '';
   };
 
-  // 액션의 중요도에 따른 스타일링 (콜백/메시지 액션들 추가)
+  // 액션의 중요도에 따른 스타일링
   const getActionPriority = (action: string) => {
     const highPriorityActions = [
       'patient_create', 
       'callback_complete', 
       'patient_complete',
-      'callback_create',  // 콜백 등록도 높은 우선순위
-      'message_send'      // 메시지 발송도 높은 우선순위
+      'callback_create',
+      'message_send'
     ];
     const mediumPriorityActions = [
       'patient_update', 
       'patient_status_change',
-      'callback_update',  // 콜백 수정
-      'callback_cancel',  // 콜백 취소
-      'message_template_used'  // 템플릿 사용
+      'callback_update',
+      'callback_cancel',
+      'message_template_used'
     ];
     
     if (highPriorityActions.includes(action)) {
@@ -413,15 +413,19 @@ export default function PatientTooltip({
         {children}
       </div>
 
-      {/* 툴팁 */}
+      {/* 🔥 Portal을 사용한 툴팁 - fixed 위치로 테이블 바운더리 무시 */}
       {isVisible && (
         <div 
-          className="absolute bottom-full left-1/2 transform -translate-x-1/2 mb-1 z-50"
+          className="fixed z-[9999] pointer-events-none"
+          style={{
+            left: `${tooltipPosition.x}px`,
+            top: `${tooltipPosition.y}px`,
+            transform: 'translate(-50%, -100%)', // 중앙 정렬 및 위로 이동
+          }}
           onMouseEnter={cancelHideTooltip}
           onMouseLeave={hideTooltip}
         >
-          {/* 🔥 툴팁 크기 및 스크롤 개선 */}
-          <div className="bg-white rounded-lg shadow-xl border border-gray-200 p-3 min-w-[450px] max-w-[600px] w-max">
+          <div className="bg-white rounded-lg shadow-xl border border-gray-200 p-3 min-w-[450px] max-w-[600px] w-max mb-2 pointer-events-auto">
             {/* 툴팁 헤더 */}
             <div className="flex items-center gap-2 mb-2 pb-2 border-b border-gray-100">
               <div className="w-6 h-6 bg-blue-100 rounded-full flex items-center justify-center">
@@ -431,7 +435,6 @@ export default function PatientTooltip({
                 <div className="text-sm font-medium text-gray-900">{patientName}</div>
                 <div className="text-xs text-gray-500">
                   활동 이력 
-                  {/* 🔥 새로고침 트리거 표시 (디버깅용) */}
                   {refreshTrigger > 0 && (
                     <span className="ml-1 text-green-600">(업데이트됨)</span>
                   )}
@@ -459,7 +462,6 @@ export default function PatientTooltip({
                 </div>
               ) : (
                 <div className="space-y-1">
-                  {/* 최대 높이 제한 및 스크롤 추가 */}
                   <div className="max-h-[300px] overflow-y-auto pr-1">
                     {historyData.logs.map((log, index) => {
                       const actionInfo = getActionInfo(log.action);
@@ -489,7 +491,6 @@ export default function PatientTooltip({
                     })}
                   </div>
                   
-                  {/* 더보기 버튼 */}
                   {historyData.hasMore && (
                     <div className="mt-2 pt-2 border-t border-gray-100 text-center">
                       <button 
@@ -502,7 +503,6 @@ export default function PatientTooltip({
                     </div>
                   )}
                   
-                  {/* 총 개수 표시 */}
                   {historyData.logs.length > 0 && (
                     <div className="mt-2 pt-2 border-t border-gray-100 text-center">
                       <div className="text-[10px] text-gray-400">
@@ -518,7 +518,7 @@ export default function PatientTooltip({
             </div>
           </div>
 
-          {/* 툴팁 화살표 */}
+          {/* 🔥 툴팁 화살표 - 위치 조정 */}
           <div className="absolute top-full left-1/2 transform -translate-x-1/2">
             <div className="w-0 h-0 border-l-4 border-r-4 border-t-4 border-l-transparent border-r-transparent border-t-white"></div>
             <div className="absolute top-[-5px] left-1/2 transform -translate-x-1/2 w-0 h-0 border-l-4 border-r-4 border-t-4 border-l-transparent border-r-transparent border-t-gray-200"></div>

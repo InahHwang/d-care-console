@@ -15,6 +15,10 @@ interface PerformanceData {
     value: number;
     trend: number;
   };
+   paymentRate: {
+    value: number;
+    trend: number;
+  };
 }
 
 interface PerformanceCardsProps {
@@ -23,8 +27,8 @@ interface PerformanceCardsProps {
 
 const PerformanceCards: React.FC<PerformanceCardsProps> = ({ performance }) => {
   return (
-    <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-      {/* 🔥 수정: 이번달 신규 문의(인+아웃바운드) */}
+    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+      {/* 이번달 신규 문의 카드 (분모 역할) */}
       <div className="card p-4">
         <div className="flex flex-col">
           <div className="flex items-center justify-between mb-2">
@@ -38,12 +42,11 @@ const PerformanceCards: React.FC<PerformanceCardsProps> = ({ performance }) => {
           <div className="mt-2 text-xs text-text-muted">
             전월 대비 {Math.abs(performance.totalInquiries.trend)}% {performance.totalInquiries.trend >= 0 ? '증가' : '감소'}
           </div>
-          {/* 스파크라인 차트 자리 */}
           <div className="mt-2 h-8 bg-gray-50 rounded-md"></div>
         </div>
       </div>
 
-      {/* 예약 완료 전환율 - 기존 그대로 */}
+      {/* 🔥 예약 전환율 카드 - 설명 업데이트 */}
       <div className="card p-4">
         <div className="flex flex-col">
           <div className="flex items-center justify-between mb-2">
@@ -55,14 +58,13 @@ const PerformanceCards: React.FC<PerformanceCardsProps> = ({ performance }) => {
             <span className="ml-2 text-sm text-text-secondary">%</span>
           </div>
           <div className="mt-2 text-xs text-text-muted">
-            전월 대비 {Math.abs(performance.appointmentRate.trend)}% {performance.appointmentRate.trend >= 0 ? '증가' : '감소'}
+            신규 문의 중 예약 확정한 비율
           </div>
-          {/* 스파크라인 차트 자리 */}
           <div className="mt-2 h-8 bg-gray-50 rounded-md"></div>
         </div>
       </div>
 
-      {/* 내원율 - 기존 그대로 */}
+      {/* 🔥 내원 전환율 카드 - 설명 업데이트 */}
       <div className="card p-4">
         <div className="flex flex-col">
           <div className="flex items-center justify-between mb-2">
@@ -74,9 +76,26 @@ const PerformanceCards: React.FC<PerformanceCardsProps> = ({ performance }) => {
             <span className="ml-2 text-sm text-text-secondary">%</span>
           </div>
           <div className="mt-2 text-xs text-text-muted">
-            전월 대비 {Math.abs(performance.visitRate.trend)}% {performance.visitRate.trend >= 0 ? '증가' : '감소'}
+            신규 문의 중 실제 내원한 비율
           </div>
-          {/* 스파크라인 차트 자리 */}
+          <div className="mt-2 h-8 bg-gray-50 rounded-md"></div>
+        </div>
+      </div>
+
+      {/* 🔥 결제 전환율 카드 - 설명 업데이트 */}
+      <div className="card p-4">
+        <div className="flex flex-col">
+          <div className="flex items-center justify-between mb-2">
+            <h3 className="text-sm font-medium text-text-secondary">결제 전환율</h3>
+            <TrendBadge value={performance.paymentRate.trend} />
+          </div>
+          <div className="flex items-baseline">
+            <span className="text-3xl font-bold text-text-primary">{performance.paymentRate.value}</span>
+            <span className="ml-2 text-sm text-text-secondary">%</span>
+          </div>
+          <div className="mt-2 text-xs text-text-muted">
+            신규 문의 중 견적 동의한 비율
+          </div>
           <div className="mt-2 h-8 bg-gray-50 rounded-md"></div>
         </div>
       </div>

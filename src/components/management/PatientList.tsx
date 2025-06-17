@@ -1,4 +1,4 @@
-// src/components/management/PatientList.tsx - 툴팁 새로고침 연동
+// src/components/management/PatientList.tsx 
 
 'use client'
 
@@ -13,6 +13,12 @@ import { Icon } from '../common/Icon'
 import { useState, useEffect } from 'react'
 import PatientDetailModal from './PatientDetailModal'
 import PatientTooltip from './PatientTooltip'
+import { ConsultationInfo } from '@/types/patient'
+import { 
+  getEstimateAgreedColor, 
+  getEstimateAgreedText, 
+  formatAmount
+} from '@/utils/paymentUtils'
 
 interface PatientListProps {
   isLoading?: boolean
@@ -60,6 +66,26 @@ const ConsultationTypeBadge = ({ type, inboundPhoneNumber }: { type: 'inbound' |
     </span>
   );
 };
+
+// 🔥 견적 동의 상태 배지 컴포넌트 (단순화)
+const PaymentStatusBadge = ({ consultation }: { consultation?: ConsultationInfo }) => {
+  if (!consultation) {
+    return <span className="text-xs text-gray-400">미입력</span>
+  }
+  
+  return (
+    <div className="flex flex-col space-y-1">
+      <span className={`inline-flex items-center px-2 py-1 rounded-full text-xs font-medium ${
+        getEstimateAgreedColor(consultation.estimateAgreed)
+      }`}>
+        {getEstimateAgreedText(consultation.estimateAgreed)}
+      </span>
+      <div className="text-xs text-gray-600">
+        <div>{formatAmount(consultation.estimatedAmount)}원</div>
+      </div>
+    </div>
+  )
+}
 
 // 총 콜백 횟수 표시를 위한 컴포넌트
 const CallbackCountBadge = ({ patient }: { patient: Patient }) => {
@@ -182,10 +208,9 @@ export default function PatientList({ isLoading = false }: PatientListProps) {
       <div className="card p-0 w-full">
         <div className="overflow-x-auto">
           <table className="w-full min-w-[900px] table-auto">
-            {/* 테이블 헤더 - 상담 타입 컬럼 추가 */}
+            {/* 🔥 테이블 헤더 - 환자 ID 컬럼 제거, 결제상태 컬럼 추가 */}
             <thead>
               <tr className="bg-light-bg">
-                <th className="px-4 py-3 text-left text-xs font-semibold text-text-secondary">환자 ID</th>
                 <th className="px-4 py-3 text-left text-xs font-semibold text-text-secondary">상담 타입</th>
                 <th className="px-4 py-3 text-left text-xs font-semibold text-text-secondary">이름</th>
                 <th className="px-4 py-3 text-left text-xs font-semibold text-text-secondary">나이</th>
@@ -195,6 +220,7 @@ export default function PatientList({ isLoading = false }: PatientListProps) {
                 <th className="px-4 py-3 text-left text-xs font-semibold text-text-secondary">최근 상담</th>
                 <th className="px-4 py-3 text-left text-xs font-semibold text-text-secondary">상태</th>
                 <th className="px-4 py-3 text-left text-xs font-semibold text-text-secondary">총 콜백 횟수</th>
+                <th className="px-4 py-3 text-left text-xs font-semibold text-text-secondary">견적동의</th>
                 <th className="px-4 py-3 text-center text-xs font-semibold text-text-secondary">내원 확정</th>
                 <th className="px-4 py-3 text-center text-xs font-semibold text-text-secondary">액션</th>
               </tr>
@@ -247,10 +273,7 @@ export default function PatientList({ isLoading = false }: PatientListProps) {
                       key={patient._id} 
                       className={`border-b border-border last:border-0 ${rowColor} hover:bg-light-bg/50 transition-colors duration-150`}
                     >
-                      <td className="px-4 py-4 text-sm text-text-secondary">
-                        {patient.patientId}
-                      </td>
-                      {/* 상담 타입 컬럼 추가 */}
+                      {/* 상담 타입 컬럼 */}
                       <td className="px-4 py-4">
                         <ConsultationTypeBadge 
                           type={patient.consultationType || 'outbound'} 
@@ -306,6 +329,10 @@ export default function PatientList({ isLoading = false }: PatientListProps) {
                       </td>
                       <td className="px-4 py-4">
                         <CallbackCountBadge patient={patient} />
+                      </td>
+                      {/* 🔥 결제 상태 컬럼 추가 */}
+                      <td className="px-4 py-4">
+                        <PaymentStatusBadge consultation={patient.consultation} />
                       </td>
                       {/* 내원 확정 셀 추가 */}
                       <td className="px-4 py-4 text-center">

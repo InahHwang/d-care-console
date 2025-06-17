@@ -1,4 +1,4 @@
-// src/app/page.tsx - 수정된 버전
+// src/app/page.tsx 
 
 'use client'
 

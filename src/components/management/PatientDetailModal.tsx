@@ -1,12 +1,12 @@
-// src/components/management/PatientDetailModal.tsx - 활동 로그 실시간 업데이트 개선
+// src/components/management/PatientDetailModal.tsx 
 
 'use client'
 
 import { useState, useEffect } from 'react'
 import { useAppDispatch, useAppSelector } from '@/hooks/reduxHooks'
 import { RootState } from '@/store'
-import { clearSelectedPatient, Patient } from '@/store/slices/patientsSlice'
-import { HiOutlineX, HiOutlinePhone, HiOutlineCalendar, HiOutlineUser, HiOutlineLocationMarker, HiOutlineCake, HiOutlineClipboardList, HiOutlinePencil, HiOutlineCheck, HiOutlineStop, HiOutlineRefresh, HiOutlineGlobeAlt, HiOutlineUserGroup } from 'react-icons/hi'
+import { clearSelectedPatient, Patient, updateConsultationInfo } from '@/store/slices/patientsSlice'
+import { HiOutlineX, HiOutlinePhone, HiOutlineCalendar, HiOutlineUser, HiOutlineLocationMarker, HiOutlineCake, HiOutlineClipboardList, HiOutlinePencil, HiOutlineCheck, HiOutlineStop, HiOutlineRefresh, HiOutlineGlobeAlt, HiOutlineUserGroup, HiOutlineCreditCard, HiOutlineCurrencyDollar, HiOutlineClipboardCheck } from 'react-icons/hi'
 import { FiPhone, FiPhoneCall } from 'react-icons/fi'
 import { formatDistance } from 'date-fns'
 import { ko } from 'date-fns/locale/ko'
@@ -15,6 +15,14 @@ import CallbackManagement from './CallbackManagement'
 import PatientEditForm from './PatientEditForm'
 import PatientMessageHistory from './PatientMessageHistory'
 import MessageSendModal from './MessageSendModal'
+import ConsultationFormModal from './ConsultationFormModal'
+import { 
+  getEstimateAgreedColor, 
+  getEstimateAgreedText,
+  formatAmount,
+  isTreatmentStarted 
+} from '@/utils/paymentUtils'
+import { ConsultationInfo } from '@/types/patient'
 
 export default function PatientDetailModal() {
   const dispatch = useAppDispatch()
@@ -32,6 +40,9 @@ export default function PatientDetailModal() {
   
   // 문자 발송 모달 상태
   const [isMessageSendModalOpen, setIsMessageSendModalOpen] = useState(false)
+  
+  // 🔥 상담 정보 모달 상태 추가
+  const [isConsultationFormOpen, setIsConsultationFormOpen] = useState(false)
   
   // 선택된 환자 변경 감지
   useEffect(() => {
@@ -87,6 +98,24 @@ export default function PatientDetailModal() {
   const handleOpenMessageModal = () => {
     console.log('문자 발송 모달 열기');
     setIsMessageSendModalOpen(true)
+  }
+  
+  // 🔥 결제 정보 업데이트 핸들러 수정
+  const handleConsultationUpdate = async (consultationData: Partial<ConsultationInfo>) => {
+    try {
+      if (!selectedPatient) return;
+      
+      // Redux 액션을 사용하여 상담 정보 업데이트
+      await dispatch(updateConsultationInfo({ 
+        patientId: selectedPatient._id, 
+        consultationData 
+      })).unwrap()
+      
+      console.log('상담 정보 업데이트 성공')
+    } catch (error) {
+      console.error('상담 정보 업데이트 실패:', error)
+      throw error
+    }
   }
   
   // 기본 정보가 없으면 렌더링하지 않음
@@ -579,6 +608,119 @@ const timeSinceFirstConsult = selectedPatient.firstConsultDate && selectedPatien
                 </div>
               )}
 
+              {/* 🔥 상담/결제 정보 카드 (대폭 단순화) */}
+              <div className="card">
+                <div className="flex items-center justify-between mb-4">
+                  <h3 className="text-md font-semibold text-text-primary flex items-center gap-2">
+                    <Icon icon={HiOutlineCreditCard} size={18} className="text-green-600" />
+                    상담 정보
+                  </h3>
+                  <button
+                    onClick={() => setIsConsultationFormOpen(true)}
+                    className="text-sm text-blue-600 hover:text-blue-800 underline"
+                  >
+                    {selectedPatient.consultation ? '수정' : '+ 추가'}
+                  </button>
+                </div>
+                
+                {selectedPatient.consultation ? (
+                  <div className="space-y-4">
+                    {/* 상담 기본 정보 */}
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                      <div className="flex items-start gap-2">
+                        <Icon 
+                          icon={HiOutlineCalendar} 
+                          size={18} 
+                          className="text-text-muted mt-0.5" 
+                        />
+                        <div>
+                          <p className="text-sm text-text-secondary">상담 날짜</p>
+                          <p className="text-text-primary">{selectedPatient.consultation.consultationDate}</p>
+                        </div>
+                      </div>
+                      
+                      <div className="flex items-start gap-2">
+                        <Icon 
+                          icon={HiOutlineCurrencyDollar} 
+                          size={18} 
+                          className="text-text-muted mt-0.5" 
+                        />
+                        <div>
+                          <p className="text-sm text-text-secondary">견적 금액</p>
+                          <p className="text-text-primary font-medium">
+                            {formatAmount(selectedPatient.consultation.estimatedAmount)}원
+                          </p>
+                        </div>
+                      </div>
+                    </div>
+                    
+                    {/* 🔥 견적 동의 현황 (단순화) */}
+                    <div className="bg-gray-50 p-4 rounded-lg">
+                      <h4 className="text-sm font-semibold text-gray-700 mb-3 flex items-center gap-2">
+                        <Icon icon={HiOutlineClipboardCheck} size={16} />
+                        견적 동의 현황
+                      </h4>
+                      
+                      <div className="flex items-center justify-between">
+                        <div>
+                          <p className="text-xs text-gray-600 mb-1">동의 여부</p>
+                          <span className={`inline-flex items-center px-3 py-2 rounded-full text-sm font-medium ${
+                            getEstimateAgreedColor(selectedPatient.consultation.estimateAgreed)
+                          }`}>
+                            {getEstimateAgreedText(selectedPatient.consultation.estimateAgreed)}
+                          </span>
+                        </div>
+                        <div className="text-right">
+                          <p className="text-xs text-gray-600 mb-1">치료 상태</p>
+                          <p className={`text-sm font-medium ${
+                            selectedPatient.consultation.estimateAgreed 
+                              ? 'text-green-600' 
+                              : 'text-red-600'
+                          }`}>
+                            {selectedPatient.consultation.estimateAgreed ? '치료 시작' : '치료 미시작'}
+                          </p>
+                        </div>
+                      </div>
+                    </div>
+                    
+                    {/* 추가 정보 */}
+                    {(selectedPatient.consultation.treatmentPlan ||
+                      selectedPatient.consultation.consultationNotes) && (
+                      <div className="grid grid-cols-1 gap-4 pt-2 border-t">
+                        {selectedPatient.consultation.treatmentPlan && (
+                          <div>
+                            <p className="text-sm text-text-secondary">치료 계획</p>
+                            <p className="text-text-primary whitespace-pre-line">
+                              {selectedPatient.consultation.treatmentPlan}
+                            </p>
+                          </div>
+                        )}
+                        
+                        {selectedPatient.consultation.consultationNotes && (
+                          <div>
+                            <p className="text-sm text-text-secondary">상담 메모</p>
+                            <p className="text-text-primary whitespace-pre-line">
+                              {selectedPatient.consultation.consultationNotes}
+                            </p>
+                          </div>
+                        )}
+                      </div>
+                    )}
+                  </div>
+                ) : (
+                  <div className="text-center py-8 text-text-secondary">
+                    <Icon icon={HiOutlineCreditCard} size={48} className="mx-auto mb-3 text-gray-300" />
+                    <p className="mb-2">상담 정보가 없습니다.</p>
+                    <button
+                      onClick={() => setIsConsultationFormOpen(true)}
+                      className="text-blue-600 hover:text-blue-800 underline"
+                    >
+                      상담 정보 추가하기
+                    </button>
+                  </div>
+                )}
+              </div>
+
               {/* 콜백 필요 알림 - 종결 처리되지 않은 경우에만 표시 */}
               {needsCallback && !isCompleted && (
                 <div className="card bg-yellow-50 border-yellow-200">
@@ -705,6 +847,18 @@ const timeSinceFirstConsult = selectedPatient.firstConsultDate && selectedPatien
           onClose={() => setIsMessageSendModalOpen(false)}
           selectedPatients={[selectedPatient]}
           onSendComplete={handleMessageSendComplete}
+        />
+      )}
+      
+      {/* 🔥 상담 정보 모달 */}
+      {isConsultationFormOpen && (
+        <ConsultationFormModal
+          isOpen={isConsultationFormOpen}
+          onClose={() => setIsConsultationFormOpen(false)}
+          patientId={selectedPatient._id}
+          patientName={selectedPatient.name}
+          existingConsultation={selectedPatient.consultation}
+          onSave={handleConsultationUpdate}
         />
       )}
     </div>
