@@ -104,7 +104,7 @@ export async function PUT(
       );
     }
     
-    if (!result.value) {
+    if (!result || !result.value) {
       console.error('업데이트 실패');
       return NextResponse.json({ error: '환자 정보 업데이트에 실패했습니다.' }, { status: 500 });
     }
