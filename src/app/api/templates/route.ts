@@ -19,7 +19,7 @@ export async function GET(request: NextRequest) {
       .toArray();
     
     // MongoDB의 _id를 문자열로 변환
-    const formattedTemplates = templates.map((template: { id: any; _id: { toString: () => any; }; }) => ({
+    const formattedTemplates = templates.map((template: any) => ({
       ...template,
       _id: undefined, // MongoDB _id 제거
       id: template.id || template._id.toString(), // id 필드 사용 또는 _id를 id로 변환
