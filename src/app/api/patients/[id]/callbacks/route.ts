@@ -179,8 +179,8 @@ export async function POST(
     
     // ObjectId를 문자열로 변환
     if (updatedPatient._id && typeof updatedPatient._id !== 'string') {
-      updatedPatient._id = updatedPatient._id.toString();
-    }
+        (updatedPatient as any)._id = updatedPatient._id.toString();
+      }
     
     // 호환성을 위해 id 필드가 없거나 undefined면 _id로 설정
     if (!updatedPatient.id && updatedPatient._id) {
