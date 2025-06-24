@@ -202,7 +202,7 @@ export async function PUT(
 
     const userResponse = {
       ...updatedUser,
-      id: updatedUser._id.toString()
+      id: updatedUser?._id.toString()
     };
 
     return NextResponse.json({
