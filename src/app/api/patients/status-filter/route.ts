@@ -41,14 +41,14 @@ export async function GET(request: NextRequest) {
           })
           .toArray();
         
-        patients = allPatients.filter((patient: { callbackHistory: any[]; }) => {
+        patients = allPatients.filter((patient: any) => {
           // callbackHistory가 없으면 제외
           if (!patient.callbackHistory || patient.callbackHistory.length === 0) {
             return false;
           }
           
           // 예정된 콜백 중에서 날짜가 지난 것이 있는지 확인
-          const hasOverdueCallback = patient.callbackHistory.some(callback => {
+          const hasOverdueCallback = patient.callbackHistory.some((callback: any) => {
             if (callback.status !== '예정') return false;
             
             const callbackDate = new Date(callback.date);
@@ -105,13 +105,13 @@ export async function GET(request: NextRequest) {
           })
           .toArray();
         
-        patients = allPatients.filter((patient: { callbackHistory: any[]; }) => {
+        patients = allPatients.filter((patient: any) => {
           if (!patient.callbackHistory || patient.callbackHistory.length === 0) {
             return false;
           }
           
           // 오늘 예정된 콜백이 있는지 확인
-          const hasTodayCallback = patient.callbackHistory.some(callback => {
+          const hasTodayCallback = patient.callbackHistory.some((callback: any) => {
             if (callback.status !== '예정') return false;
             
             const callbackDate = new Date(callback.date);
