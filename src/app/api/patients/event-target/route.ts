@@ -52,7 +52,7 @@ export async function PUT(
       ...result,
       id: result._id.toString(),
       _id: result._id.toString()
-    };
+    } as any;
     
     console.log('이벤트 타겟 업데이트 성공:', {
       patientId,
@@ -60,9 +60,9 @@ export async function PUT(
       isEventTarget: formattedPatient.eventTargetInfo?.isEventTarget,
       targetReason: formattedPatient.eventTargetInfo?.targetReason,
       categories: formattedPatient.eventTargetInfo?.categories,
-      scheduledDate: formattedPatient.eventTargetInfo?.scheduledDate
+      scheduledDate: formattedPatient.eventTargetInfo?.scheduleDate
     });
-    
+
     return NextResponse.json({
       message: 'Event target info updated successfully',
       eventTargetInfo: formattedPatient.eventTargetInfo,
@@ -121,7 +121,7 @@ export async function GET(
       ...patient,
       id: patient._id.toString(),
       _id: patient._id.toString()
-    };
+    } as any;
     
     console.log('환자 이벤트 타겟 정보 조회 성공:', {
       patientId,
