@@ -10,7 +10,7 @@ const getDatabaseName = () => {
   const baseDbName = process.env.MONGODB_DB || process.env.DB_NAME || 'dental_care';
   
   if (isProduction) {
-    return `${baseDbName}-production`;
+    return 'd-care-db';
   } else {
     return `${baseDbName}-development`;
   }

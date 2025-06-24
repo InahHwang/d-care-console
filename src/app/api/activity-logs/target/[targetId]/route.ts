@@ -66,10 +66,10 @@ export async function GET(
 
     console.log('🔍 조회된 로그 수:', logs.length);
     console.log('🔍 조회된 로그 액션들:', logs.map((log: any) => ({
-      action: log.action, 
-      target: log.target,
-      timestamp: log.timestamp,
-      userName: log.userName
+      action: log?.action || 'Unknown', 
+      target: log?.target || 'Unknown',
+      timestamp: log?.timestamp || new Date(),
+      userName: log?.userName || 'Unknown'
     })));
 
     // 🔥 다음 페이지 여부 확인
@@ -78,8 +78,8 @@ export async function GET(
     // id 필드 추가 및 source 필드 설정
     const formattedLogs = logs.map((log: any) => ({
       ...log,
-      _id: log._id.toString(),
-      source: log.source || 'backend_api' // 기본값 설정
+      _id: log._id?.toString() || 'unknown',
+      source: log?.source || 'backend_api'
     }));
 
     return NextResponse.json({
