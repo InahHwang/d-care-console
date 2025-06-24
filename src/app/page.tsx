@@ -79,7 +79,7 @@ export default function Home() {
 
           {/* 🎯 수정: 새로운 훅에서 가져온 performance 데이터 사용 */}
           <div className="mb-6">
-            <PerformanceCards performance={performance} />
+            <PerformanceCards performance={performance as any} />
           </div>
 
           {/* 🎯 수정: 새로운 훅에서 가져온 statusCounts 데이터 사용 */}
