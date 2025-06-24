@@ -13,6 +13,7 @@
     "@tanstack/react-query": "^5.17.10",
     "@types/sharp": "^0.31.1",
     "axios": "^1.6.5",
+    "bcrypt": "^6.0.0",
     "bcryptjs": "^3.0.2",
     "clsx": "^2.1.0",
     "coolsms-node-sdk": "^2.1.0",
@@ -33,6 +34,7 @@
     "uuid": "^11.1.0"
   },
   "devDependencies": {
+    "@types/bcrypt": "^5.0.2",
     "@types/bcryptjs": "^2.4.6",
     "@types/jsonwebtoken": "^9.0.9",
     "@types/node": "^20.10.6",
