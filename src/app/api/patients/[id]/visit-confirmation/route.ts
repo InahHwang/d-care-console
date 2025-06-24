@@ -229,7 +229,7 @@ export async function PUT(
     
     // ID를 문자열로 변환
     if (updatedPatient._id && typeof updatedPatient._id !== 'string') {
-      updatedPatient._id = updatedPatient._id.toString();
+      (updatedPatient as any)._id = updatedPatient._id.toString();
     }
     
     if (!updatedPatient.id && updatedPatient._id) {

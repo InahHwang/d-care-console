@@ -231,7 +231,7 @@ export async function PUT(
     
     // ID를 문자열로 변환
     if (updatedPatient._id && typeof updatedPatient._id !== 'string') {
-      updatedPatient._id = updatedPatient._id.toString();
+      (updatedPatient as any)._id = updatedPatient._id.toString();
     }
     
     // 호환성을 위해 id 필드가 없다면 _id로 설정

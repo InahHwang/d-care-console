@@ -194,8 +194,8 @@ export async function PUT(
     
     // ID 문자열 변환
     if (updatedPatient._id && typeof updatedPatient._id !== 'string') {
-      updatedPatient._id = updatedPatient._id.toString();
-    }
+        (updatedPatient as any)._id = updatedPatient._id.toString();
+      }
     
     if (!updatedPatient.id && updatedPatient._id) {
       updatedPatient.id = updatedPatient._id;
