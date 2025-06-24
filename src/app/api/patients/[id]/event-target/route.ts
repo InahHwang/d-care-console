@@ -82,8 +82,8 @@ export async function PUT(
     
     // ObjectId를 문자열로 변환
     if (result._id && typeof result._id !== 'string') {
-      result._id = result._id.toString();
-    }
+        (result as any)._id = result._id.toString();
+      }
     
     // 호환성을 위해 id 필드 설정
     if (!result.id && result._id) {
