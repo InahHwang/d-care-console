@@ -149,14 +149,17 @@ export async function GET(request: NextRequest) {
         'IP 주소'
       ];
 
-      const csvRows = logs.map((log: { timestamp: string | number | Date; userName: any; userRole: string; action: string; target: string; targetName: any; targetId: any; details: { notes: any; reason: any; changeDetails: any; }; ipAddress: any; }) => [
+      const csvRows = logs.map((log: any) => [
         new Date(log.timestamp).toLocaleString('ko-KR'),
         escapeCSV(log.userName),
         escapeCSV(log.userRole === 'master' ? '마스터 관리자' : '일반 담당자'),
-        escapeCSV(getActionDisplayName(log.action)),
-        escapeCSV(getTargetDisplayName(log.target)),
-        escapeCSV(log.targetName || log.targetId),
-        escapeCSV(log.details?.notes || log.details?.reason || log.details?.changeDetails || ''),
+        escapeCSV(log.action),
+        escapeCSV(log.target),
+        escapeCSV(log.targetName || ''),
+        escapeCSV(log.targetId || ''),
+        escapeCSV(log.details?.notes || ''),
+        escapeCSV(log.details?.reason || ''),
+        escapeCSV(log.details?.changeDetails ? JSON.stringify(log.details.changeDetails) : ''),
         escapeCSV(log.ipAddress || '')
       ]);
 
