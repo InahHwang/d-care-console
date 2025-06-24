@@ -65,7 +65,7 @@ export async function GET(
       .toArray();
 
     console.log('🔍 조회된 로그 수:', logs.length);
-    console.log('🔍 조회된 로그 액션들:', logs.map((log: { action: any; target: any; timestamp: any; userName: any; }) => ({ 
+    console.log('🔍 조회된 로그 액션들:', logs.map((log: any) => ({
       action: log.action, 
       target: log.target,
       timestamp: log.timestamp,
