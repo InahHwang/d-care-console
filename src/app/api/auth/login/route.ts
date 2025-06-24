@@ -4,6 +4,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { connectToDatabase } from '@/utils/mongodb';
 import jwt from 'jsonwebtoken';
 import bcrypt from 'bcryptjs';
+import { ObjectId } from 'mongodb';
 
 // 환경 변수 타입 단언으로 TypeScript 오류 해결
 const JWT_SECRET = process.env.JWT_SECRET as string;
@@ -109,11 +110,11 @@ export async function POST(request: NextRequest) {
     // JWT 토큰 생성
     const token = jwt.sign(
       { 
-        id: user.id || user._id, 
-        username: user.username,
-        email: user.email,
-        name: user.name || user.username,
-        role: user.role || 'staff'
+        id: user.id || user._id,
+        username: (user as any).username,
+        email: (user as any).email,
+        name: (user as any).name || (user as any).username,
+        role: (user as any).role || 'staff'
       },
       JWT_SECRET,
       { expiresIn: '1d' }
@@ -121,12 +122,12 @@ export async function POST(request: NextRequest) {
     
     // 사용자 정보 (비밀번호 제외)
     const userResponse = {
-      id: user.id || user._id,
-      username: user.username,
-      email: user.email,
-      name: user.name || user.username,
-      role: user.role || 'staff',
-      isActive: user.isActive
+      id: (user as any).id || (user as any)._id,
+      username: (user as any).username,
+      email: (user as any).email,
+      name: (user as any).name || (user as any).username,
+      role: (user as any).role || 'staff',
+      isActive: (user as any).isActive
     };
 
     // 클라이언트 정보 추출 (활동 로그용)
@@ -146,11 +147,13 @@ export async function POST(request: NextRequest) {
     );
 
     // 마지막 로그인 시간 업데이트 (데이터베이스 사용자인 경우)
-    if (!testUser) {
+    if (!testUser && user._id) {
       try {
         const { db } = await connectToDatabase();
+        const updateId = user._id instanceof ObjectId ? user._id : new ObjectId(user._id);
+        
         await db.collection('users').updateOne(
-          { _id: user._id },
+          { _id: updateId },
           { $set: { lastLogin: new Date().toISOString() } }
         );
       } catch (error) {
