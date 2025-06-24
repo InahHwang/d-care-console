@@ -37,7 +37,7 @@ export async function GET(request: NextRequest) {
     });
     
     // 디버깅을 위한 상세 로그
-    const debugInfo = formattedPatients.map((p: { id: any; name: any; eventTargetInfo: { isEventTarget: any; targetReason: any; scheduledDate: any; createdAt: any; }; }) => ({
+    const debugInfo = formattedPatients.map((p: any) => ({
       id: p.id,
       name: p.name,
       isEventTarget: p.eventTargetInfo?.isEventTarget,

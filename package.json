@@ -20,6 +20,7 @@
     "date-fns": "^3.1.0",
     "form-data": "^4.0.2",
     "jsonwebtoken": "^9.0.2",
+    "lucide-react": "^0.517.0",
     "mongodb": "^6.16.0",
     "next": "^14.2.15",
     "react": "^18.2.0",

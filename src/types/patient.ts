@@ -1,4 +1,4 @@
-// src/types/patient.ts
+// src/types/patient.ts - 환자 반응 타입 수정
 
 import { EventCategory } from '@/types/messageLog';
 
@@ -15,14 +15,55 @@ export type ReferralSource =
   | '기타'
   | '';
 
-// 🔥 상담/결제 정보 타입 정의 (대폭 단순화)
+  // 내원 후 상태 타입 추가
+export type PostVisitStatus = 
+  | '재콜백필요'    // 내원했지만 추가 상담 필요
+  | '치료시작'      // 치료 시작
+  | '보류'          // 환자 요청으로 보류
+  | '';
+
+// 🔥 환자 반응 타입 추가 (견적 동의 대신)
+export type PatientReaction = 
+  | '동의해요(적당)'     // 기존 견적 동의와 유사
+  | '비싸요'            // 가격에 대한 부담
+  | '생각보다 저렴해요'   // 가격에 만족
+  | '알 수 없음'        // 명확한 반응 없음
+  | '';
+
+// 🔥 견적 정보 타입 수정 - estimateAgreed → patientReaction으로 변경
+export interface EstimateInfo {
+  regularPrice: number;        // 정가
+  discountPrice: number;       // 할인가
+  discountEvent?: string;      // 적용할인이벤트
+  patientReaction: PatientReaction;  // 🔥 환자 반응 (최종 할인가 기준으로)
+}
+
+// 🔥 납부 방식 타입 추가
+export interface PaymentInfo {
+  paymentType: 'installment' | 'lump_sum';  // 분할납 | 일시납
+  downPayment?: number;        // 선입금 (분할납일 때)
+  installmentPlan?: string;    // 분할 계획
+}
+
+// 🔥 내원 후 상담 정보 타입 추가
+export interface PostVisitConsultationInfo {
+  consultationContent: string;   // 상담 내용
+  estimateInfo: EstimateInfo;    // 견적 정보
+  nextCallbackDate?: string;     // 다음 콜백 예정일 (재콜백필요일 때)
+  nextConsultationPlan?: string; // 다음 상담 계획 (재콜백필요일 때)
+  paymentInfo?: PaymentInfo;     // 납부 방식 (치료시작일 때)
+  nextVisitDate?: string;        // 다음 내원 예정일 (치료시작일 때)
+  completionNotes?: string;      // 완료 메모 (치료완료일 때)
+}
+
+// 🔥 상담/결제 정보 타입 정의 (대폭 단순화) - 호환성 유지
 export interface ConsultationInfo {
   estimatedAmount: number;           // 견적 금액
   consultationDate: string;         // 상담 날짜 (YYYY-MM-DD)
   consultationNotes?: string;       // 상담 메모
   treatmentPlan?: string;           // 치료 계획
   
-  // 🔥 핵심 필드: 견적 동의 여부
+  // 🔥 핵심 필드: 견적 동의 여부 (호환성 유지)
   estimateAgreed: boolean;          // 견적 동의 여부 (true = Y, false = N)
   
   createdAt?: string;               // 생성일시
@@ -55,7 +96,6 @@ export type PatientStatus =
   | '잠재고객'
   | '콜백필요'
   | '부재중'
-  | '활성고객'
   | 'VIP'
   | '예약확정'  // 예약 확정된 환자
   | '종결';     // 일반 종결된 환자
@@ -101,6 +141,11 @@ export interface CallbackItem {
   handledByName?: string;      // 처리한 담당자 이름
   createdBy?: string;          // 콜백을 생성한 담당자 ID
   createdByName?: string;      // 콜백을 생성한 담당자 이름
+  // 🔥 새로 추가할 필드들
+  originalScheduledDate?: string;  // 원래 예정일 보존
+  actualCompletedDate?: string;    // 실제 처리일
+  isDelayed?: boolean;             // 지연 처리 여부
+  delayReason?: string;            // 지연 사유
 }
 
 // 종결 처리를 위한 타입 정의
@@ -118,7 +163,9 @@ export interface QuickInboundPatient {
 
 // 🔥 환자 타입 정의 (MongoDB ID 추가) - consultationType, referralSource, 담당자 필드, 결제 정보 추가
 export interface Patient {
-  _id: string;            // MongoDB ID 필드 추가
+  memo: any;
+  consultation: any;
+  _id: string;
   nextCallbackDate: string;
   id: string;
   patientId: string; // PT-XXXX 형식
@@ -148,20 +195,29 @@ export interface Patient {
   // 🔥 기존 필드들
   consultationType: ConsultationType; // 인바운드/아웃바운드 구분
   inboundPhoneNumber?: string; // 인바운드일 때 입력받은 번호 (표시용)
-  referralSource?: ReferralSource; // 🔥 유입경로 필드 추가
+  referralSource?: ReferralSource;
   
   // 🔥 담당자 정보 추가
-  createdBy?: string;          // 등록한 담당자 ID
-  createdByName?: string;      // 등록한 담당자 이름
-  lastModifiedBy?: string;     // 마지막 수정자 ID
-  lastModifiedByName?: string; // 마지막 수정자 이름
-  lastModifiedAt?: string;     // 마지막 수정 일시
-  
-  // 🔥 새로 추가 - 상담/결제 정보
-  consultation?: ConsultationInfo;  // 상담/결제 정보
+  createdBy?: string;
+  createdByName?: string;
+  lastModifiedBy?: string;
+  lastModifiedByName?: string;
+  lastModifiedAt?: string;
   
   // 계산된 필드 (프론트엔드에서 계산)
   paymentRate?: number;             // 결제율 (paidAmount / estimatedAmount * 100)
+
+  // 🔥 내원 관리를 위한 필드들 수정
+  postVisitStatus?: PostVisitStatus;        // 내원 후 상태
+  visitDate?: string;                       // 실제 내원 날짜 (YYYY-MM-DD)
+  reservationDate?: string;                 // 🔥 예약일 (상담관리에서 표기용)
+  reservationTime?: string;                 // 🔥 예약시간
+  postVisitConsultation?: PostVisitConsultationInfo; // 🔥 내원 후 상담 정보
+  
+  // 기존 필드들 유지
+  postVisitNotes?: string;           // 내원 후 메모 (호환성 유지)
+  treatmentStartDate?: string;       // 치료 시작일
+  nextVisitDate?: string;           // 다음 내원 예정일
 }
 
 // 🔥 환자 생성을 위한 타입 - consultationType, referralSource, 담당자 정보, 결제 정보 추가

@@ -1,19 +1,19 @@
-//src/components/management/CallbackManagement.tsx
+// src/components/management/CallbackManagement.tsx
+// 🔥 에러 수정: unwrap() 제거 및 중복 함수 정의 제거
 
 'use client'
-
 import { format, addDays } from 'date-fns';
 import EventTargetSection from './EventTargetSection'
 import { useState, useEffect } from 'react'
 import { useAppDispatch, useAppSelector } from '@/hooks/reduxHooks'
-import { fetchCategories } from '@/store/slices/categoriesSlice' 
-import { getEventCategoryOptions, getCategoryDisplayName } from '@/utils/categoryUtils' 
-import { 
-  Patient, 
-  addCallback, 
-  cancelCallback, 
-  updatePatient, 
-  CallbackItem, 
+import { fetchCategories } from '@/store/slices/categoriesSlice'
+import { getEventCategoryOptions, getCategoryDisplayName } from '@/utils/categoryUtils'
+import {
+  Patient,
+  addCallback,
+  cancelCallback,
+  updatePatient,
+  CallbackItem,
   deleteCallback,
   completePatient,
   cancelPatientCompletion,
@@ -22,18 +22,21 @@ import {
   updateEventTargetInfo,
   initializeEventTargets,
   EventTargetReason,
+  updateCallback,
+  // 🔥 환자 목록 새로고침을 위한 액션 추가
+  fetchPatients
 } from '@/store/slices/patientsSlice'
 import { EventCategory } from '@/types/messageLog'
-import { 
-  HiOutlinePlus, 
-  HiOutlineCalendar, 
-  HiOutlineClipboardCheck, 
-  HiOutlinePencil, 
-  HiOutlineCheck, 
-  HiOutlineX, 
+import {
+  HiOutlinePlus,
+  HiOutlineCalendar,
+  HiOutlineClipboardCheck,
+  HiOutlinePencil,
+  HiOutlineCheck,
+  HiOutlineX,
   HiOutlineTrash,
   HiOutlineThumbUp,
-  HiOutlineThumbDown, 
+  HiOutlineThumbDown,
   HiOutlineStop,
   HiOutlineClock,
   HiOutlinePhone,
@@ -44,7 +47,8 @@ import {
 } from 'react-icons/hi'
 import { Icon } from '../common/Icon'
 import { RootState } from '@/store';
-import { useActivityLogger } from '@/hooks/useActivityLogger' 
+import { useActivityLogger } from '@/hooks/useActivityLogger'
+import { validatePatientForAPI } from '@/utils/patientUtils';
 
 interface CallbackManagementProps {
   patient: Patient
@@ -52,32 +56,62 @@ interface CallbackManagementProps {
 
 type CallbackType = '1차' | '2차' | '3차' | '4차' | '5차';
 
+const TERMINATION_REASONS = [
+  '타원 치료 예정',
+  '비용 부담', 
+  '시간 부족',
+  '통증 우려',
+  '가족과 상의 필요',
+  '건강상 이유',
+  '보험 이슈',
+  '기타'
+] as const;
+
+type TerminationReason = typeof TERMINATION_REASONS[number];
+
 export default function CallbackManagement({ patient }: CallbackManagementProps) {
   const dispatch = useAppDispatch()
   const currentUser = useAppSelector((state: RootState) => state.auth.user)
+
+   // 🔍 디버깅 로그 추가 - 컴포넌트 시작 직후
+  useEffect(() => {
+    console.log('🔍 CallbackManagement 환자 객체 분석:', {
+      patient,
+      hasPatient: !!patient,
+      patientKeys: patient ? Object.keys(patient) : [],
+      _id: patient?._id,
+      _idType: typeof patient?._id,
+      id: patient?.id,
+      idType: typeof patient?.id,
+      patientId: patient?.patientId,
+      patientIdType: typeof patient?.patientId,
+      name: patient?.name,
+      // 전체 환자 객체의 구조 확인
+      patientStructure: patient ? JSON.stringify(patient, null, 2) : null
+    });
+  }, [patient]);
   
   // ✅ 컴포넌트 내부에서 훅 호출
   const { logCallbackAction, logPatientCompleteAction } = useActivityLogger()
   
-
   // 🔥 임시: 로그인 시스템이 구현되기 전까지 기본 사용자 사용
   const effectiveUser = currentUser || {
-      id: 'temp-user-001',
-      name: '임시 관리자',
-      username: 'temp-admin',
-      email: 'temp@example.com',
-      role: 'staff' as const,
-      isActive: true
-    }
-
+    id: 'temp-user-001',
+    name: '임시 관리자',
+    username: 'temp-admin',
+    email: 'temp@example.com',
+    role: 'staff' as const,
+    isActive: true
+  }
+  
   // Redux store에서 카테고리 데이터 가져오기 - 추가
   const { categories } = useAppSelector((state: RootState) => state.categories)
-
+  
   // 부재중 메시지 여부 확인
   const isMissedCallNote = (note?: string) => {
     return note?.startsWith('부재중:');
   }
-
+  
   // 대신, 부재중 상태는 직접 확인 가능
   const isMissedCall = (callback: CallbackItem) => {
     return callback.status === '부재중';
@@ -85,19 +119,46 @@ export default function CallbackManagement({ patient }: CallbackManagementProps)
   
   // 이벤트 타겟 설정 관련 상태 추가
   const [eventTargetReason, setEventTargetReason] = useState<EventTargetReason>('price_hesitation')
-  const [eventTargetCategory, setEventTargetCategory] = useState<EventCategory>('discount') 
+  const [eventTargetCategory, setEventTargetCategory] = useState<EventCategory>('discount')
   const [eventTargetNotes, setEventTargetNotes] = useState('')
   const [eventTargetScheduledDate, setEventTargetScheduledDate] = useState(format(addDays(new Date(), 30), 'yyyy-MM-dd'))
-
+  
   // 콜백 이력 상태 - 컴포넌트 내부에서 관리하도록 변경
   const [callbackType, setCallbackType] = useState<CallbackType>('1차');
   const [nextCallbackType, setNextCallbackType] = useState<string>('');
-  
   const [callbackHistory, setCallbackHistory] = useState<CallbackItem[]>([]);
   const [nextPlanNotes, setNextPlanNotes] = useState('');
   const [callbackResult, setCallbackResult] = useState<string>('상담중');
   const [terminationReason, setTerminationReason] = useState('');
   const [nextCallbackPlan, setNextCallbackPlan] = useState('');
+
+  // 🔥 강제 리렌더링을 위한 상태 추가
+  const [forceUpdate, setForceUpdate] = useState(0);
+
+  // 🔥 환자 상태 업데이트 헬퍼 함수 추가 - unwrap() 제거
+  const refreshPatientData = async () => {
+    try {
+      // 1. 환자 상세 정보 새로고침
+      if (patient._id || patient.id) {
+        const patientId = patient._id || patient.id;
+        console.log('🔍 환자 데이터 새로고침 시작:', patientId);
+        
+        // Redux에서 환자 선택 새로고침
+        dispatch(selectPatient(patientId));
+      }
+      
+      // 2. 환자 목록 새로고침 (필터 적용된 상태로)
+      await dispatch(fetchPatients()).unwrap();
+      
+      // 3. 강제 리렌더링 트리거
+      setForceUpdate(prev => prev + 1);
+      
+      console.log('✅ 환자 데이터 새로고침 완료');
+    } catch (error) {
+      console.error('🚨 환자 데이터 새로고침 실패:', error);
+    }
+  };
+
   
   // 컴포넌트 마운트 시 카테고리 불러오기 - 추가
   useEffect(() => {
@@ -118,109 +179,108 @@ export default function CallbackManagement({ patient }: CallbackManagementProps)
       setNextCallbackType('예약완료');
     }
   }, [callbackType]);
-
+  
   // 환자 데이터가 변경될 때마다 콜백 이력 업데이트
   useEffect(() => {
     if (patient && patient.callbackHistory) {
+      console.log('🔍 콜백 이력 업데이트:', {
+        patientName: patient.name,
+        callbackCount: patient.callbackHistory.length,
+        forceUpdateValue: forceUpdate
+      });
       // 중복 제거 로직 추가: 동일한 날짜의 종결 기록은 하나만 표시
       let historyToDisplay = [...patient.callbackHistory];
-
+      
       // 예약 확정 처리된 콜백 중, 예약 정보가 포함된 완료 콜백이 있는지 확인
       const hasCompletedWithReservationInfo = historyToDisplay.some(cb => 
         cb.status === '완료' && cb.notes && cb.notes.includes('[예약 정보]')
       );
       
-      // 종결 기록(예약 확정) 필터링
+      // 종결 기록(예약 확정) 필터링 (기존 로직 유지)
       const completionRecords = historyToDisplay.filter(
         cb => cb.isCompletionRecord === true
       );
       
       if (completionRecords.length > 0) {
-        // 가장 최신 종결 기록 찾기
         const latestCompletionRecord = completionRecords.sort((a, b) => {
           const aTimestamp = parseInt(a.id.split('-')[1] || '0');
           const bTimestamp = parseInt(b.id.split('-')[1] || '0');
           return bTimestamp - aTimestamp;
         })[0];
         
-        // hasCompletedWithReservationInfo가 true이면 중간 블록 삭제
         if (hasCompletedWithReservationInfo) {
-          const remainingRecords = completionRecords.filter(cb => cb.id === latestCompletionRecord.id);
-          
-          // 최신 종결 기록만 유지하고 나머지는 제거
           historyToDisplay = historyToDisplay.filter(
             cb => !cb.isCompletionRecord || cb.id === latestCompletionRecord.id
           );
         }
       }
-    
-    // 날짜 기준 내림차순 정렬 + 동일 날짜는 등록 순서(ID) 기준 내림차순 정렬
-    const sortedHistory = historyToDisplay.sort((a, b) => {
-      // 먼저, 종결 기록(예약 완료)은 항상 최상단에 표시
-      if (a.isCompletionRecord && !b.isCompletionRecord) return -1;
-      if (!a.isCompletionRecord && b.isCompletionRecord) return 1;
-      
-      // 그 다음, 완료된 콜백 중 예약 정보가 있는 것을 최상단에 가깝게 표시
-      const aHasReservationInfo = a.status === '완료' && a.notes && a.notes.includes('[예약 정보]');
-      const bHasReservationInfo = b.status === '완료' && b.notes && b.notes.includes('[예약 정보]');
-      
-      if (aHasReservationInfo && !bHasReservationInfo) return -1;
-      if (!aHasReservationInfo && bHasReservationInfo) return 1;
-      
-      const dateA = new Date(a.date).getTime();
-      const dateB = new Date(b.date).getTime();
-      
-      // 날짜가 다르면 날짜로 비교 (최신 날짜가 위로)
-      if (dateB !== dateA) {
-        return dateB - dateA;
-      }
-      
-      // 날짜가 같으면 ID로 비교 (최근 등록이 위로)
-      const aTimestamp = parseInt(a.id.split('-')[1] || '0');
-      const bTimestamp = parseInt(b.id.split('-')[1] || '0');
-      return bTimestamp - aTimestamp;
-    });
-    
-    // 콜백 이력 업데이트
-    setCallbackHistory(sortedHistory);
-  } else {
-    setCallbackHistory([]);
-  }
-}, [patient]);
 
+      // 날짜 기준 정렬 (기존 로직 유지)
+      const sortedHistory = historyToDisplay.sort((a, b) => {
+        if (a.isCompletionRecord && !b.isCompletionRecord) return -1;
+        if (!a.isCompletionRecord && b.isCompletionRecord) return 1;
+        
+        const aHasReservationInfo = a.status === '완료' && a.notes && a.notes.includes('[예약 정보]');
+        const bHasReservationInfo = b.status === '완료' && b.notes && b.notes.includes('[예약 정보]');
+        
+        if (aHasReservationInfo && !bHasReservationInfo) return -1;
+        if (!aHasReservationInfo && bHasReservationInfo) return 1;
+        
+        const dateA = new Date(a.date).getTime();
+        const dateB = new Date(b.date).getTime();
+        
+        if (dateB !== dateA) {
+          return dateB - dateA;
+        }
+        
+        const aTimestamp = parseInt(a.id.split('-')[1] || '0');
+        const bTimestamp = parseInt(b.id.split('-')[1] || '0');
+        return bTimestamp - aTimestamp;
+      });
+
+      // 콜백 이력 업데이트
+      setCallbackHistory(sortedHistory);
+    
+      console.log('✅ 콜백 이력 화면 업데이트 완료:', sortedHistory.length);
+    } else {
+      setCallbackHistory([]);
+    }
+  }, [patient, forceUpdate]); // forceUpdate 의존성 유지
   
   // 상태 추가 - 컴포넌트 상단에 추가
   const [nextCallbackDate, setNextCallbackDate] = useState(
     format(addDays(new Date(), 7), 'yyyy-MM-dd') // 기본값: 1주일 후
   );
-
+  
   // 예정된 콜백 개수
   const scheduledCallbacks = callbackHistory.filter(cb => cb.status === '예정').length;
-    
+  
   // 완료된 콜백 개수 (부재중 제외) - 수정된 로직
   const completedNonMissedCallbacks = callbackHistory.filter(cb => {
     // 예약 확정으로 완료된 콜백도 포함
     const isCompletedNormal = cb.status === '완료' && !isMissedCallNote(cb.notes);
     // 예약 확정으로 인한 종결 기록은 콜백 카운트에서 제외 (이미 위에서 완료로 카운트됨)
     const isCompletionRecord = cb.isCompletionRecord === true;
-    
     return isCompletedNormal && !isCompletionRecord;
   }).length;
-
+  
   // 부재중 콜백 개수
-  const missedCallbacks = callbackHistory.filter(cb => 
-    cb.status === '완료' && isMissedCallNote(cb.notes)
-  ).length;
-
+  const missedCallbacks = callbackHistory.filter(cb => {
+    // status가 '부재중'이거나, '완료'면서 부재중 메모가 있는 경우 모두 포함
+    const isPurelyMissed = cb.status === '부재중';
+    const isCompletedWithMissedNote = cb.status === '완료' && isMissedCallNote(cb.notes);
+    return isPurelyMissed || isCompletedWithMissedNote;
+  }).length;
+  
   // 환자가 종결되었지만 콜백 이력이 없는 경우 (바로 종결/예약완료 처리된 경우)
   // 최소 1회는 콜백을 진행한 것으로 간주
   const adjustedCompletedCallbacks = patient.isCompleted && completedNonMissedCallbacks === 0 && missedCallbacks === 0
     ? 1  // 종결되었는데 콜백 이력이 전혀 없으면 1회로 간주
     : completedNonMissedCallbacks;
-
+  
   // 콜백 현황 표시에서 사용할 값
   const displayCompletedCallbacks = adjustedCompletedCallbacks;
-
+  
   // 새 콜백 관련 상태
   const [isAddingCallback, setIsAddingCallback] = useState(false);
   const [callbackDate, setCallbackDate] = useState(format(new Date(), 'yyyy-MM-dd'));
@@ -251,23 +311,27 @@ export default function CallbackManagement({ patient }: CallbackManagementProps)
   
   // 종결 취소 관련 상태
   const [isConfirmingCancelCompletion, setIsConfirmingCancelCompletion] = useState(false)
-
+  
   // 완료 처리를 위한 상태 추가
   const [isMarkingComplete, setIsMarkingComplete] = useState(false);
   const [callbackToComplete, setCallbackToComplete] = useState<CallbackItem | null>(null);
   const [completeNotes, setCompleteNotes] = useState('');
-
+  
   // 수정 모달 상태 추가
   const [isEditingCallback, setIsEditingCallback] = useState(false);
   const [callbackToEdit, setCallbackToEdit] = useState<CallbackItem | null>(null);
   const [editNotes, setEditNotes] = useState('');
   const [editDate, setEditDate] = useState('');
-
+  
   // 상태 추가
   const [resultNotes, setResultNotes] = useState('');
   const [customerResponse, setCustomerResponse] = useState<string>('neutral');
   const [nextStep, setNextStep] = useState<string>('');
-
+  
+  // 🔥 종결 사유 관련 상태 추가
+  const [selectedTerminationReason, setSelectedTerminationReason] = useState<TerminationReason>('타원 치료 예정');
+  const [customTerminationReason, setCustomTerminationReason] = useState('');
+  
   // 🔥 담당자 정보 표시 함수 (getUserDisplayName 함수 근처에 추가)
   const getUserDisplayName = (userId?: string, userName?: string) => {
     if (!userId && !userName) return '';
@@ -275,8 +339,8 @@ export default function CallbackManagement({ patient }: CallbackManagementProps)
     if (userId === 'system') return '시스템';
     return userId || '';
   }
-
-  // 1. resetEditForm 함수 추가
+  
+// 1. resetEditForm 함수 추가
   // 수정 모달을 초기화하는 별도의 함수 추가
   const resetEditForm = () => {
     setIsEditingCallback(false);
@@ -284,7 +348,7 @@ export default function CallbackManagement({ patient }: CallbackManagementProps)
     setEditNotes('');
     setEditDate('');
   };
-
+  
   // 수정 모달 열기
   const handleOpenEditModal = (callback: CallbackItem) => {
     // 종결 처리된 환자인 경우 콜백 수정 불가
@@ -292,36 +356,34 @@ export default function CallbackManagement({ patient }: CallbackManagementProps)
       alert('종결 처리된 환자의 콜백은 수정할 수 없습니다. 먼저 종결 처리를 취소해주세요.');
       return;
     }
-
     // 취소된 콜백은 수정 불가
     if (callback.status === '취소') {
       alert('취소된 콜백은 수정할 수 없습니다.');
       return;
     }
-    
+
     // 종결 기록은 수정 불가
     if (callback.isCompletionRecord) {
       alert('종결 처리 기록은 수정할 수 없습니다.');
       return;
     }
-    
+
     setCallbackToEdit(callback);
     setEditNotes(callback.notes || '');
     setEditDate(callback.date);
     setIsEditingCallback(true);
   };
 
-  // 콜백 수정 처리
+// 콜백 수정 처리
   const handleEditCallback = async () => {
     if (!callbackToEdit) return;
-    
     // 종결 처리된 환자인 경우 콜백 수정 불가
     if (patient.isCompleted) {
       alert('종결 처리된 환자의 콜백은 수정할 수 없습니다. 먼저 종결 처리를 취소해주세요.');
       resetEditForm();
       return;
     }
-    
+
     try {
       setIsLoading(true);
       
@@ -373,36 +435,36 @@ export default function CallbackManagement({ patient }: CallbackManagementProps)
         
         // 성공 처리
         resetEditForm();
-          alert('콜백 정보가 수정되었습니다.');
-        } else {
-          throw new Error('수정할 콜백을 찾을 수 없습니다.');
-        }
-      } catch (error) {
-        console.error('콜백 수정 오류:', error);
-
-        // 🔥 에러 로깅도 수정
-        try {
-          await logCallbackAction(
-            'callback_update', // ✅ 수정
-            patient.id,
-            patient.name,
-            {
-              error: error instanceof Error ? error.message : '알 수 없는 오류',
-              callbackType: callbackToEdit.type, // ✅ 수정
-              attemptedBy: effectiveUser.name
-            }
-          )
-        } catch (logError) {
-          console.warn('활동 로그 기록 실패:', logError)
-        }
-        
-        alert('콜백 수정 중 오류가 발생했습니다.') // ✅ 메시지 수정
-      } finally {
-        setIsLoading(false)
+        alert('콜백 정보가 수정되었습니다.');
+      } else {
+        throw new Error('수정할 콜백을 찾을 수 없습니다.');
       }
-    }
+    } catch (error) {
+      console.error('콜백 수정 오류:', error);
 
-  // 완료 처리 모달 초기화
+      // 🔥 에러 로깅도 수정
+      try {
+        await logCallbackAction(
+          'callback_update', // ✅ 수정
+          patient.id,
+          patient.name,
+          {
+            error: error instanceof Error ? error.message : '알 수 없는 오류',
+            callbackType: callbackToEdit.type, // ✅ 수정
+            attemptedBy: effectiveUser.name
+          }
+        )
+      } catch (logError) {
+        console.warn('활동 로그 기록 실패:', logError)
+      }
+      
+      alert('콜백 수정 중 오류가 발생했습니다.') // ✅ 메시지 수정
+    } finally {
+      setIsLoading(false)
+    }
+  }
+
+// 완료 처리 모달 초기화
   const resetMarkCompleteForm = () => {
     setIsMarkingComplete(false);
     setCallbackToComplete(null);
@@ -416,9 +478,11 @@ export default function CallbackManagement({ patient }: CallbackManagementProps)
     setEventTargetCategory('discount'); // 🔥 단일값으로 초기화
     setEventTargetNotes('');
     setEventTargetScheduledDate(format(addDays(new Date(), 30), 'yyyy-MM-dd'));
+    // 🔥 종결 사유 관련 상태 초기화 추가
+    setSelectedTerminationReason('타원 치료 예정');
+    setCustomTerminationReason('');
   };
- 
-
+  
   // 완료 처리 모달 열기
   const handleOpenMarkCompleteModal = (callback: CallbackItem) => {
     // 종결된 환자인 경우 완료 처리 불가
@@ -426,84 +490,139 @@ export default function CallbackManagement({ patient }: CallbackManagementProps)
       alert('종결 처리된 환자의 콜백은 수정할 수 없습니다. 먼저 종결 처리를 취소해주세요.');
       return;
     }
-    
     if (callback.status !== '예정') {
       alert('예정된 콜백만 완료 처리할 수 있습니다.');
       return;
     }
-    
+
     setCallbackToComplete(callback);
     // 이전 메모가 있으면 초기값으로 설정
     setCompleteNotes(callback.notes || '');
     setIsMarkingComplete(true);
   };
 
-  // 콜백 완료 처리 함수
+// 🔥 콜백 완료 처리 함수 - 핵심 수정 부분
   const handleMarkCallbackComplete = async () => {
     if (!callbackToComplete) return;
+
+    // 🔍 디버깅 로그 - API 호출 직전
+    console.log('🔍 handleMarkCallbackComplete 시작:', {
+      patient,
+      patientId: patient?.id,
+      patientObjectId: patient?._id,
+      patientPatientId: patient?.patientId,
+      callbackToComplete,
+      nextStep
+    });
     
     try {
       setIsLoading(true);
 
-      // 부재중 처리 로직 추가
+      // 🔥 환자 ID 안전하게 가져오기 - 수정된 부분
+      const safePatientId = patient._id || patient.id || patient.patientId;
+      
+      // 🔍 디버깅 로그 - ID 확인
+      console.log('🔍 환자 ID 확인:', {
+        original_id: patient?.id,
+        original_objectId: patient?._id,
+        original_patientId: patient?.patientId,
+        safePatientId,
+        safePatientIdType: typeof safePatientId
+      });
+      
+      if (!safePatientId) {
+        console.error('환자 ID가 없습니다:', { 
+          hasPatient: !!patient, 
+          hasMongoId: !!patient?._id, 
+          hasId: !!patient?.id,
+          patient: patient 
+        });
+        alert('환자 정보를 찾을 수 없습니다. 페이지를 새로고침해주세요.');
+        setIsLoading(false);
+        return;
+      }
+      
+      // 부재중 처리 로직 - 전체 교체
       if (nextStep === '부재중') {
-      // 부재중 콜백 삭제 및 부재중 콜백 추가
-      await dispatch(deleteCallback({
-        patientId: patient.id,
-        callbackId: callbackToComplete.id
-      })).unwrap();
-      
-      // 부재중 콜백 추가
-      const missedCallData: Omit<CallbackItem, 'id'> = {
-        date: format(new Date(), 'yyyy-MM-dd'), // 오늘 날짜
-        status: '부재중',
-        notes: '부재중: 연락이 되지 않았습니다.',
-        type: callbackToComplete.type, // 기존 콜백 타입 유지
-        time: undefined
-      };
-      
-      await dispatch(addCallback({
-        patientId: patient.id,
-        callbackData: missedCallData
-      })).unwrap();
-      
-      // 재콜백 예약
-      const nextCallbackData: Omit<CallbackItem, 'id'> = {
-        date: nextCallbackDate, // 선택한 다음 콜백 날짜
-        status: '예정',
-        notes: `부재중 이후 재콜백 예정`,
-        type: callbackToComplete.type, // 같은 단계 유지
-        time: undefined
-      };
-      
-      await dispatch(addCallback({
-        patientId: patient.id,
-        callbackData: nextCallbackData
-      })).unwrap();
+        console.log('🔍 부재중 처리 시작:', {
+          callbackToComplete: {
+            id: callbackToComplete.id,
+            date: callbackToComplete.date,
+            type: callbackToComplete.type,
+            status: callbackToComplete.status
+          },
+          nextCallbackDate: nextCallbackDate
+        });
+        
+        // 🔥 기존 콜백을 삭제하지 말고 부재중으로 업데이트
+        const missedCallData: Omit<CallbackItem, 'id'> = {
+          date: callbackToComplete.date, // 🔥 원래 콜백 날짜 유지 (오늘 날짜 아님)
+          status: '부재중',
+          notes: '부재중: 연락이 되지 않았습니다.',
+          type: callbackToComplete.type,
+          time: undefined,
+          // 담당자 정보 추가
+          handledBy: effectiveUser.id,
+          handledByName: effectiveUser.name,
+          createdBy: callbackToComplete.createdBy || effectiveUser.id,
+          createdByName: callbackToComplete.createdByName || effectiveUser.name
+        };
+        
+        // 🔥 1단계: 기존 예정 콜백을 삭제
+        await dispatch(deleteCallback({
+          patientId: safePatientId,
+          callbackId: callbackToComplete.id
+        })).unwrap();
 
-      // 🔥 활동 로그 기록 - 부재중 처리
+        // 🔥 2단계: 같은 날짜에 부재중 콜백으로 추가 (원래 콜백 날짜 유지)
+        await dispatch(addCallback({
+          patientId: safePatientId,
+          callbackData: missedCallData
+        })).unwrap();
+
+        // 🔥 3단계: 재콜백 예약 (사용자가 선택한 날짜로)
+        const nextCallbackData: Omit<CallbackItem, 'id'> = {
+          date: nextCallbackDate, // 사용자가 선택한 재콜백 날짜
+          status: '예정',
+          notes: `${callbackToComplete.date} 부재중 이후 재콜백 예정`,
+          type: callbackToComplete.type, // 같은 단계 유지 (2차는 2차로)
+          time: undefined,
+          // 담당자 정보 추가
+          handledBy: effectiveUser.id,
+          handledByName: effectiveUser.name,
+          createdBy: effectiveUser.id,
+          createdByName: effectiveUser.name
+        };
+        
+        await dispatch(addCallback({
+          patientId: safePatientId,
+          callbackData: nextCallbackData
+        })).unwrap();
+
+        // 🔥 활동 로그 기록 - 부재중 처리
         await logCallbackAction(
           'callback_complete',
-          patient.id,
+          safePatientId,
           patient.name,
           {
             callbackType: callbackToComplete.type,
             result: '부재중',
-            nextCallbackDate: nextCallbackDate,
+            originalCallbackDate: callbackToComplete.date, // 🔥 원래 콜백 날짜 기록
+            nextCallbackDate: nextCallbackDate, // 🔥 재콜백 예정 날짜 기록
             handledBy: effectiveUser.name,
-            notes: `${callbackToComplete.type} 콜백 - 부재중 처리 후 재콜백 예약`
+            notes: `${callbackToComplete.date} ${callbackToComplete.type} 콜백 부재중 → ${nextCallbackDate} 재콜백 예약`
           }
         )
-      
-      // 환자 정보 새로고침
-      dispatch(selectPatient(patient.id));
-      
-      // 성공 처리
-      resetMarkCompleteForm();
-      alert('부재중 처리되었으며, 재콜백이 예약되었습니다.');
-      return; // 여기서 함수 종료
-    }
+
+        // 🔥 환자 정보 새로고침
+        await refreshPatientData();
         
+        // 성공 처리
+        resetMarkCompleteForm();
+        alert(`${callbackToComplete.date} ${callbackToComplete.type} 콜백이 부재중 처리되었으며, ${nextCallbackDate}에 재콜백이 예약되었습니다.`);
+        return; // 여기서 함수 종료
+      }
+    
       // 부재중 처리 로직 아래에 추가
       // 예약 확정이 선택된 경우
       if (nextStep === '예약_확정') {
@@ -526,16 +645,16 @@ export default function CallbackManagement({ patient }: CallbackManagementProps)
         
         // 기존 콜백 삭제
         await dispatch(deleteCallback({
-          patientId: patient.id,
+          patientId: safePatientId, // 🔥 수정
           callbackId: callbackToComplete.id
         })).unwrap();
           
         // 새 (완료된) 콜백 추가
         await dispatch(addCallback({
-          patientId: patient.id,
+          patientId: safePatientId, // 🔥 수정
           callbackData: completedCallbackData
         })).unwrap();
-        
+    
         // 예약 정보 포맷팅 - 상담 내용도 포함 (줄바꿈 추가)
         const reservationDateTime = `${reservationDate} ${reservationTime}`;
         const reservationNote = resultNotes.trim() 
@@ -544,14 +663,14 @@ export default function CallbackManagement({ patient }: CallbackManagementProps)
         
         // 종결 처리 (예약 완료로)
         await dispatch(completePatient({
-          patientId: patient.id,
+          patientId: safePatientId, // 🔥 수정
           reason: reservationNote
         })).unwrap();
-
+        
         // 🔥 활동 로그 기록 - 예약 확정
         await logPatientCompleteAction( // 🔥 함수명 변경
           'patient_complete',
-          patient.id,
+          safePatientId, // 🔥 수정
           patient.name,
           {
             callbackType: callbackToComplete.type,
@@ -563,9 +682,9 @@ export default function CallbackManagement({ patient }: CallbackManagementProps)
             notes: `${callbackToComplete.type} 콜백 완료 - 예약 확정`
           }
         )
-        
-        // 환자 정보 새로고침
-        dispatch(selectPatient(patient.id));
+    
+        // 🔥 환자 정보 새로고침
+        await refreshPatientData();
         
         // 성공 처리
         resetMarkCompleteForm();
@@ -573,77 +692,94 @@ export default function CallbackManagement({ patient }: CallbackManagementProps)
         return;
       }
 
-    // 종결 처리 로직 추가
-    if (nextStep === '종결_처리') {
-      // 현재 콜백을 완료 처리하고, 완료된 콜백 데이터에 종결 정보 추가
-      const completedCallbackData: Omit<CallbackItem, 'id'> = {
-        date: format(new Date(), 'yyyy-MM-dd'), // 오늘 날짜로 업데이트
-        status: '완료',
-        notes: `[상담 내용]\n${resultNotes}`,
-        customerResponse: customerResponse as any,
-        nextStep: '종결_처리', // 종결 처리로 설정
-        type: callbackToComplete.type,
-        time: undefined
-      };
-   
-      // 기존 콜백 삭제
-      await dispatch(deleteCallback({
-        patientId: patient.id,
-        callbackId: callbackToComplete.id
-      })).unwrap();
-        
-      // 새 (완료된) 콜백 추가
-      await dispatch(addCallback({
-        patientId: patient.id,
-        callbackData: completedCallbackData
-      })).unwrap();
-      
-      // 종결 사유 포맷팅
-      const terminationNote = `[종결처리] ${format(new Date(), 'yyyy-MM-dd')} 종결 완료\n${resultNotes}`;
-      
-      // 종결 처리
-      await dispatch(completePatient({
-        patientId: patient.id,
-        reason: terminationNote
-      })).unwrap();
 
-      // 🔥 활동 로그 기록 - 종결 처리
+      // 종결 처리 로직 추가
+      if (nextStep === '종결_처리') {
+        // 🔥 종결 사유 조합하기
+        const finalTerminationReason = selectedTerminationReason === '기타' 
+          ? customTerminationReason.trim() || '기타 사유'
+          : selectedTerminationReason;
+
+        // 현재 콜백을 완료 처리하고, 완료된 콜백 데이터에 종결 정보 추가
+        const completedCallbackData: Omit<CallbackItem, 'id'> = {
+          date: format(new Date(), 'yyyy-MM-dd'),
+          status: '완료',
+          notes: `[상담 내용]\n${resultNotes}\n\n[종결 사유]\n${finalTerminationReason}`,
+          customerResponse: customerResponse as any,
+          nextStep: '종결_처리',
+          type: callbackToComplete.type,
+          time: undefined
+        };
+        
+        // 기존 콜백 삭제
+        await dispatch(deleteCallback({
+          patientId: safePatientId, // 🔥 수정: patient.id → safePatientId
+          callbackId: callbackToComplete.id
+        })).unwrap();
+          
+        // 새 (완료된) 콜백 추가
+        await dispatch(addCallback({
+          patientId: safePatientId, // 🔥 수정: patient.id → safePatientId
+          callbackData: completedCallbackData
+        })).unwrap();
+        
+        // 🔥 종결 사유 포맷팅 수정
+        const terminationNote = `[종결처리] ${format(new Date(), 'yyyy-MM-dd')} 종결 완료\n사유: ${finalTerminationReason}\n상담내용: ${resultNotes}`;
+        
+        // 종결 처리
+        await dispatch(completePatient({
+          patientId: safePatientId, // 🔥 수정: patient.id → safePatientId
+          reason: terminationNote
+        })).unwrap();
+
+  // 🔥 활동 로그 기록 - 종결 처리
         await logCallbackAction(
           'callback_complete',
-          patient.id,
+          safePatientId, // 🔥 수정: patient.id → safePatientId
           patient.name,
           {
             callbackType: callbackToComplete.type,
             result: '종결처리',
+            terminationReason: finalTerminationReason,
             consultationNotes: resultNotes,
             handledBy: effectiveUser.name,
-            notes: `${callbackToComplete.type} 콜백 완료 - 종결 처리`
+            notes: `${callbackToComplete.type} 콜백 완료 - 종결 처리 (사유: ${finalTerminationReason})`
           }
         )
-      
-      // 환자 정보 새로고침
-      dispatch(selectPatient(patient.id));
-      
-      // 성공 처리
-      resetMarkCompleteForm();
-      alert('환자가 종결 처리되었습니다.');
-      return;
-    }
+        
+        // 🔥 환자 정보 새로고침 - 즉시 반영을 위해 추가
+        await refreshPatientData();
+        
+        // 🔥 추가: Redux에서 환자 선택 새로고침
+        dispatch(selectPatient(safePatientId));
+        
+        // 🔥 추가: 약간의 딜레이 후 한 번 더 새로고침 (안전장치)
+        setTimeout(() => {
+          dispatch(selectPatient(safePatientId));
+          setForceUpdate(prev => prev + 1);
+        }, 100);
+        
+        // 성공 처리
+        resetMarkCompleteForm();
+        alert(`환자가 종결 처리되었습니다. (사유: ${finalTerminationReason})`);
+        return;
+      }
 
-    // 이벤트 타겟 설정 로직 추가
-    if (nextStep === '이벤트_타겟_설정') {
-      // 현재 콜백을 완료 처리
-      const completedCallbackData: Omit<CallbackItem, 'id'> = {
-        date: format(new Date(), 'yyyy-MM-dd'),
-        status: '완료',
-        notes: `[상담 내용]\n${resultNotes}`,
-        customerResponse: customerResponse as any,
-        nextStep: '이벤트_타겟_설정',
-        type: callbackToComplete.type,
-        time: undefined
-      };
 
-      // 이벤트 타겟으로 설정 - 카테고리 검증 추가
+// 이벤트 타겟 설정 로직 추가
+      if (nextStep === '이벤트_타겟_설정') {
+        // 현재 콜백을 완료 처리
+        const completedCallbackData: Omit<CallbackItem, 'id'> = {
+          date: format(new Date(), 'yyyy-MM-dd'),
+          status: '완료',
+          notes: `[상담 내용]\n${resultNotes}`,
+          customerResponse: customerResponse as any,
+          nextStep: '이벤트_타겟_설정',
+          type: callbackToComplete.type,
+          time: undefined
+        };
+        
+        // 이벤트 타겟으로 설정 - 카테고리 검증 추가
         const availableCategories = getEventCategoryOptions([], categories);
         const isValidCategory = availableCategories.some(cat => cat.value === eventTargetCategory);
         
@@ -664,61 +800,61 @@ export default function CallbackManagement({ patient }: CallbackManagementProps)
             updatedAt: new Date().toISOString()
           }
         })).unwrap();
-      
-      // 기존 콜백 삭제
-      await dispatch(deleteCallback({
-        patientId: patient.id,
-        callbackId: callbackToComplete.id
-      })).unwrap();
+  
+        // 기존 콜백 삭제
+        await dispatch(deleteCallback({
+          patientId: patient.id,
+          callbackId: callbackToComplete.id
+        })).unwrap();
+          
+        // 새 (완료된) 콜백 추가
+        await dispatch(addCallback({
+          patientId: patient.id,
+          callbackData: completedCallbackData
+        })).unwrap();
         
-      // 새 (완료된) 콜백 추가
-      await dispatch(addCallback({
-        patientId: patient.id,
-        callbackData: completedCallbackData
-      })).unwrap();
-      
-      // 이벤트 타겟으로 설정
-      await dispatch(updateEventTargetInfo({
-        patientId: patient.id,
-        eventTargetInfo: {
-          isEventTarget: true,
-          targetReason: eventTargetReason,
-          categories: [eventTargetCategory], // 🔥 단일값을 배열로 감싸서 전송
-          scheduledDate: eventTargetScheduledDate,
-          notes: `콜백 완료 후 이벤트 타겟으로 설정됨\n상담 내용: ${resultNotes}`,
-          createdAt: new Date().toISOString(),
-          updatedAt: new Date().toISOString()
-        }
-      })).unwrap();
-      
-      // 이벤트 타겟 목록 새로고침
-      await dispatch(initializeEventTargets()).unwrap();
-      
-      // 🔥 활동 로그 기록 - 이벤트 타겟 설정
-              await logCallbackAction(
-                'callback_complete',
-                patient.id,
-                patient.name,
-                {
-                  callbackType: callbackToComplete.type,
-                  result: '이벤트타겟설정',
-                  eventTargetReason: eventTargetReason,
-                  eventTargetCategory: eventTargetCategory,
-                  scheduledDate: eventTargetScheduledDate,
-                  consultationNotes: resultNotes,
-                  handledBy: effectiveUser.name,
-                  notes: `${callbackToComplete.type} 콜백 완료 - 이벤트 타겟 설정`
-                }
-              )
-
-      // 환자 정보 새로고침
-      dispatch(selectPatient(patient.id));
-      
-      // 성공 처리
-      resetMarkCompleteForm();
-      alert('환자가 이벤트 타겟으로 설정되었습니다. 추후 프로모션 발송 시 포함됩니다.');
-      return;
-    }
+        // 이벤트 타겟으로 설정
+        await dispatch(updateEventTargetInfo({
+          patientId: patient.id,
+          eventTargetInfo: {
+            isEventTarget: true,
+            targetReason: eventTargetReason,
+            categories: [eventTargetCategory], // 🔥 단일값을 배열로 감싸서 전송
+            scheduledDate: eventTargetScheduledDate,
+            notes: `콜백 완료 후 이벤트 타겟으로 설정됨\n상담 내용: ${resultNotes}`,
+            createdAt: new Date().toISOString(),
+            updatedAt: new Date().toISOString()
+          }
+        })).unwrap();
+        
+        // 이벤트 타겟 목록 새로고침
+        await dispatch(initializeEventTargets()).unwrap();
+  
+        // 🔥 활동 로그 기록 - 이벤트 타겟 설정
+        await logCallbackAction(
+          'callback_complete',
+          patient.id,
+          patient.name,
+          {
+            callbackType: callbackToComplete.type,
+            result: '이벤트타겟설정',
+            eventTargetReason: eventTargetReason,
+            eventTargetCategory: eventTargetCategory,
+            scheduledDate: eventTargetScheduledDate,
+            consultationNotes: resultNotes,
+            handledBy: effectiveUser.name,
+            notes: `${callbackToComplete.type} 콜백 완료 - 이벤트 타겟 설정`
+          }
+        )
+        
+        // 🔥 환자 정보 새로고침
+        await refreshPatientData();
+        
+        // 성공 처리
+        resetMarkCompleteForm();
+        alert('환자가 이벤트 타겟으로 설정되었습니다. 추후 프로모션 발송 시 포함됩니다.');
+        return;
+      }
 
       // 완료된 콜백 데이터 준비
       // 상담 내용과 다음 상담 계획을 포함한 구조화된 메모 포맷 생성
@@ -728,7 +864,7 @@ export default function CallbackManagement({ patient }: CallbackManagementProps)
       } else {
         completedCallbackNotes = `[상담 내용]\n${resultNotes}`;
       }
-
+      
       const completedCallbackData: Omit<CallbackItem, 'id'> = {
         date: format(new Date(), 'yyyy-MM-dd'),
         status: '완료',
@@ -743,21 +879,16 @@ export default function CallbackManagement({ patient }: CallbackManagementProps)
         createdBy: callbackToComplete.createdBy || effectiveUser.id,
         createdByName: callbackToComplete.createdByName || effectiveUser.name
       };
-      
-      // 기존 콜백 삭제
-      await dispatch(deleteCallback({
-        patientId: patient.id,
-        callbackId: callbackToComplete.id
+
+      // 🔥 변경: PUT (추가)
+      await dispatch(updateCallback({
+        patientId: safePatientId,
+        callbackId: callbackToComplete.id,
+        updateData: completedCallbackData
       })).unwrap();
       
-      // 새 (완료된) 콜백 추가
-      await dispatch(addCallback({
-        patientId: patient.id,
-        callbackData: completedCallbackData
-      })).unwrap();
-      
-      // selectPatient를 호출하여 환자 정보 새로고침
-      dispatch(selectPatient(patient.id));
+      // 🔥 환자 정보 새로고침
+      await refreshPatientData();
       
       // 다음 단계가 3차 콜백이고, 현재 2차 콜백인 경우 자동으로 3차 콜백 예약
       if ((nextStep === '2차_콜백' && callbackToComplete.type === '1차') ||
@@ -772,11 +903,10 @@ export default function CallbackManagement({ patient }: CallbackManagementProps)
         const nextCallbackType = nextStep === '2차_콜백' ? '2차' :
                                 nextStep === '3차_콜백' ? '3차' : 
                                 nextStep === '4차_콜백' ? '4차' : '5차';
-        
+    
         // 간단한 메모만 포함
         const notes = `다음 ${nextCallbackType} 콜백 예정`;
-
-
+        
         // 다음 콜백 자동 예약
         await dispatch(addCallback({
           patientId: patient.id,
@@ -789,39 +919,39 @@ export default function CallbackManagement({ patient }: CallbackManagementProps)
           }
         })).unwrap();
 
-        
-      // 🔥 활동 로그 기록 - 일반 콜백 완료
-      await logCallbackAction(
-        'callback_complete',
-        patient.id,
-        patient.name,
-        {
-          callbackType: callbackToComplete.type,
-          result: '완료',
-          nextStep: nextStep,
-          consultationNotes: resultNotes,
-          customerResponse: customerResponse,
-          handledBy: effectiveUser.name,
-          notes: `${callbackToComplete.type} 콜백 완료`
-        }
-      )
-        
-        // 환자 정보 새로고침
-        dispatch(selectPatient(patient.id));
-      }
     
+  // 🔥 활동 로그 기록 - 일반 콜백 완료
+        await logCallbackAction(
+          'callback_complete',
+          patient.id,
+          patient.name,
+          {
+            callbackType: callbackToComplete.type,
+            result: '완료',
+            nextStep: nextStep,
+            consultationNotes: resultNotes,
+            customerResponse: customerResponse,
+            handledBy: effectiveUser.name,
+            notes: `${callbackToComplete.type} 콜백 완료`
+          }
+        )
+        
+        // 🔥 환자 정보 새로고침
+        await refreshPatientData();
+      }
+      
       // 성공 처리
       resetMarkCompleteForm();
       alert('콜백이 완료 처리되었습니다.');
       
     } catch (error) {
       console.error('콜백 완료 처리 오류:', error);
-      
+  
       // 🔥 활동 로그 기록 - 콜백 완료 실패
       try {
         await logCallbackAction(
           'callback_complete',
-          patient.id,
+          patient._id || patient.id, // 🔥 여기도 안전하게 처리
           patient.name,
           {
             error: error instanceof Error ? error.message : '알 수 없는 오류',
@@ -833,13 +963,21 @@ export default function CallbackManagement({ patient }: CallbackManagementProps)
         console.warn('활동 로그 기록 실패:', logError)
       }
 
+      // 🔍 디버깅 로그 - 오류 상세 정보
+      console.log('🔍 오류 발생 시 환자 정보:', {
+        patient,
+        patientId: patient?.id,
+        patientObjectId: patient?._id,
+        error: error instanceof Error ? error.message : error
+      });
+      
       alert('콜백 완료 처리 중 오류가 발생했습니다.');
     } finally {
       setIsLoading(false);
     }
   };
-  
-  // 콜백 생성 폼 초기화
+
+// 콜백 생성 폼 초기화
   const resetForm = () => {
     setCallbackDate(format(new Date(), 'yyyy-MM-dd'))
     setCallbackStatus('예정')
@@ -848,32 +986,31 @@ export default function CallbackManagement({ patient }: CallbackManagementProps)
     setIsAddingCallback(false)
     setIsAddingMissedCall(false)
     if (callbackType === '1차') {
-    setNextCallbackType('2차');
-  } else if (callbackType === '2차') {
-    setNextCallbackType('3차');
-  } else if (callbackType === '3차') {
-    setNextCallbackType('4차');
-  } else if (callbackType === '4차') {
-    setNextCallbackType('5차');
-  } else {
-    setNextCallbackType('예약완료');
-  }
-    
+      setNextCallbackType('2차');
+    } else if (callbackType === '2차') {
+      setNextCallbackType('3차');
+    } else if (callbackType === '3차') {
+      setNextCallbackType('4차');
+    } else if (callbackType === '4차') {
+      setNextCallbackType('5차');
+    } else {
+      setNextCallbackType('예약완료');
+    }
     // 새로 추가된 상태 초기화
     setCallbackResult('상담중')
     setNextPlanNotes('')
     setTerminationReason('')
     setReservationDate(format(new Date(), 'yyyy-MM-dd'))
     setReservationTime('10:00')
-    
+
     // 수정 모달 상태도 초기화
     setIsEditingCallback(false)
     setCallbackToEdit(null)
     setEditNotes('')
     setEditDate('')
   }
-  
-  // 취소 모달 초기화
+
+// 취소 모달 초기화
   const resetCancelForm = () => {
     setIsCanceling(false)
     setSelectedCallback(null)
@@ -899,46 +1036,43 @@ export default function CallbackManagement({ patient }: CallbackManagementProps)
   const resetCancelCompletionForm = () => {
     setIsConfirmingCancelCompletion(false)
   }
-  
-  // 이전 단계 콜백이 완료되었는지 확인
+
+// 이전 단계 콜백이 완료되었는지 확인
   const isCallbackSequenceValid = (requestedType: CallbackType): boolean => {
     if (requestedType === '1차') return true;
-    
     const validCallbacks = callbackHistory.filter(cb => cb.status === '완료');
-    
+
     // 2차 콜백을 요청하는 경우 1차가 완료되어야 함
     if (requestedType === '2차') {
       return validCallbacks.some(cb => cb.type === '1차');
     }
-    
+
     // 3차 콜백을 요청하는 경우 2차가 완료되어야 함
     if (requestedType === '3차') {
       return validCallbacks.some(cb => cb.type === '2차');
     }
-  
+
     // 4차 콜백을 요청하는 경우 3차가 완료되어야 함
     if (requestedType === '4차') {
       return validCallbacks.some(cb => cb.type === '3차');
     }
-  
+
     // 5차 콜백을 요청하는 경우 4차가 완료되어야 함
     if (requestedType === '5차') {
       return validCallbacks.some(cb => cb.type === '4차');
     }
-    
+
     return false;
-  }
-  
-  // 다음 콜백 타입 결정 (1차 -> 2차 -> 3차)
+}
+// 다음 콜백 타입 결정 (1차 -> 2차 -> 3차)
   const getNextCallbackType = (): CallbackType => {
     if (callbackHistory.length === 0) {
       return '1차'
     }
-    
     const completedTypes = callbackHistory
       .filter(cb => cb.status === '완료') // 완료된 콜백만 고려
       .map(cb => cb.type)
-    
+
     // 완료된 콜백을 기준으로 다음 단계 결정
     if (completedTypes.includes('4차')) return '5차'
     if (completedTypes.includes('3차')) return '4차'
@@ -947,677 +1081,757 @@ export default function CallbackManagement({ patient }: CallbackManagementProps)
     return '1차'
   }
   
-  // 콜백 추가 폼 열기
-  const handleOpenAddCallback = () => {
-    // 종결된 환자인 경우 콜백 추가 불가
-    if (patient.isCompleted) {
-      alert('종결 처리된 환자에게는 콜백을 추가할 수 없습니다. 먼저 종결 처리를 취소해주세요.');
-      return;
-    }
-    
-    const nextType = getNextCallbackType();
-    setCallbackType(nextType);
-    
-    // 이전 단계 콜백 완료 여부 확인
-    if (!isCallbackSequenceValid(nextType)) {
-      alert(`${nextType} 콜백을 추가하기 전에 이전 단계의 콜백을 완료해야 합니다.`);
-      return;
-    }
-    
-    setIsAddingCallback(true);
-    setIsAddingMissedCall(false);
-  }
+// 콜백 추가 폼 열기
+const handleOpenAddCallback = () => {
+// 종결된 환자인 경우 콜백 추가 불가
+if (patient.isCompleted) {
+alert('종결 처리된 환자에게는 콜백을 추가할 수 없습니다. 먼저 종결 처리를 취소해주세요.');
+return;
+}
+const nextType = getNextCallbackType();
+setCallbackType(nextType);
+
+// 이전 단계 콜백 완료 여부 확인
+if (!isCallbackSequenceValid(nextType)) {
+  alert(`${nextType} 콜백을 추가하기 전에 이전 단계의 콜백을 완료해야 합니다.`);
+  return;
+}
+
+setIsAddingCallback(true);
+setIsAddingMissedCall(false);
+}
+// 부재중 콜백 추가 폼 열기
+const handleOpenAddMissedCall = () => {
+// 종결된 환자인 경우 콜백 추가 불가
+if (patient.isCompleted) {
+alert('종결 처리된 환자에게는 콜백을 추가할 수 없습니다. 먼저 종결 처리를 취소해주세요.');
+return;
+}
+const nextType = getNextCallbackType();
+setCallbackType(nextType);
+
+// 이전 단계 콜백 완료 여부 확인
+if (!isCallbackSequenceValid(nextType)) {
+  alert(`${nextType} 콜백을 추가하기 전에 이전 단계의 콜백을 완료해야 합니다.`);
+  return;
+}
+
+setIsAddingCallback(true);
+setIsAddingMissedCall(true);
+setCallbackNotes('부재중: 연락이 되지 않았습니다.');
+// 부재중 상태로 변경
+setCallbackStatus('부재중'); // '완료' 대신 '부재중' 상태로 설정
+}
+// 🔥 콜백 생성 함수 수정 - 환자 정보 검증 강화
+const handleAddCallback = async () => {
+// 🔥 환자 정보 검증 추가 및 강화
+if (!patient) {
+console.error('환자 정보가 없습니다.');
+alert('환자 정보를 찾을 수 없습니다. 페이지를 새로고침해주세요.');
+return;
+}
+// 🔥 환자 ID 검증 - _id와 id 모두 확인
+const safePatientId = patient._id || patient.id;
+if (!safePatientId) {
+  console.error('환자 정보가 부족합니다:', { 
+    hasPatient: !!patient, 
+    hasMongoId: !!patient?._id, 
+    hasId: !!patient?.id,
+    patient: patient 
+  });
+  alert('환자 정보를 찾을 수 없습니다. 페이지를 새로고침해주세요.');
+  return;
+}
+
+console.log('콜백 추가 시 사용할 환자 ID:', safePatientId);
+
+ // 필수 입력 항목 확인
+if (!callbackDate || !callbackResult) return
+
+// 한 번 더 이전 단계 콜백 완료 여부 확인
+if (!isCallbackSequenceValid(callbackType)) {
+  alert(`${callbackType} 콜백을 추가하기 전에 이전 단계의 콜백을 완료해야 합니다.`);
+  return;
+}
+try {
+setIsLoading(true)
+// 콜백 결과에 따른 처리
+if (callbackResult === '상담중') {
+  // 상담 중인 경우 - 현재 상담 저장과 다음 상담 예약
+  const combinedNotes = `[상담 내용]\n${callbackNotes}\n\n[다음 상담 계획]\n${nextPlanNotes}`;
   
-  // 부재중 콜백 추가 폼 열기
-  const handleOpenAddMissedCall = () => {
-    // 종결된 환자인 경우 콜백 추가 불가
-    if (patient.isCompleted) {
-      alert('종결 처리된 환자에게는 콜백을 추가할 수 없습니다. 먼저 종결 처리를 취소해주세요.');
-      return;
-    }
-    
-    const nextType = getNextCallbackType();
-    setCallbackType(nextType);
-    
-    // 이전 단계 콜백 완료 여부 확인
-    if (!isCallbackSequenceValid(nextType)) {
-      alert(`${nextType} 콜백을 추가하기 전에 이전 단계의 콜백을 완료해야 합니다.`);
-      return;
-    }
-    
-    setIsAddingCallback(true);
-    setIsAddingMissedCall(true);
-    setCallbackNotes('부재중: 연락이 되지 않았습니다.');
-    // 부재중 상태로 변경
-    setCallbackStatus('부재중'); // '완료' 대신 '부재중' 상태로 설정
-  }
-  
-  // 콜백 생성 함수 수정 - 중복 생성 문제 해결
-  const handleAddCallback = async () => {
-    // 필수 입력 항목 확인
-    if (!callbackDate || !callbackResult) return
-  
-    // 각 결과에 따른 필수 항목 확인
-    if (callbackResult === '상담중' && (!callbackNotes || !nextPlanNotes || !nextCallbackDate || !nextCallbackType)) return
-    if (callbackResult === '예약완료' && (!reservationDate || !reservationTime)) return
-    if (callbackResult === '종결' && !terminationReason) return
-    
-    // 종결된 환자인 경우 콜백 추가 불가
-    if (patient.isCompleted) {
-      alert('종결 처리된 환자에게는 콜백을 추가할 수 없습니다. 먼저 종결 처리를 취소해주세요.');
-      return;
+  let nextStepValue = '';
+    if (nextCallbackType === '2차') {
+      nextStepValue = '2차_콜백';
+    } else if (nextCallbackType === '3차') {
+      nextStepValue = '3차_콜백';
+    } else if (nextCallbackType === '4차') {
+      nextStepValue = '4차_콜백';
+    } else if (nextCallbackType === '5차') {
+      nextStepValue = '5차_콜백';
+    } else if (nextCallbackType === '예약완료') {
+      nextStepValue = '예약_확정';
+    } else if (nextCallbackType === '재검토') {
+      nextStepValue = ''; // 재검토는 빈 문자열로 처리
     }
 
-    // 한 번 더 이전 단계 콜백 완료 여부 확인
-    if (!isCallbackSequenceValid(callbackType)) {
-      alert(`${callbackType} 콜백을 추가하기 전에 이전 단계의 콜백을 완료해야 합니다.`);
-      return;
+  // 1. 현재 상담 완료 처리 부분
+  await dispatch(addCallback({
+    patientId: safePatientId, // 🔥 검증된 ID 사용
+    callbackData: {
+      date: callbackDate,
+      status: '완료',
+      notes: combinedNotes,
+      type: callbackType,
+      time: undefined,
+      nextStep: nextStepValue as any,
+      handledBy: effectiveUser.id,
+      handledByName: effectiveUser.name,
+      createdBy: effectiveUser.id,
+      createdByName: effectiveUser.name
     }
+  })).unwrap();
+
+  // 🔥 활동 로그 기록 - 콜백 완료
+    await logCallbackAction(
+      'callback_complete',
+      patient.id,
+      patient.name,
+      {
+        callbackType: callbackType,
+        callbackDate: callbackDate,
+        result: '상담중',
+        nextStep: nextStepValue,
+        handledBy: effectiveUser.name,
+        handledByName: effectiveUser.name,
+        notes: `${callbackType} 콜백 완료 - 다음 단계: ${nextCallbackType}`
+      }
+    )
+  
+  // 2. 다음 상담 예약 자동 생성
+  if (nextCallbackType !== '예약완료' && nextCallbackType !== '재검토') {
+    await dispatch(addCallback({
+      patientId: safePatientId, // 🔥 검증된 ID 사용
+      callbackData: {
+        date: nextCallbackDate,
+        status: '예정',
+        notes: `다음 ${nextCallbackType} 콜백 예정`, // 간단한 메모로 변경
+        type: nextCallbackType as any,
+        time: undefined
+      }
+    })).unwrap();
+
+    // 🔥 이 부분 추가 - 다음 콜백 등록 로깅
+    await logCallbackAction(
+      'callback_create',
+      patient.id,
+      patient.name,
+      {
+        callbackType: nextCallbackType,
+        callbackDate: nextCallbackDate,
+        status: '예정',
+        handledBy: effectiveUser.name,
+        notes: `${nextCallbackType} 콜백 예약 등록`
+      }
+    )      
+  }
+  
+} else if (callbackResult === '부재중') {
+  // 부재중인 경우
+  const notes = '부재중: 연락이 되지 않았습니다.';
+  
+  await dispatch(addCallback({
+    patientId: safePatientId, // 🔥 검증된 ID 사용
+    callbackData: {
+      date: callbackDate,
+      status: '부재중',
+      notes: notes,
+      type: callbackType,
+      time: undefined,
+      // 🔥 담당자 정보 추가
+      handledBy: effectiveUser.id,
+      handledByName: effectiveUser.name,
+      createdBy: effectiveUser.id,
+      createdByName: effectiveUser.name
+    }
+  })).unwrap()
+
+  
+  // 마지막 콜백(3차)이 부재중인 경우 '부재중'으로 상태 변경
+  if (callbackType === '3차') {
+    await dispatch(updatePatient({
+      patientId: safePatientId, // 🔥 검증된 ID 사용
+      patientData: {
+        status: '부재중'
+      }
+    })).unwrap();
+  }
+  
+} else if (callbackResult === '예약완료') {
+  // 🔥 예약 완료 처리 수정
+  const today = new Date().toISOString().split('T')[0];
+  const reservationDateTime = `${reservationDate} ${reservationTime}`;
+  
+  const terminationNote = callbackNotes.trim() 
+    ? `[예약완료] 예약일시: ${reservationDateTime}\n\n${callbackNotes}`
+    : `[예약완료] 예약일시: ${reservationDateTime}`;
+  
+  console.log('예약 완료 처리 시 환자 ID:', safePatientId);
+  
+  // 환자 종결 처리만 수행 (콜백 추가는 이 안에서 자동으로 처리됨)
+  await dispatch(completePatient({
+    patientId: safePatientId, // 🔥 검증된 ID 사용
+    reason: terminationNote
+  })).unwrap();
+
+  // 🔥 활동 로그 기록 - 부재중
+    await logPatientCompleteAction( // 🔥 함수명 변경
+      'patient_complete',
+        patient.id,
+        patient.name,
+        {
+          callbackType: callbackType,
+          result: '종결',
+          terminationReason: terminationReason,
+          handledBy: effectiveUser.name,
+          notes: `${callbackType} 콜백 - 종결 처리`
+        }
+      )
+  
+  // 환자 정보 새로고침
+  dispatch(selectPatient(patient.id));
+} else if (callbackResult === '종결') {
+  // 🔥 종결 처리 수정
+  console.log('종결 처리 시 환자 ID:', safePatientId);
+  
+  await dispatch(completePatient({
+    patientId: safePatientId, // 🔥 검증된 ID 사용
+    reason: terminationReason
+  })).unwrap();
+
+     // 🔥 활동 로그 기록 - 종결 처리
+    await logPatientCompleteAction(
+      'patient_complete',
+      patient.id,
+      patient.name,
+      {
+        callbackType: callbackType,
+        result: '종결',
+        terminationReason: terminationReason,
+        handledBy: effectiveUser.name,
+        notes: `${callbackType} 콜백 - 종결 처리`
+      }
+    )
+    
+    // 환자 정보 새로고침
+    dispatch(selectPatient(patient.id));
+  }
+
+// 결과에 따른 알림 표시
+if (callbackResult === '부재중' && callbackType === '3차') {
+  alert('3차 부재중 콜백이 기록되었습니다. 환자 상태가 "부재중"으로 자동 변경되었습니다.');
+} else if (callbackResult === '예약완료') {
+  alert('환자의 예약이 완료되었습니다.');
+} else if (callbackResult === '종결') {
+  alert('환자가 성공적으로 종결 처리되었습니다.');
+} else {
+  alert('콜백이 등록되었습니다.');
+}
+
+// 모든 조건에서 성공 후 폼 초기화
+resetForm();
+} catch (error) {
+console.error('콜백 추가 오류:', error)
+alert('콜백 추가 중 오류가 발생했습니다.')
+} finally {
+setIsLoading(false)
+}
+}
+// 콜백 취소 모달 열기
+const handleOpenCancelModal = (callback: CallbackItem) => {
+// 종결된 환자인 경우 콜백 취소 불가
+if (patient.isCompleted) {
+alert('종결 처리된 환자의 콜백은 취소할 수 없습니다. 먼저 종결 처리를 취소해주세요.');
+return;
+}
+if (callback.status === '취소') {
+  alert('이미 취소된 콜백입니다.')
+  return
+}
+
+if (callback.status === '완료') {
+  alert('이미 완료된 콜백은 취소할 수 없습니다.')
+  return
+}
+
+setSelectedCallback(callback)
+setIsCanceling(true)
+}
+// 콜백 삭제 모달 열기
+const handleOpenDeleteModal = (callback: CallbackItem) => {
+// 종결된 환자인 경우, 종결 레코드는 삭제 불가
+if (patient.isCompleted && callback.isCompletionRecord === true) {
+alert('종결 처리 기록은 삭제할 수 없습니다. 먼저 종결 처리를 취소해주세요.');
+return;
+}
+setCallbackToDelete(callback)
+setIsDeleting(true)
+}
+// 콜백 종결 모달 열기
+const handleOpenCompleteModal = (isSuccessful: boolean) => {
+// 종결된 환자인 경우 종결 처리 불가
+if (patient.isCompleted) {
+alert('이미 종결 처리된 환자입니다.');
+return;
+}
+setIsSuccess(isSuccessful)
+setIsConfirmingComplete(true)
+}
+// 종결 취소 모달 열기
+const handleOpenCancelCompletionModal = () => {
+if (!patient.isCompleted) {
+alert('종결 처리되지 않은 환자입니다.');
+return;
+}
+setIsConfirmingCancelCompletion(true);
+}
+// 콜백 취소 함수 수정 - 중복 생성 문제 해결
+const handleCancelCallback = async () => {
+if (!selectedCallback) return
+// 종결된 환자인 경우 콜백 취소 불가
+if (patient.isCompleted) {
+  alert('종결 처리된 환자의 콜백은 취소할 수 없습니다. 먼저 종결 처리를 취소해주세요.');
+  resetCancelForm();
+  return;
+}
+
+try {
+  setIsLoading(true)
+  
+  // Redux 액션 디스패치
+  await dispatch(cancelCallback({
+    patientId: patient.id,
+    callbackId: selectedCallback.id,
+    cancelReason: cancelReason
+  })).unwrap()
+
+  // 🔥 이 부분 추가
+  await logCallbackAction(
+    'callback_cancel',
+    patient.id,
+    patient.name,
+    {
+      callbackId: selectedCallback.id,
+      callbackType: selectedCallback.type,
+      callbackDate: selectedCallback.date,
+      cancelReason: cancelReason,
+      handledBy: effectiveUser.name,
+      notes: `${selectedCallback.type} 콜백 취소`
+    }
+  )
+  
+  // selectPatient를 호출하여 환자 정보 새로고침
+  // 이 시점에서 Redux 스토어는 이미 업데이트되었고, useEffect에 의해 
+  // callbackHistory 상태가 자동으로 업데이트됨 
+  // -> 로컬에서 추가로 상태 업데이트 필요 없음
+   dispatch(selectPatient(patient.id));
+     
+     // 성공 처리
+     resetCancelForm()
+   } catch (error) {
+     console.error('콜백 취소 오류:', error)
+
+     // 🔥 활동 로그 기록 - 콜백 취소 실패
+     try {
+       await logCallbackAction(
+         'callback_cancel',
+         patient.id,
+         patient.name,
+         {
+           error: error instanceof Error ? error.message : '알 수 없는 오류',
+           callbackId: selectedCallback.id,
+           attemptedBy: effectiveUser.name
+         }
+       )
+     } catch (logError) {
+       console.warn('활동 로그 기록 실패:', logError)
+     }
+
+     alert('콜백 취소 중 오류가 발생했습니다.')
+   } finally {
+     setIsLoading(false)
+   }
+ }
+ 
+ // 🔥 콜백 삭제 함수 수정 - 즉시 반영
+const handleDeleteCallback = async () => {
+  if (!callbackToDelete) return
+  
+  // 종결된 환자인 경우, 종결 레코드는 삭제 불가
+  if (patient.isCompleted && callbackToDelete.isCompletionRecord === true) {
+    alert('종결 처리 기록은 삭제할 수 없습니다. 먼저 종결 처리를 취소해주세요.');
+    resetDeleteForm();
+    return;
+  }
   
   try {
     setIsLoading(true)
     
-    // 콜백 결과에 따른 처리
-    if (callbackResult === '상담중') {
-      // 상담 중인 경우 - 현재 상담 저장과 다음 상담 예약
-      const combinedNotes = `[상담 내용]\n${callbackNotes}\n\n[다음 상담 계획]\n${nextPlanNotes}`;
-      
-      let nextStepValue = '';
-        if (nextCallbackType === '2차') {
-          nextStepValue = '2차_콜백';
-        } else if (nextCallbackType === '3차') {
-          nextStepValue = '3차_콜백';
-        } else if (nextCallbackType === '4차') {
-          nextStepValue = '4차_콜백';
-        } else if (nextCallbackType === '5차') {
-          nextStepValue = '5차_콜백';
-        } else if (nextCallbackType === '예약완료') {
-          nextStepValue = '예약_확정';
-        } else if (nextCallbackType === '재검토') {
-          nextStepValue = ''; // 재검토는 빈 문자열로 처리
-        }
-
-      // 1. 현재 상담 완료 처리 부분
-      await dispatch(addCallback({
-        patientId: patient.id,
-        callbackData: {
-          date: callbackDate,
-          status: '완료',
-          notes: combinedNotes,
-          type: callbackType,
-          time: undefined,
-          nextStep: nextStepValue as any,
-          // 🔥 담당자 정보 추가
-          handledBy: effectiveUser.id,
-          handledByName: effectiveUser.name,
-          createdBy: effectiveUser.id,
-          createdByName: effectiveUser.name
-        }
-      })).unwrap();
-
-      // 🔥 활동 로그 기록 - 콜백 완료
-        await logCallbackAction(
-          'callback_complete',
-          patient.id,
-          patient.name,
-          {
-            callbackType: callbackType,
-            callbackDate: callbackDate,
-            result: '상담중',
-            nextStep: nextStepValue,
-            handledBy: effectiveUser.name,
-            handledByName: effectiveUser.name,
-            notes: `${callbackType} 콜백 완료 - 다음 단계: ${nextCallbackType}`
-          }
-        )
-      
-      // 2. 다음 상담 예약 자동 생성
-      if (nextCallbackType !== '예약완료' && nextCallbackType !== '재검토') {
-        await dispatch(addCallback({
-          patientId: patient.id,
-          callbackData: {
-            date: nextCallbackDate,
-            status: '예정',
-            notes: `다음 ${nextCallbackType} 콜백 예정`, // 간단한 메모로 변경
-            type: nextCallbackType as any,
-            time: undefined
-          }
-        })).unwrap();
-
-        // 🔥 이 부분 추가 - 다음 콜백 등록 로깅
-        await logCallbackAction(
-          'callback_create',
-          patient.id,
-          patient.name,
-          {
-            callbackType: nextCallbackType,
-            callbackDate: nextCallbackDate,
-            status: '예정',
-            handledBy: effectiveUser.name,
-            notes: `${nextCallbackType} 콜백 예약 등록`
-          }
-        )      
-      }
-      
-    } else if (callbackResult === '부재중') {
-      // 부재중인 경우
-      const notes = '부재중: 연락이 되지 않았습니다.';
-      
-      await dispatch(addCallback({
-        patientId: patient.id,
-        callbackData: {
-          date: callbackDate,
-          status: '부재중',
-          notes: notes,
-          type: callbackType,
-          time: undefined,
-          // 🔥 담당자 정보 추가
-          handledBy: effectiveUser.id,
-          handledByName: effectiveUser.name,
-          createdBy: effectiveUser.id,
-          createdByName: effectiveUser.name
-        }
-      })).unwrap()
-
-      
-      // 마지막 콜백(3차)이 부재중인 경우 '부재중'으로 상태 변경
-      if (callbackType === '3차') {
-        await dispatch(updatePatient({
-          patientId: patient.id,
-          patientData: {
-            status: '부재중'
-          }
-        })).unwrap();
-      }
-      
-    } else if (callbackResult === '예약완료') {
-      // 예약 완료 처리
-      const today = new Date().toISOString().split('T')[0];
-      const reservationDateTime = `${reservationDate} ${reservationTime}`;
-      
-      // 상담 내용도 함께 포함하여 저장 (줄바꿈 추가)
-      const terminationNote = callbackNotes.trim() 
-        ? `[예약완료] 예약일시: ${reservationDateTime}\n\n${callbackNotes}`  // \n\n으로 변경
-        : `[예약완료] 예약일시: ${reservationDateTime}`;
-      
-      // 환자 종결 처리만 수행 (콜백 추가는 이 안에서 자동으로 처리됨)
-      await dispatch(completePatient({
-        patientId: patient.id,
-        reason: terminationNote
-      })).unwrap();
-
-      // 🔥 활동 로그 기록 - 부재중
-        await logPatientCompleteAction( // 🔥 함수명 변경
-          'patient_complete',
-            patient.id,
-            patient.name,
-            {
-              callbackType: callbackType,
-              result: '종결',
-              terminationReason: terminationReason,
-              handledBy: effectiveUser.name,
-              notes: `${callbackType} 콜백 - 종결 처리`
-            }
-          )
-      
-      // 환자 정보 새로고침
-      dispatch(selectPatient(patient.id));
-    } else if (callbackResult === '종결') {
-        // 종결 처리
-        const today = new Date().toISOString().split('T')[0];
-        
-        // 환자 종결 처리만 수행 (콜백 추가는 이 안에서 자동으로 처리됨)
-        await dispatch(completePatient({
-          patientId: patient.id,
-          reason: terminationReason
-        })).unwrap();
-
-         // 🔥 활동 로그 기록 - 종결 처리
-        await logPatientCompleteAction(
-          'patient_complete',
-          patient.id,
-          patient.name,
-          {
-            callbackType: callbackType,
-            result: '종결',
-            terminationReason: terminationReason,
-            handledBy: effectiveUser.name,
-            notes: `${callbackType} 콜백 - 종결 처리`
-          }
-        )
-        
-        // 환자 정보 새로고침
-        dispatch(selectPatient(patient.id));
-      }
-    
-    // 결과에 따른 알림 표시
-    if (callbackResult === '부재중' && callbackType === '3차') {
-      alert('3차 부재중 콜백이 기록되었습니다. 환자 상태가 "부재중"으로 자동 변경되었습니다.');
-    } else if (callbackResult === '예약완료') {
-      alert('환자의 예약이 완료되었습니다.');
-    } else if (callbackResult === '종결') {
-      alert('환자가 성공적으로 종결 처리되었습니다.');
-    } else {
-      alert('콜백이 등록되었습니다.');
+    // 🔥 환자 ID 검증
+    const validPatientId = validatePatientForAPI(patient, 'handleDeleteCallback');
+    if (!validPatientId) {
+      resetDeleteForm();
+      setIsLoading(false);
+      return;
     }
     
-    // 모든 조건에서 성공 후 폼 초기화
-    resetForm();
+    console.log('🔍 콜백 삭제 시작:', {
+      patientId: validPatientId,
+      callbackId: callbackToDelete.id,
+      callbackType: callbackToDelete.type,
+      callbackDate: callbackToDelete.date
+    });
+    
+    // Redux 액션 디스패치
+    const result = await dispatch(deleteCallback({
+      patientId: validPatientId,
+      callbackId: callbackToDelete.id
+    })).unwrap()
+
+    console.log('🔍 콜백 삭제 Redux 결과:', result);
+
+    // 🔥 활동 로그 기록
+    await logCallbackAction(
+      'callback_delete',
+      validPatientId,
+      patient.name,
+      {
+        callbackId: callbackToDelete.id,
+        callbackType: callbackToDelete.type,
+        callbackDate: callbackToDelete.date,
+        handledBy: effectiveUser.name,
+        notes: `${callbackToDelete.type} 콜백 삭제`
+      }
+    )
+    
+    // 🔥 1. Redux 상태에서 환자 정보 새로고침 (selectPatient 호출)
+    dispatch(selectPatient(validPatientId));
+    
+    // 🔥 2. 강제 리렌더링 트리거
+    setForceUpdate(prev => prev + 1);
+    
+    // 🔥 3. 환자 목록도 새로고침 (필요한 경우)
+    await refreshPatientData();
+    
+    // 🔥 4. 약간의 지연 후 추가 새로고침 (안전장치)
+    setTimeout(() => {
+      dispatch(selectPatient(validPatientId));
+      setForceUpdate(prev => prev + 1);
+      console.log('🔍 지연된 콜백 삭제 후 새로고침 완료');
+    }, 100);
+    
+    // 성공 처리
+    resetDeleteForm()
+    alert('콜백이 삭제되었습니다.')
+    
+    console.log('✅ 콜백 삭제 완료 및 화면 갱신');
     
   } catch (error) {
-    console.error('콜백 추가 오류:', error)
-    alert('콜백 추가 중 오류가 발생했습니다.')
+    console.error('🚨 콜백 삭제 오류:', error)
+    
+    // 🔥 오류 로그에도 환자 ID 정보 포함
+    console.log('🔍 삭제 실패 시 환자 정보:', {
+      patient: patient,
+      callbackToDelete: callbackToDelete,
+      error: error instanceof Error ? error.message : error
+    });
+    
+    alert('콜백 삭제 중 오류가 발생했습니다.')
+    resetDeleteForm()
   } finally {
     setIsLoading(false)
   }
 }
-  
-  // 콜백 취소 모달 열기
-  const handleOpenCancelModal = (callback: CallbackItem) => {
-    // 종결된 환자인 경우 콜백 취소 불가
-    if (patient.isCompleted) {
-      alert('종결 처리된 환자의 콜백은 취소할 수 없습니다. 먼저 종결 처리를 취소해주세요.');
-      return;
-    }
-    
-    if (callback.status === '취소') {
-      alert('이미 취소된 콜백입니다.')
-      return
-    }
-    
-    if (callback.status === '완료') {
-      alert('이미 완료된 콜백은 취소할 수 없습니다.')
-      return
-    }
-    
-    setSelectedCallback(callback)
-    setIsCanceling(true)
-  }
-  
-  // 콜백 삭제 모달 열기
-  const handleOpenDeleteModal = (callback: CallbackItem) => {
-    // 종결된 환자인 경우, 종결 레코드는 삭제 불가
-    if (patient.isCompleted && callback.isCompletionRecord === true) {
-      alert('종결 처리 기록은 삭제할 수 없습니다. 먼저 종결 처리를 취소해주세요.');
-      return;
-    }
-    
-    setCallbackToDelete(callback)
-    setIsDeleting(true)
-  }
-  
-  // 콜백 종결 모달 열기
-  const handleOpenCompleteModal = (isSuccessful: boolean) => {
-    // 종결된 환자인 경우 종결 처리 불가
-    if (patient.isCompleted) {
-      alert('이미 종결 처리된 환자입니다.');
-      return;
-    }
-    
-    setIsSuccess(isSuccessful)
-    setIsConfirmingComplete(true)
-  }
-  
-  // 종결 취소 모달 열기
-  const handleOpenCancelCompletionModal = () => {
-    if (!patient.isCompleted) {
-      alert('종결 처리되지 않은 환자입니다.');
-      return;
-    }
-    
-    setIsConfirmingCancelCompletion(true);
-  }
-  
-  // 콜백 취소 함수 수정 - 중복 생성 문제 해결
-  const handleCancelCallback = async () => {
-    if (!selectedCallback) return
-    
-    // 종결된 환자인 경우 콜백 취소 불가
-    if (patient.isCompleted) {
-      alert('종결 처리된 환자의 콜백은 취소할 수 없습니다. 먼저 종결 처리를 취소해주세요.');
-      resetCancelForm();
-      return;
-    }
-    
-    try {
-      setIsLoading(true)
-      
-      // Redux 액션 디스패치
-      await dispatch(cancelCallback({
-        patientId: patient.id,
-        callbackId: selectedCallback.id,
-        cancelReason: cancelReason
-      })).unwrap()
 
-      // 🔥 이 부분 추가
-      await logCallbackAction(
-        'callback_cancel',
-        patient.id,
-        patient.name,
-        {
-          callbackId: selectedCallback.id,
-          callbackType: selectedCallback.type,
-          callbackDate: selectedCallback.date,
-          cancelReason: cancelReason,
-          handledBy: effectiveUser.name,
-          notes: `${selectedCallback.type} 콜백 취소`
-        }
-      )
-      
-      // selectPatient를 호출하여 환자 정보 새로고침
-      // 이 시점에서 Redux 스토어는 이미 업데이트되었고, useEffect에 의해 
-      // callbackHistory 상태가 자동으로 업데이트됨 
-      // -> 로컬에서 추가로 상태 업데이트 필요 없음
-      dispatch(selectPatient(patient.id));
-      
-      // 성공 처리
-      resetCancelForm()
-    } catch (error) {
-      console.error('콜백 취소 오류:', error)
+ 
+ // 콜백 종결 처리 함수 - 중복 생성 문제 해결
+ const handleCompleteProcess = async () => {
+ // 🔥 환자 정보 검증 추가
+ if (!patient || !patient._id || !patient.id) {
+   console.error('환자 정보가 부족합니다:', patient);
+   alert('환자 정보를 찾을 수 없습니다. 페이지를 새로고침해주세요.');
+   resetCompleteForm();
+   return;
+ }
 
-      // 🔥 활동 로그 기록 - 콜백 취소 실패
-      try {
-        await logCallbackAction(
-          'callback_cancel',
-          patient.id,
-          patient.name,
-          {
-            error: error instanceof Error ? error.message : '알 수 없는 오류',
-            callbackId: selectedCallback.id,
-            attemptedBy: effectiveUser.name
-          }
-        )
-      } catch (error) {
-    // 🔥 에러 로깅도 추가
-    try {
-      await logCallbackAction(
-        'callback_cancel',
-        patient.id,
-        patient.name,
-        {
-          error: error instanceof Error ? error.message : '알 수 없는 오류',
-          callbackId: selectedCallback.id,
-          attemptedBy: effectiveUser.name
-        }
-      )
-    } catch (logError) {
-      console.warn('활동 로그 기록 실패:', logError)
-    } }
-
-      alert('콜백 취소 중 오류가 발생했습니다.')
-    } finally {
-      setIsLoading(false)
-    }
-  }
-  
-  // 콜백 삭제 함수 수정 - 중복 생성 문제 해결
-  const handleDeleteCallback = async () => {
-    if (!callbackToDelete) return
+ try {
+   setIsLoading(true);
+   
+   const today = new Date().toISOString().split('T')[0];
+   const safePatientId = patient._id || patient.id;
+   
+   // 중복 제거: 이미 종결 처리된 환자인지 확인
+   if (patient.isCompleted) {
+     alert('이미 종결 처리된 환자입니다.');
+     resetCompleteForm();
+     setIsLoading(false);
+     return;
+   }
+   
+   console.log('종결 처리 시 환자 ID:', safePatientId);
+   
+   // 예약 성공인 경우
+   if (isSuccess) {
+     const reservationDateTime = `${reservationDate} ${reservationTime}`;
+     const terminationReason = `[예약완료] 예약일시: ${reservationDateTime}\n${completionNote}`;
+     
+     await dispatch(completePatient({
+       patientId: safePatientId, // 🔥 검증된 ID 사용
+       reason: terminationReason
+     })).unwrap();
+     
+     // 🔥 활동 로그 기록 - 예약 완료
+     await logPatientCompleteAction(
+       'patient_complete',
+       patient.id,
+       patient.name,
+       {
+         callbackType: '수동처리',
+         result: '예약완료',
+         reservationDate: reservationDate,
+         reservationTime: reservationTime,
+         completionNote: completionNote,
+         handledBy: effectiveUser.name,
+         notes: '수동 예약 완료 처리'
+       }
+     )
+     
+     // 환자 정보 새로고침
+     dispatch(selectPatient(patient.id));
+     
+     // 성공 처리
+     resetCompleteForm();
+     alert('환자의 예약이 완료되었습니다.');
+   } 
+   // 일반 종결 처리
+   else {
+     const terminationReason = completionNote || '종결 처리';
+     
+     await dispatch(completePatient({
+       patientId: safePatientId, // 🔥 검증된 ID 사용
+       reason: terminationReason
+     })).unwrap();
+     
+     // 🔥 활동 로그 기록 - 종결 처리
+     await logPatientCompleteAction(
+       'patient_complete',
+       patient.id,
+       patient.name,
+       {
+         callbackType: '수동처리',
+         result: '종결',
+         terminationReason: terminationReason,
+         handledBy: effectiveUser.name,
+         notes: '수동 종결 처리'
+       }
+     )
+     
+     // 환자 정보 새로고침
+     dispatch(selectPatient(patient.id));
+     
+     // 성공 처리
+     resetCompleteForm();
+     alert('환자가 종결 처리되었습니다.');
+   }
+ } catch (error) {
+   console.error('종결 처리 오류:', error);
+   resetCompleteForm();
+   alert('종결 처리 중 오류가 발생했습니다.');
+ } finally {
+   setIsLoading(false);
+ }
+}
+ 
+ // 🔥 종결 취소 처리 함수 수정 - 새로고침 추가
+  // 🔥 종결 취소 처리 함수 수정 - 새로고침 강화
+const handleCancelCompletionProcess = async () => {
+  try {
+    setIsLoading(true)
     
-    // 종결된 환자인 경우, 종결 레코드는 삭제 불가
-    if (patient.isCompleted && callbackToDelete.isCompletionRecord === true) {
-      alert('종결 처리 기록은 삭제할 수 없습니다. 먼저 종결 처리를 취소해주세요.');
-      resetDeleteForm();
-      return;
-    }
-    
-    try {
-      setIsLoading(true)
-      
-      // Redux 액션 디스패치
-      await dispatch(deleteCallback({
-        patientId: patient.id,
-        callbackId: callbackToDelete.id
-      })).unwrap()
-
-      // 🔥 활동 로그 기록 - 콜백 삭제
-      await logCallbackAction(
-        'callback_delete', // 새로운 액션 타입 필요
-        patient.id,
-        patient.name,
-        {
-          callbackId: callbackToDelete.id,
-          callbackType: callbackToDelete.type,
-          callbackDate: callbackToDelete.date,
-          handledBy: effectiveUser.name,
-          notes: `${callbackToDelete.type} 콜백 삭제`
-        }
-      )
-      
-      // selectPatient를 호출하여 환자 정보 새로고침
-      // 이 시점에서 Redux 스토어는 이미 업데이트되었고, useEffect에 의해 
-      // callbackHistory 상태가 자동으로 업데이트됨 
-      // -> 로컬에서 추가로 상태 업데이트 필요 없음
-      dispatch(selectPatient(patient.id));
-      
-      // 성공 처리
-      resetDeleteForm()
-      alert('콜백이 삭제되었습니다.')
-    } catch (error) {
-      console.error('콜백 삭제 오류:', error)
-      alert('콜백 삭제 중 오류가 발생했습니다.')
-    } finally {
-      setIsLoading(false)
-    }
-  }
-  
-  // 콜백 종결 처리 함수 - 중복 생성 문제 해결
-  const handleCompleteProcess = async () => {
-    try {
-      setIsLoading(true);
-      
-      const today = new Date().toISOString().split('T')[0];
-      
-      // 중복 제거: 이미 종결 처리된 환자인지 확인
-      if (patient.isCompleted) {
-        alert('이미 종결 처리된 환자입니다.');
-        resetCompleteForm();
-        setIsLoading(false);
-        return;
-      }
-      
-      // 예약 성공인 경우
-      if (isSuccess) {
-        // 예약 정보 포맷팅
-        const reservationDateTime = `${reservationDate} ${reservationTime}`;
-        const terminationReason = `[예약완료] 예약일시: ${reservationDateTime}\n${completionNote}`;
-        
-        // 종결 처리 액션 디스패치 - 기존에 추가된 로직 활용
-        await dispatch(completePatient({
-          patientId: patient.id,
-          reason: terminationReason
-        })).unwrap();
-        
-        // selectPatient를 호출하여 환자 정보 새로고침
-        dispatch(selectPatient(patient.id));
-        
-        // 성공 처리 - 먼저 모달을 닫고
-        resetCompleteForm();
-        
-        // 그 다음 알림을 표시 (확인 후 모달 닫힘)
-        alert('환자의 예약이 완료되었습니다.');
-      } 
-      // 일반 종결 처리
-      else {
-        const terminationReason = completionNote || '종결 처리';
-        
-        // 종결 처리 액션 디스패치 - 기존에 추가된 로직 활용
-        await dispatch(completePatient({
-          patientId: patient.id,
-          reason: terminationReason
-        })).unwrap();
-        
-        // selectPatient를 호출하여 환자 정보 새로고침
-        dispatch(selectPatient(patient.id));
-        
-        // 성공 처리 - 먼저 모달을 닫고
-        resetCompleteForm();
-        
-        // 그 다음 알림을 표시 (확인 후 모달 닫힘)
-        alert('환자가 성공적으로 종결 처리되었습니다.');
-      }
-    } catch (error) {
-      console.error('종결 처리 오류:', error);
-      resetCompleteForm();
-      alert('종결 처리 중 오류가 발생했습니다.');
-    } finally {
-      setIsLoading(false);
-    }
-  }
-  
-  // 종결 취소 처리 함수 수정 - 중복 생성 문제 해결
-  const handleCancelCompletionProcess = async () => {
-    try {
-      setIsLoading(true)
-      
-      // Redux 액션 디스패치
-      await dispatch(cancelPatientCompletion(patient.id)).unwrap();
-      
-      // selectPatient를 호출하여 환자 정보 새로고침
-      // 이 시점에서 Redux 스토어는 이미 업데이트되었고, useEffect에 의해 
-      // callbackHistory 상태가 자동으로 업데이트됨 
-      // -> 로컬에서 추가로 상태 업데이트 필요 없음
-      dispatch(selectPatient(patient.id));
-      
-      // 성공 처리
+    const safePatientId = patient._id || patient.id;
+    if (!safePatientId) {
+      console.error('환자 ID가 없습니다:', { 
+        hasPatient: !!patient, 
+        hasMongoId: !!patient?._id, 
+        hasId: !!patient?.id,
+        patient: patient 
+      });
+      alert('환자 정보를 찾을 수 없습니다. 페이지를 새로고침해주세요.');
       resetCancelCompletionForm();
-      alert('환자 종결 처리가 취소되었습니다.');
-    } catch (error) {
-      console.error('종결 취소 오류:', error);
-      alert('종결 취소 중 오류가 발생했습니다.');
-    } finally {
       setIsLoading(false);
+      return;
     }
+    
+    console.log('종결 취소 시 사용할 환자 ID:', safePatientId);
+    
+    // Redux 액션 디스패치
+    await dispatch(cancelPatientCompletion(safePatientId)).unwrap();
+      
+    // 🔥 강화된 새로고침 로직
+    // 1. 환자 목록 새로고침
+    await dispatch(fetchPatients()).unwrap();
+    
+    // 2. 현재 선택된 환자 정보 새로고침
+    dispatch(selectPatient(safePatientId));
+    
+    // 3. 강제 리렌더링 트리거
+    setForceUpdate(prev => prev + 1);
+    
+    // 4. 약간의 딜레이 후 추가 새로고침 (안전장치)
+    setTimeout(() => {
+      dispatch(selectPatient(safePatientId));
+    }, 100);
+    
+    // 성공 처리
+    resetCancelCompletionForm();
+    alert('환자 종결 처리가 취소되었습니다.');
+  } catch (error) {
+    console.error('종결 취소 오류:', error);
+    alert('종결 취소 중 오류가 발생했습니다.');
+  } finally {
+    setIsLoading(false);
   }
-  
-  // 콜백 진행 상태에 따른 아이콘과 색상
-  const getStatusInfo = (status: string) => {
-    if (status === '완료') {
-      return {
-        icon: HiOutlineCheck,
-        color: 'text-green-600 bg-green-100'
-      }
-    }
-    if (status === '예정') {
-      return {
-        icon: HiOutlineCalendar,
-        color: 'text-blue-600 bg-blue-100'
-      }
-    }
-    if (status === '취소') {
-      return {
-        icon: HiOutlineX,
-        color: 'text-red-600 bg-red-100'
-      }
-    }
-    if (status === '종결') {
-      return {
-        icon: HiOutlineStop,
-        color: 'text-gray-600 bg-gray-100'
-      }
-    }
-    if (status === '부재중') {
-      return {
-        icon: HiOutlineBan,
-        color: 'text-orange-600 bg-orange-100'
-      }
-    }
-    return {
-      icon: HiOutlinePencil,
-      color: 'text-gray-600 bg-gray-100'
-    }
-  }
-  
-  // 콜백 유형에 따른 스타일
-  const getCallbackTypeStyle = (type: string) => {
-    const style = {
-      '1차': 'bg-orange-100 text-orange-800',
-      '2차': 'bg-orange-200 text-orange-900',
-      '3차': 'bg-red-100 text-red-800',
-      '4차': 'bg-red-200 text-red-900', 
-      '5차': 'bg-red-300 text-red-900'  
-    }
-    return style[type as keyof typeof style] || 'bg-gray-100 text-gray-800'
-  }  
+}
+ 
+ // 콜백 진행 상태에 따른 아이콘과 색상
+ const getStatusInfo = (status: string) => {
+   if (status === '완료') {
+     return {
+       icon: HiOutlineCheck,
+       color: 'text-green-600 bg-green-100'
+     }
+   }
+   if (status === '예정') {
+     return {
+       icon: HiOutlineCalendar,
+       color: 'text-blue-600 bg-blue-100'
+     }
+   }
+   if (status === '취소') {
+     return {
+       icon: HiOutlineX,
+       color: 'text-red-600 bg-red-100'
+     }
+   }
+   if (status === '종결') {
+     return {
+       icon: HiOutlineStop,
+       color: 'text-gray-600 bg-gray-100'
+     }
+   }
+   if (status === '부재중') {
+     return {
+       icon: HiOutlineBan,
+       color: 'text-orange-600 bg-orange-100'
+     }
+   }
+   return {
+     icon: HiOutlinePencil,
+     color: 'text-gray-600 bg-gray-100'
+   }
+ }
+ 
+ // 콜백 유형에 따른 스타일
+ const getCallbackTypeStyle = (type: string) => {
+   const style = {
+     '1차': 'bg-orange-100 text-orange-800',
+     '2차': 'bg-orange-200 text-orange-900',
+     '3차': 'bg-red-100 text-red-800',
+     '4차': 'bg-red-200 text-red-900', 
+     '5차': 'bg-red-300 text-red-900'  
+   }
+   return style[type as keyof typeof style] || 'bg-gray-100 text-gray-800'
+ }  
 
-  // 예약 완료 여부 확인 함수 추가
-  const isReservationCompleted = (patient: Patient) => {
-  return patient.isCompleted && 
-         patient.completedReason && 
-         patient.completedReason.includes('[예약완료]');
+ // 예약 완료 여부 확인 함수 추가
+ const isReservationCompleted = (patient: Patient) => {
+ return patient.isCompleted && 
+        patient.completedReason && 
+        patient.completedReason.includes('[예약완료]');
 };
-  
-  // 환자 상태가 종결 가능한 상태인지 확인
-  const canComplete = ['잠재고객', '콜백필요', '미응답'].includes(patient.status) && !patient.isCompleted;
+ 
+ // 환자 상태가 종결 가능한 상태인지 확인
+ const canComplete = ['잠재고객', '콜백필요', '미응답'].includes(patient.status) && !patient.isCompleted;
 
-  // 디버깅을 위한 로그 추가
-  console.log('상태 디버깅:', {
-    isAddingCallback,
-    patientIsCompleted: patient.isCompleted,
-    canComplete,
-    patientStatus: patient.status
-  });
+ // 디버깅을 위한 로그 추가
+ console.log('상태 디버깅:', {
+   isAddingCallback,
+   patientIsCompleted: patient.isCompleted,
+   canComplete,
+   patientStatus: patient.status
+ });
 
-  // 예약 완료 상담 내용 추출 함수 추가
-  const getReservationConsultationNotes = (patient: Patient) => {
-    if (!patient.completedReason) return '';
-    
-    // 공백으로 분할해서 처리 (현재는 줄바꿈이 없이 저장되고 있음)
-    const text = patient.completedReason;
-    
-    // [예약완료] 예약일시: YYYY-MM-DD HH:MM 뒤의 내용을 상담 내용으로 처리
-    const match = text.match(/\[예약완료\]\s*예약일시:\s*[\d-]+\s+[\d:]+\s*(.*)/);
-    if (match && match[1]) {
-      return match[1].trim();
-    }
-    
-    return '';
-  };
-  
-  // 예약 정보 추출 함수 추가
-  const getReservationInfo = (patient: Patient) => {
-    if (!patient.completedReason) return '';
-    
-    // [예약완료] 예약일시: YYYY-MM-DD HH:MM 부분만 추출
-    const match = patient.completedReason.match(/\[예약완료\]\s*(예약일시:\s*[\d-]+\s+[\d:]+)/);
-    if (match && match[1]) {
-      return match[1].trim();
-    }
-    
-    return '';
-  };
+ // 예약 완료 상담 내용 추출 함수 추가
+ const getReservationConsultationNotes = (patient: Patient) => {
+   if (!patient.completedReason) return '';
+   
+   // 공백으로 분할해서 처리 (현재는 줄바꿈이 없이 저장되고 있음)
+   const text = patient.completedReason;
+   
+   // [예약완료] 예약일시: YYYY-MM-DD HH:MM 뒤의 내용을 상담 내용으로 처리
+   const match = text.match(/\[예약완료\]\s*예약일시:\s*[\d-]+\s+[\d:]+\s*(.*)/);
+   if (match && match[1]) {
+     return match[1].trim();
+   }
+   
+   return '';
+ };
+ 
+ // 예약 정보 추출 함수 추가
+ const getReservationInfo = (patient: Patient) => {
+   if (!patient.completedReason) return '';
+   
+   // [예약완료] 예약일시: YYYY-MM-DD HH:MM 부분만 추출
+   const match = patient.completedReason.match(/\[예약완료\]\s*(예약일시:\s*[\d-]+\s+[\d:]+)/);
+   if (match && match[1]) {
+     return match[1].trim();
+   }
+   
+   return '';
+ };
+
 
   return (
     <div className="space-y-6">
-    {/* 🔥 헤더 추가 */}
-    <div className="bg-white p-6 rounded-lg shadow-sm border border-gray-200">
-      <div className="flex items-center justify-between mb-6">
-        <h2 className="text-xl font-semibold text-gray-800">콜백 관리</h2>
-        <div className="flex items-center space-x-4">
-          {effectiveUser && (
-            <div className="text-sm text-gray-600 bg-gray-50 px-3 py-1 rounded-full">
-              담당자: {effectiveUser.name}
-            </div>
-          )}
-          
-          {/* 콜백 현황 표시 */}
-          <div className="flex items-center space-x-3 text-sm">
-            <div className="flex items-center space-x-1">
-              <Icon icon={HiOutlineClipboardCheck} className="text-blue-500" />
-              <span className="text-gray-600">예정: {scheduledCallbacks}건</span>
-            </div>
-            <div className="flex items-center space-x-1">
-              <Icon icon={HiOutlineCheck} className="text-green-500" />
-              <span className="text-gray-600">완료: {displayCompletedCallbacks}건</span>
-            </div>
-            <div className="flex items-center space-x-1">
-              <Icon icon={HiOutlineBan} className="text-orange-500" />
-              <span className="text-gray-600">부재중: {missedCallbacks}건</span>
+      {/* 🔥 헤더 추가 */}
+      <div className="bg-white p-6 rounded-lg shadow-sm border border-gray-200">
+        <div className="flex items-center justify-between mb-6">
+          <h2 className="text-xl font-semibold text-gray-800">콜백 관리</h2>
+          <div className="flex items-center space-x-4">
+            {effectiveUser && (
+              <div className="text-sm text-gray-600 bg-gray-50 px-3 py-1 rounded-full">
+                담당자: {effectiveUser.name}
+              </div>
+            )}
+            
+            {/* 콜백 현황 표시 */}
+            <div className="flex items-center space-x-3 text-sm">
+              <div className="flex items-center space-x-1">
+                <Icon icon={HiOutlineClipboardCheck} className="text-blue-500" />
+                <span className="text-gray-600">예정: {scheduledCallbacks}건</span>
+              </div>
+              <div className="flex items-center space-x-1">
+                <Icon icon={HiOutlineCheck} className="text-green-500" />
+                <span className="text-gray-600">완료: {displayCompletedCallbacks}건</span>
+              </div>
+              <div className="flex items-center space-x-1">
+                <Icon icon={HiOutlineBan} className="text-orange-500" />
+                <span className="text-gray-600">부재중: {missedCallbacks}건</span>
+              </div>
             </div>
           </div>
         </div>
       </div>
-    </div>
     
       {/* 콜백 요약 정보 - 수정된 부분 */}
       <div className="card bg-blue-50 border-blue-200">
@@ -2011,7 +2225,6 @@ export default function CallbackManagement({ patient }: CallbackManagementProps)
                         value={reservationDate}
                         onChange={(e) => setReservationDate(e.target.value)}
                         className="form-input pl-10 w-full"
-                        min={format(new Date(), 'yyyy-MM-dd')}
                         required
                       />
                       <span className="absolute left-3 top-1/2 transform -translate-y-1/2 text-green-600">
@@ -2229,7 +2442,28 @@ export default function CallbackManagement({ patient }: CallbackManagementProps)
                         // 일반 콜백 (날짜 표시)
                         <>
                           <div className="text-sm text-text-secondary">
-                            {callback.date}
+                            {/* 🔥 원래 예정일과 실제 처리일 구분 표시 */}
+                            {callback.status === '완료' && callback.originalScheduledDate && callback.originalScheduledDate !== callback.date ? (
+                              <div className="space-y-1">
+                                <div className="flex items-center gap-2">
+                                  <span className="text-orange-600 text-xs bg-orange-50 px-2 py-1 rounded">
+                                    예정: {callback.originalScheduledDate}
+                                  </span>
+                                </div>
+                                <div className="flex items-center gap-2">
+                                  <span className="text-green-600 text-xs bg-green-50 px-2 py-1 rounded">
+                                    완료: {callback.date}
+                                  </span>
+                                  {callback.isDelayed && (
+                                    <span className="text-red-500 text-xs bg-red-50 px-2 py-1 rounded">
+                                      {Math.abs(new Date(callback.date).getTime() - new Date(callback.originalScheduledDate).getTime()) / (1000 * 60 * 60 * 24)}일 지연
+                                    </span>
+                                  )}
+                                </div>
+                              </div>
+                            ) : (
+                              callback.date
+                            )}
                           </div>
                           {/* 🔥 담당자 정보 추가 */}
                           <div className="flex items-center space-x-4 mb-2 text-xs text-gray-500">
@@ -2864,6 +3098,7 @@ export default function CallbackManagement({ patient }: CallbackManagementProps)
       {isMarkingComplete && callbackToComplete && (
         <div className="fixed inset-0 bg-black/30 flex items-center justify-center z-[60] p-4">
           <div className="bg-white rounded-lg shadow-lg w-full max-w-md max-h-[90vh] overflow-auto">
+            {/* 모달 헤더 */}
             <div className="px-6 py-4 border-b border-border flex items-center justify-between">
               <h3 className="text-lg font-semibold text-text-primary">콜백 완료 처리</h3>
               <button
@@ -2891,15 +3126,15 @@ export default function CallbackManagement({ patient }: CallbackManagementProps)
                   </div>
                 </div>
                 
-                
                 <p className="text-text-secondary mb-4">
                   콜백 상태를 '완료'로 변경하고 오늘 날짜로 업데이트합니다. 콜백 결과를 입력해주세요.
                 </p>
+
                 
                 {/* 결과 메모 입력 */}
                 <div className="mb-4">
                   <label htmlFor="resultNotes" className="block text-sm font-medium text-text-primary mb-1">
-                    결과 메모 <span className="text-error">*</span>
+                    결과 메모 {nextStep !== '부재중' && <span className="text-error">*</span>}
                   </label>
                   <textarea
                     id="resultNotes"
@@ -2907,11 +3142,18 @@ export default function CallbackManagement({ patient }: CallbackManagementProps)
                     onChange={(e) => setResultNotes(e.target.value)}
                     className="form-input min-h-[100px]"
                     placeholder="고객 응대 내용, 요청 사항, 특이사항 등을 구체적으로 기록하세요..."
-                    required
+                    disabled={nextStep === '부재중'} // 🔥 부재중 선택 시 비활성화
+                    required={nextStep !== '부재중'}
                   />
+                  {nextStep === '부재중' && (
+                    <p className="text-xs text-gray-500 mt-1">
+                      부재중인 경우 결과 메모를 입력할 필요가 없습니다.
+                    </p>
+                  )}
                 </div>
                 
                 {/* 고객 반응 선택 */}
+                {nextStep !== '부재중' && (
                 <div className="mb-4">
                   <label className="block text-sm font-medium text-text-primary mb-2">
                     고객 반응
@@ -2992,7 +3234,8 @@ export default function CallbackManagement({ patient }: CallbackManagementProps)
                       <span className="text-xs text-text-secondary">매우 부정적</span>
                     </label>
                   </div>
-                </div>
+                </div>)}              
+                       
                 
                 {/* 다음 단계 선택 - 2차 콜백에서만 표시 */}
                 {(callbackToComplete.type === '1차' || callbackToComplete.type === '2차' || callbackToComplete.type === '3차' || callbackToComplete.type === '4차') && (
@@ -3236,7 +3479,7 @@ export default function CallbackManagement({ patient }: CallbackManagementProps)
                                 value={reservationDate}
                                 onChange={(e) => setReservationDate(e.target.value)}
                                 className="form-input pl-10 w-full"
-                                min={format(new Date(), 'yyyy-MM-dd')} // 오늘부터 선택 가능
+                                required
                               />
                               <span className="absolute left-3 top-1/2 transform -translate-y-1/2 text-text-muted">
                                 <Icon icon={HiOutlineCalendar} size={18} />
@@ -3262,6 +3505,63 @@ export default function CallbackManagement({ patient }: CallbackManagementProps)
                             
                             <p className="text-xs text-green-600 mt-2">
                               환자가 예약한 날짜와 시간을 입력하세요.
+                            </p>
+                          </div>
+                        )}
+                      </div>
+
+                      {/* 종결 처리 옵션 - 사유 선택 기능 추가 */}
+                      <div className="border rounded-md overflow-hidden">
+                        <label className="flex items-center gap-2 p-3 cursor-pointer hover:bg-light-bg/50 border-b">
+                          <input
+                            type="radio"
+                            name="nextStep"
+                            value="종결_처리"
+                            checked={nextStep === '종결_처리'}
+                            onChange={() => setNextStep('종결_처리')}
+                            className="w-4 h-4 accent-primary"
+                          />
+                          <span className="text-sm text-text-primary">종결 처리 (더 이상 콜백 없음)</span>
+                        </label>
+                        
+                        {/* 🔥 종결 사유 선택 추가 정보 */}
+                        {nextStep === '종결_처리' && (
+                          <div className="p-3 bg-gray-50">
+                            <label className="block text-sm font-medium text-gray-700 mb-2">
+                              종결 사유 <span className="text-error">*</span>
+                            </label>
+                            <select
+                              value={selectedTerminationReason}
+                              onChange={(e) => setSelectedTerminationReason(e.target.value as TerminationReason)}
+                              className="form-input w-full mb-3"
+                              required
+                            >
+                              {TERMINATION_REASONS.map(reason => (
+                                <option key={reason} value={reason}>
+                                  {reason}
+                                </option>
+                              ))}
+                            </select>
+                            
+                            {/* 🔥 기타 선택 시 텍스트 입력 필드 표시 */}
+                            {selectedTerminationReason === '기타' && (
+                              <div className="mb-3">
+                                <label className="block text-sm font-medium text-gray-700 mb-1">
+                                  기타 사유 입력 <span className="text-error">*</span>
+                                </label>
+                                <input
+                                  type="text"
+                                  value={customTerminationReason}
+                                  onChange={(e) => setCustomTerminationReason(e.target.value)}
+                                  className="form-input w-full"
+                                  placeholder="구체적인 종결 사유를 입력하세요"
+                                  required
+                                />
+                              </div>
+                            )}
+                            
+                            <p className="text-xs text-gray-600">
+                              환자를 종결 처리하는 사유를 선택해주세요.
                             </p>
                           </div>
                         )}
@@ -3370,7 +3670,6 @@ export default function CallbackManagement({ patient }: CallbackManagementProps)
                           <span className="text-sm text-text-primary">부재중 (재콜백 필요)</span>
                         </div>
                       </label>
-
                       {/* 부재중 추가 정보 - 부재중 선택 시 표시 */}
                       {nextStep === '부재중' && (
                         <div className="p-3 bg-orange-50 mt-2 border border-orange-200 rounded-md">
@@ -3378,12 +3677,13 @@ export default function CallbackManagement({ patient }: CallbackManagementProps)
                             재콜백 일자 <span className="text-error">*</span>
                           </label>
                           <div className="relative">
+                            {/* 🔥 수정사항 3: min 속성 제거하여 과거 날짜 선택 가능 */}
                             <input
                               type="date"
                               value={nextCallbackDate}
                               onChange={(e) => setNextCallbackDate(e.target.value)}
                               className="form-input pl-10 w-full"
-                              min={format(new Date(), 'yyyy-MM-dd')} // 오늘부터 선택 가능
+                              // min={format(new Date(), 'yyyy-MM-dd')} // 🔥 이 줄을 제거
                             />
                             <span className="absolute left-3 top-1/2 transform -translate-y-1/2 text-text-muted">
                               <Icon icon={HiOutlineCalendar} size={18} />
@@ -3418,7 +3718,7 @@ export default function CallbackManagement({ patient }: CallbackManagementProps)
                       )}                      
                     </div>
                   </div>
-                )}        
+                )} 
               
                 <div className="flex justify-end gap-3">
                   <button
@@ -3430,23 +3730,23 @@ export default function CallbackManagement({ patient }: CallbackManagementProps)
                     취소
                   </button>
                   <button
-                    type="button"
-                    className="btn bg-green-600 hover:bg-green-700 text-white"
-                    onClick={handleMarkCallbackComplete}
-                    disabled={isLoading || 
-                      // 부재중을 선택한 경우는 resultNotes가 필요 없음
-                      (nextStep !== '부재중' && !resultNotes) || 
-                      // 다음 단계 선택이 필요한 경우 (2차 이상 콜백)
-                      ((callbackToComplete?.type === '2차' || 
-                        callbackToComplete?.type === '3차' || 
-                        callbackToComplete?.type === '4차' || 
-                        callbackToComplete?.type === '1차') && !nextStep) ||
-                      // 예약 확정인 경우 날짜와 시간 필수
-                      (nextStep === '예약_확정' && (!reservationDate || !reservationTime))
-                    }
-                  >
-                    {isLoading ? '처리 중...' : '완료 처리하기'}
-                  </button>
+                  type="button"
+                  className="btn bg-green-600 hover:bg-green-700 text-white"
+                  onClick={handleMarkCallbackComplete}
+                  disabled={isLoading || 
+                    (nextStep !== '부재중' && !resultNotes) || 
+                    ((callbackToComplete?.type === '2차' || 
+                      callbackToComplete?.type === '3차' || 
+                      callbackToComplete?.type === '4차' || 
+                      callbackToComplete?.type === '1차') && !nextStep) ||
+                    (nextStep === '예약_확정' && (!reservationDate || !reservationTime)) ||
+                    // 🔥 종결 처리인 경우 사유 선택 필수 (기타일 때는 텍스트 입력도 필수)
+                    (nextStep === '종결_처리' && (!selectedTerminationReason || 
+                      (selectedTerminationReason === '기타' && !customTerminationReason.trim())))
+                  }
+                >
+                  {isLoading ? '처리 중...' : '완료 처리하기'}
+                </button>
                 </div>
               </div>
             </div>

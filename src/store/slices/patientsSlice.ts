@@ -1,103 +1,236 @@
-// src/store/slices/patientsSlice.ts
-
+// src/store/slices/patientsSlice.ts - 완전 수정 버전
 import { createSlice, createAsyncThunk, PayloadAction } from '@reduxjs/toolkit';
 import { EventCategory } from '@/types/messageLog';
 // 🔥 활동 로거 import 추가
 import { PatientActivityLogger, CallbackActivityLogger, EventTargetActivityLogger } from '@/utils/activityLogger';
-import { ConsultationInfo } from '@/types/patient'
+// 🔥 모든 타입들을 patient.ts에서 import
+import { 
+  ConsultationInfo,
+  Patient,
+  ConsultationType,
+  ReferralSource,
+  EventTargetInfo,
+  EventTargetReason,
+  PatientStatus,
+  ReminderStatus,
+  CallbackStatus,
+  CallbackItem,
+  CompletePatientData,
+  QuickInboundPatient,
+  CreatePatientData,
+  UpdatePatientData,
+  PostVisitStatus,
+  PatientReaction, // 🔥 추가
+  EstimateInfo     // 🔥 추가
+} from '@/types/patient';
+import { RootState } from '..';
 
-// 🔥 상담 타입 추가
-export type ConsultationType = 'inbound' | 'outbound';
+// 🔥 여기에 PatientFilterType 타입 정의 추가!
+export type PatientFilterType = 
+  | 'new_inquiry'      // 이번달 신규 문의
+  | 'reservation_rate' // 예약 전환율
+  | 'visit_rate'       // 내원 전환율
+  | 'treatment_rate'   // 치료 시작율
 
-// 🔥 유입경로 타입 추가
-export type ReferralSource = 
-  | '유튜브'
-  | '블로그'
-  | '홈페이지'
-  | '소개환자'
-  | '제휴'
-  | '기타'
-  | '';
+// 🔥 기존 컴포넌트들이 사용할 수 있도록 타입들을 re-export
+export type {
+  Patient,
+  CallbackItem,
+  CallbackStatus,
+  EventTargetReason,
+  PatientStatus,
+  UpdatePatientData,
+  CreatePatientData,
+  ConsultationType,
+  ReferralSource,
+  EventTargetInfo,
+  ReminderStatus,
+  CompletePatientData,
+  QuickInboundPatient,
+  PostVisitStatus,
+  PatientReaction,
+  EstimateInfo,
+  ConsultationInfo,
+};
 
-// 이벤트 타겟 사유 타입
-export type EventTargetReason = 
-  | 'price_hesitation'    // 가격 망설임
-  | 'treatment_consideration' // 치료 방법 고민
-  | 'scheduling_issue'    // 시간 조율 필요
-  | 'competitor_comparison' // 경쟁업체 비교 중
-  | 'other'              // 기타 (직접 입력)
-  | '';
-
-// 이벤트 타겟 정보 타입
-export interface EventTargetInfo {
-  isEventTarget: boolean;          // 이벤트 타겟 여부
-  targetReason: EventTargetReason; // 타겟 사유 (선택)
-  customTargetReason?: string;     // 직접 입력한 타겟 사유 (기타 선택 시)
-  categories: EventCategory[];     // 이벤트 카테고리 (다중 선택)
-  scheduledDate?: string;          // 발송 가능 시기
-  notes?: string;                  // 메모
-  createdAt?: string;               // 타겟 지정 일시
-  updatedAt?: string;               // 마지막 수정 일시
-}
-
-// 환자 상태 타입 정의
-export type PatientStatus = 
-  | '잠재고객'
-  | '콜백필요'
-  | '부재중'
-  | '활성고객'
-  | 'VIP'
-  | '예약확정'  // 예약 확정된 환자
-  | '종결';     // 일반 종결된 환자
-
-// 리마인드 콜 상태 타입 정의
-export type ReminderStatus = 
-  | '초기'
-  | '1차'
-  | '2차'
-  | '3차'
-  | '4차'  // 추가
-  | '5차'  // 추가
-  | '-';
-
-// 콜백 상태 타입 정의
-export type CallbackStatus = 
-  | '예정'
-  | '완료'
-  | '취소'
-  | '종결'
-  | '부재중'  
-  | '예약확정';  // 이 부분을 추가
-
-// 🔥 콜백 아이템 타입 정의 - 담당자 정보 추가
-export interface CallbackItem {
-  completedAt?: string;  // 선택적 필드로 변경 (물음표 추가)
-  time: string | undefined; 
-  id: string;
-  date: string;
-  status: CallbackStatus;
-  notes?: string;          
-  resultNotes?: string;   
-  customerResponse?: 'very_positive' | 'positive' | 'neutral' | 'negative' | 'very_negative';
-  type: '1차' | '2차' | '3차' | '4차' | '5차';
-  cancelReason?: string;
-  cancelDate?: string;
-  isCompletionRecord?: boolean;
-  // 🔥 이벤트 타겟 설정 단계 추가
-  nextStep?: '2차_콜백' | '3차_콜백' | '4차_콜백' | '5차_콜백' | '예약_확정' | '종결_처리' | '이벤트_타겟_설정' | '';
+// 🔥 EstimateAgreedBadge를 PatientReactionBadge로 변경하는 컴포넌트에서 사용할 헬퍼 함수
+export const getPatientReactionDisplay = (estimateInfo?: EstimateInfo) => {
+  if (!estimateInfo) {
+    return { text: '미입력', color: 'bg-gray-100 text-gray-400' };
+  }
   
-  // 🔥 담당자 정보 추가
-  handledBy?: string;          // 처리한 담당자 ID
-  handledByName?: string;      // 처리한 담당자 이름
-  createdBy?: string;          // 콜백을 생성한 담당자 ID
-  createdByName?: string;      // 콜백을 생성한 담당자 이름
+  const reaction = estimateInfo.patientReaction;
+  switch (reaction) {
+    case '동의해요(적당)':
+      return { text: '동의해요(적당)', color: 'bg-green-100 text-green-800' };
+    case '비싸요':
+      return { text: '비싸요', color: 'bg-red-100 text-red-800' };
+    case '생각보다 저렴해요':
+      return { text: '생각보다 저렴해요', color: 'bg-blue-100 text-blue-800' };
+    case '알 수 없음':
+      return { text: '알 수 없음', color: 'bg-gray-100 text-gray-800' };
+    default:
+      return { text: '미설정', color: 'bg-gray-100 text-gray-400' };
+  }
+};
+
+// 🔥 PatientsState 인터페이스만 여기서 정의 (로컬 Patient 제거)
+export interface PatientsState {
+  patients: Patient[];            // import한 Patient 사용
+  filteredPatients: Patient[];    
+  selectedPatient: Patient | null; 
+  pagination: {
+    currentPage: number;
+    totalPages: number;
+    itemsPerPage: number;
+    totalItems: number;
+  };
+  filters: {
+    searchTerm: string;
+    status: PatientStatus | 'all';
+    interestArea: string | 'all';
+    consultationType: ConsultationType | 'all';
+    referralSource: ReferralSource | 'all';
+    visitStatus: 'all' | 'visit_confirmed' | 'post_visit_needed';
+  };
+  isLoading: boolean;
+  error: string | null;
+  eventTargetPatients: Patient[];
+  postVisitPatients: Patient[];
+  filteredPatientsForModal: Patient[];
+  modalFilterType: PatientFilterType | null; 
 }
 
-// 종결 처리를 위한 타입 정의
-export interface CompletePatientData {
-  patientId: string;
-  reason: string;
-}
+// 초기 상태 정의
+const initialState: PatientsState = {
+  filteredPatientsForModal: [], 
+  modalFilterType: null,   
+  patients: [],
+  filteredPatients: [],
+  selectedPatient: null,
+  pagination: {
+    currentPage: 1,
+    totalPages: 0,
+    itemsPerPage: 10,
+    totalItems: 0
+  },
+  filters: {
+    searchTerm: '',
+    status: 'all',
+    interestArea: 'all',
+    consultationType: 'all',
+    referralSource: 'all',
+    visitStatus: 'all'
+  },
+  isLoading: true,
+  error: null,
+  eventTargetPatients: [],
+  postVisitPatients: []
+};
+
+// 🔥 새로운 비동기 액션 추가
+export const fetchFilteredPatients = createAsyncThunk(
+  'patients/fetchFilteredPatients',
+  async (filterType: PatientFilterType, { rejectWithValue }) => {
+    try {
+      console.log('🔍 필터된 환자 목록 조회:', filterType);
+      
+      const response = await fetch(`/api/patients/filtered?type=${filterType}`);
+      
+      if (!response.ok) {
+        const errorData = await response.json();
+        return rejectWithValue(errorData.error || '필터된 환자 목록을 불러오는데 실패했습니다.');
+      }
+      
+      const data = await response.json();
+      console.log('🔍 필터된 환자 목록 조회 완료:', data.patients.length, '명');
+      
+      return {
+        patients: data.patients,
+        filterType
+      };
+    } catch (error: any) {
+      return rejectWithValue(error.message || '필터된 환자 목록을 불러오는데 실패했습니다.');
+    }
+  }
+);
+
+// 🔥 내원 후 관리 환자 목록 가져오기 액션
+export const fetchPostVisitPatients = createAsyncThunk(
+  'patients/fetchPostVisitPatients',
+  async (_, { rejectWithValue }) => {
+    try {
+      const response = await fetch('/api/patients/post-visit');
+      
+      if (!response.ok) {
+        const errorData = await response.json();
+        return rejectWithValue(errorData.error || '내원 후 관리 환자 목록을 불러오는데 실패했습니다.');
+      }
+      
+      const postVisitPatients = await response.json();
+      return postVisitPatients;
+    } catch (error: any) {
+      return rejectWithValue(error.message || '내원 후 관리 환자 목록을 불러오는데 실패했습니다.');
+    }
+  }
+);
+
+// 🔥 내원 후 상태 업데이트 액션 - 환자 반응 지원
+export const updatePostVisitStatus = createAsyncThunk(
+  'patients/updatePostVisitStatus',
+  async ({ 
+    patientId, 
+    postVisitStatus, 
+    postVisitConsultation,
+    postVisitNotes,
+    nextVisitDate 
+  }: { 
+    patientId: string, 
+    postVisitStatus?: string,
+    postVisitConsultation?: any, // PostVisitConsultationInfo 타입 (환자 반응 포함)
+    postVisitNotes?: string,
+    nextVisitDate?: string
+  }, { rejectWithValue }) => {
+    try {
+      console.log('Redux: 내원 후 상태 업데이트 시작:', {
+        patientId,
+        postVisitStatus,
+        hasConsultation: !!postVisitConsultation,
+        patientReaction: postVisitConsultation?.estimateInfo?.patientReaction // 🔥 환자 반응 로그
+      });
+      const response = await fetch(`/api/patients/${patientId}/post-visit-status`, {
+        method: 'PUT',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ 
+          postVisitStatus, 
+          postVisitConsultation,
+          postVisitNotes,
+          nextVisitDate 
+        }),
+      });
+      
+      if (!response.ok) {
+        const errorData = await response.json();
+        console.error('API 응답 에러:', errorData);
+        return rejectWithValue(errorData.error || '내원 후 상태 업데이트에 실패했습니다.');
+      }
+      
+      const updatedPatient = await response.json();
+      console.log('Redux: 내원 후 상태 업데이트 성공:', {
+        name: updatedPatient.name,
+        postVisitStatus: updatedPatient.postVisitStatus,
+        patientReaction: updatedPatient.postVisitConsultation?.estimateInfo?.patientReaction // 🔥 환자 반응 로그
+      });
+      
+      return updatedPatient;
+    } catch (error: any) {
+      console.error('Redux: 내원 후 상태 업데이트 네트워크 에러:', error);
+      return rejectWithValue(error.message || '내원 후 상태 업데이트에 실패했습니다.');
+    }
+  }
+);
 
 // 🔥 상담/결제 정보 업데이트 액션
 export const updateConsultationInfo = createAsyncThunk(
@@ -108,18 +241,14 @@ export const updateConsultationInfo = createAsyncThunk(
   }: { 
     patientId: string, 
     consultationData: Partial<ConsultationInfo> 
-  }, { rejectWithValue, getState }) => {
+  }, { rejectWithValue }) => {
     try {
-      // 환자 정보 가져오기 (로그용)
-      const state = getState() as { patients: PatientsState }
-      const patient = state.patients.patients.find(p => p._id === patientId || p.id === patientId)
-      
-      const response = await fetch(`/api/patients/${patientId}/consultation`, {
+      const response = await fetch(`/api/patients/${patientId}`, { 
         method: 'PUT',
         headers: {
           'Content-Type': 'application/json',
         },
-        body: JSON.stringify(consultationData),
+        body: JSON.stringify({ consultation: consultationData }), 
       })
       
       if (!response.ok) {
@@ -127,31 +256,28 @@ export const updateConsultationInfo = createAsyncThunk(
         return rejectWithValue(errorData.error || '상담 정보 업데이트에 실패했습니다.')
       }
       
-      const result = await response.json()
+      const updatedPatient = await response.json()
       
-      // 🔥 활동 로그 기록 (필요한 경우)
-      if (patient) {
-        console.log('상담/결제 정보 업데이트 완료:', patient.name)
-        // 여기서 활동 로그를 기록할 수 있습니다
-      }
+      console.log('🔥 상담 정보 업데이트 성공:', {
+        patientId: updatedPatient._id,
+        name: updatedPatient.name,
+        hasConsultation: !!updatedPatient.consultation,
+        estimateAgreed: updatedPatient.consultation?.estimateAgreed
+      });
       
-      return {
-        patientId,
-        consultation: result.consultation,
-        updatedPatient: result.patient
-      }
+      return updatedPatient // 🔥 전체 환자 정보 반환
     } catch (error: any) {
       return rejectWithValue(error.message || '상담 정보 업데이트에 실패했습니다.')
     }
   }
 )
 
+
 // 🔥 상담/결제 정보 삭제 액션
 export const deleteConsultationInfo = createAsyncThunk(
   'patients/deleteConsultationInfo',
   async (patientId: string, { rejectWithValue, getState }) => {
     try {
-      // 환자 정보 가져오기 (로그용)
       const state = getState() as { patients: PatientsState }
       const patient = state.patients.patients.find(p => p._id === patientId || p.id === patientId)
       
@@ -164,7 +290,6 @@ export const deleteConsultationInfo = createAsyncThunk(
         return rejectWithValue(errorData.error || '상담 정보 삭제에 실패했습니다.')
       }
       
-      // 🔥 활동 로그 기록 (필요한 경우)
       if (patient) {
         console.log('상담/결제 정보 삭제 완료:', patient.name)
       }
@@ -176,160 +301,23 @@ export const deleteConsultationInfo = createAsyncThunk(
   }
 )
 
-// 🔥 인바운드 환자 빠른 등록용 타입 추가
-export interface QuickInboundPatient {
-  phoneNumber: string;
-  name?: string;
-  consultationType: 'inbound';
-}
-
-// 🔥 환자 타입 정의 (MongoDB ID 추가) - consultationType, referralSource, 담당자 필드 추가
-export interface Patient {
-  consultation: any;
-  _id: string;            // MongoDB ID 필드 추가
-  nextCallbackDate: string;
-  id: string;
-  patientId: string; // PT-XXXX 형식
-  name: string;
-  phoneNumber: string;
-  interestedServices: string[];
-  lastConsultation: string; // YYYY-MM-DD 형식
-  status: PatientStatus;
-  reminderStatus: ReminderStatus;
-  notes?: string;
-  callInDate: string;
-  firstConsultDate: string;
-  callbackHistory?: CallbackItem[];
-  age?: number;
-  region?: {
-    province: string; // 시/도
-    city?: string; // 시/군/구
-  };
-  createdAt: string;
-  updatedAt: string;
-  isCompleted?: boolean; // 종결 처리 여부
-  visitConfirmed?: boolean; // 내원 확정 필드 추가
-  completedAt?: string; // 종결 처리 일자
-  completedReason?: string; // 종결 사유
-  eventTargetInfo?: EventTargetInfo;
-  
-  // 🔥 새로 추가된 필드들
-  consultationType: ConsultationType; // 인바운드/아웃바운드 구분
-  inboundPhoneNumber?: string; // 인바운드일 때 입력받은 번호 (표시용)
-  referralSource?: ReferralSource; // 🔥 유입경로 필드 추가
-  
-  // 🔥 담당자 정보 추가
-  createdBy?: string;          // 등록한 담당자 ID
-  createdByName?: string;      // 등록한 담당자 이름
-  lastModifiedBy?: string;     // 마지막 수정자 ID
-  lastModifiedByName?: string; // 마지막 수정자 이름
-  lastModifiedAt?: string;     // 마지막 수정 일시
-}
-
-// 🔥 환자 생성을 위한 타입 - consultationType, referralSource, 담당자 정보 추가
-export interface CreatePatientData {
-  name: string;
-  phoneNumber: string;
-  status: PatientStatus;
-  interestedServices: string[];
-  memo?: string;
-  callInDate: string;
-  firstConsultDate?: string;
-  age?: number;
-  region?: {
-    province: string; // 시/도
-    city?: string; // 시/군/구
-  };
-  consultationType: ConsultationType; // 🔥 추가
-  inboundPhoneNumber?: string; // 🔥 추가
-  referralSource?: ReferralSource; // 🔥 유입경로 추가
-  
-  // 🔥 담당자 정보는 자동으로 설정되므로 CreatePatientData에서는 제외
-  // (API에서 현재 로그인한 사용자 정보를 자동으로 설정)
-}
-
-// 🔥 환자 수정을 위한 타입 - referralSource, 담당자 정보 추가
-export interface UpdatePatientData {
-  name?: string;
-  phoneNumber?: string;
-  status?: PatientStatus;
-  interestedServices?: string[];
-  notes?: string;
-  callInDate?: string;
-  firstConsultDate?: string;
-  age?: number;
-  region?: {
-    province: string;
-    city?: string;
-  };
-  reminderStatus?: ReminderStatus; // 리마인더 상태 필드 추가
-  isCompleted?: boolean; // 종결 처리 여부 필드 추가
-  completedAt?: string; // 종결 처리 일자 필드 추가
-  completedReason?: string; // 종결 사유 필드 추가
-  callbackHistory?: CallbackItem[];
-  consultationType?: ConsultationType; // 🔥 추가
-  referralSource?: ReferralSource; // 🔥 유입경로 추가
-  
-  // 🔥 담당자 정보 (수정 시에는 lastModifiedBy만 업데이트)
-  lastModifiedBy?: string;
-  lastModifiedByName?: string;
-  lastModifiedAt?: string;
-}
-
-export interface PatientsState {
-  patients: Patient[];            // 모든 환자 목록 (allPatients 대신 이 필드 사용)
-  filteredPatients: Patient[];    // 필터링된 환자 목록
-  selectedPatient: Patient | null; // 현재 선택된 환자
-  pagination: {
-    currentPage: number;
-    totalPages: number;
-    itemsPerPage: number;
-    totalItems: number;
-  };
-  filters: {
-    searchTerm: string;
-    status: PatientStatus | 'all';
-    interestArea: string | 'all';
-    consultationType: ConsultationType | 'all'; // 🔥 필터에 상담 타입 추가
-    referralSource: ReferralSource | 'all'; // 🔥 필터에 유입경로 추가
-  };
-  isLoading: boolean;
-  error: string | null;
-  eventTargetPatients: Patient[];  // 이벤트 타겟 환자 목록
-}
-
-// 초기 상태 정의 - 🔥 필터에 consultationType, referralSource 추가
-const initialState: PatientsState = {
-  patients: [], // 빈 배열로 초기화
-  filteredPatients: [], // 빈 배열로 초기화
-  selectedPatient: null,
-  pagination: {
-    currentPage: 1,
-    totalPages: 0, // 페이지도 0으로 시작
-    itemsPerPage: 10,
-    totalItems: 0
-  },
-  filters: {
-    searchTerm: '',
-    status: 'all',
-    interestArea: 'all',
-    consultationType: 'all', // 🔥 추가
-    referralSource: 'all' // 🔥 유입경로 필터 추가
-  },
-  isLoading: true,
-  error: null,
-  eventTargetPatients: []
-};
-
-// 🔥 인바운드 환자 빠른 등록 비동기 액션 추가 - 활동 로그 연동
+// 🔥 인바운드 환자 빠른 등록 비동기 액션
 export const createQuickInboundPatient = createAsyncThunk(
   'patients/createQuickInboundPatient',
-  async (phoneNumber: string, { rejectWithValue }) => {
+  async ({ phoneNumber, userInfo }: { phoneNumber: string, userInfo: any }, { rejectWithValue }) => {
     try {
+      console.log('🔥 createQuickInboundPatient: 사용자 정보 포함 요청:', userInfo);
+      
+      // 🔥 사용자 정보를 Base64로 인코딩하여 헤더에 전송
+      const userInfoHeader = userInfo ? 
+        btoa(encodeURIComponent(JSON.stringify(userInfo))) : '';
+      
       const response = await fetch('/api/patients/inbound', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
+          // 🔥 사용자 정보 헤더 추가 (일반 환자 등록과 동일한 방식)
+          'X-User-Info': userInfoHeader
         },
         body: JSON.stringify({ phoneNumber }),
       });
@@ -341,7 +329,14 @@ export const createQuickInboundPatient = createAsyncThunk(
       
       const newPatient = await response.json();
       
-      // 🔥 활동 로그 기록
+      console.log('🔥 createQuickInboundPatient: 등록 성공:', {
+        patientId: newPatient.patientId,
+        name: newPatient.name,
+        createdBy: newPatient.createdBy,
+        createdByName: newPatient.createdByName
+      });
+      
+      // 활동 로그 기록
       await PatientActivityLogger.create(
         newPatient.id,
         newPatient.name,
@@ -350,6 +345,7 @@ export const createQuickInboundPatient = createAsyncThunk(
       
       return newPatient;
     } catch (error: any) {
+      console.error('🔥 createQuickInboundPatient: 실패:', error);
       return rejectWithValue(error.message || '인바운드 환자 등록에 실패했습니다.');
     }
   }
@@ -369,13 +365,10 @@ export const fetchPatients = createAsyncThunk(
       
       const data = await response.json();
       
-      // MongoDB의 _id를 문자열로 변환하여 사용하도록 처리
       const patients = data.patients.map((patient: any) => {
-        // 이미 문자열인 경우는 그대로 사용
         if (typeof patient._id === 'string') {
           return patient;
         }
-        // 객체인 경우 문자열로 변환
         return {
           ...patient,
           _id: patient._id.toString()
@@ -392,7 +385,7 @@ export const fetchPatients = createAsyncThunk(
   }
 );
 
-// 🔥 내원확정 토글 비동기 액션 - 활동 로그 연동
+// 🔥 내원확정 토글 비동기 액션
 export const toggleVisitConfirmation = createAsyncThunk(
   'patients/toggleVisitConfirmation',
   async (patientId: string, { rejectWithValue }) => {
@@ -411,7 +404,6 @@ export const toggleVisitConfirmation = createAsyncThunk(
       
       const updatedPatient = await response.json();
       
-      // 🔥 활동 로그 기록
       await PatientActivityLogger.toggleVisitConfirmation(
         updatedPatient.id,
         updatedPatient.name,
@@ -448,47 +440,30 @@ export const fetchPatientsByStatus = createAsyncThunk(
   }
 );
 
-// 앱 시작 시 이벤트 타겟 정보 로드를 위한 액션 추가
+// 🔥 이벤트 타겟 초기화 액션 - 수정된 버전
 export const initializeEventTargets = createAsyncThunk(
   'patients/initializeEventTargets',
   async (_, { getState, rejectWithValue }) => {
     try {
       console.log('이벤트 타겟 초기화 시작');
       
-      // 현재 Redux 상태에서 환자 데이터 가져오기
-      const state = getState() as { patients: PatientsState };
-      const currentPatients = state.patients.patients;
-      
-      // 환자 데이터가 없으면 API에서 직접 로드
-      if (!currentPatients || currentPatients.length === 0) {
-        console.log('Redux에 환자 데이터가 없어서 API에서 로드합니다.');
-        const response = await fetch('/api/patients/event-targets');
-        
-        if (!response.ok) {
-          const errorData = await response.json();
-          return rejectWithValue(errorData.error || '이벤트 타겟 정보 로드에 실패했습니다.');
+      // 항상 API에서 최신 데이터를 가져오도록 수정
+      const response = await fetch('/api/patients/event-targets', {
+        method: 'GET',
+        headers: {
+          'Cache-Control': 'no-cache',
+          'Pragma': 'no-cache'
         }
-        
-        const eventTargetPatients = await response.json();
-        console.log('API에서 이벤트 타겟 환자 로드:', eventTargetPatients.length, '명');
-        return eventTargetPatients;
+      });
+      
+      if (!response.ok) {
+        const errorData = await response.json();
+        console.error('API 응답 오류:', errorData);
+        return rejectWithValue(errorData.error || '이벤트 타겟 정보 로드에 실패했습니다.');
       }
       
-      // 기존 환자 데이터에서 이벤트 타겟 환자들 필터링
-      const eventTargetPatients = currentPatients.filter(patient => 
-        patient.eventTargetInfo?.isEventTarget === true
-      );
-      
-      console.log('Redux에서 이벤트 타겟 환자 필터링 완료:', {
-        totalPatients: currentPatients.length,
-        eventTargetCount: eventTargetPatients.length,
-        eventTargetPatients: eventTargetPatients.map(p => ({
-          id: p.id,
-          name: p.name,
-          isEventTarget: p.eventTargetInfo?.isEventTarget,
-          targetReason: p.eventTargetInfo?.targetReason
-        }))
-      });
+      const eventTargetPatients = await response.json();
+      console.log('API에서 이벤트 타겟 환자 로드 완료:', eventTargetPatients.length, '명');
       
       return eventTargetPatients;
     } catch (error: any) {
@@ -498,10 +473,10 @@ export const initializeEventTargets = createAsyncThunk(
   }
 );
 
-// 🔥 이벤트 타겟 설정 액션 - 활동 로그 연동
+// 🔥 이벤트 타겟 설정 액션
 export const updateEventTargetInfo = createAsyncThunk(
   'patients/updateEventTargetInfo',
-  async ({ patientId, eventTargetInfo }: { patientId: string, eventTargetInfo: Partial<EventTargetInfo> }, { rejectWithValue, getState }) => {
+  async ({ patientId, eventTargetInfo }: { patientId: string, eventTargetInfo: Partial<EventTargetInfo> }, { rejectWithValue }) => {
     try {
       const response = await fetch(`/api/patients/${patientId}/event-target`, {
         method: 'PUT',
@@ -516,25 +491,25 @@ export const updateEventTargetInfo = createAsyncThunk(
         return rejectWithValue(errorData.error || '이벤트 타겟 정보 업데이트에 실패했습니다.');
       }
       
-      const updatedPatient = await response.json();
+      const result = await response.json();
       
-      // 🔥 활동 로그 기록
       if (eventTargetInfo.isEventTarget) {
         await EventTargetActivityLogger.create(
           patientId,
-          updatedPatient.name,
+          result.patient.name,
           eventTargetInfo
         );
       } else {
         await EventTargetActivityLogger.delete(
           patientId,
-          updatedPatient.name
+          result.patient.name
         );
       }
       
       return {
         patientId,
-        eventTargetInfo: updatedPatient.eventTargetInfo
+        eventTargetInfo: result.eventTargetInfo,
+        updatedPatient: result.patient
       };
     } catch (error) {
       return rejectWithValue(
@@ -549,7 +524,6 @@ export const filterEventTargets = createAsyncThunk(
   'patients/filterEventTargets',
   async ({ categories, reasons }: { categories?: EventCategory[], reasons?: EventTargetReason[] }, { rejectWithValue }) => {
     try {
-      // 쿼리 파라미터 구성
       const params = new URLSearchParams();
       
       if (categories && categories.length > 0) {
@@ -578,41 +552,47 @@ export const filterEventTargets = createAsyncThunk(
   }
 );
 
-// 🔥 신규 환자 등록 비동기 액션 - 활동 로그 연동
+// 🔥 신규 환자 등록 비동기 액션
 export const createPatient = createAsyncThunk(
   'patients/createPatient',
-  async (patientData: CreatePatientData, { rejectWithValue }) => {
+  async (patientData: CreatePatientData, { getState, rejectWithValue }) => {
     try {
+      // 🔥 현재 로그인한 사용자 정보 가져오기
+      const state = getState() as RootState;
+      const currentUser = state.auth.user;
+      
+      console.log('🔥 createPatient: 현재 사용자 정보:', currentUser);
+      
+      // 🔥 한글 문제 해결을 위해 Base64 인코딩
+      const userInfoHeader = currentUser ? 
+        btoa(encodeURIComponent(JSON.stringify(currentUser))) : '';
+      
       const response = await fetch('/api/patients', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
+          // 🔥 Base64로 인코딩된 사용자 정보 전송
+          'X-User-Info': userInfoHeader
         },
-        body: JSON.stringify(patientData),
+        body: JSON.stringify(patientData)
       });
-      
+
       if (!response.ok) {
         const errorData = await response.json();
-        return rejectWithValue(errorData.error || '환자 등록에 실패했습니다.');
+        return rejectWithValue(errorData.error || '환자 생성에 실패했습니다.');
       }
-      
-      const newPatient = await response.json();
-      
-      // 🔥 활동 로그 기록
-      await PatientActivityLogger.create(
-        newPatient.id,
-        newPatient.name,
-        patientData
-      );
-      
-      return newPatient;
-    } catch (error: any) {
-      return rejectWithValue(error.message || '환자 등록에 실패했습니다.');
+
+      const result = await response.json();
+      console.log('🔥 createPatient: 환자 생성 성공:', result);
+      return result;
+    } catch (error) {
+      console.error('환자 생성 오류:', error);
+      return rejectWithValue('환자 생성 중 오류가 발생했습니다.');
     }
   }
 );
 
-// 🔥 환자 정보 수정 비동기 액션 - 활동 로그 연동
+// 🔥 환자 정보 수정 비동기 액션
 export const updatePatient = createAsyncThunk(
   'patients/updatePatient',
   async ({ 
@@ -623,7 +603,6 @@ export const updatePatient = createAsyncThunk(
     patientData: UpdatePatientData 
   }, { rejectWithValue, getState }) => {
     try {
-      // 이전 환자 데이터 가져오기 (로그용)
       const state = getState() as { patients: PatientsState };
       const previousPatient = state.patients.patients.find(p => p._id === patientId || p.id === patientId);
       
@@ -631,7 +610,6 @@ export const updatePatient = createAsyncThunk(
         method: 'PUT',
         headers: {
           'Content-Type': 'application/json',
-          // 🔥 헤더에 로깅 방식 전달 - API에서 로깅하지 않도록 지시
           'X-Skip-Activity-Log': 'true'
         },
         body: JSON.stringify(patientData),
@@ -644,7 +622,6 @@ export const updatePatient = createAsyncThunk(
       
       const updatedPatient = await response.json();
       
-      // 🔥 활동 로그는 프론트엔드에서만 기록 (중복 방지)
       if (previousPatient) {
         try {
           await PatientActivityLogger.update(
@@ -656,7 +633,6 @@ export const updatePatient = createAsyncThunk(
           console.log('✅ 환자 정보 수정 로그 기록 완료');
         } catch (logError) {
           console.warn('⚠️ 활동 로그 기록 실패:', logError);
-          // 로그 실패는 무시하고 계속 진행
         }
       }
       
@@ -667,12 +643,11 @@ export const updatePatient = createAsyncThunk(
   }
 );
 
-// 🔥 deletePatient 액션 수정 - 활동 로그 연동
+// 🔥 환자 삭제 액션
 export const deletePatient = createAsyncThunk(
   'patients/deletePatient',
   async (patientId: string, { rejectWithValue, getState }) => {
     try {
-      // 삭제할 환자 정보 가져오기 (로그용)
       const state = getState() as { patients: PatientsState };
       const patientToDelete = state.patients.patients.find(p => p._id === patientId || p.id === patientId);
       
@@ -680,7 +655,6 @@ export const deletePatient = createAsyncThunk(
       const response = await fetch(`/api/patients/${patientId}`, {
         method: 'DELETE',
       });
-
       console.log(`API 응답 상태: ${response.status}`);
       
       if (!response.ok) {
@@ -688,17 +662,14 @@ export const deletePatient = createAsyncThunk(
         console.error('삭제 실패 응답:', errorData);
         return rejectWithValue(errorData.error || '환자 삭제에 실패했습니다.');
       }
-
-      // 🔥 활동 로그 기록
       if (patientToDelete) {
         await PatientActivityLogger.delete(
           patientToDelete.id,
           patientToDelete.name
         );
       }
-
       console.log('환자 삭제 성공');
-      return patientId; // 삭제 성공 시 ID 반환
+      return patientId;
     } catch (error: any) {
       console.error('환자 삭제 오류:', error);
       return rejectWithValue(error.message || '환자 삭제에 실패했습니다.');
@@ -706,7 +677,7 @@ export const deletePatient = createAsyncThunk(
   }
 );
 
-// 🔥 환자 종결 처리 액션 - 활동 로그 연동
+// 🔥 환자 종결 처리 액션
 export const completePatient = createAsyncThunk(
   'patients/completePatient',
   async ({ 
@@ -714,7 +685,6 @@ export const completePatient = createAsyncThunk(
     reason 
   }: CompletePatientData, { rejectWithValue, getState }) => {
     try {
-      // 환자 정보 가져오기 (로그용)
       const state = getState() as { patients: PatientsState };
       const patient = state.patients.patients.find(p => p._id === patientId || p.id === patientId);
       
@@ -733,7 +703,6 @@ export const completePatient = createAsyncThunk(
       
       const result = await response.json();
       
-      // 🔥 활동 로그 기록
       if (patient) {
         await PatientActivityLogger.complete(
           patient.id,
@@ -754,12 +723,11 @@ export const completePatient = createAsyncThunk(
   }
 );
 
-// 🔥 환자 종결 취소 액션 - 활동 로그 연동
+// 🔥 환자 종결 취소 액션
 export const cancelPatientCompletion = createAsyncThunk(
   'patients/cancelPatientCompletion',
   async (patientId: string, { rejectWithValue, getState }) => {
     try {
-      // 환자 정보 가져오기 (로그용)
       const state = getState() as { patients: PatientsState };
       const patient = state.patients.patients.find(p => p._id === patientId || p.id === patientId);
       
@@ -774,7 +742,6 @@ export const cancelPatientCompletion = createAsyncThunk(
       
       const result = await response.json();
       
-      // 🔥 활동 로그 기록
       if (patient) {
         await PatientActivityLogger.cancelComplete(
           patient.id,
@@ -789,7 +756,7 @@ export const cancelPatientCompletion = createAsyncThunk(
   }
 );
 
-// 🔥 콜백 추가 비동기 액션 - 활동 로그 연동
+// 🔥 콜백 추가 비동기 액션
 export const addCallback = createAsyncThunk(
   'patients/addCallback',
   async ({ 
@@ -807,7 +774,6 @@ export const addCallback = createAsyncThunk(
         return rejectWithValue('환자 ID가 없습니다.');
       }
       
-      // 환자 정보 가져오기 (로그용)
       const state = getState() as { patients: PatientsState };
       const patient = state.patients.patients.find(p => p._id === patientId || p.id === patientId);
       
@@ -828,7 +794,6 @@ export const addCallback = createAsyncThunk(
       const updatedPatient = await response.json();
       console.log('콜백 추가 성공. 업데이트된 환자:', updatedPatient);
       
-      // 🔥 활동 로그 기록
       if (patient) {
         await CallbackActivityLogger.create(
           patient.id,
@@ -848,7 +813,7 @@ export const addCallback = createAsyncThunk(
   }
 );
 
-// 🔥 콜백 취소 액션 - 활동 로그 연동
+// 🔥 콜백 취소 액션
 export const cancelCallback = createAsyncThunk(
   'patients/cancelCallback',
   async ({ 
@@ -861,7 +826,6 @@ export const cancelCallback = createAsyncThunk(
     cancelReason?: string
   }, { rejectWithValue, getState }) => {
     try {
-      // 환자 정보 가져오기 (로그용)
       const state = getState() as { patients: PatientsState };
       const patient = state.patients.patients.find(p => p._id === patientId || p.id === patientId);
       
@@ -880,7 +844,6 @@ export const cancelCallback = createAsyncThunk(
       
       const updatedPatient = await response.json();
       
-      // 🔥 활동 로그 기록
       if (patient) {
         await CallbackActivityLogger.cancel(
           patient.id,
@@ -897,7 +860,7 @@ export const cancelCallback = createAsyncThunk(
   }
 );
 
-// 🔥 콜백 삭제 액션 - 활동 로그 연동
+// 🔥 콜백 삭제 액션
 export const deleteCallback = createAsyncThunk(
   'patients/deleteCallback',
   async ({ 
@@ -908,7 +871,6 @@ export const deleteCallback = createAsyncThunk(
     callbackId: string
   }, { rejectWithValue, getState }) => {
     try {
-      // 환자 정보 가져오기 (로그용)
       const state = getState() as { patients: PatientsState };
       const patient = state.patients.patients.find(p => p._id === patientId || p.id === patientId);
       
@@ -923,7 +885,6 @@ export const deleteCallback = createAsyncThunk(
       
       const result = await response.json();
       
-      // 🔥 활동 로그 기록
       if (patient) {
         await CallbackActivityLogger.delete(
           patient.id,
@@ -943,6 +904,109 @@ export const deleteCallback = createAsyncThunk(
   }
 );
 
+// 🔥 콜백 업데이트 액션 추가
+export const updateCallback = createAsyncThunk(
+  'patients/updateCallback',
+  async ({ 
+    patientId, 
+    callbackId,
+    updateData 
+  }: { 
+    patientId: string,
+    callbackId: string,
+    updateData: Partial<CallbackItem>
+  }, { rejectWithValue, getState }) => {
+    try {
+      const state = getState() as { patients: PatientsState };
+      const patient = state.patients.patients.find(p => p._id === patientId || p.id === patientId);
+      
+      // 🔥 기존 콜백 데이터 가져오기 (activityLogger에 필요)
+      const existingCallback = patient?.callbackHistory?.find(cb => cb.id === callbackId);
+      
+      const response = await fetch(`/api/patients/${patientId}/callbacks/${callbackId}`, {
+        method: 'PUT',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify(updateData),
+      });
+      
+      if (!response.ok) {
+        const errorData = await response.json();
+        return rejectWithValue(errorData.error || '콜백 업데이트에 실패했습니다.');
+      }
+      
+      const updatedPatient = await response.json();
+      
+      // 🔥 활동 로그 기록 - 5개 인자 모두 전달
+      if (patient && existingCallback) {
+        await CallbackActivityLogger.update(
+          patient.id,
+          patient.name,
+          callbackId,
+          existingCallback,  // 🔥 기존 데이터 (4번째 인자)
+          updateData         // 🔥 새로운 데이터 (5번째 인자)
+        );
+      }
+      
+      return { patientId, updatedPatient };
+    } catch (error: any) {
+      return rejectWithValue(error.message || '콜백 업데이트에 실패했습니다.');
+    }
+  }
+);
+
+// 필터 적용 헬퍼 함수
+function applyFilters(state: PatientsState) {
+  let filtered = [...state.patients];
+  
+  const { status, interestArea, searchTerm, consultationType, referralSource, visitStatus } = state.filters;
+  
+  if (status !== 'all') {
+    filtered = filtered.filter(patient => patient.status === status);
+  }
+  
+  if (interestArea !== 'all') {
+    filtered = filtered.filter(patient => 
+      patient.interestedServices.includes(interestArea)
+    );
+  }
+  
+  if (consultationType !== 'all') {
+    filtered = filtered.filter(patient => patient.consultationType === consultationType);
+  }
+  
+  if (referralSource !== 'all') {
+    filtered = filtered.filter(patient => patient.referralSource === referralSource);
+  }
+  
+  // 🔥 내원 상태 기준 필터링 - '상담중' 제거
+  if (visitStatus !== 'all') {
+    if (visitStatus === 'visit_confirmed') {
+      filtered = filtered.filter(patient => patient.visitConfirmed === true);
+    } else if (visitStatus === 'post_visit_needed') {
+      // 🔥 '상담중' 제거, '재콜백필요'만 체크
+      filtered = filtered.filter(patient => 
+        patient.visitConfirmed === true && 
+        patient.postVisitStatus === '재콜백필요'
+      );
+    }
+  }
+  
+  if (searchTerm) {
+    const term = searchTerm.toLowerCase();
+    filtered = filtered.filter(patient => 
+      patient.name.toLowerCase().includes(term) || 
+      patient.phoneNumber.includes(term) ||
+      (patient.notes && patient.notes.toLowerCase().includes(term))
+    );
+  }
+  
+  state.filteredPatients = filtered;
+  state.pagination.totalPages = Math.ceil(filtered.length / state.pagination.itemsPerPage);
+  state.pagination.currentPage = 1;
+}
+
 const patientsSlice = createSlice({
   name: 'patients',
   initialState,
@@ -952,7 +1016,6 @@ const patientsSlice = createSlice({
       
       console.log('환자 선택 시도:', patientId);
       
-      // MongoDB ID 형식인지 먼저 확인하고, 아니면 id 필드로 검색
       const updatedPatient = state.patients.find(
         (patient) => patient._id === patientId || patient.id === patientId
       );
@@ -966,62 +1029,53 @@ const patientsSlice = createSlice({
         state.selectedPatient = null;
       }
     },
+
+    setSelectedPatient: (state, action: PayloadAction<Patient>) => {
+      state.selectedPatient = action.payload;
+    },
+
     clearSelectedPatient: (state) => {
       state.selectedPatient = null;
     },
     setFilters: (state, action: PayloadAction<Partial<PatientsState['filters']>>) => {
       state.filters = { ...state.filters, ...action.payload };
-      // 필터 적용
       applyFilters(state);
     },
     setPage: (state, action: PayloadAction<number>) => {
       state.pagination.currentPage = action.payload;
+      
+    },
+    clearFilteredPatients: (state) => {
+      state.filteredPatientsForModal = [];
+      state.modalFilterType = null;
     },
   },
+  
   extraReducers: (builder) => {
     builder
-      // 🔥 createQuickInboundPatient 액션 처리 추가
-      .addCase(createQuickInboundPatient.pending, (state) => {
+      // 🔥 내원 후 관리 환자 목록 가져오기 처리
+      .addCase(fetchPostVisitPatients.pending, (state) => {
         state.isLoading = true;
         state.error = null;
       })
-      .addCase(createQuickInboundPatient.fulfilled, (state, action: PayloadAction<Patient>) => {
+      .addCase(fetchPostVisitPatients.fulfilled, (state, action: PayloadAction<Patient[]>) => {
         state.isLoading = false;
-        state.patients = [...state.patients, action.payload];
-        applyFilters(state); // 필터 다시 적용
+        state.postVisitPatients = action.payload;
+        console.log('내원 후 관리 환자 목록 로드 완료:', action.payload.length);
       })
-      .addCase(createQuickInboundPatient.rejected, (state, action: PayloadAction<any>) => {
+      .addCase(fetchPostVisitPatients.rejected, (state, action: PayloadAction<any>) => {
         state.isLoading = false;
         state.error = action.payload;
       })
       
-      // fetchPatients 액션 처리
-      .addCase(fetchPatients.pending, (state) => {
-        state.isLoading = true;
+      // extraReducers 섹션에 추가할 케이스들:
+      .addCase(updateConsultationInfo.pending, (state) => {
         state.error = null;
       })
-      .addCase(fetchPatients.fulfilled, (state, action: PayloadAction<{ patients: Patient[], totalItems: number }>) => {
-        state.isLoading = false;
-        state.patients = action.payload.patients;
-        state.filteredPatients = action.payload.patients;
-        state.pagination.totalItems = action.payload.totalItems;
-        state.pagination.totalPages = Math.ceil(action.payload.totalItems / state.pagination.itemsPerPage) || 1; // 최소 1 페이지
-        console.log('fetchPatients 완료 - 환자 수:', action.payload.patients.length);
-      })
-      .addCase(fetchPatients.rejected, (state, action: PayloadAction<any>) => {
-        state.isLoading = false;
-        state.error = action.payload;
-      })
-      
-      // 내원확정 토글 처리 추가
-      .addCase(toggleVisitConfirmation.pending, (state) => {
-        // 로딩 상태는 설정하지 않음 (사용자 경험을 위해)
-        state.error = null;
-      })
-      .addCase(toggleVisitConfirmation.fulfilled, (state, action: PayloadAction<Patient>) => {
+      .addCase(updateConsultationInfo.fulfilled, (state, action: PayloadAction<Patient>) => {
         const updatedPatient = action.payload;
         
-        // 환자 목록에서 해당 환자 업데이트 (_id 또는 id로 찾기)
+        // 🔥 patients 배열에서 해당 환자 업데이트
         const patientIndex = state.patients.findIndex(p => 
           p._id === updatedPatient._id || p.id === updatedPatient.id
         );
@@ -1029,7 +1083,7 @@ const patientsSlice = createSlice({
           state.patients[patientIndex] = updatedPatient;
         }
         
-        // 필터링된 환자 목록도 업데이트
+        // 🔥 filteredPatients 배열에서도 업데이트
         const filteredIndex = state.filteredPatients.findIndex(p => 
           p._id === updatedPatient._id || p.id === updatedPatient.id
         );
@@ -1037,7 +1091,129 @@ const patientsSlice = createSlice({
           state.filteredPatients[filteredIndex] = updatedPatient;
         }
         
-        // 선택된 환자도 업데이트
+        // 🔥 eventTargetPatients 배열에서도 업데이트 (이벤트 타겟인 경우)
+        const eventTargetIndex = state.eventTargetPatients.findIndex(p => 
+          p._id === updatedPatient._id || p.id === updatedPatient.id
+        );
+        if (eventTargetIndex !== -1) {
+          state.eventTargetPatients[eventTargetIndex] = updatedPatient;
+        }
+        
+        // 🔥 postVisitPatients 배열에서도 업데이트 (내원 후 환자인 경우)
+        const postVisitIndex = state.postVisitPatients.findIndex(p => 
+          p._id === updatedPatient._id || p.id === updatedPatient.id
+        );
+        if (postVisitIndex !== -1) {
+          state.postVisitPatients[postVisitIndex] = updatedPatient;
+        }
+        
+        // 🔥 selectedPatient도 업데이트 (현재 선택된 환자라면)
+        if (state.selectedPatient && 
+            (state.selectedPatient._id === updatedPatient._id || 
+            state.selectedPatient.id === updatedPatient.id)) {
+          state.selectedPatient = updatedPatient;
+        }
+        
+        console.log('🔥 Redux: 상담 정보 업데이트 완료:', {
+          patientId: updatedPatient._id,
+          name: updatedPatient.name,
+          estimateAgreed: updatedPatient.consultation?.estimateAgreed
+        });
+      })
+      .addCase(updateConsultationInfo.rejected, (state, action) => {
+        state.error = action.payload as string;
+        console.error('상담 정보 업데이트 실패:', action.payload);
+      })
+
+      // 🔥 내원 후 상태 업데이트 처리
+      .addCase(updatePostVisitStatus.pending, (state) => {
+        state.error = null;
+      })
+      .addCase(updatePostVisitStatus.fulfilled, (state, action: PayloadAction<Patient>) => {
+        const updatedPatient = action.payload;
+        
+        const patientIndex = state.patients.findIndex(p => 
+          p._id === updatedPatient._id || p.id === updatedPatient.id
+        );
+        if (patientIndex !== -1) {
+          state.patients[patientIndex] = updatedPatient;
+        }
+        
+        const filteredIndex = state.filteredPatients.findIndex(p => 
+          p._id === updatedPatient._id || p.id === updatedPatient.id
+        );
+        if (filteredIndex !== -1) {
+          state.filteredPatients[filteredIndex] = updatedPatient;
+        }
+        
+        const postVisitIndex = state.postVisitPatients.findIndex(p => 
+          p._id === updatedPatient._id || p.id === updatedPatient.id
+        );
+        if (postVisitIndex !== -1) {
+          state.postVisitPatients[postVisitIndex] = updatedPatient;
+        } else {
+          if (updatedPatient.visitConfirmed && updatedPatient.postVisitStatus) {
+            state.postVisitPatients.push(updatedPatient);
+          }
+        }
+        
+        if (state.selectedPatient && 
+            (state.selectedPatient._id === updatedPatient._id || 
+             state.selectedPatient.id === updatedPatient.id)) {
+          state.selectedPatient = updatedPatient;
+        }
+        
+        console.log('내원 후 상태 업데이트 완료:', {
+          patientId: updatedPatient._id,
+          name: updatedPatient.name,
+          postVisitStatus: updatedPatient.postVisitStatus
+        });
+      })
+      .addCase(updatePostVisitStatus.rejected, (state, action) => {
+        state.error = action.payload as string;
+        console.error('내원 후 상태 업데이트 실패:', action.payload);
+      })
+      
+      // 환자 목록 가져오기 처리
+      .addCase(fetchPatients.pending, (state) => {
+        state.isLoading = true;
+        state.error = null;
+      })
+      .addCase(fetchPatients.fulfilled, (state, action: PayloadAction<{ patients: Patient[], totalItems: number }>) => {
+        state.isLoading = false;
+        
+        // 🔥 프론트엔드에서도 최신순 정렬 보장
+        const sortedPatients = action.payload.patients.sort((a, b) => {
+          const dateA = new Date(a.createdAt || a.callInDate).getTime();
+          const dateB = new Date(b.createdAt || b.callInDate).getTime();
+          return dateB - dateA; // 최신순 (내림차순)
+        });
+        
+        state.patients = sortedPatients;
+        state.filteredPatients = sortedPatients;
+        state.pagination.totalItems = action.payload.totalItems;
+        state.pagination.totalPages = Math.ceil(action.payload.totalItems / state.pagination.itemsPerPage) || 1;
+        console.log('fetchPatients 완료 - 환자 수:', action.payload.patients.length);
+      })
+      
+      // 내원확정 토글 처리
+      .addCase(toggleVisitConfirmation.fulfilled, (state, action: PayloadAction<Patient>) => {
+        const updatedPatient = action.payload;
+        
+        const patientIndex = state.patients.findIndex(p => 
+          p._id === updatedPatient._id || p.id === updatedPatient.id
+        );
+        if (patientIndex !== -1) {
+          state.patients[patientIndex] = updatedPatient;
+        }
+        
+        const filteredIndex = state.filteredPatients.findIndex(p => 
+          p._id === updatedPatient._id || p.id === updatedPatient.id
+        );
+        if (filteredIndex !== -1) {
+          state.filteredPatients[filteredIndex] = updatedPatient;
+        }
+        
         if (state.selectedPatient && 
             (state.selectedPatient._id === updatedPatient._id || 
              state.selectedPatient.id === updatedPatient.id)) {
@@ -1050,548 +1226,228 @@ const patientsSlice = createSlice({
           visitConfirmed: updatedPatient.visitConfirmed
         });
       })
-      .addCase(toggleVisitConfirmation.rejected, (state, action) => {
-        state.error = action.payload as string;
-        console.error('내원확정 변경 실패:', action.payload);
+
+      // extraReducers 섹션에 추가
+      .addCase(updateCallback.fulfilled, (state, action) => {
+        const { patientId, updatedPatient } = action.payload;
         
-        // 실패 시 사용자에게 알림을 보여주거나 상태를 원복할 수 있음
-        // 필요하다면 여기서 토스트 메시지 등을 트리거할 수 있습니다
-      })
-         
-      // createPatient 액션 처리
-      .addCase(createPatient.pending, (state) => {
-        state.isLoading = true;
-        state.error = null;
-      })
-      .addCase(createPatient.fulfilled, (state, action: PayloadAction<Patient>) => {
-        state.isLoading = false;
-        state.patients = [...state.patients, action.payload];
-        applyFilters(state); // 필터 다시 적용
-      })
-      .addCase(createPatient.rejected, (state, action: PayloadAction<any>) => {
-        state.isLoading = false;
-        state.error = action.payload;
+        const patientIndex = state.patients.findIndex(p => 
+          p._id === patientId || p.id === patientId
+        );
+        if (patientIndex !== -1) {
+          state.patients[patientIndex] = updatedPatient;
+        }
+        
+        const filteredIndex = state.filteredPatients.findIndex(p => 
+          p._id === patientId || p.id === patientId
+        );
+        if (filteredIndex !== -1) {
+          state.filteredPatients[filteredIndex] = updatedPatient;
+        }
+        
+        if (state.selectedPatient && 
+            (state.selectedPatient._id === patientId || 
+            state.selectedPatient.id === patientId)) {
+          state.selectedPatient = updatedPatient;
+        }
       })
       
-      // updatePatient 액션 처리 (기존 코드에서 이 부분만 교체)
-      .addCase(updatePatient.pending, (state) => {
+      // 🔥 이벤트 타겟 초기화 처리 - 추가된 부분
+      .addCase(initializeEventTargets.pending, (state) => {
         state.isLoading = true;
         state.error = null;
+        console.log('이벤트 타겟 초기화 대기 중...');
       })
-      .addCase(updatePatient.fulfilled, (state, action: PayloadAction<Patient>) => {
+      .addCase(initializeEventTargets.fulfilled, (state, action: PayloadAction<Patient[]>) => {
         state.isLoading = false;
+        state.eventTargetPatients = action.payload;
+        console.log('Redux: 이벤트 타겟 환자 상태 업데이트 완료:', {
+          count: action.payload.length,
+          patients: action.payload.map(p => ({ id: p.id, name: p.name, isEventTarget: p.eventTargetInfo?.isEventTarget }))
+        });
+      })
+      .addCase(initializeEventTargets.rejected, (state, action: PayloadAction<any>) => {
+        state.isLoading = false;
+        state.error = action.payload;
+        state.eventTargetPatients = [];
+        console.error('이벤트 타겟 초기화 실패:', action.payload);
+      })
+      
+      // 🔥 이벤트 타겟 정보 업데이트 처리 - 수정된 부분
+      .addCase(updateEventTargetInfo.fulfilled, (state, action) => {
+        const { patientId, eventTargetInfo, updatedPatient } = action.payload;
         
+        // patients 배열에서 해당 환자 업데이트
+        const patientIndex = state.patients.findIndex(p => 
+          p._id === patientId || p.id === patientId
+        );
+        if (patientIndex !== -1) {
+          state.patients[patientIndex] = updatedPatient;
+        }
+        
+        // filteredPatients 배열에서도 업데이트
+        const filteredIndex = state.filteredPatients.findIndex(p => 
+          p._id === patientId || p.id === patientId
+        );
+        if (filteredIndex !== -1) {
+          state.filteredPatients[filteredIndex] = updatedPatient;
+        }
+        
+        // eventTargetPatients 배열 업데이트
+        if (eventTargetInfo.isEventTarget) {
+          // 이벤트 타겟으로 설정된 경우 추가 또는 업데이트
+          const eventTargetIndex = state.eventTargetPatients.findIndex(p => 
+            p._id === patientId || p.id === patientId
+          );
+          
+          if (eventTargetIndex !== -1) {
+            // 이미 존재하면 업데이트
+            state.eventTargetPatients[eventTargetIndex] = updatedPatient;
+          } else {
+            // 새로 추가
+            state.eventTargetPatients.push(updatedPatient);
+          }
+        } else {
+          // 이벤트 타겟에서 제거된 경우
+          state.eventTargetPatients = state.eventTargetPatients.filter(p => 
+            p._id !== patientId && p.id !== patientId
+          );
+        }
+        
+        // selectedPatient 업데이트
+        if (state.selectedPatient && 
+            (state.selectedPatient._id === patientId || state.selectedPatient.id === patientId)) {
+          state.selectedPatient = updatedPatient;
+        }
+        
+        console.log('이벤트 타겟 정보 업데이트 완료:', {
+          patientId,
+          isEventTarget: eventTargetInfo.isEventTarget,
+          eventTargetPatientsCount: state.eventTargetPatients.length
+        });
+      })
+      
+      // 환자 생성 처리
+      .addCase(createPatient.fulfilled, (state, action: PayloadAction<Patient>) => {
+        const newPatient = action.payload;
+        
+        // 🔥 최상단에 추가 (기존 unshift 방식 유지)
+        state.patients.unshift(newPatient);
+        state.filteredPatients.unshift(newPatient);
+        
+        // 🔥 혹시 몰라서 한 번 더 정렬 (안전장치)
+        state.patients.sort((a, b) => {
+          const dateA = new Date(a.createdAt || a.callInDate).getTime();
+          const dateB = new Date(b.createdAt || b.callInDate).getTime();
+          return dateB - dateA;
+        });
+        
+        state.filteredPatients.sort((a, b) => {
+          const dateA = new Date(a.createdAt || a.callInDate).getTime();
+          const dateB = new Date(b.createdAt || b.callInDate).getTime();
+          return dateB - dateA;
+        });
+        
+        state.pagination.totalItems += 1;
+        state.pagination.totalPages = Math.ceil(state.pagination.totalItems / state.pagination.itemsPerPage);
+      })
+      
+      // 환자 정보 수정 처리
+      .addCase(updatePatient.fulfilled, (state, action: PayloadAction<Patient>) => {
         const updatedPatient = action.payload;
-        console.log('Redux: 환자 업데이트 완료', updatedPatient);
         
-        // 🔥 환자 목록에서 해당 환자 업데이트 - _id 우선 매칭
-        const patientIndex = state.patients.findIndex((p: Patient) => 
+        const patientIndex = state.patients.findIndex(p => 
           p._id === updatedPatient._id || p.id === updatedPatient.id
         );
         if (patientIndex !== -1) {
           state.patients[patientIndex] = updatedPatient;
-          console.log('Redux: 환자 목록 업데이트 완료', patientIndex);
         }
         
-        // 🔥 필터링된 목록에서도 해당 환자 업데이트 - _id 우선 매칭
-        const filteredIndex = state.filteredPatients.findIndex((p: Patient) => 
+        const filteredIndex = state.filteredPatients.findIndex(p => 
           p._id === updatedPatient._id || p.id === updatedPatient.id
         );
         if (filteredIndex !== -1) {
           state.filteredPatients[filteredIndex] = updatedPatient;
-          console.log('Redux: 필터링된 목록 업데이트 완료', filteredIndex);
         }
         
-        // 🔥 현재 선택된 환자가 업데이트 대상이면 업데이트 - _id 우선 매칭
         if (state.selectedPatient && 
             (state.selectedPatient._id === updatedPatient._id || 
-            state.selectedPatient.id === updatedPatient.id)) {
+             state.selectedPatient.id === updatedPatient.id)) {
           state.selectedPatient = updatedPatient;
-          console.log('Redux: 선택된 환자 업데이트 완료');
         }
-        
-        // 🔥 이벤트 타겟 환자 목록도 업데이트
-        const eventTargetIndex = state.eventTargetPatients.findIndex((p: Patient) => 
-          p._id === updatedPatient._id || p.id === updatedPatient.id
-        );
-        if (eventTargetIndex !== -1) {
-          state.eventTargetPatients[eventTargetIndex] = updatedPatient;
-          console.log('Redux: 이벤트 타겟 목록 업데이트 완료', eventTargetIndex);
-        }
-      })
-      .addCase(updatePatient.rejected, (state, action: PayloadAction<any>) => {
-        state.isLoading = false;
-        state.error = action.payload;
-        console.error('Redux: 환자 업데이트 실패', action.payload);
       })
       
-      // deletePatient 액션 처리
-      .addCase(deletePatient.pending, (state) => {
-        state.isLoading = true;
-        state.error = null;
-      })
+      // 환자 삭제 처리
       .addCase(deletePatient.fulfilled, (state, action: PayloadAction<string>) => {
-        state.isLoading = false;
         const deletedPatientId = action.payload;
         
-        // 환자 목록에서 삭제된 환자 제거 - _id 또는 id 기준으로 찾기
-        state.patients = state.patients.filter((patient) => 
-          patient._id !== deletedPatientId && patient.id !== deletedPatientId
+        state.patients = state.patients.filter(p => 
+          p._id !== deletedPatientId && p.id !== deletedPatientId
+        );
+        state.filteredPatients = state.filteredPatients.filter(p => 
+          p._id !== deletedPatientId && p.id !== deletedPatientId
+        );
+        state.eventTargetPatients = state.eventTargetPatients.filter(p => 
+          p._id !== deletedPatientId && p.id !== deletedPatientId
         );
         
-        // 필터링된 목록도 업데이트
-        state.filteredPatients = state.filteredPatients.filter((patient) => 
-          patient._id !== deletedPatientId && patient.id !== deletedPatientId
-        );
-        
-        // 🔥 이벤트 타겟 환자 목록에서도 삭제된 환자 제거 (추가)
-        const originalEventTargetLength = state.eventTargetPatients.length;
-        state.eventTargetPatients = state.eventTargetPatients.filter((patient) => 
-          patient._id !== deletedPatientId && patient.id !== deletedPatientId
-        );
-        
-        // 디버깅을 위한 로그
-        if (state.eventTargetPatients.length < originalEventTargetLength) {
-          console.log(`이벤트 타겟 목록에서 환자 삭제됨: ${deletedPatientId}`);
-          console.log(`이벤트 타겟 환자 수: ${originalEventTargetLength} → ${state.eventTargetPatients.length}`);
-        }
-        
-        // 현재 선택된 환자가 삭제되었으면 선택 취소
         if (state.selectedPatient && 
-            (state.selectedPatient._id === deletedPatientId || state.selectedPatient.id === deletedPatientId)) {
+            (state.selectedPatient._id === deletedPatientId || 
+             state.selectedPatient.id === deletedPatientId)) {
           state.selectedPatient = null;
         }
         
-        // 페이지네이션 업데이트
-        state.pagination.totalItems = state.pagination.totalItems - 1;
-        state.pagination.totalPages = Math.ceil(state.filteredPatients.length / state.pagination.itemsPerPage);
-        
-        // 현재 페이지가 유효하지 않은 경우 조정
-        if (state.pagination.currentPage > state.pagination.totalPages && state.pagination.totalPages > 0) {
-          state.pagination.currentPage = state.pagination.totalPages;
-        }
-      })
-      .addCase(deletePatient.rejected, (state, action: PayloadAction<any>) => {
-        state.isLoading = false;
-        state.error = action.payload;
+        state.pagination.totalItems -= 1;
+        state.pagination.totalPages = Math.ceil(state.pagination.totalItems / state.pagination.itemsPerPage);
       })
       
-      // completePatient 액션 처리
-      .addCase(completePatient.pending, (state) => {
-        state.isLoading = true;
-        state.error = null;
-      })
-      .addCase(completePatient.fulfilled, (state, action: PayloadAction<{
-        patientId: string,
-        updatedPatient: Patient,
-        callbackHistory: CallbackItem[],
-        isReservationCompletion: boolean
-      }>) => {
-        state.isLoading = false;
-        
-        // 환자 목록에서 해당 환자 업데이트
-        const patientIndex = state.patients.findIndex((p: { id: string; }) => p.id === action.payload.patientId);
-        if (patientIndex !== -1) {
-          state.patients[patientIndex] = action.payload.updatedPatient;
-          
-          // 예약 완료인 경우 상태 명시적으로 설정
-          if (action.payload.isReservationCompletion) {
-            state.patients[patientIndex].status = '예약확정';
-          } else {
-            state.patients[patientIndex].status = '종결';
-          }
-        }
-        
-        // 필터링된 목록에서도 해당 환자 업데이트
-        const filteredIndex = state.filteredPatients.findIndex((p: { id: string; }) => p.id === action.payload.patientId);
-        if (filteredIndex !== -1) {
-          state.filteredPatients[filteredIndex] = action.payload.updatedPatient;
-          
-          // 예약 완료인 경우 상태 명시적으로 설정
-          if (action.payload.isReservationCompletion) {
-            state.filteredPatients[filteredIndex].status = '예약확정';
-          } else {
-            state.filteredPatients[filteredIndex].status = '종결';
-          }
-        }
-        
-        // 현재 선택된 환자가 업데이트 대상이면 업데이트
-        if (state.selectedPatient && state.selectedPatient.id === action.payload.patientId) {
-          state.selectedPatient = action.payload.updatedPatient;
-          
-          // 예약 완료인 경우 상태 명시적으로 설정
-          if (action.payload.isReservationCompletion) {
-            state.selectedPatient.status = '예약확정';
-          } else {
-            state.selectedPatient.status = '종결';
-          }
-        }
-      })
-      .addCase(completePatient.rejected, (state, action: PayloadAction<any>) => {
-        state.isLoading = false;
-        state.error = action.payload;
-      })
-      
-      // addCallback 액션 처리
+      // 콜백 추가 처리
       .addCase(addCallback.fulfilled, (state, action) => {
-        state.isLoading = false;
-        
         const { patientId, updatedPatient } = action.payload;
-        console.log('[리듀서] 받은 환자 데이터:', updatedPatient);
-        console.log('[리듀서] 받은 환자 상태:', updatedPatient.status);
         
-        // 환자 목록 업데이트
-        const patientIndex = state.patients.findIndex(p => p.id === patientId);
-        if (patientIndex !== -1) {
-          // 상태를 명시적으로 설정
-          state.patients[patientIndex] = {
-            ...updatedPatient
-          };
-          console.log('[리듀서] 업데이트 후 환자 상태:', state.patients[patientIndex].status);
-        }
-        
-        // 필터링된 목록 업데이트
-        const filteredIndex = state.filteredPatients.findIndex(p => p.id === patientId);
-        if (filteredIndex !== -1) {
-          state.filteredPatients[filteredIndex] = {
-            ...updatedPatient
-          };
-        }
-        
-        // 선택된 환자 업데이트
-        if (state.selectedPatient && state.selectedPatient.id === patientId) {
-          state.selectedPatient = {
-            ...updatedPatient
-          };
-        }
-      })
-
-      .addCase(addCallback.rejected, (state, action: PayloadAction<any>) => {
-        state.isLoading = false;
-        state.error = action.payload;
-      })
-      
-      // cancelCallback 액션 처리
-      .addCase(cancelCallback.pending, (state) => {
-        state.isLoading = true;
-        state.error = null;
-      })
-      .addCase(cancelCallback.fulfilled, (state, action: PayloadAction<{ patientId: string, updatedPatient: Patient }>) => {
-        state.isLoading = false;
-        
-        // 환자 목록에서 해당 환자 업데이트
-        const patientIndex = state.patients.findIndex((p: { id: string; }) => p.id === action.payload.patientId);
-        if (patientIndex !== -1) {
-          state.patients[patientIndex] = action.payload.updatedPatient;
-        }
-        
-        // 필터링된 목록에서도 해당 환자 업데이트
-        const filteredIndex = state.filteredPatients.findIndex((p: { id: string; }) => p.id === action.payload.patientId);
-        if (filteredIndex !== -1) {
-          state.filteredPatients[filteredIndex] = action.payload.updatedPatient;
-        }
-        
-        // 현재 선택된 환자가 업데이트 대상이면 업데이트
-        if (state.selectedPatient && state.selectedPatient.id === action.payload.patientId) {
-          state.selectedPatient = action.payload.updatedPatient;
-        }
-      })
-      .addCase(cancelCallback.rejected, (state, action: PayloadAction<any>) => {
-        state.isLoading = false;
-        state.error = action.payload;
-      })
-      
-      // cancelPatientCompletion 액션 처리
-      .addCase(cancelPatientCompletion.pending, (state) => {
-        state.isLoading = true;
-        state.error = null;
-      })
-      .addCase(cancelPatientCompletion.fulfilled, (state, action: PayloadAction<{ patientId: string, updatedPatient: Patient }>) => {
-        state.isLoading = false;
-        
-        // 환자 목록에서 해당 환자 업데이트
-        const patientIndex = state.patients.findIndex((p: { id: string; }) => p.id === action.payload.patientId);
-        if (patientIndex !== -1) {
-          state.patients[patientIndex] = action.payload.updatedPatient;
-        }
-        
-        // 필터링된 목록에서도 해당 환자 업데이트
-        const filteredIndex = state.filteredPatients.findIndex((p: { id: string; }) => p.id === action.payload.patientId);
-        if (filteredIndex !== -1) {
-          state.filteredPatients[filteredIndex] = action.payload.updatedPatient;
-        }
-        
-        // 현재 선택된 환자가 업데이트 대상이면 업데이트
-        if (state.selectedPatient && state.selectedPatient.id === action.payload.patientId) {
-          state.selectedPatient = action.payload.updatedPatient;
-        }
-      })
-      .addCase(cancelPatientCompletion.rejected, (state, action: PayloadAction<any>) => {
-        state.isLoading = false;
-        state.error = action.payload;
-      })
-      
-      // deleteCallback 액션 처리
-      .addCase(deleteCallback.pending, (state) => {
-        state.isLoading = true;
-        state.error = null;
-      })
-      .addCase(deleteCallback.fulfilled, (state, action: PayloadAction<{ 
-        patientId: string, 
-        updatedPatient: Patient,
-        deletedCallbackInfo: {
-          type: string,
-          status: string
-        }
-      }>) => {
-        state.isLoading = false;
-        
-        // 환자 목록에서 해당 환자 업데이트
-        const patientIndex = state.patients.findIndex((p: { id: string; }) => p.id === action.payload.patientId);
-        if (patientIndex !== -1) {
-          state.patients[patientIndex] = action.payload.updatedPatient;
-        }
-        
-        // 필터링된 목록에서도 해당 환자 업데이트
-        const filteredIndex = state.filteredPatients.findIndex((p: { id: string; }) => p.id === action.payload.patientId);
-        if (filteredIndex !== -1) {
-          state.filteredPatients[filteredIndex] = action.payload.updatedPatient;
-        }
-        
-        // 현재 선택된 환자가 업데이트 대상이면 업데이트
-        if (state.selectedPatient && state.selectedPatient.id === action.payload.patientId) {
-          state.selectedPatient = action.payload.updatedPatient;
-        }
-      })
-
-       // updateConsultationInfo 액션 처리
-      .addCase(updateConsultationInfo.pending, (state) => {
-        state.isLoading = true
-        state.error = null
-      })
-      .addCase(updateConsultationInfo.fulfilled, (state, action: PayloadAction<{
-        patientId: string,
-        consultation: ConsultationInfo,
-        updatedPatient: Patient
-      }>) => {
-        state.isLoading = false
-        
-        const { patientId, consultation, updatedPatient } = action.payload
-        
-        // 환자 목록에서 해당 환자 업데이트
         const patientIndex = state.patients.findIndex(p => 
           p._id === patientId || p.id === patientId
-        )
+        );
         if (patientIndex !== -1) {
-          state.patients[patientIndex] = updatedPatient
+          state.patients[patientIndex] = updatedPatient;
         }
         
-        // 필터링된 목록에서도 해당 환자 업데이트
         const filteredIndex = state.filteredPatients.findIndex(p => 
           p._id === patientId || p.id === patientId
-        )
+        );
         if (filteredIndex !== -1) {
-          state.filteredPatients[filteredIndex] = updatedPatient
+          state.filteredPatients[filteredIndex] = updatedPatient;
         }
         
-        // 현재 선택된 환자가 업데이트 대상이면 업데이트
         if (state.selectedPatient && 
             (state.selectedPatient._id === patientId || 
              state.selectedPatient.id === patientId)) {
-          state.selectedPatient = updatedPatient
+          state.selectedPatient = updatedPatient;
         }
-        
-        console.log('Redux: 상담 정보 업데이트 완료')
-      })
-      .addCase(updateConsultationInfo.rejected, (state, action: PayloadAction<any>) => {
-        state.isLoading = false
-        state.error = action.payload
-        console.error('Redux: 상담 정보 업데이트 실패', action.payload)
-      })
-      
-      // deleteConsultationInfo 액션 처리
-      .addCase(deleteConsultationInfo.pending, (state) => {
-        state.isLoading = true
-        state.error = null
-      })
-      .addCase(deleteConsultationInfo.fulfilled, (state, action: PayloadAction<string>) => {
-        state.isLoading = false
-        
-        const patientId = action.payload
-        
-        // 환자 목록에서 해당 환자의 상담 정보 제거
-        const patientIndex = state.patients.findIndex(p => 
-          p._id === patientId || p.id === patientId
-        )
-        if (patientIndex !== -1) {
-          delete state.patients[patientIndex].consultation
-        }
-        
-        // 필터링된 목록에서도 해당 환자의 상담 정보 제거
-        const filteredIndex = state.filteredPatients.findIndex(p => 
-          p._id === patientId || p.id === patientId
-        )
-        if (filteredIndex !== -1) {
-          delete state.filteredPatients[filteredIndex].consultation
-        }
-        
-        // 현재 선택된 환자가 대상이면 상담 정보 제거
-        if (state.selectedPatient && 
-            (state.selectedPatient._id === patientId || 
-             state.selectedPatient.id === patientId)) {
-          delete state.selectedPatient.consultation
-        }
-        
-        console.log('Redux: 상담 정보 삭제 완료')
-      })
-      .addCase(deleteConsultationInfo.rejected, (state, action: PayloadAction<any>) => {
-        state.isLoading = false
-        state.error = action.payload
-        console.error('Redux: 상담 정보 삭제 실패', action.payload)
       })
 
-      .addCase(deleteCallback.rejected, (state, action: PayloadAction<any>) => {
-        state.isLoading = false;
-        state.error = action.payload;
-      })
-      .addCase(updateEventTargetInfo.pending, (state) => {
-        state.isLoading = true;
-      })
-      .addCase(updateEventTargetInfo.fulfilled, (state, action) => {
-        state.isLoading = false;
-        
-        const { patientId, eventTargetInfo } = action.payload;
-        
-        // 환자 목록에서 해당 환자 업데이트
-        const patientIndex = state.patients.findIndex(p => p.id === patientId);
-        if (patientIndex !== -1) {
-          state.patients[patientIndex].eventTargetInfo = eventTargetInfo;
-        }
-        
-        // 필터링된 목록에서도 해당 환자 업데이트
-        const filteredIndex = state.filteredPatients.findIndex(p => p.id === patientId);
-        if (filteredIndex !== -1) {
-          state.filteredPatients[filteredIndex].eventTargetInfo = eventTargetInfo;
-        }
-        
-        // 선택된 환자 업데이트
-        if (state.selectedPatient && state.selectedPatient.id === patientId) {
-          state.selectedPatient.eventTargetInfo = eventTargetInfo;
-        }
-        
-        // 이벤트 타겟 환자 목록 업데이트
-        if (eventTargetInfo.isEventTarget) {
-          // 이벤트 타겟으로 설정된 경우
-          const existingIndex = state.eventTargetPatients.findIndex(p => p.id === patientId);
-          if (existingIndex === -1) {
-            // 새로 추가
-            const patient = state.patients[patientIndex];
-            if (patient) {
-              state.eventTargetPatients.push(patient);
-            }
-          } else {
-            // 기존 환자 업데이트
-            state.eventTargetPatients[existingIndex].eventTargetInfo = eventTargetInfo;
-          }
-        } else {
-          // 이벤트 타겟에서 제거된 경우
-          state.eventTargetPatients = state.eventTargetPatients.filter(p => p.id !== patientId);
-        }
-      })
-          
-      .addCase(updateEventTargetInfo.rejected, (state, action) => {
-        state.isLoading = false;
-        state.error = action.payload as string;
-      })
-      
-      // 이벤트 타겟 초기화 처리
-      .addCase(initializeEventTargets.pending, (state) => {
-        state.isLoading = true;
-      })
-      .addCase(initializeEventTargets.fulfilled, (state, action) => {
-        state.isLoading = false;
-        state.eventTargetPatients = action.payload;
-      })
-      .addCase(initializeEventTargets.rejected, (state, action) => {
-        state.isLoading = false;
-        state.error = action.error.message || '이벤트 타겟 초기화 실패';
-      })
-      
-      // 이벤트 타겟 필터링 처리
-      .addCase(filterEventTargets.pending, (state) => {
-        state.isLoading = true;
-      })
-      .addCase(filterEventTargets.fulfilled, (state, action) => {
-        state.isLoading = false;
-        state.eventTargetPatients = action.payload;
-      })
-      .addCase(filterEventTargets.rejected, (state, action) => {
-        state.isLoading = false;
-        state.error = action.error.message || '이벤트 타겟 필터링 실패';
-      })
-      // fetchPatientsByStatus 액션 처리 (추가)
-      .addCase(fetchPatientsByStatus.pending, (state) => {
+      // 🔥 필터된 환자 목록 가져오기 처리
+      .addCase(fetchFilteredPatients.pending, (state) => {
         state.isLoading = true;
         state.error = null;
       })
-      .addCase(fetchPatientsByStatus.fulfilled, (state, action: PayloadAction<{ 
-        filterType: string, 
-        patients: Patient[] 
+      .addCase(fetchFilteredPatients.fulfilled, (state, action: PayloadAction<{
+        patients: Patient[];
+        filterType: PatientFilterType;
       }>) => {
         state.isLoading = false;
-        // 이 액션은 모달에서만 사용되므로 상태를 직접 업데이트하지 않습니다.
-        console.log(`${action.payload.filterType} 필터로 ${action.payload.patients.length}명 조회 완료`);
+        state.filteredPatientsForModal = action.payload.patients;
+        state.modalFilterType = action.payload.filterType;
+        console.log('필터된 환자 목록 상태 업데이트 완료:', action.payload.patients.length, '명');
       })
-      .addCase(fetchPatientsByStatus.rejected, (state, action: PayloadAction<any>) => {
+      .addCase(fetchFilteredPatients.rejected, (state, action: PayloadAction<any>) => {
         state.isLoading = false;
         state.error = action.payload;
+        state.filteredPatientsForModal = [];
+        state.modalFilterType = null;
       });
   },
 });
 
-// 필터 적용 헬퍼 함수 - 🔥 consultationType, referralSource 필터 추가
-function applyFilters(state: PatientsState) {
-  let filtered = [...state.patients];
-  
-  const { status, interestArea, searchTerm, consultationType, referralSource } = state.filters;
-  
-  // 상태 기준 필터링
-  if (status !== 'all') {
-    filtered = filtered.filter(patient => patient.status === status);
-  }
-  
-  // 관심 분야 기준 필터링
-  if (interestArea !== 'all') {
-    filtered = filtered.filter(patient => 
-      patient.interestedServices.includes(interestArea)
-    );
-  }
-  
-  // 🔥 상담 타입 기준 필터링 추가
-  if (consultationType !== 'all') {
-    filtered = filtered.filter(patient => patient.consultationType === consultationType);
-  }
-  
-  // 🔥 유입경로 기준 필터링 추가
-  if (referralSource !== 'all') {
-    filtered = filtered.filter(patient => patient.referralSource === referralSource);
-  }
-  
-  // 검색어 기준 필터링
-  if (searchTerm) {
-    const term = searchTerm.toLowerCase();
-    filtered = filtered.filter(patient => 
-      patient.name.toLowerCase().includes(term) || 
-      patient.phoneNumber.includes(term) ||
-      (patient.notes && patient.notes.toLowerCase().includes(term))
-    );
-  }
-  
-  state.filteredPatients = filtered;
-  state.pagination.totalPages = Math.ceil(filtered.length / state.pagination.itemsPerPage);
-  state.pagination.currentPage = 1; // 필터가 변경될 때마다 첫 페이지로 리셋
-}
-
-export const { selectPatient, clearSelectedPatient, setFilters, setPage } = patientsSlice.actions;
-// 🔥 새로운 액션들도 export
+export const { selectPatient,  setSelectedPatient, clearSelectedPatient, setFilters, setPage, clearFilteredPatients } = patientsSlice.actions;
 export default patientsSlice.reducer;

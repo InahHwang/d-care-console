@@ -1,11 +1,16 @@
 // src/components/management/PatientDetailModal.tsx 
 
 'use client'
-
 import { useState, useEffect } from 'react'
 import { useAppDispatch, useAppSelector } from '@/hooks/reduxHooks'
 import { RootState } from '@/store'
-import { clearSelectedPatient, Patient, updateConsultationInfo } from '@/store/slices/patientsSlice'
+import { 
+  clearSelectedPatient, 
+  Patient, 
+  updateConsultationInfo,
+  // 🔥 환자 목록 새로고침을 위한 액션 추가
+  fetchPatients
+} from '@/store/slices/patientsSlice'
 import { HiOutlineX, HiOutlinePhone, HiOutlineCalendar, HiOutlineUser, HiOutlineLocationMarker, HiOutlineCake, HiOutlineClipboardList, HiOutlinePencil, HiOutlineCheck, HiOutlineStop, HiOutlineRefresh, HiOutlineGlobeAlt, HiOutlineUserGroup, HiOutlineCreditCard, HiOutlineCurrencyDollar, HiOutlineClipboardCheck } from 'react-icons/hi'
 import { FiPhone, FiPhoneCall } from 'react-icons/fi'
 import { formatDistance } from 'date-fns'
@@ -32,6 +37,9 @@ export default function PatientDetailModal() {
   // 🔥 활동 로그 업데이트 트리거를 위한 상태
   const [refreshTrigger, setRefreshTrigger] = useState(0)
   
+  // 🔥 강제 리렌더링을 위한 상태 추가
+  const [forceUpdate, setForceUpdate] = useState(0);
+  
   // 탭 상태 관리
   const [activeTab, setActiveTab] = useState('환자정보')
   
@@ -44,14 +52,61 @@ export default function PatientDetailModal() {
   // 🔥 상담 정보 모달 상태 추가
   const [isConsultationFormOpen, setIsConsultationFormOpen] = useState(false)
   
-  // 선택된 환자 변경 감지
+  // 🔥 환자 데이터 새로고침 함수 추가
+    const refreshPatientData = async () => {
+      try {
+        if (selectedPatient && (selectedPatient._id || selectedPatient.id)) {
+          // 1. 환자 목록 새로고침
+          await dispatch(fetchPatients()).unwrap();
+          
+          // 2. 강제 리렌더링 트리거
+          setForceUpdate(prev => prev + 1);
+          
+          console.log('🔥 환자 상세 모달 - 환자 데이터 새로고침 완료');
+        }
+      } catch (error) {
+        console.error('환자 데이터 새로고침 실패:', error);
+      }
+    };
+
+  // 선택된 환자 변경 감지 - forceUpdate 의존성 추가
   useEffect(() => {
-    if (selectedPatient) {
-      console.log('환자 상세 정보 표시:', selectedPatient.name);
-      // 🔥 환자가 변경되면 새로고침 트리거 초기화
-      setRefreshTrigger(0);
-    }
-  }, [selectedPatient]);
+  if (selectedPatient) {
+    console.log('환자 상세 정보 표시:', selectedPatient.name);
+    console.log('환자 종결 상태:', selectedPatient.isCompleted);
+    console.log('환자 상태:', selectedPatient.status);
+    console.log('🔥 환자 상세 정보 업데이트:', {
+      name: selectedPatient.name,
+      hasConsultation: !!selectedPatient.consultation,
+      estimateAgreed: selectedPatient.consultation?.estimateAgreed,
+      forceUpdateTrigger: forceUpdate
+    });
+    
+    // 🔥 메모 디버깅 로그 추가
+    console.log('🔍 메모 필드 확인:', {
+      notes: selectedPatient.notes,
+      memo: selectedPatient.memo,
+      hasNotes: !!selectedPatient.notes,
+      hasMemo: !!selectedPatient.memo,
+      notesType: typeof selectedPatient.notes,
+      memoType: typeof selectedPatient.memo
+    });
+    
+    // 🔥 환자가 변경되면 새로고침 트리거 초기화
+    setRefreshTrigger(0);
+  }
+}, [selectedPatient, forceUpdate]); // 🔥 forceUpdate 의존성 추가
+  
+  // 🔥 자동 새로고침 제거하고 필요할 때만 새로고침하도록 개선
+// 기존의 무한 루프 useEffect 제거:
+// useEffect(() => {
+//   const interval = setInterval(() => {
+//     if (selectedPatient && (selectedPatient._id || selectedPatient.id)) {
+//       refreshPatientData();
+//     }
+//   }, 2000);
+//   return () => clearInterval(interval);
+// }, [selectedPatient]);
   
   // 탭 변경 핸들러
   const handleTabChange = (newTab: string) => {
@@ -71,10 +126,13 @@ export default function PatientDetailModal() {
   }
   
   // 🔥 환자 수정 완료 처리 - 활동 로그 새로고침 트리거 추가
-  const handleEditSuccess = () => {
+  const handleEditSuccess = async () => {
     // 환자 정보 탭으로 돌아가기
     setActiveTab('환자정보')
     console.log('🔥 환자 정보 수정 완료 - 활동 로그 새로고침 트리거');
+    
+    // 🔥 환자 데이터 새로고침
+    await refreshPatientData();
     
     // 🔥 활동 로그 새로고침을 위한 트리거 업데이트
     setRefreshTrigger(prev => prev + 1);
@@ -85,7 +143,6 @@ export default function PatientDetailModal() {
       console.log('🔥 지연된 활동 로그 새로고침 트리거');
     }, 1000);
   }
-  
   // 문자 발송 완료 핸들러
   const handleMessageSendComplete = () => {
     // 필요한 경우 환자 상태 업데이트 또는 메시지 갱신
@@ -102,21 +159,37 @@ export default function PatientDetailModal() {
   
   // 🔥 결제 정보 업데이트 핸들러 수정
   const handleConsultationUpdate = async (consultationData: Partial<ConsultationInfo>) => {
-    try {
-      if (!selectedPatient) return;
-      
-      // Redux 액션을 사용하여 상담 정보 업데이트
-      await dispatch(updateConsultationInfo({ 
-        patientId: selectedPatient._id, 
-        consultationData 
-      })).unwrap()
-      
-      console.log('상담 정보 업데이트 성공')
-    } catch (error) {
-      console.error('상담 정보 업데이트 실패:', error)
-      throw error
-    }
+  try {
+    if (!selectedPatient) return;
+    
+    console.log('🔥 상담 정보 업데이트 시작:', {
+      patientId: selectedPatient._id,
+      patientName: selectedPatient.name,
+      consultationData
+    });
+    
+    // 🔥 Redux 액션을 사용하여 상담 정보 업데이트
+    const result = await dispatch(updateConsultationInfo({ 
+      patientId: selectedPatient._id, 
+      consultationData 
+    })).unwrap();
+    
+    console.log('🔥 상담 정보 업데이트 완료:', {
+      patientId: result._id,
+      name: result.name,
+      hasConsultation: !!result.consultation,
+      estimateAgreed: result.consultation?.estimateAgreed
+    });
+    
+    // 🔥 강제 리렌더링을 위한 상태 업데이트
+    setForceUpdate(prev => prev + 1);
+    
+    console.log('상담 정보 업데이트 성공 - 모달에서 즉시 반영됨')
+  } catch (error) {
+    console.error('상담 정보 업데이트 실패:', error)
+    throw error
   }
+}
   
   // 기본 정보가 없으면 렌더링하지 않음
   if (!selectedPatient) return null
@@ -124,7 +197,6 @@ export default function PatientDetailModal() {
   // 콜백 필요 여부 확인
   const needsCallback = selectedPatient.status === '콜백필요' || selectedPatient.status === '부재중'
   
-
   // 예약 완료 여부 확인 함수 수정
   const isReservationCompleted = (patient: Patient) => {
     const result = patient.isCompleted && 
@@ -158,7 +230,7 @@ export default function PatientDetailModal() {
     
     return '';
   };
-
+  
   // 예약 정보 추출 함수 수정
   const getReservationInfo = (patient: Patient) => {
     if (!patient.completedReason) return '';
@@ -168,31 +240,31 @@ export default function PatientDetailModal() {
     if (match && match[1]) {
       return match[1].trim();
     }
-    
+        
     return '';
   };
 
-  // 종결 상태 여부 확인 - 명시적으로 체크 (수정)
+  // 🔥 종결 상태 여부 확인 - 실시간으로 확인하도록 수정
   const isCompleted = selectedPatient.isCompleted === true || selectedPatient.status === '종결';
   
   // 마지막 상담 일자 기준 경과 시간
   const lastConsultationDate = new Date(selectedPatient.lastConsultation)
   const timeSinceLastConsultation = selectedPatient.lastConsultation && selectedPatient.lastConsultation !== ''
-  ? formatDistance(
-      new Date(selectedPatient.lastConsultation),
-      new Date(),
-      { addSuffix: true, locale: ko }
-    )
-  : '';
+    ? formatDistance(
+        new Date(selectedPatient.lastConsultation),
+        new Date(),
+        { addSuffix: true, locale: ko }
+      )
+    : '';
 
-// 첫 상담 이후 경과 시간 - 값이 있는 경우에만 계산
-const timeSinceFirstConsult = selectedPatient.firstConsultDate && selectedPatient.firstConsultDate !== ''
-  ? formatDistance(
-      new Date(selectedPatient.firstConsultDate),
-      new Date(),
-      { addSuffix: true, locale: ko }
-    )
-  : '';
+  // 첫 상담 이후 경과 시간 - 값이 있는 경우에만 계산
+  const timeSinceFirstConsult = selectedPatient.firstConsultDate && selectedPatient.firstConsultDate !== ''
+    ? formatDistance(
+        new Date(selectedPatient.firstConsultDate),
+        new Date(),
+        { addSuffix: true, locale: ko }
+      )
+    : '';
   
   // 환자 상태에 따른 뱃지 색상
   const getStatusColor = (status: string) => {
@@ -242,20 +314,23 @@ const timeSinceFirstConsult = selectedPatient.firstConsultDate && selectedPatien
   
     return <span className={`text-sm ${colorMap[status]}`}>{status}</span>
   }
-
+  
   // 유입경로 표시 텍스트
   const getReferralSourceText = (source?: string) => {
     if (!source || source === '') return '-';
     return source;
   }
-
+  
   // 담당자 정보 표시 함수
   const getUserDisplayName = (userId?: string, userName?: string) => {
-    if (!userId && !userName) return '-';
-    if (userName) return userName;
-    if (userId === 'system') return '시스템';
-    return userId || '-';
-  }
+  console.log('🔍 getUserDisplayName 호출:', { userId, userName });
+  
+  if (!userId && !userName) return '정보 없음';
+  if (userName && userName.trim() !== '') return userName;
+  if (userId === 'system') return '시스템';
+  if (userId && userId.trim() !== '') return `${userId} (ID)`;
+  return '정보 없음';
+}
 
   // 마지막 수정 시간 포맷팅
   const formatLastModified = (dateString?: string) => {
@@ -279,7 +354,8 @@ const timeSinceFirstConsult = selectedPatient.firstConsultDate && selectedPatien
             <h2 className="text-lg font-semibold text-text-primary">
               환자 상세: {selectedPatient.name}
             </h2>
-            <StatusBadge status={selectedPatient.status} />
+            {/* 🔥 종결 상태 실시간 반영 */}
+            <StatusBadge status={isCompleted ? '종결' : selectedPatient.status} />
             <ReminderBadge status={selectedPatient.reminderStatus} />
             {/* 상담 타입 뱃지 추가 */}
             <div className={`inline-flex items-center px-2.5 py-1 rounded-full text-xs font-medium ${
@@ -405,7 +481,7 @@ const timeSinceFirstConsult = selectedPatient.firstConsultDate && selectedPatien
                       <p className="text-text-primary">{selectedPatient.phoneNumber}</p>
                     </div>
                   </div>
-
+                  
                   {/* 상담 타입 정보 추가 */}
                   <div className="flex items-start gap-2">
                     <Icon 
@@ -435,7 +511,7 @@ const timeSinceFirstConsult = selectedPatient.firstConsultDate && selectedPatien
                       </div>
                     </div>
                   </div>
-
+                  
                   {/* 유입경로 정보 추가 */}
                   <div className="flex items-start gap-2">
                     <Icon 
@@ -552,68 +628,32 @@ const timeSinceFirstConsult = selectedPatient.firstConsultDate && selectedPatien
                   </div>
                 </div>
               </div>
-
-              {/* 담당자 정보 카드 추가 */}
+            
+              
+              {/* 메모 카드 - 항상 표시하도록 수정 */}
               <div className="card">
-                <h3 className="text-md font-semibold text-text-primary mb-4">담당자 정보</h3>
+                <h3 className="text-md font-semibold text-text-primary mb-4">메모</h3>
                 
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                  {/* 등록 담당자 */}
-                  <div className="flex items-start gap-2">
-                    <Icon 
-                      icon={HiOutlineUserGroup} 
-                      size={18} 
-                      className="text-text-muted mt-0.5" 
-                    />
-                    <div>
-                      <p className="text-sm text-text-secondary">등록 담당자</p>
-                      <p className="text-text-primary">
-                        {getUserDisplayName(selectedPatient.createdBy, selectedPatient.createdByName)}
-                      </p>
-                      {selectedPatient.createdAt && (
-                        <p className="text-xs text-text-muted">
-                          {selectedPatient.createdAt} 등록
-                        </p>
-                      )}
-                    </div>
+                {(selectedPatient.notes || selectedPatient.memo) ? (
+                  <p className="text-text-primary whitespace-pre-line">
+                    {selectedPatient.notes || selectedPatient.memo}
+                  </p>
+                ) : (
+                  <div>
+                    <p className="text-text-secondary">메모가 없습니다.</p>
+                    <p className="text-xs text-red-500 mt-1">
+                      디버그: notes={selectedPatient.notes ? '있음' : '없음'}, memo={selectedPatient.memo ? '있음' : '없음'}
+                    </p>
                   </div>
-                  
-                  {/* 최종 수정자 */}
-                  <div className="flex items-start gap-2">
-                    <Icon 
-                      icon={HiOutlinePencil} 
-                      size={18} 
-                      className="text-text-muted mt-0.5" 
-                    />
-                    <div>
-                      <p className="text-sm text-text-secondary">최종 수정자</p>
-                      <p className="text-text-primary">
-                        {getUserDisplayName(selectedPatient.lastModifiedBy, selectedPatient.lastModifiedByName)}
-                      </p>
-                      {selectedPatient.lastModifiedAt && (
-                        <p className="text-xs text-text-muted">
-                          {formatLastModified(selectedPatient.lastModifiedAt)} 수정
-                        </p>
-                      )}
-                    </div>
-                  </div>
-                </div>
+                )}
               </div>
               
-              {/* 메모 카드 */}
-              {selectedPatient.notes && (
-                <div className="card">
-                  <h3 className="text-md font-semibold text-text-primary mb-4">메모</h3>
-                  <p className="text-text-primary whitespace-pre-line">{selectedPatient.notes}</p>
-                </div>
-              )}
-
               {/* 🔥 상담/결제 정보 카드 (대폭 단순화) */}
               <div className="card">
                 <div className="flex items-center justify-between mb-4">
                   <h3 className="text-md font-semibold text-text-primary flex items-center gap-2">
                     <Icon icon={HiOutlineCreditCard} size={18} className="text-green-600" />
-                    상담 정보
+                    견적 정보
                   </h3>
                   <button
                     onClick={() => setIsConsultationFormOpen(true)}
@@ -710,17 +750,64 @@ const timeSinceFirstConsult = selectedPatient.firstConsultDate && selectedPatien
                 ) : (
                   <div className="text-center py-8 text-text-secondary">
                     <Icon icon={HiOutlineCreditCard} size={48} className="mx-auto mb-3 text-gray-300" />
-                    <p className="mb-2">상담 정보가 없습니다.</p>
+                    <p className="mb-2">견적 정보가 없습니다.</p>
                     <button
                       onClick={() => setIsConsultationFormOpen(true)}
                       className="text-blue-600 hover:text-blue-800 underline"
                     >
-                      상담 정보 추가하기
+                      견적 정보 추가하기
                     </button>
                   </div>
                 )}
               </div>
 
+              {/* 담당자 정보 카드 추가 */}
+              <div className="card">
+                <h3 className="text-md font-semibold text-text-primary mb-4">담당자 정보</h3>
+                
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  {/* 등록 담당자 */}
+                  <div className="flex items-start gap-2">
+                    <Icon 
+                      icon={HiOutlineUserGroup} 
+                      size={18} 
+                      className="text-text-muted mt-0.5" 
+                    />
+                    <div>
+                      <p className="text-sm text-text-secondary">등록 담당자</p>
+                      <p className="text-text-primary">
+                        {getUserDisplayName(selectedPatient.createdBy, selectedPatient.createdByName)}
+                      </p>
+                      {selectedPatient.createdAt && (
+                        <p className="text-xs text-text-muted">
+                          {selectedPatient.createdAt} 등록
+                        </p>
+                      )}
+                    </div>
+                  </div>
+                  
+                  {/* 최종 수정자 */}
+                  <div className="flex items-start gap-2">
+                    <Icon 
+                      icon={HiOutlinePencil} 
+                      size={18} 
+                      className="text-text-muted mt-0.5" 
+                    />
+                    <div>
+                      <p className="text-sm text-text-secondary">최종 수정자</p>
+                      <p className="text-text-primary">
+                        {getUserDisplayName(selectedPatient.lastModifiedBy, selectedPatient.lastModifiedByName)}
+                      </p>
+                      {selectedPatient.lastModifiedAt && (
+                        <p className="text-xs text-text-muted">
+                          {formatLastModified(selectedPatient.lastModifiedAt)} 수정
+                        </p>
+                      )}
+                    </div>
+                  </div>
+                </div>
+              </div>
+              
               {/* 콜백 필요 알림 - 종결 처리되지 않은 경우에만 표시 */}
               {needsCallback && !isCompleted && (
                 <div className="card bg-yellow-50 border-yellow-200">

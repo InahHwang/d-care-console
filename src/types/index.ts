@@ -1,4 +1,4 @@
-// src/types/patient.ts
+// src/types/index.ts
 
 export type ConsultationType = 'inbound' | 'outbound';
 
@@ -61,3 +61,5 @@ export interface PatientFilter {
   };
   searchTerm?: string;
 }
+
+export * from './report';

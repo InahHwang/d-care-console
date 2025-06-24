@@ -244,6 +244,7 @@ export default function PatientFormModal() {
       
       // Redux 액션 디스패치하여 환자 생성
       const result = await dispatch(createPatient(patientData)).unwrap()
+
       
       // 🔥 환자 등록 성공 시 활동 로그 기록
       try {

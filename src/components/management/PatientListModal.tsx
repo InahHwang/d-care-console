@@ -70,8 +70,7 @@ const PatientListModal: React.FC<PatientListModalProps> = ({
       case '부재중':
         return 'bg-red-100 text-red-800';
       case '잠재고객':
-        return 'bg-blue-100 text-blue-800';
-      case '활성고객':
+
         return 'bg-green-100 text-green-800';
       case 'VIP':
         return 'bg-purple-100 text-purple-800';

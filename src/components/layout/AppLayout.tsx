@@ -1,4 +1,4 @@
-//src/components/layout/AppLayout.tsx
+// src/components/layout/AppLayout.tsx 수정된 부분
 
 'use client'
 
@@ -14,7 +14,7 @@ import AuthGuard from '../auth/AuthGuard' // 🔥 AuthGuard 추가
 
 interface AppLayoutProps {
   children: ReactNode
-  currentPage?: 'dashboard' | 'management' | 'statistics' | 'settings'
+  currentPage?: 'dashboard' | 'management' | 'statistics' | 'settings' | 'reports' // 🔥 reports 추가
 }
 
 const getMenuItemFromPage = (page?: string) => {
@@ -27,6 +27,8 @@ const getMenuItemFromPage = (page?: string) => {
       return '통계 분석'
     case 'settings':
       return '설정'
+    case 'reports': // 🔥 추가
+      return '월말보고서'
     default:
       return '대시보드'
   }

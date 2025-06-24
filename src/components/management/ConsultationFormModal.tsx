@@ -101,7 +101,7 @@ export default function ConsultationFormModal({
             <Icon icon={HiOutlineCreditCard} size={24} className="text-green-600" />
             <div>
               <h2 className="text-lg font-semibold text-gray-900">
-                {existingConsultation ? '상담 정보 수정' : '상담 정보 입력'}
+                {existingConsultation ? '견적 정보 수정' : '견적 정보 입력'}
               </h2>
               <p className="text-sm text-gray-500">환자: {patientName}</p>
             </div>
@@ -168,14 +168,14 @@ export default function ConsultationFormModal({
             
             <div>
               <label className="block text-sm font-medium text-gray-700 mb-1">
-                치료 계획
+                불편한 부분
               </label>
               <textarea
                 value={formData.treatmentPlan || ''}
                 onChange={(e) => handleInputChange('treatmentPlan', e.target.value)}
                 rows={3}
                 className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
-                placeholder="치료 계획을 입력해주세요..."
+                placeholder="환자의 불편한 부분을 입력해주세요 (ex. 치료할 치아 개수, 부위, 증상, 통증정도)"
               />
             </div>
             
@@ -202,7 +202,7 @@ export default function ConsultationFormModal({
             
             <div className="space-y-3">
               <p className="text-sm text-gray-600">
-                환자가 제시된 견적 금액에 동의하고 치료를 시작하였습니까?
+                환자가 제시된 견적 금액을 인지하고 예약을 완료하였습니까?
               </p>
               
               <div className="flex gap-4">
@@ -215,7 +215,7 @@ export default function ConsultationFormModal({
                     className="w-4 h-4 text-green-600 border-gray-300 focus:ring-green-500"
                   />
                   <span className="ml-2 text-sm font-medium text-green-700">
-                    동의 (치료 시작)
+                    동의 (예약 완료)
                   </span>
                 </label>
                 
@@ -228,7 +228,7 @@ export default function ConsultationFormModal({
                     className="w-4 h-4 text-red-600 border-gray-300 focus:ring-red-500"
                   />
                   <span className="ml-2 text-sm font-medium text-red-700">
-                    거부 (치료 안함)
+                    거부 (미예약)
                   </span>
                 </label>
               </div>

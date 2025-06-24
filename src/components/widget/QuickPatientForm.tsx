@@ -3,7 +3,7 @@
 'use client';
 
 import { useState } from 'react';
-import { useAppDispatch } from '@/hooks/reduxHooks';
+import { useAppDispatch, useAppSelector } from '@/hooks/reduxHooks';
 import { createQuickInboundPatient } from '@/store/slices/patientsSlice';
 import { FiCheck, FiAlertCircle, FiUser } from 'react-icons/fi';
 
@@ -13,6 +13,9 @@ interface QuickPatientFormProps {
 
 const QuickPatientForm: React.FC<QuickPatientFormProps> = ({ onSuccess }) => {
   const dispatch = useAppDispatch();
+  // 🔥 현재 로그인한 사용자 정보 가져오기
+  const currentUser = useAppSelector(state => state.auth.user);
+  
   const [phoneNumber, setPhoneNumber] = useState('');
   const [isLoading, setIsLoading] = useState(false);
   const [message, setMessage] = useState<{ type: 'success' | 'error', text: string } | null>(null);
@@ -25,11 +28,21 @@ const QuickPatientForm: React.FC<QuickPatientFormProps> = ({ onSuccess }) => {
       return;
     }
 
+    // 🔥 사용자 로그인 확인 추가
+    if (!currentUser) {
+      setMessage({ type: 'error', text: '로그인이 필요합니다.' });
+      return;
+    }
+
     setIsLoading(true);
     setMessage(null);
 
     try {
-      const result = await dispatch(createQuickInboundPatient(phoneNumber.trim()));
+      // 🔥 사용자 정보를 포함한 데이터로 액션 호출
+      const result = await dispatch(createQuickInboundPatient({
+        phoneNumber: phoneNumber.trim(),
+        userInfo: currentUser // 🔥 현재 사용자 정보 전달
+      }));
       
       if (createQuickInboundPatient.fulfilled.match(result)) {
         setMessage({ type: 'success', text: '인바운드 환자가 등록되었습니다!' });
@@ -84,6 +97,12 @@ const QuickPatientForm: React.FC<QuickPatientFormProps> = ({ onSuccess }) => {
         </div>
         <h3 className="text-lg font-semibold text-gray-800">인바운드 상담 등록</h3>
         <p className="text-sm text-gray-600 mt-1">전화번호를 입력하고 엔터를 눌러주세요</p>
+        {/* 🔥 현재 담당자 표시 추가 */}
+        {currentUser && (
+          <p className="text-xs text-blue-600 mt-1">
+            담당자: {currentUser.name || currentUser.id}
+          </p>
+        )}
       </div>
 
       <form onSubmit={handleSubmit} className="space-y-3">
@@ -99,14 +118,14 @@ const QuickPatientForm: React.FC<QuickPatientFormProps> = ({ onSuccess }) => {
             onKeyPress={handleKeyPress}
             placeholder="010-1234-5678"
             className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent text-sm"
-            disabled={isLoading}
+            disabled={isLoading || !currentUser} // 🔥 로그인하지 않은 경우 비활성화
             autoComplete="tel"
           />
         </div>
 
         <button
           type="submit"
-          disabled={isLoading || !phoneNumber.trim()}
+          disabled={isLoading || !phoneNumber.trim() || !currentUser} // 🔥 로그인 확인 추가
           className="w-full flex items-center justify-center px-4 py-2 bg-blue-600 text-white text-sm font-medium rounded-md hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
         >
           {isLoading ? (
@@ -139,6 +158,16 @@ const QuickPatientForm: React.FC<QuickPatientFormProps> = ({ onSuccess }) => {
         </div>
       )}
 
+      {/* 🔥 로그인 상태 확인 메시지 추가 */}
+      {!currentUser && (
+        <div className="bg-yellow-50 text-yellow-800 border border-yellow-200 p-3 rounded-md text-sm">
+          <div className="flex items-center space-x-2">
+            <FiAlertCircle className="w-4 h-4 flex-shrink-0" />
+            <span>로그인이 필요합니다.</span>
+          </div>
+        </div>
+      )}
+
       {/* 사용법 안내 */}
       <div className="text-xs text-gray-500 space-y-1">
         <p>💡 <strong>사용법:</strong></p>
@@ -146,6 +175,7 @@ const QuickPatientForm: React.FC<QuickPatientFormProps> = ({ onSuccess }) => {
           <li>전화번호 입력 후 엔터 또는 등록 버튼 클릭</li>
           <li>자동으로 인바운드 환자로 분류됩니다</li>
           <li>상세 정보는 환자 관리에서 수정 가능</li>
+          <li>담당자는 현재 로그인한 사용자로 자동 설정</li>
         </ul>
       </div>
     </div>

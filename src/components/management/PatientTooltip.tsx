@@ -80,8 +80,8 @@ export default function PatientTooltip({
     totalCount: 0
   });
   const [timeoutId, setTimeoutId] = useState<NodeJS.Timeout | null>(null);
-  // 🔥 툴팁 위치 상태 추가
-  const [tooltipPosition, setTooltipPosition] = useState({ x: 0, y: 0 });
+  // 🔥 툴팁 위치 상태 추가 - showBelow 속성 추가
+  const [tooltipPosition, setTooltipPosition] = useState({ x: 0, y: 0, showBelow: false });
 
   // refreshTrigger가 변경되면 데이터 강제 새로고침
   useEffect(() => {
@@ -95,7 +95,7 @@ export default function PatientTooltip({
     }
   }, [refreshTrigger, isVisible, patientId]);
 
-  // 🔥 마우스 위치 기반 툴팁 표시
+  // 🔥 마우스 위치 기반 툴팁 표시 - 커서 중첩 방지
   const showTooltip = (event: React.MouseEvent) => {
     const rect = event.currentTarget.getBoundingClientRect();
     
@@ -103,30 +103,38 @@ export default function PatientTooltip({
     const viewportWidth = window.innerWidth;
     const viewportHeight = window.innerHeight;
     
-    // 툴팁 예상 크기 (실제 크기는 다를 수 있지만 대략적으로)
+    // 툴팁 예상 크기
     const tooltipWidth = 500;
     const tooltipHeight = 400;
+    const margin = 20; // 여백
+    const cursorOffset = 15; // 🔥 커서와의 최소 거리
     
-    // 기본 위치는 마우스 커서 위
+    // 기본 위치는 요소 중앙
     let x = rect.left + rect.width / 2;
     let y = rect.top;
     
+    // 🔥 상단 여백이 충분한지 확인 (툴팁 + 커서 오프셋)
+    const hasTopSpace = y - tooltipHeight - cursorOffset > margin;
+    
+    if (hasTopSpace) {
+      // 위쪽에 충분한 공간이 있으면 위에 표시 (커서 오프셋 추가)
+      y = y - cursorOffset;
+    } else {
+      // 위쪽 공간이 부족하면 아래쪽에 표시
+      y = rect.bottom + cursorOffset;
+    }
+    
     // 오른쪽으로 넘어가면 왼쪽으로 이동
-    if (x + tooltipWidth / 2 > viewportWidth - 20) {
-      x = viewportWidth - tooltipWidth / 2 - 20;
+    if (x + tooltipWidth / 2 > viewportWidth - margin) {
+      x = viewportWidth - tooltipWidth / 2 - margin;
     }
     
     // 왼쪽으로 넘어가면 오른쪽으로 이동
-    if (x - tooltipWidth / 2 < 20) {
-      x = tooltipWidth / 2 + 20;
+    if (x - tooltipWidth / 2 < margin) {
+      x = tooltipWidth / 2 + margin;
     }
     
-    // 위로 넘어가면 아래쪽에 표시
-    if (y - tooltipHeight < 20) {
-      y = rect.bottom + 10; // 마우스 아래쪽에 표시
-    }
-    
-    setTooltipPosition({ x, y });
+    setTooltipPosition({ x, y, showBelow: !hasTopSpace });
     
     const id = setTimeout(() => {
       setIsVisible(true);
@@ -413,19 +421,25 @@ export default function PatientTooltip({
         {children}
       </div>
 
-      {/* 🔥 Portal을 사용한 툴팁 - fixed 위치로 테이블 바운더리 무시 */}
+      {/* 🔥 Portal을 사용한 툴팁 - 커서 중첩 방지 개선 */}
       {isVisible && (
         <div 
           className="fixed z-[9999] pointer-events-none"
           style={{
             left: `${tooltipPosition.x}px`,
             top: `${tooltipPosition.y}px`,
-            transform: 'translate(-50%, -100%)', // 중앙 정렬 및 위로 이동
+            transform: tooltipPosition.showBelow 
+              ? 'translate(-50%, 0%)' // 아래쪽에 표시할 때
+              : 'translate(-50%, -100%)', // 위쪽에 표시할 때
           }}
           onMouseEnter={cancelHideTooltip}
           onMouseLeave={hideTooltip}
         >
-          <div className="bg-white rounded-lg shadow-xl border border-gray-200 p-3 min-w-[450px] max-w-[600px] w-max mb-2 pointer-events-auto">
+          <div className="bg-white rounded-lg shadow-xl border border-gray-200 p-3 min-w-[450px] max-w-[600px] w-max pointer-events-auto"
+               style={{
+                 marginBottom: tooltipPosition.showBelow ? '0' : '8px', // 아래쪽일 때는 margin 제거
+                 marginTop: tooltipPosition.showBelow ? '8px' : '0', // 아래쪽일 때 margin 추가
+               }}>
             {/* 툴팁 헤더 */}
             <div className="flex items-center gap-2 mb-2 pb-2 border-b border-gray-100">
               <div className="w-6 h-6 bg-blue-100 rounded-full flex items-center justify-center">
@@ -518,11 +532,20 @@ export default function PatientTooltip({
             </div>
           </div>
 
-          {/* 🔥 툴팁 화살표 - 위치 조정 */}
-          <div className="absolute top-full left-1/2 transform -translate-x-1/2">
-            <div className="w-0 h-0 border-l-4 border-r-4 border-t-4 border-l-transparent border-r-transparent border-t-white"></div>
-            <div className="absolute top-[-5px] left-1/2 transform -translate-x-1/2 w-0 h-0 border-l-4 border-r-4 border-t-4 border-l-transparent border-r-transparent border-t-gray-200"></div>
-          </div>
+          {/* 🔥 툴팁 화살표 - 위치에 따라 동적 변경 */}
+          {tooltipPosition.showBelow ? (
+            // 아래쪽에 표시될 때 화살표는 위쪽에
+            <div className="absolute bottom-full left-1/2 transform -translate-x-1/2">
+              <div className="w-0 h-0 border-l-4 border-r-4 border-b-4 border-l-transparent border-r-transparent border-b-white"></div>
+              <div className="absolute bottom-[-5px] left-1/2 transform -translate-x-1/2 w-0 h-0 border-l-4 border-r-4 border-b-4 border-l-transparent border-r-transparent border-b-gray-200"></div>
+            </div>
+          ) : (
+            // 위쪽에 표시될 때 화살표는 아래쪽에
+            <div className="absolute top-full left-1/2 transform -translate-x-1/2">
+              <div className="w-0 h-0 border-l-4 border-r-4 border-t-4 border-l-transparent border-r-transparent border-t-white"></div>
+              <div className="absolute top-[-5px] left-1/2 transform -translate-x-1/2 w-0 h-0 border-l-4 border-r-4 border-t-4 border-l-transparent border-r-transparent border-t-gray-200"></div>
+            </div>
+          )}
         </div>
       )}
     </div>

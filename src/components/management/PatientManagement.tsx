@@ -1,13 +1,12 @@
-// src/components/management/PatientManagement.tsx
-
+// src/components/management/PatientManagement.tsx - 내원 관리 탭 제거 버전
 'use client'
-
+// 🔥 기존 imports에 추가
 import { calculateCurrentProgress } from '@/store/slices/goalsSlice';
 import { useEffect, useState } from 'react'
 import { useDispatch, useSelector } from 'react-redux'
 import { useSearchParams } from 'next/navigation'
 import { RootState, AppDispatch } from '@/store'
-import { fetchPatients, setFilters, setPage, initializeEventTargets } from '@/store/slices/patientsSlice'
+import { fetchPatients, setFilters, setPage, initializeEventTargets, fetchPostVisitPatients } from '@/store/slices/patientsSlice'
 import { setCurrentMenuItem, openPatientForm } from '@/store/slices/uiSlice'
 import PatientList from './PatientList'
 import CallHistory from './CallHistory'
@@ -16,11 +15,13 @@ import OngoingConsultations from './OngoingConsultations'
 import PatientFormModal from './PatientFormModal'
 import PatientDetailModal from './PatientDetailModal'
 import MessageLogModal from './MessageLogModal'
+// 🔥 VisitManagement import 제거 (사이드바에서 접근)
 import { 
   HiOutlineSearch, 
   HiOutlineAdjustments, 
   HiOutlineUserAdd,
-  HiOutlineDocumentText 
+  HiOutlineDocumentText
+  // 🔥 HiOutlineClipboardCheck import 제거
 } from 'react-icons/hi'
 import { FiPhone, FiPhoneCall } from 'react-icons/fi'
 import { Icon } from '../common/Icon'
@@ -33,7 +34,6 @@ export default function PatientManagement() {
   
   const { currentMenuItem } = useSelector((state: RootState) => state.ui)
   
-  // 🔥 안전한 상태 접근 - 기본값 제공
   const patientsState = useSelector((state: RootState) => state.patients)
   const { 
     isLoading = true, 
@@ -44,22 +44,22 @@ export default function PatientManagement() {
       status: 'all',
       interestArea: 'all',
       consultationType: 'all',
-      referralSource: 'all'
+      referralSource: 'all',
+      visitStatus: 'all'
     }
   } = patientsState || {}
   
-  // 현재 탭 상태를 별도로 관리
   const [activeTab, setActiveTab] = useState('환자 목록')
   
   const [searchTerm, setSearchTerm] = useState('')
   const [statusFilter, setStatusFilter] = useState('all')
   const [interestFilter, setInterestFilter] = useState('all')
-  const [consultationTypeFilter, setConsultationTypeFilter] = useState<'all' | 'inbound' | 'outbound'>('all') // 🔥 상담 타입 필터 추가
+  const [consultationTypeFilter, setConsultationTypeFilter] = useState<'all' | 'inbound' | 'outbound'>('all')
+  // 🔥 내원 상태 필터 유지 (환자 목록에서 사용)
+  const [visitStatusFilter, setVisitStatusFilter] = useState<'all' | 'visit_confirmed' | 'post_visit_needed'>('all')
   
-  // 데이터 로딩 상태 추가
   const [isDataLoaded, setIsDataLoaded] = useState(false)
 
-  // 🔥 상태가 초기화되지 않은 경우 로딩 표시
   if (!patientsState) {
     return (
       <div className="flex items-center justify-center h-64">
@@ -69,7 +69,7 @@ export default function PatientManagement() {
     )
   }
 
-  // URL 파라미터에서 탭 정보 가져오기
+  // URL 파라미터에서 탭 정보 가져오기 - 내원 관리 제거
   useEffect(() => {
     const tabParam = searchParams.get('tab')
     if (tabParam) {
@@ -79,7 +79,8 @@ export default function PatientManagement() {
         'scheduled': '예정된 콜',
         'ongoing': '진행중 상담',
         'event-targets': '이벤트 타겟',
-        'message-logs': '문자발송 내역', // 새로운 탭 추가
+        'message-logs': '문자발송 내역',
+        // 🔥 'visit-management': '내원 관리' 제거
       }
       const tab = tabMap[tabParam] || '환자 목록'
       dispatch(setCurrentMenuItem(tab))
@@ -91,7 +92,6 @@ export default function PatientManagement() {
   useEffect(() => {
     console.log('PatientManagement - 초기 데이터 로드 시작');
     
-    // 환자 데이터 로드
     dispatch(fetchPatients())
       .then(() => {
         console.log('환자 데이터 로드 완료');
@@ -99,15 +99,17 @@ export default function PatientManagement() {
       })
       .catch(error => {
         console.error('환자 데이터 로드 실패:', error);
-        setIsDataLoaded(true); // 에러가 나도 로딩 상태는 완료로 처리
+        setIsDataLoaded(true);
       });
     
-    // 이벤트 타겟 데이터 로드
+    // 🔥 이벤트 타겟 초기화 복원
     dispatch(initializeEventTargets());
+    
+    // 🔥 내원 후 관리 환자 데이터는 사이드바 메뉴에서만 로드
+    // dispatch(fetchPostVisitPatients()); 제거
     
   }, [dispatch]);
 
-  // 🎯 환자 데이터 변경시 목표 달성률 재계산 (새로 추가)
   useEffect(() => {
     if (patients && patients.length >= 0) {
       console.log('🎯 PatientManagement - 목표 달성률 재계산 시작, 환자 수:', patients.length);
@@ -115,53 +117,60 @@ export default function PatientManagement() {
     }
   }, [dispatch, patients]);
 
-  // 🔥 필터 적용 - consultationTypeFilter 추가
+  // 🔥 필터 적용 - visitStatusFilter 유지 (환자 목록용)
   useEffect(() => {
     const debounceTimer = setTimeout(() => {
       dispatch(setFilters({
         searchTerm,
         status: statusFilter as any,
         interestArea: interestFilter,
-        consultationType: consultationTypeFilter // 🔥 상담 타입 필터 추가
+        consultationType: consultationTypeFilter,
+        visitStatus: visitStatusFilter
       }))
-      dispatch(setPage(1)) // 필터 변경 시 첫 페이지로 이동
+      dispatch(setPage(1))
     }, 300)
     
     return () => clearTimeout(debounceTimer)
-  }, [searchTerm, statusFilter, interestFilter, consultationTypeFilter, dispatch]) // 🔥 의존성에 consultationTypeFilter 추가
+  }, [searchTerm, statusFilter, interestFilter, consultationTypeFilter, visitStatusFilter, dispatch])
 
-  // 탭 변경 핸들러
+  // 탭 변경 핸들러 - 내원 관리 케이스 제거
   const handleTabChange = (tab: string) => {
     setActiveTab(tab)
     dispatch(setCurrentMenuItem(tab))
     
-    // 탭 변경 시 환자 목록 탭으로 이동할 경우 데이터 다시 불러오기
     if (tab === '환자 목록') {
       dispatch(fetchPatients()).then(() => {
-        // 🎯 데이터 다시 불러온 후 목표 달성률도 재계산
         console.log('🎯 탭 변경으로 인한 데이터 재로드 후 목표 재계산');
       });
+    } else if (tab === '이벤트 타겟') {
+      // 🔥 이벤트 타겟 탭으로 이동할 때 데이터 새로고침
+      dispatch(fetchPatients()).then(() => {
+        dispatch(initializeEventTargets());
+      });
     }
+    // 🔥 내원 관리 탭 처리 로직 제거
   }
 
-  // 🔥 현재 필터 상태를 확인하여 통계 표시
   const getFilterStats = () => {
     const inboundCount = patients.filter(p => p.consultationType === 'inbound').length;
     const outboundCount = patients.filter(p => p.consultationType === 'outbound').length;
     const totalCount = patients.length;
+    // 🔥 내원 관련 통계는 유지 (환자 목록에서 표시용)
+    const visitConfirmedCount = patients.filter(p => p.visitConfirmed).length;
+    const postVisitNeededCount = patients.filter(p => 
+      p.visitConfirmed && p.postVisitStatus === '재콜백필요'
+    ).length;
     
-    return { inboundCount, outboundCount, totalCount };
+    return { inboundCount, outboundCount, totalCount, visitConfirmedCount, postVisitNeededCount };
   };
 
-  const { inboundCount, outboundCount, totalCount } = getFilterStats();
+  const { inboundCount, outboundCount, totalCount, visitConfirmedCount, postVisitNeededCount } = getFilterStats();
 
   return (
     <div>
-      {/* 페이지 제목 */}
       <div className="flex items-center justify-between mb-6">
         <div>
           <h1 className="text-2xl font-bold text-text-primary">상담 관리</h1>
-          {/* 🔥 상담 타입별 통계 표시 */}
           <div className="flex items-center space-x-4 mt-1">
             <span className="text-sm text-gray-600">
               전체: <strong>{totalCount}명</strong>
@@ -172,10 +181,16 @@ export default function PatientManagement() {
             <span className="text-sm text-blue-600">
               아웃바운드: <strong>{outboundCount}명</strong>
             </span>
+            {/* 🔥 내원 관련 통계 유지 (정보 제공용) */}
+            <span className="text-sm text-indigo-600">
+              내원확정: <strong>{visitConfirmedCount}명</strong>
+            </span>
+            <span className="text-sm text-yellow-600">
+              추가콜백필요: <strong>{postVisitNeededCount}명</strong>
+            </span>
           </div>
         </div>
         
-        {/* 🎯 개발 중 디버깅 정보 (나중에 제거) */}
         {process.env.NODE_ENV === 'development' && (
           <div className="text-xs text-gray-500 bg-gray-100 px-2 py-1 rounded">
             환자 수: {patients?.length || 0} | 로딩: {isLoading ? 'Y' : 'N'}
@@ -183,7 +198,7 @@ export default function PatientManagement() {
         )}
       </div>
 
-      {/* 탭 메뉴 - 문자발송 내역 탭 추가 */}
+      {/* 🔥 탭 메뉴 - 내원 관리 탭 제거 */}
       <div className="card p-0 mb-6">
         <div className="flex items-center overflow-x-auto">
           <button
@@ -212,6 +227,7 @@ export default function PatientManagement() {
               <div className="absolute bottom-0 left-0 right-0 h-0.5 bg-primary"></div>
             )}
           </button>
+          {/* 🔥 내원 관리 탭 완전 제거 */}
           <button
             className={`px-6 py-3 text-sm font-medium transition-colors relative ${
               activeTab === '문자발송 내역'
@@ -225,54 +241,10 @@ export default function PatientManagement() {
               <div className="absolute bottom-0 left-0 right-0 h-0.5 bg-primary"></div>
             )}
           </button>
-          {/* 필요에 따라 사용 가능한 추가 탭들 */}
-          {false && (
-            <>
-              <button
-                className={`px-6 py-3 text-sm font-medium transition-colors relative ${
-                  activeTab === '콜 기록'
-                    ? 'text-primary bg-primary/10 rounded-t-lg'
-                    : 'text-text-secondary hover:bg-light-bg'
-                }`}
-                onClick={() => handleTabChange('콜 기록')}
-              >
-                콜 기록
-                {activeTab === '콜 기록' && (
-                  <div className="absolute bottom-0 left-0 right-0 h-0.5 bg-primary"></div>
-                )}
-              </button>
-              <button
-                className={`px-6 py-3 text-sm font-medium transition-colors relative ${
-                  activeTab === '예정된 콜'
-                    ? 'text-primary bg-primary/10 rounded-t-lg'
-                    : 'text-text-secondary hover:bg-light-bg'
-                }`}
-                onClick={() => handleTabChange('예정된 콜')}
-              >
-                예정된 콜
-                {activeTab === '예정된 콜' && (
-                  <div className="absolute bottom-0 left-0 right-0 h-0.5 bg-primary"></div>
-                )}
-              </button>
-              <button
-                className={`px-6 py-3 text-sm font-medium transition-colors relative ${
-                  activeTab === '진행중 상담'
-                    ? 'text-primary bg-primary/10 rounded-t-lg'
-                    : 'text-text-secondary hover:bg-light-bg'
-                }`}
-                onClick={() => handleTabChange('진행중 상담')}
-              >
-                진행중 상담
-                {activeTab === '진행중 상담' && (
-                  <div className="absolute bottom-0 left-0 right-0 h-0.5 bg-primary"></div>
-                )}
-              </button>
-            </>
-          )}
         </div>
       </div>
 
-      {/* 🔥 필터 영역 - 상담 타입 필터 추가 */}
+      {/* 🔥 필터 영역 - 내원 관리 탭 조건 제거 */}
       {activeTab === '환자 목록' && (
         <div className="card mb-6">
           <div className="flex flex-col md:flex-row items-start md:items-center gap-4">
@@ -291,7 +263,6 @@ export default function PatientManagement() {
               />
             </div>
 
-            {/* 🔥 상담 타입 필터 추가 */}
             <select
               className="px-4 py-2 bg-light-bg rounded-full text-sm focus:outline-none text-text-secondary md:w-40"
               value={consultationTypeFilter}
@@ -300,6 +271,17 @@ export default function PatientManagement() {
               <option value="all">상담 타입 ▼</option>
               <option value="inbound">🟢 인바운드</option>
               <option value="outbound">🔵 아웃바운드</option>
+            </select>
+
+            {/* 🔥 내원 상태 필터 유지 (환자 목록에서 유용) */}
+            <select
+              className="px-4 py-2 bg-light-bg rounded-full text-sm focus:outline-none text-text-secondary md:w-44"
+              value={visitStatusFilter}
+              onChange={(e) => setVisitStatusFilter(e.target.value as 'all' | 'visit_confirmed' | 'post_visit_needed')}
+            >
+              <option value="all">내원 상태 ▼</option>
+              <option value="visit_confirmed">📋 내원확정</option>
+              <option value="post_visit_needed">🔄 추가콜백필요</option>
             </select>
 
             <select
@@ -339,8 +321,8 @@ export default function PatientManagement() {
             </button>
           </div>
 
-          {/* 🔥 필터 결과 요약 표시 */}
-          {(consultationTypeFilter !== 'all' || statusFilter !== 'all' || interestFilter !== 'all' || searchTerm) && (
+          {/* 🔥 필터 결과 요약 표시 - visitStatusFilter 유지 */}
+          {(consultationTypeFilter !== 'all' || statusFilter !== 'all' || interestFilter !== 'all' || visitStatusFilter !== 'all' || searchTerm) && (
             <div className="mt-4 p-3 bg-blue-50 rounded-lg">
               <div className="flex items-center justify-between">
                 <div className="flex items-center space-x-2 text-sm text-blue-800">
@@ -348,6 +330,12 @@ export default function PatientManagement() {
                   {consultationTypeFilter !== 'all' && (
                     <span className="inline-flex items-center px-2 py-1 rounded-full text-xs bg-blue-200 text-blue-800">
                       {consultationTypeFilter === 'inbound' ? '🟢 인바운드' : '🔵 아웃바운드'}
+                    </span>
+                  )}
+                  {/* 🔥 내원 상태 필터 표시 유지 */}
+                  {visitStatusFilter !== 'all' && (
+                    <span className="inline-flex items-center px-2 py-1 rounded-full text-xs bg-blue-200 text-blue-800">
+                      {visitStatusFilter === 'visit_confirmed' ? '📋 내원확정' : '🔄 추가콜백필요'}
                     </span>
                   )}
                   {statusFilter !== 'all' && (
@@ -372,6 +360,7 @@ export default function PatientManagement() {
                     setStatusFilter('all');
                     setInterestFilter('all');
                     setConsultationTypeFilter('all');
+                    setVisitStatusFilter('all');
                   }}
                   className="text-xs text-blue-600 hover:text-blue-800 underline"
                 >
@@ -383,19 +372,18 @@ export default function PatientManagement() {
         </div>
       )}
 
-      {/* 콘텐츠 영역 */}
+      {/* 콘텐츠 영역 - 내원 관리 케이스 제거 */}
       <div>
         {activeTab === '환자 목록' && <PatientList isLoading={isLoading && !isDataLoaded} />}
         {activeTab === '이벤트 타겟' && <EventTargetList />}
+        {/* 🔥 내원 관리 케이스 제거 */}
         {activeTab === '문자발송 내역' && <MessageLogModal isOpen={true} onClose={() => {}} embedded={true} />}
         {activeTab === '콜 기록' && <CallHistory />}
         {activeTab === '예정된 콜' && <ScheduledCalls />}
         {activeTab === '진행중 상담' && <OngoingConsultations />}
       </div>
 
-      {/* 모달 영역 */}
       <PatientFormModal />
-      {/* 환자 상세 모달 - 상태에 따라 표시 */}
       {selectedPatient && <PatientDetailModal />}
       <DeleteConfirmModal />
     </div>

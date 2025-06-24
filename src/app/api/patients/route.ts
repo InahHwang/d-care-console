@@ -18,44 +18,68 @@ interface PatientFromDB {
   [key: string]: any; // 다른 모든 필드를 허용
 }
 
+/**
+ * 환자 객체의 ID 필드들을 정규화하는 헬퍼 함수
+ */
+function normalizePatientResponse(patient: any) {
+  if (!patient) return patient;
+  
+  // ObjectId를 문자열로 변환
+  const stringId = typeof patient._id === 'string' ? patient._id : patient._id.toString();
+  
+  return {
+    ...patient,
+    _id: stringId,                    // MongoDB ObjectId (문자열)
+    id: patient.id || stringId,       // 프론트엔드용 ID (id가 없으면 _id 사용)
+    // patientId는 별도 필드로 유지 (환자 번호 등)
+    consultationType: patient.consultationType || 'outbound', // 🔥 기본값 보장
+    referralSource: patient.referralSource || '' // 🔥 유입경로 기본값 설정
+  };
+}
+
 export async function GET(request: NextRequest) {
   try {
     const { db } = await connectToDatabase();
-    const patientsData = await db.collection('patients').find({}).toArray();
     
-    // 로그 추가
-    console.log('MongoDB에서 로드된 환자 데이터:', JSON.stringify(patientsData, null, 2));
+    console.log('🔍 API: 환자 목록 조회 시작');
     
-    // MongoDB의 ObjectId를 문자열로 변환 - 타입 지정
-    const patients = patientsData.map((patient: PatientFromDB) => {
-      // _id를 문자열로 변환하여 저장
-      const patientWithStringId = {
-        ...patient,
-        _id: patient._id.toString(),
-        // 🔥 기존 환자들은 기본적으로 아웃바운드로 설정 (호환성을 위해)
-        consultationType: patient.consultationType || 'outbound',
-        // 🔥 기존 환자들 유입경로 기본값 설정 (호환성을 위해)
-        referralSource: patient.referralSource || ''
-      };
+    // 🔥 최신 등록순으로 정렬 (createdAt 내림차순)
+    const patients = await db
+      .collection('patients')
+      .find({})
+      .sort({ createdAt: -1 }) // 🔥 최신순 정렬 추가
+      .toArray();
+    
+    console.log('🔍 API: 조회된 환자 수:', patients.length);
+    
+    // 🔥 ID 필드 정규화 - 모든 환자 객체에 id와 _id 모두 보장
+    const normalizedPatients = patients.map((patient, index) => {
+      const normalized = normalizePatientResponse(patient);
       
-      // id 필드가 없다면 _id를 복사해서 id 필드 추가 (기존 코드 호환성)
-      if (!patientWithStringId.id) {
-        patientWithStringId.id = patientWithStringId._id;
+      // 처음 몇 개만 디버깅 로그
+      if (index < 3) {
+        console.log(`🔍 API: 환자 ${index + 1} ID 정규화:`, {
+          original_id: patient._id,
+          original_idType: typeof patient._id,
+          normalized_id: normalized.id,
+          normalized_objectId: normalized._id,
+          patientName: normalized.name
+        });
       }
       
-      return patientWithStringId;
+      return normalized;
     });
     
-    // 변환 후 데이터 확인
-    console.log('변환된 환자 데이터:', JSON.stringify(patients, null, 2));
-
+    console.log('🔍 API: ID 정규화 완료');
+    
     return NextResponse.json({ 
-      patients,
-      totalItems: patients.length 
-    }, { status: 200 });
+      patients: normalizedPatients,
+      totalItems: normalizedPatients.length 
+    });
+    
   } catch (error) {
-    console.error('환자 데이터 조회 실패:', error);
-    return NextResponse.json({ error: '환자 데이터를 불러오는데 실패했습니다.' }, { status: 500 });
+    console.error('🚨 API: 환자 목록 조회 실패:', error);
+    return NextResponse.json({ error: '환자 목록을 불러오는데 실패했습니다.' }, { status: 500 });
   }
 }
 
@@ -63,6 +87,22 @@ export async function POST(request: NextRequest) {
   try {
     const { db } = await connectToDatabase();
     const data = await request.json();
+
+    console.log('🔍 API: 환자 등록 시작');
+
+    // 🔥 Base64로 인코딩된 사용자 정보 디코딩
+    const userInfoHeader = request.headers.get('X-User-Info');
+    let currentUser = null;
+    if (userInfoHeader) {
+      try {
+        // Base64 디코딩 후 JSON 파싱
+        const decodedUserInfo = decodeURIComponent(atob(userInfoHeader));
+        currentUser = JSON.parse(decodedUserInfo);
+        console.log('🔥 API: 디코딩된 사용자 정보:', currentUser);
+      } catch (e) {
+        console.warn('사용자 정보 디코딩 실패:', e);
+      }
+    }
 
     // 입력 데이터 검증
     if (!data.name || !data.phoneNumber) {
@@ -75,61 +115,78 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: '이미 등록된 전화번호입니다.' }, { status: 409 });
     }
 
-    // 환자 ID 생성 - 날짜 기반 (PT-YYMMDDXXX)
+    // 환자 ID 생성 로직 (기존과 동일)
     const now = new Date();
-    const year = now.getFullYear().toString().slice(-2); // 25
-    const month = String(now.getMonth() + 1).padStart(2, '0'); // 05
-    const day = String(now.getDate()).padStart(2, '0'); // 25
-    const datePrefix = year + month + day; // 250525
+    const year = now.getFullYear().toString().slice(-2);
+    const month = String(now.getMonth() + 1).padStart(2, '0');
+    const day = String(now.getDate()).padStart(2, '0');
+    const datePrefix = year + month + day;
     
-    // 같은 날짜로 시작하는 환자 ID 개수 확인
     const todayPattern = new RegExp(`^PT-${datePrefix}`);
     const todayPatientCount = await db.collection('patients').countDocuments({
       patientId: todayPattern
     });
     
-    // 오늘 날짜 기준 다음 순번 (001부터 시작)
     const nextSequence = String(todayPatientCount + 1).padStart(3, '0');
-    let patientId = `PT-${datePrefix}${nextSequence}`; // PT-250525001
+    let patientId = `PT-${datePrefix}${nextSequence}`;
     
-    // 혹시 모를 중복 방지 검증
     const existingIdPatient = await db.collection('patients').findOne({ patientId });
     if (existingIdPatient) {
-      // 중복이 있다면 타임스탬프 기반으로 재생성
       const timestamp = Date.now().toString().slice(-3);
       patientId = `PT-${datePrefix}${timestamp}`;
     }
 
-    // 환자 정보 추가
+    // 🔥 담당자 정보 포함하여 환자 정보 생성
     const nowISO = new Date().toISOString();
     const newPatient = {
       ...data,
-      patientId, // PT-YYMMDDXXX 형식 ID (표시용)
+      patientId,
       createdAt: nowISO,
       updatedAt: nowISO,
       lastConsultation: '',
       reminderStatus: '초기',
       visitConfirmed: false,
-      // 🔥 상담 타입 기본값 설정 (명시되지 않으면 아웃바운드)
       consultationType: data.consultationType || 'outbound',
-      // 🔥 유입경로 기본값 설정 (명시되지 않으면 빈 문자열)
-      referralSource: data.referralSource || ''
+      referralSource: data.referralSource || '',
+      
+      // 🔥 담당자 정보 추가
+      createdBy: currentUser?.id || 'unknown',
+      createdByName: currentUser?.name || '알 수 없음',
+      lastModifiedBy: currentUser?.id || 'unknown',
+      lastModifiedByName: currentUser?.name || '알 수 없음',
+      lastModifiedAt: nowISO
     };
+
+    console.log('🔥 담당자 정보 포함 환자 등록:', {
+      patientId,
+      name: newPatient.name,
+      createdBy: newPatient.createdBy,
+      createdByName: newPatient.createdByName
+    });
 
     const result = await db.collection('patients').insertOne(newPatient);
     
-    // MongoDB의 _id를 문자열로 변환하여 저장 
+    // 🔥 생성된 환자 데이터에 ID 정규화 적용
     const insertedId = result.insertedId.toString();
-    newPatient._id = insertedId;
+    const createdPatient = {
+      ...newPatient,
+      _id: insertedId,
+      id: insertedId  // 🔥 id 필드도 명시적으로 설정
+    };
     
-    // id 필드도 추가 (기존 코드 호환성)
-    newPatient.id = insertedId;
+    // 🔥 응답 데이터 정규화
+    const normalizedPatient = normalizePatientResponse(createdPatient);
     
-    console.log('환자 등록 성공:', newPatient);
+    console.log('🔍 API: 환자 등록 성공 및 ID 정규화:', {
+      patientId: normalizedPatient.patientId,
+      _id: normalizedPatient._id,
+      id: normalizedPatient.id,
+      name: normalizedPatient.name
+    });
 
-    return NextResponse.json(newPatient, { status: 201 });
+    return NextResponse.json(normalizedPatient, { status: 201 });
   } catch (error) {
-    console.error('환자 등록 실패:', error);
+    console.error('🚨 API: 환자 등록 실패:', error);
     return NextResponse.json({ error: '환자 등록에 실패했습니다.' }, { status: 500 });
   }
 }

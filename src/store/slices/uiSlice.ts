@@ -1,4 +1,4 @@
-//src/store/slices/uiSlice.ts
+// src/store/slices/uiSlice.ts
 
 import { createSlice, PayloadAction } from '@reduxjs/toolkit';
 
@@ -17,6 +17,12 @@ interface UiState {
     isMinimized: boolean;
     lastActivity: string | null;
   };
+
+  // 🔥 내원 관리 관련 상태 추가
+  visitManagement: {
+    hideCompletedVisits: boolean;  // 내원완료 환자 숨기기 토글
+    showOnlyPostVisit: boolean;    // 내원 후 관리 대상만 보기
+  };
 }
 
 const initialState: UiState = {
@@ -33,6 +39,12 @@ const initialState: UiState = {
     isOpen: false,
     isMinimized: false,
     lastActivity: null,
+  },
+
+  // 🔥 내원 관리 초기 상태
+  visitManagement: {
+    hideCompletedVisits: false,
+    showOnlyPostVisit: false,
   },
 };
 
@@ -106,6 +118,20 @@ const uiSlice = createSlice({
     updateWidgetActivity: (state) => {
       state.widget.lastActivity = new Date().toISOString();
     },
+
+    // 🔥 내원 관리 관련 액션들 추가
+    toggleHideCompletedVisits: (state) => {
+      state.visitManagement.hideCompletedVisits = !state.visitManagement.hideCompletedVisits;
+    },
+    setHideCompletedVisits: (state, action: PayloadAction<boolean>) => {
+      state.visitManagement.hideCompletedVisits = action.payload;
+    },
+    toggleShowOnlyPostVisit: (state) => {
+      state.visitManagement.showOnlyPostVisit = !state.visitManagement.showOnlyPostVisit;
+    },
+    setShowOnlyPostVisit: (state, action: PayloadAction<boolean>) => {
+      state.visitManagement.showOnlyPostVisit = action.payload;
+    },
   },
 });
 
@@ -126,7 +152,13 @@ export const {
   closeWidget,
   minimizeWidget,
   setWidgetVisibility,
-  updateWidgetActivity
+  updateWidgetActivity,
+
+  // 🔥 내원 관리 액션들 내보내기
+  toggleHideCompletedVisits,
+  setHideCompletedVisits,
+  toggleShowOnlyPostVisit,
+  setShowOnlyPostVisit,
 } = uiSlice.actions;
 
 export default uiSlice.reducer;

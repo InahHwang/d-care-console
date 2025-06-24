@@ -49,12 +49,12 @@ export async function PUT(
     // 이전 상태를 알 수 없으므로 가장 최근 콜백 상태에 따라 결정
     let originalStatus = '콜백필요'; // 기본값
     
-    // 완료된 콜백이 있으면 '활성고객', 없으면 '콜백필요'로 설정
+    // 완료된 콜백이 있으면 '잠재고객', 없으면 '잠재고객'으로 설정
     const hasCompletedCallback = updatedCallbackHistory.some((cb: any) => cb.status === '완료');
     if (hasCompletedCallback) {
-      originalStatus = '활성고객';
+      originalStatus = '잠재고객'; // 🔥 '활성고객'에서 '잠재고객'으로 변경
     }
-    
+
     // 부재중 콜백이 있으면 '부재중'으로 설정
     const hasMissedCallback = updatedCallbackHistory.some((cb: any) => 
       cb.status === '부재중' || (cb.status === '완료' && cb.notes?.startsWith('부재중:'))

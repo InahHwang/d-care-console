@@ -8,6 +8,21 @@ export async function POST(request: NextRequest) {
     const { db } = await connectToDatabase();
     const { phoneNumber } = await request.json();
 
+    console.log('🔍 API: 인바운드 환자 등록 시작:', phoneNumber);
+
+    // 🔥 Base64로 인코딩된 사용자 정보 디코딩 (새로 추가)
+    const userInfoHeader = request.headers.get('X-User-Info');
+    let currentUser = null;
+    if (userInfoHeader) {
+      try {
+        const decodedUserInfo = decodeURIComponent(atob(userInfoHeader));
+        currentUser = JSON.parse(decodedUserInfo);
+        console.log('🔥 API: 인바운드 등록 - 디코딩된 사용자 정보:', currentUser);
+      } catch (e) {
+        console.warn('사용자 정보 디코딩 실패:', e);
+      }
+    }
+
     // 입력 데이터 검증
     if (!phoneNumber) {
       return NextResponse.json({ error: '전화번호를 입력해주세요.' }, { status: 400 });
@@ -57,7 +72,7 @@ export async function POST(request: NextRequest) {
       patientId = `IB-${datePrefix}${timestamp}`;
     }
 
-    // 인바운드 환자 정보 생성
+    // 🔥 인바운드 환자 정보 생성 (담당자 정보 추가)
     const nowISO = new Date().toISOString();
     const newInboundPatient = {
       patientId,
@@ -75,8 +90,23 @@ export async function POST(request: NextRequest) {
       createdAt: nowISO,
       updatedAt: nowISO,
       visitConfirmed: false,
-      callbackHistory: []
+      callbackHistory: [],
+      
+      // 🔥 담당자 정보 추가 (새로 추가된 부분)
+      createdBy: currentUser?.id || 'system',
+      createdByName: currentUser?.name || '시스템',
+      lastModifiedBy: currentUser?.id || 'system',
+      lastModifiedByName: currentUser?.name || '시스템',
+      lastModifiedAt: nowISO
     };
+
+    console.log('🔥 인바운드 환자 등록 데이터 (담당자 정보 포함):', {
+      patientId,
+      phoneNumber: newInboundPatient.phoneNumber,
+      consultationType: newInboundPatient.consultationType,
+      createdBy: newInboundPatient.createdBy,
+      createdByName: newInboundPatient.createdByName
+    });
 
     const result = await db.collection('patients').insertOne(newInboundPatient);
     
@@ -88,11 +118,17 @@ export async function POST(request: NextRequest) {
       id: insertedId // 기존 코드 호환성
     };
     
-    console.log('인바운드 환자 등록 성공:', responsePatient);
+    console.log('🔍 API: 인바운드 환자 등록 성공 (담당자 정보 포함):', {
+      patientId: responsePatient.patientId,
+      _id: responsePatient._id,
+      id: responsePatient.id,
+      name: responsePatient.name,
+      createdByName: responsePatient.createdByName
+    });
 
     return NextResponse.json(responsePatient, { status: 201 });
   } catch (error) {
-    console.error('인바운드 환자 등록 실패:', error);
+    console.error('🚨 API: 인바운드 환자 등록 실패:', error);
     return NextResponse.json({ error: '인바운드 환자 등록에 실패했습니다.' }, { status: 500 });
   }
 }

@@ -1,4 +1,4 @@
-// 대한민국 시/도 및 시/군/구 데이터
+// src/constants/regionData.ts 대한민국 시/도 및 시/군/구 데이터
 export type Province = {
     name: string;
     cities: string[];
