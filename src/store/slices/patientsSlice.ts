@@ -25,6 +25,58 @@ import {
 } from '@/types/patient';
 import { RootState } from '..';
 
+// 🔥 내원 후 상태 데이터 초기화 액션 추가
+export const resetPostVisitData = createAsyncThunk(
+  'patients/resetPostVisitData',
+  async (patientId: string, { rejectWithValue, getState }) => {
+    try {
+      console.log('Redux: 내원 후 상태 데이터 초기화 시작:', patientId);
+      
+      const state = getState() as { patients: PatientsState };
+      const patient = state.patients.patients.find(p => p._id === patientId || p.id === patientId);
+      
+      const response = await fetch(`/api/patients/${patientId}/reset-post-visit`, {
+        method: 'PUT',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+      });
+      
+      if (!response.ok) {
+        const errorData = await response.json();
+        console.error('초기화 API 응답 에러:', errorData);
+        return rejectWithValue(errorData.error || '내원 후 상태 초기화에 실패했습니다.');
+      }
+      
+      const result = await response.json();
+      const updatedPatient = result.patient;
+      
+      console.log('Redux: 내원 후 상태 초기화 성공:', {
+        patientId,
+        name: updatedPatient.name,
+        resetComplete: true
+      });
+      
+      // 🔥 활동 로그 기록
+      if (patient) {
+        try {
+          await PatientActivityLogger.resetPostVisitData(
+            patient.id,
+            patient.name
+          );
+        } catch (logError) {
+          console.warn('초기화 활동 로그 기록 실패:', logError);
+        }
+      }
+      
+      return updatedPatient;
+    } catch (error: any) {
+      console.error('Redux: 내원 후 상태 초기화 네트워크 에러:', error);
+      return rejectWithValue(error.message || '내원 후 상태 초기화에 실패했습니다.');
+    }
+  }
+);
+
 // 🔥 여기에 PatientFilterType 타입 정의 추가!
 export type PatientFilterType = 
   | 'new_inquiry'      // 이번달 신규 문의
@@ -1053,6 +1105,60 @@ const patientsSlice = createSlice({
   
   extraReducers: (builder) => {
     builder
+    // resetPostVisitData 처리 케이스들을 extraReducers 빌더에 추가:
+    .addCase(resetPostVisitData.pending, (state) => {
+      state.error = null;
+    })
+    .addCase(resetPostVisitData.fulfilled, (state, action: PayloadAction<Patient>) => {
+      const updatedPatient = action.payload;
+      
+      // patients 배열에서 해당 환자 업데이트
+      const patientIndex = state.patients.findIndex(p => 
+        p._id === updatedPatient._id || p.id === updatedPatient.id
+      );
+      if (patientIndex !== -1) {
+        state.patients[patientIndex] = updatedPatient;
+      }
+      
+      // filteredPatients 배열에서도 업데이트
+      const filteredIndex = state.filteredPatients.findIndex(p => 
+        p._id === updatedPatient._id || p.id === updatedPatient.id
+      );
+      if (filteredIndex !== -1) {
+        state.filteredPatients[filteredIndex] = updatedPatient;
+      }
+      
+      // postVisitPatients 배열에서 제거 (더 이상 내원 후 관리 대상이 아님)
+      state.postVisitPatients = state.postVisitPatients.filter(p => 
+        p._id !== updatedPatient._id && p.id !== updatedPatient.id
+      );
+      
+      // eventTargetPatients 배열에서도 업데이트 (이벤트 타겟인 경우)
+      const eventTargetIndex = state.eventTargetPatients.findIndex(p => 
+        p._id === updatedPatient._id || p.id === updatedPatient.id
+      );
+      if (eventTargetIndex !== -1) {
+        state.eventTargetPatients[eventTargetIndex] = updatedPatient;
+      }
+      
+      // selectedPatient도 업데이트 (현재 선택된 환자라면)
+      if (state.selectedPatient && 
+          (state.selectedPatient._id === updatedPatient._id || 
+          state.selectedPatient.id === updatedPatient.id)) {
+        state.selectedPatient = updatedPatient;
+      }
+      
+      console.log('Redux: 내원 후 상태 초기화 상태 업데이트 완료:', {
+        patientId: updatedPatient._id,
+        name: updatedPatient.name,
+        postVisitStatus: updatedPatient.postVisitStatus,
+        hasPostVisitConsultation: !!updatedPatient.postVisitConsultation
+      });
+    })
+    .addCase(resetPostVisitData.rejected, (state, action) => {
+      state.error = action.payload as string;
+      console.error('내원 후 상태 초기화 실패:', action.payload);
+    })
       // 🔥 내원 후 관리 환자 목록 가져오기 처리
       .addCase(fetchPostVisitPatients.pending, (state) => {
         state.isLoading = true;

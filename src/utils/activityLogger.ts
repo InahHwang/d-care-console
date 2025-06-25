@@ -1,4 +1,4 @@
-// src/utils/activityLogger.ts - 관리자 작업 로깅 제외 버전 (수정됨)
+// src/utils/activityLogger.ts - 관리자 작업 로깅 제외 버전 (수정됨) + 초기화 메서드 추가
 
 import { ActivityAction, ActivityTarget, ActivityDetails } from '@/types/activityLog';
 import { store } from '@/store';
@@ -267,6 +267,15 @@ export const PatientActivityLogger = {
       patientName,
       newStatus: isConfirmed ? '내원확정' : '내원확정취소',
       notes: `내원 확정이 ${isConfirmed ? '설정' : '해제'}되었습니다.`,
+      callbackNumber: ''
+    }),
+
+  // 🔥 내원 후 상태 데이터 초기화 메서드 수정 (기존 타입 호환)
+  resetPostVisitData: (patientId: string, patientName: string) => 
+    logActivity('patient_update', 'patient', patientId, patientName, {
+      patientId,
+      patientName,
+      notes: '내원 후 상태 데이터가 초기화되었습니다. (postVisitStatus, postVisitConsultation, postVisitNotes, treatmentStartDate, nextCallbackDate, visitDate)',
       callbackNumber: ''
     }),
 };

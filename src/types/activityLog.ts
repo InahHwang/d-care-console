@@ -9,6 +9,7 @@ export type ActivityAction =
   | 'patient_view'
   | 'patient_complete'
   | 'patient_complete_cancel'
+  | 'patient_reset_post_visit'
   // 콜백 관리
   | 'callback_create'
   | 'callback_update'
