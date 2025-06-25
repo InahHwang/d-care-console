@@ -4,6 +4,7 @@
 
 import { useState, useEffect } from 'react'
 import { useAppDispatch } from '@/hooks/reduxHooks'
+import { useMutation, useQueryClient } from '@tanstack/react-query'
 import { 
   Patient, 
   updatePatient, 
@@ -66,6 +67,10 @@ const referralSourceOptions = [
 
 export default function PatientEditForm({ patient, onClose, onSuccess }: PatientEditFormProps) {
   const dispatch = useAppDispatch()
+  const queryClient = useQueryClient()
+  
+  // 🚀 환경변수로 Optimistic Update 기능 켜기/끄기
+  const isOptimisticEnabled = process.env.NEXT_PUBLIC_ENABLE_OPTIMISTIC_UPDATE === 'true'
   
   // 🔥 폼 상태 관리 - consultationType, referralSource 기본값 설정 개선
   const [formValues, setFormValues] = useState<UpdatePatientData>({
@@ -95,9 +100,63 @@ export default function PatientEditForm({ patient, onClose, onSuccess }: Patient
     callInDate: '',
   })
   
-  // 로딩 상태
+  // 🚀 기존 Redux 방식 (fallback용)
   const [isLoading, setIsLoading] = useState(false)
   const [isChanged, setIsChanged] = useState(false)
+  
+  // 🚀 Optimistic Update를 위한 React Query Mutation
+  const optimisticUpdateMutation = useMutation({
+    mutationFn: async (data: UpdatePatientData) => {
+      const patientId = patient._id || patient.id;
+      if (!patientId) {
+        throw new Error('환자 ID를 찾을 수 없습니다.');
+      }
+      
+      // Redux 액션을 Promise로 감싸기
+      return dispatch(updatePatient({
+        patientId: patientId,
+        patientData: data
+      })).unwrap()
+    },
+    onMutate: async (newData) => {
+      // 🚀 1. 기존 쿼리 취소 (충돌 방지)
+      await queryClient.cancelQueries({ queryKey: ['patients'] })
+      
+      // 🚀 2. 현재 데이터 백업
+      const previousPatients = queryClient.getQueryData(['patients'])
+      
+      // 🚀 3. UI 즉시 업데이트 (서버 응답 기다리지 않음)
+      queryClient.setQueryData(['patients'], (oldData: any) => {
+        if (!oldData) return oldData
+        
+        return oldData.map((p: Patient) => 
+          (p._id || p.id) === (patient._id || patient.id) 
+            ? { ...p, ...newData, updatedAt: new Date().toISOString() }
+            : p
+        )
+      })
+      
+      // 🚀 4. 즉시 성공 메시지 표시
+      alert('환자 정보가 성공적으로 수정되었습니다!')
+      if (onSuccess) onSuccess()
+      onClose()
+      
+      return { previousPatients }
+    },
+    onError: (error, variables, context) => {
+      // 🚀 5. 실패시에만 롤백
+      if (context?.previousPatients) {
+        queryClient.setQueryData(['patients'], context.previousPatients)
+      }
+      
+      console.error('환자 정보 수정 오류:', error)
+      alert(`환자 정보 수정 중 오류가 발생했습니다: ${error}`)
+    },
+    onSettled: () => {
+      // 🚀 6. 최종적으로 서버 데이터로 동기화
+      queryClient.invalidateQueries({ queryKey: ['patients'] })
+    }
+  })
   
   // 선택된 시/도가 변경되면 시/군/구 목록 업데이트
   useEffect(() => {
@@ -305,11 +364,11 @@ export default function PatientEditForm({ patient, onClose, onSuccess }: Patient
     }
   }
   
-  // 폼 제출
-  const handleSubmit = async (e: React.FormEvent) => {
+  // 🚀 기존 방식 폼 제출 (fallback)
+  const handleTraditionalSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
     
-    console.log('=== 폼 제출 시작 ===');
+    console.log('=== 기존 방식으로 폼 제출 시작 ===');
     console.log('isChanged:', isChanged);
     console.log('isLoading:', isLoading);
     console.log('formValues:', formValues);
@@ -384,16 +443,72 @@ export default function PatientEditForm({ patient, onClose, onSuccess }: Patient
     }
   }
   
+  // 🚀 Optimistic 방식 폼 제출
+  const handleOptimisticSubmit = async (e: React.FormEvent) => {
+    e.preventDefault()
+    
+    // 유효성 검사 (동일)
+    let isValid = true
+    const newErrors = { 
+      name: '', 
+      phoneNumber: '', 
+      age: '',
+      callInDate: '',
+    }
+    
+    if (!formValues.name || !formValues.name.trim()) {
+      newErrors.name = '이름을 입력해주세요'
+      isValid = false
+    }
+    
+    if (!formValues.phoneNumber || !formValues.phoneNumber.trim()) {
+      newErrors.phoneNumber = '연락처를 입력해주세요'
+      isValid = false
+    } else if (!/^[0-9]{3}-[0-9]{3,4}-[0-9]{4}$/.test(formValues.phoneNumber)) {
+      newErrors.phoneNumber = '올바른 연락처 형식이 아닙니다. (예: 010-1234-5678)'
+      isValid = false
+    }
+    
+    if (formValues.age !== undefined && (formValues.age < 1 || formValues.age > 120)) {
+      newErrors.age = '유효한 나이를 입력해주세요 (1-120)'
+      isValid = false
+    }
+    
+    if (!formValues.callInDate) {
+      newErrors.callInDate = 'DB 유입 날짜를 입력해주세요'
+      isValid = false
+    }
+    
+    setErrors(newErrors)
+    
+    if (!isValid) return
+    
+    // 🚀 Optimistic Update 실행
+    optimisticUpdateMutation.mutate(formValues)
+  }
+  
+  // 🚀 환경변수에 따라 제출 방식 선택
+  const handleSubmit = isOptimisticEnabled ? handleOptimisticSubmit : handleTraditionalSubmit
+  const currentIsLoading = isOptimisticEnabled ? optimisticUpdateMutation.isPending : isLoading
+  
   return (
     <div className="fixed inset-0 bg-black/30 flex items-center justify-center z-50 p-4">
       <div className="bg-white rounded-lg shadow-lg w-full max-w-lg max-h-[90vh] overflow-auto">
         {/* 모달 헤더 */}
         <div className="px-6 py-4 border-b border-border flex items-center justify-between">
-          <h2 className="text-lg font-semibold text-text-primary">환자 정보 수정</h2>
+          <div>
+            <h2 className="text-lg font-semibold text-text-primary">환자 정보 수정</h2>
+            {/* 🚀 개발 모드에서 현재 방식 표시 */}
+            {process.env.NODE_ENV === 'development' && (
+              <p className="text-xs text-gray-500 mt-1">
+                {isOptimisticEnabled ? '🚀 Optimistic Update 활성화' : '🐌 기존 방식'}
+              </p>
+            )}
+          </div>
           <button 
             className="text-text-secondary hover:text-text-primary" 
             onClick={onClose}
-            disabled={isLoading}
+            disabled={currentIsLoading}
           >
             <Icon icon={HiOutlineX} size={20} />
           </button>
@@ -671,16 +786,16 @@ export default function PatientEditForm({ patient, onClose, onSuccess }: Patient
               type="button" 
               className="btn btn-outline"
               onClick={onClose}
-              disabled={isLoading}
+              disabled={currentIsLoading}
             >
               취소
             </button>
             <button 
               type="submit" 
-              className={`btn btn-primary ${(!isChanged || isLoading) ? 'opacity-50 cursor-not-allowed' : ''}`}
-              disabled={isLoading || !isChanged}
+              className={`btn btn-primary ${(!isChanged || currentIsLoading) ? 'opacity-50 cursor-not-allowed' : ''}`}
+              disabled={currentIsLoading || !isChanged}
             >
-              {isLoading ? '처리 중...' : '저장하기'}
+              {currentIsLoading ? '처리 중...' : '저장하기'}
             </button>
           </div>
         </form>
