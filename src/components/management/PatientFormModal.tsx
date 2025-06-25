@@ -110,8 +110,25 @@ export default function PatientFormModal() {
       
       // 🚀 4. UI에 임시 환자 추가
       queryClient.setQueryData(['patients'], (oldData: any) => {
-        if (!oldData || !Array.isArray(oldData)) return [tempPatient]
-        return [tempPatient, ...oldData]
+        if (!oldData) {
+          return { patients: [tempPatient], totalItems: 1 }
+        }
+        
+        // 🚨 데이터 구조 처리: { patients: [...] } 형태
+        if (oldData.patients && Array.isArray(oldData.patients)) {
+          return {
+            ...oldData,
+            patients: [tempPatient, ...oldData.patients],
+            totalItems: (oldData.totalItems || oldData.patients.length) + 1
+          }
+        }
+        
+        // 배열 형태인 경우
+        if (Array.isArray(oldData)) {
+          return [tempPatient, ...oldData]
+        }
+        
+        return oldData
       })
       
       // 🚀 5. 즉시 성공 메시지 표시
@@ -123,11 +140,25 @@ export default function PatientFormModal() {
     onSuccess: async (realPatient, variables, context) => {
       // 🚀 6. 서버에서 실제 데이터 받아서 임시 데이터 교체
       queryClient.setQueryData(['patients'], (oldData: any) => {
-        if (!oldData || !Array.isArray(oldData)) return [realPatient]
+        if (!oldData) return { patients: [realPatient], totalItems: 1 }
         
-        return oldData.map((patient: any) => 
-          patient.id === context?.tempPatient.id ? realPatient : patient
-        )
+        // 🚨 데이터 구조 처리
+        if (oldData.patients && Array.isArray(oldData.patients)) {
+          return {
+            ...oldData,
+            patients: oldData.patients.map((patient: any) => 
+              patient.id === context?.tempPatient.id ? realPatient : patient
+            )
+          }
+        }
+        
+        if (Array.isArray(oldData)) {
+          return oldData.map((patient: any) => 
+            patient.id === context?.tempPatient.id ? realPatient : patient
+          )
+        }
+        
+        return oldData
       })
       
       // 🚀 7. 활동 로그 기록

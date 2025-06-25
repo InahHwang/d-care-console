@@ -64,14 +64,27 @@ export default function DeleteConfirmModal({
       
       // 🚀 3. UI에서 즉시 환자 제거
       queryClient.setQueryData(['patients'], (oldData: any) => {
-        if (!oldData?.patients || !Array.isArray(oldData.patients)) return oldData
+        if (!oldData) return oldData
         
-        return {
-          ...oldData,
-          patients: oldData.patients.filter((patient: any) => 
+        // 🚨 데이터 구조 처리: { patients: [...] } 형태
+        if (oldData.patients && Array.isArray(oldData.patients)) {
+          return {
+            ...oldData,
+            patients: oldData.patients.filter((patient: any) => 
+              (patient._id || patient.id) !== patientId
+            ),
+            totalItems: Math.max(0, (oldData.totalItems || oldData.patients.length) - 1)
+          }
+        }
+        
+        // 배열 형태인 경우
+        if (Array.isArray(oldData)) {
+          return oldData.filter((patient: any) => 
             (patient._id || patient.id) !== patientId
           )
         }
+        
+        return oldData
       })
       
       // 🚀 4. 즉시 성공 피드백

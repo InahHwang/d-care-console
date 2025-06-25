@@ -70,7 +70,7 @@ export default function PatientEditForm({ patient, onClose, onSuccess }: Patient
   const queryClient = useQueryClient()
   
   // 🚀 환경변수로 Optimistic Update 기능 켜기/끄기
-  const isOptimisticEnabled = process.env.NEXT_PUBLIC_ENABLE_OPTIMISTIC_UPDATE === 'true'
+  const isOptimisticEnabled = true // Vercel 배포용 임시 설정
   
   // 🔥 폼 상태 관리 - consultationType, referralSource 기본값 설정 개선
   const [formValues, setFormValues] = useState<UpdatePatientData>({
@@ -129,11 +129,28 @@ export default function PatientEditForm({ patient, onClose, onSuccess }: Patient
       queryClient.setQueryData(['patients'], (oldData: any) => {
         if (!oldData) return oldData
         
-        return oldData.map((p: Patient) => 
-          (p._id || p.id) === (patient._id || patient.id) 
-            ? { ...p, ...newData, updatedAt: new Date().toISOString() }
-            : p
-        )
+        // 🚨 데이터 구조 수정: { patients: [...] } 형태 처리
+        if (oldData.patients && Array.isArray(oldData.patients)) {
+          return {
+            ...oldData,
+            patients: oldData.patients.map((p: Patient) => 
+              (p._id || p.id) === (patient._id || patient.id) 
+                ? { ...p, ...newData, updatedAt: new Date().toISOString() }
+                : p
+            )
+          }
+        }
+        
+        // 배열 형태인 경우
+        if (Array.isArray(oldData)) {
+          return oldData.map((p: Patient) => 
+            (p._id || p.id) === (patient._id || patient.id) 
+              ? { ...p, ...newData, updatedAt: new Date().toISOString() }
+              : p
+          )
+        }
+        
+        return oldData
       })
       
       // 🚀 4. 즉시 성공 메시지 표시
