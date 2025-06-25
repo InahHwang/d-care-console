@@ -38,7 +38,21 @@ export default function PatientManagement() {
   
   const { currentMenuItem } = useSelector((state: RootState) => state.ui)
   
-  const patientsState = useSelector((state: RootState) => state.patients)
+  // 🚨 안전한 Redux 상태 접근
+  const patientsState = useSelector((state: RootState) => state?.patients || {
+    isLoading: true,
+    selectedPatient: null,
+    patients: [],
+    filters: {
+      searchTerm: '',
+      status: 'all',
+      interestArea: 'all',
+      consultationType: 'all',
+      referralSource: 'all',
+      visitStatus: 'all'
+    }
+  })
+
   const { 
     isLoading = true, 
     selectedPatient = null, 
@@ -51,7 +65,7 @@ export default function PatientManagement() {
       referralSource: 'all',
       visitStatus: 'all'
     }
-  } = patientsState || {}
+  } = patientsState
   
   const [activeTab, setActiveTab] = useState('환자 목록')
   
@@ -107,15 +121,19 @@ export default function PatientManagement() {
 
   // 🚀 메모이제이션된 필터링 (서버 요청 없이 클라이언트에서)
   const filteredPatients = useMemo(() => {
+    // 🚨 안전성 체크 강화
     if (!queryPatients || !Array.isArray(queryPatients) || queryPatients.length === 0) return [];
     
     return queryPatients.filter((patient: any) => {
+      // 🚨 patient 객체 안전성 체크
+      if (!patient) return false;
+      
       // 검색어 필터
       if (searchTerm) {
         const searchLower = searchTerm.toLowerCase();
-        const matchesName = patient.name?.toLowerCase().includes(searchLower);
-        const matchesPhone = patient.phoneNumber?.toLowerCase().includes(searchLower);
-        const matchesNotes = patient.notes?.toLowerCase().includes(searchLower);
+        const matchesName = patient.name?.toLowerCase()?.includes(searchLower) || false;
+        const matchesPhone = patient.phoneNumber?.toLowerCase()?.includes(searchLower) || false;
+        const matchesNotes = patient.notes?.toLowerCase()?.includes(searchLower) || false;
         if (!matchesName && !matchesPhone && !matchesNotes) return false;
       }
       
@@ -155,11 +173,12 @@ export default function PatientManagement() {
     return { inboundCount, outboundCount, totalCount, visitConfirmedCount, postVisitNeededCount };
   }, [filteredPatients]);
 
+  // 🚨 안전성 체크 추가
   if (!patientsState) {
     return (
       <div className="flex items-center justify-center h-64">
         <div className="w-8 h-8 border-2 border-blue-500 border-t-transparent rounded-full animate-spin"></div>
-        <span className="ml-2 text-gray-600">환자 데이터를 불러오는 중...</span>
+        <span className="ml-2 text-gray-600">시스템을 초기화하는 중...</span>
       </div>
     )
   }
