@@ -4,6 +4,7 @@
 
 import { useState, useEffect } from 'react'
 import { useAppDispatch, useAppSelector } from '@/hooks/reduxHooks'
+import { useMutation, useQueryClient } from '@tanstack/react-query'
 import { RootState } from '@/store'
 import { closePatientForm } from '@/store/slices/uiSlice'
 import { createPatient, CreatePatientData, PatientStatus } from '@/store/slices/patientsSlice'
@@ -36,6 +37,7 @@ const referralSourceOptions = [
 
 export default function PatientFormModal() {
   const dispatch = useAppDispatch()
+  const queryClient = useQueryClient()
   const isOpen = useAppSelector((state: RootState) => state.ui.isPatientFormOpen)
   const isLoading = useAppSelector((state: RootState) => state.patients.isLoading)
   
@@ -44,6 +46,9 @@ export default function PatientFormModal() {
   
   // 🔥 활동 로깅 훅 추가
   const { logPatientAction } = useActivityLogger()
+  
+  // 🚀 Optimistic Update 활성화
+  const isOptimisticEnabled = true // Vercel 배포용 설정
   
   // 현재 날짜 설정
   const today = new Date().toISOString().split('T')[0]
@@ -66,6 +71,123 @@ export default function PatientFormModal() {
   const [selectedProvince, setSelectedProvince] = useState('')
   const [availableCities, setAvailableCities] = useState<string[]>([])
   const [selectedCity, setSelectedCity] = useState('')
+  
+  // 유효성 검사 상태
+  const [errors, setErrors] = useState({
+    name: '',
+    phoneNumber: '',
+    age: '',
+    callInDate: '',
+  })
+  
+  // 🚀 Optimistic Update를 위한 React Query Mutation
+  const optimisticCreateMutation = useMutation({
+    mutationFn: async (data: CreatePatientData) => {
+      // Redux 액션을 Promise로 감싸기
+      return dispatch(createPatient(data)).unwrap()
+    },
+    onMutate: async (newPatientData) => {
+      // 🚀 1. 기존 쿼리 취소 (충돌 방지)
+      await queryClient.cancelQueries({ queryKey: ['patients'] })
+      
+      // 🚀 2. 현재 데이터 백업
+      const previousPatients = queryClient.getQueryData(['patients'])
+      
+      // 🚀 3. 임시 ID 생성하여 UI 즉시 업데이트
+      const tempPatient = {
+        id: `temp_${Date.now()}`,
+        _id: `temp_${Date.now()}`,
+        patientId: `TEMP-${Date.now()}`,
+        ...newPatientData,
+        status: '잠재고객' as PatientStatus,
+        consultationType: 'outbound',
+        createdAt: new Date().toISOString(),
+        updatedAt: new Date().toISOString(),
+        consultantId: currentUser?.id || '',
+        consultantName: currentUser?.name || '',
+        isTemporary: true // 임시 데이터 표시
+      }
+      
+      // 🚀 4. UI에 임시 환자 추가
+      queryClient.setQueryData(['patients'], (oldData: any) => {
+        if (!oldData || !Array.isArray(oldData)) return [tempPatient]
+        return [tempPatient, ...oldData]
+      })
+      
+      // 🚀 5. 즉시 성공 메시지 표시
+      alert(`신규 환자가 등록되었습니다!\n등록자: ${currentUser?.name}`)
+      handleClose()
+      
+      return { previousPatients, tempPatient }
+    },
+    onSuccess: async (realPatient, variables, context) => {
+      // 🚀 6. 서버에서 실제 데이터 받아서 임시 데이터 교체
+      queryClient.setQueryData(['patients'], (oldData: any) => {
+        if (!oldData || !Array.isArray(oldData)) return [realPatient]
+        
+        return oldData.map((patient: any) => 
+          patient.id === context?.tempPatient.id ? realPatient : patient
+        )
+      })
+      
+      // 🚀 7. 활동 로그 기록
+      try {
+        await logPatientAction(
+          'patient_create',
+          realPatient.id,
+          realPatient.name,
+          {
+            patientId: realPatient.id,
+            patientName: realPatient.name,
+            phoneNumber: realPatient.phoneNumber,
+            age: realPatient.age,
+            status: realPatient.status,
+            consultationType: realPatient.consultationType,
+            referralSource: realPatient.referralSource,
+            interestedServices: realPatient.interestedServices,
+            region: realPatient.region,
+            callInDate: realPatient.callInDate,
+            handledBy: currentUser?.name,
+            notes: `신규 환자 등록 완료`
+          }
+        );
+        console.log('✅ 환자 등록 활동 로그 기록 성공');
+      } catch (logError) {
+        console.warn('⚠️ 활동 로그 기록 실패:', logError);
+      }
+    },
+    onError: async (error, variables, context) => {
+      // 🚀 8. 실패시 롤백
+      if (context?.previousPatients) {
+        queryClient.setQueryData(['patients'], context.previousPatients)
+      }
+      
+      console.error('환자 등록 오류:', error)
+      alert('환자 등록 중 오류가 발생했습니다.')
+      
+      // 실패 로그 기록
+      try {
+        await logPatientAction(
+          'patient_create',
+          'failed',
+          variables.name,
+          {
+            patientName: variables.name,
+            phoneNumber: variables.phoneNumber,
+            error: error instanceof Error ? error.message : '알 수 없는 오류',
+            attemptedBy: currentUser?.name,
+            notes: '신규 환자 등록 실패'
+          }
+        );
+      } catch (logError) {
+        console.warn('활동 로그 기록 실패:', logError);
+      }
+    },
+    onSettled: () => {
+      // 🚀 9. 최종적으로 서버 데이터로 동기화
+      queryClient.invalidateQueries({ queryKey: ['patients'] })
+    }
+  })
   
   // 선택된 시/도가 변경되면 시/군/구 목록 업데이트
   useEffect(() => {
@@ -95,14 +217,6 @@ export default function PatientFormModal() {
       }))
     }
   }, [selectedProvince, selectedCity])
-  
-  // 유효성 검사 상태
-  const [errors, setErrors] = useState({
-    name: '',
-    phoneNumber: '',
-    age: '',
-    callInDate: '',
-  })
   
   // 모달 닫기
   const handleClose = () => {
@@ -181,8 +295,8 @@ export default function PatientFormModal() {
     })
   }
   
-  // 폼 제출
-  const handleSubmit = async (e: React.FormEvent) => {
+  // 🚀 기존 방식 폼 제출 (fallback)
+  const handleTraditionalSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
     
     // 🔥 로그인 사용자 확인
@@ -301,6 +415,63 @@ export default function PatientFormModal() {
     }
   }
   
+  // 🚀 Optimistic 방식 폼 제출
+  const handleOptimisticSubmit = async (e: React.FormEvent) => {
+    e.preventDefault()
+    
+    // 로그인 사용자 확인
+    if (!currentUser) {
+      alert('로그인이 필요합니다.');
+      return;
+    }
+    
+    // 유효성 검사 (동일)
+    let isValid = true
+    const newErrors = { 
+      name: '', 
+      phoneNumber: '', 
+      age: '',
+      callInDate: '',
+    }
+    
+    if (!formValues.name.trim()) {
+      newErrors.name = '이름을 입력해주세요'
+      isValid = false
+    }
+    
+    if (!formValues.phoneNumber.trim()) {
+      newErrors.phoneNumber = '연락처를 입력해주세요'
+      isValid = false
+    } else if (!/^[0-9]{3}-[0-9]{3,4}-[0-9]{4}$/.test(formValues.phoneNumber)) {
+      newErrors.phoneNumber = '올바른 연락처 형식이 아닙니다. (예: 010-1234-5678)'
+      isValid = false
+    }
+    
+    if (formValues.age !== undefined && (formValues.age < 1 || formValues.age > 120)) {
+      newErrors.age = '유효한 나이를 입력해주세요 (1-120)'
+      isValid = false
+    }
+    
+    if (!formValues.callInDate) {
+      newErrors.callInDate = 'DB 유입 날짜를 입력해주세요'
+      isValid = false
+    }
+    
+    setErrors(newErrors)
+    
+    if (!isValid) return
+    
+    // 환자 데이터 준비
+    const patientData: CreatePatientData = {
+      ...formValues,
+      status: '잠재고객' as PatientStatus,
+      consultationType: 'outbound'
+    };
+    
+    // 🚀 Optimistic Update 실행
+    optimisticCreateMutation.mutate(patientData)
+  }
+  
   // 전화번호 자동 포맷팅
   const formatPhoneNumber = (value: string) => {
     // 숫자만 추출
@@ -334,6 +505,10 @@ export default function PatientFormModal() {
     }
   }
   
+  // 🚀 환경변수에 따라 제출 방식 선택
+  const handleSubmit = isOptimisticEnabled ? handleOptimisticSubmit : handleTraditionalSubmit
+  const currentIsLoading = isOptimisticEnabled ? optimisticCreateMutation.isPending : isLoading
+  
   // 모달이 닫혀 있을 때는 렌더링하지 않음
   if (!isOpen) return null
   
@@ -350,11 +525,17 @@ export default function PatientFormModal() {
                 등록자: {currentUser.name} ({currentUser.role === 'master' ? '마스터' : '직원'})
               </p>
             )}
+            {/* 🚀 개발 모드에서 현재 방식 표시 */}
+            {process.env.NODE_ENV === 'development' && (
+              <p className="text-xs text-gray-500 mt-1">
+                {isOptimisticEnabled ? '🚀 Optimistic Update 활성화' : '🐌 기존 방식'}
+              </p>
+            )}
           </div>
           <button 
             className="text-text-secondary hover:text-text-primary" 
             onClick={handleClose}
-            disabled={isLoading}
+            disabled={currentIsLoading}
           >
             <Icon icon={HiOutlineX} size={20} />
           </button>
@@ -593,16 +774,16 @@ export default function PatientFormModal() {
               type="button" 
               className="btn btn-outline"
               onClick={handleClose}
-              disabled={isLoading}
+              disabled={currentIsLoading}
             >
               취소
             </button>
             <button 
               type="submit" 
               className="btn btn-primary"
-              disabled={isLoading || !currentUser} // 🔥 로그인 안된 경우 비활성화
+              disabled={currentIsLoading || !currentUser} // 🔥 로그인 안된 경우 비활성화
             >
-              {isLoading ? '처리 중...' : '등록하기'}
+              {currentIsLoading ? '처리 중...' : '등록하기'}
             </button>
           </div>
           
