@@ -44,6 +44,9 @@ const PostVisitStatusModal = ({ isOpen, onClose, onConfirm, patient, isLoading }
   const [installmentPlan, setInstallmentPlan] = useState('');
   const [nextVisitDate, setNextVisitDate] = useState('');
 
+  // 🔥 종결 사유 상태 추가
+  const [completionReason, setCompletionReason] = useState('');
+
   // 🔥 모달이 열릴 때마다 모든 필드 초기화 (견적 정보 포함)
   useEffect(() => {
     if (isOpen) {
@@ -65,6 +68,7 @@ const PostVisitStatusModal = ({ isOpen, onClose, onConfirm, patient, isLoading }
       setDownPayment(0);
       setInstallmentPlan('');
       setNextVisitDate('');
+      setCompletionReason(''); // 🔥 종결 사유 초기화
       
       // 🔥 환자 기존 데이터가 있는 경우에만 로드
       if (patient?.postVisitConsultation) {
@@ -92,6 +96,7 @@ const PostVisitStatusModal = ({ isOpen, onClose, onConfirm, patient, isLoading }
         }
         
         setNextVisitDate(patient.postVisitConsultation.nextVisitDate || '');
+        setCompletionReason((patient.postVisitConsultation as any)?.completionReason || ''); // 🔥 종결 사유 로드
       }
       
       // 환자의 기존 상태 로드
@@ -104,6 +109,12 @@ const PostVisitStatusModal = ({ isOpen, onClose, onConfirm, patient, isLoading }
   const handleConfirm = () => {
     if (!selectedStatus) {
       alert('내원 후 상태를 선택해주세요.');
+      return;
+    }
+
+    // 🔥 종결 상태일 때 종결 사유 필수 체크
+    if (selectedStatus === '종결' && !completionReason.trim()) {
+      alert('종결 사유를 입력해주세요.');
       return;
     }
 
@@ -132,6 +143,8 @@ const PostVisitStatusModal = ({ isOpen, onClose, onConfirm, patient, isLoading }
         installmentPlan: paymentType === 'installment' ? installmentPlan : undefined
       };
       statusData.nextVisitDate = nextVisitDate;
+    } else if (selectedStatus === '종결') { // 🔥 종결 상태 처리 추가
+      statusData.completionNotes = completionReason;
     }
 
     onConfirm(statusData);
@@ -142,7 +155,8 @@ const PostVisitStatusModal = ({ isOpen, onClose, onConfirm, patient, isLoading }
   const statusOptions = [
     { value: '재콜백필요', label: '재콜백 필요', color: 'bg-yellow-100 text-yellow-800' },
     { value: '치료시작', label: '치료 시작', color: 'bg-green-100 text-green-800' },
-    { value: '보류', label: '보류', color: 'bg-gray-100 text-gray-800' }, // 🔥 치료완료 → 보류로 변경
+    { value: '보류', label: '보류', color: 'bg-gray-100 text-gray-800' },
+    { value: '종결', label: '종결', color: 'bg-red-100 text-red-800' }, // 🔥 종결 옵션 추가
   ];
 
   // 🔥 환자 반응 옵션 정의
@@ -164,7 +178,28 @@ const PostVisitStatusModal = ({ isOpen, onClose, onConfirm, patient, isLoading }
           <div className="mb-4 p-3 bg-gray-50 rounded-lg">
             <p className="text-sm font-medium text-gray-700">{patient.name}</p>
             <p className="text-xs text-gray-500">{patient.phoneNumber}</p>
-          </div>
+            {/* 종결 시 추가 필드 */}
+          {selectedStatus === '종결' && (
+            <div className="border border-red-200 rounded-lg p-4 bg-red-50">
+              <h4 className="text-sm font-medium text-gray-700 mb-3">종결 정보</h4>
+              <div className="space-y-3">
+                <div>
+                  <label className="block text-xs text-gray-600 mb-1">
+                    종결 사유 <span className="text-red-500">*</span>
+                  </label>
+                  <textarea
+                    value={completionReason}
+                    onChange={(e) => setCompletionReason(e.target.value)}
+                    className="w-full px-3 py-2 border border-gray-300 rounded-lg resize-none text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+                    rows={3}
+                    placeholder="종결 사유를 상세히 기록해주세요 (예: 치료 완료, 환자 요청으로 중단, 타 병원 이전 등)"
+                    required
+                  />
+                </div>
+              </div>
+            </div>
+          )}
+        </div>
         )}
 
         <div className="space-y-6">
@@ -173,7 +208,7 @@ const PostVisitStatusModal = ({ isOpen, onClose, onConfirm, patient, isLoading }
             <label className="block text-sm font-medium text-gray-700 mb-2">
               내원 후 상태 <span className="text-red-500">*</span>
             </label>
-            <div className="grid grid-cols-3 gap-2">
+            <div className="grid grid-cols-2 gap-2">
               {statusOptions.map((option) => (
                 <button
                   key={option.value}
@@ -405,7 +440,7 @@ const PostVisitStatusModal = ({ isOpen, onClose, onConfirm, patient, isLoading }
           </button>
           <button
             onClick={handleConfirm}
-            disabled={isLoading || !selectedStatus || !consultationContent || !treatmentContent}
+            disabled={isLoading || !selectedStatus || !consultationContent || !treatmentContent || (selectedStatus === '종결' && !completionReason.trim())}
             className="px-4 py-2 text-sm font-medium text-white bg-blue-600 rounded-lg hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed"
           >
             {isLoading ? '처리중...' : '확인'}
@@ -605,7 +640,8 @@ const PostVisitStatusBadge = ({ status }: { status?: string }) => {
   const statusColors: Record<string, string> = {
     '재콜백필요': 'bg-yellow-100 text-yellow-800',
     '치료시작': 'bg-green-100 text-green-800',
-    '보류': 'bg-gray-100 text-gray-800', // 🔥 치료완료 → 보류로 변경
+    '보류': 'bg-gray-100 text-gray-800',
+    '종결': 'bg-red-100 text-red-800', // 🔥 종결 상태 색상 추가
   };
 
   return (
@@ -627,7 +663,7 @@ export default function VisitManagement() {
     isLoading
   } = useSelector((state: RootState) => state.patients)
 
-  const [selectedFilter, setSelectedFilter] = useState<'all' | 'needs_callback' | 'in_treatment' | 'on_hold'>('all') // 🔥 completed -> on_hold로 변경
+  const [selectedFilter, setSelectedFilter] = useState<'all' | 'needs_callback' | 'in_treatment' | 'on_hold' | 'completed'>('all')
   const [isStatusModalOpen, setIsStatusModalOpen] = useState(false)
   const [selectedPatientForUpdate, setSelectedPatientForUpdate] = useState<Patient | null>(null)
   const [isUpdating, setIsUpdating] = useState(false)
@@ -659,6 +695,11 @@ export default function VisitManagement() {
           patient.postVisitStatus === '보류'
         );
         break;
+      case 'completed': // 🔥 종결 필터 추가
+        filtered = filtered.filter(patient => 
+          patient.postVisitStatus === '종결'
+        );
+        break;
       default:
         break;
     }
@@ -678,11 +719,14 @@ export default function VisitManagement() {
     const onHold = visitConfirmedPatients.filter(p => // 🔥 completed -> onHold로 변경
       p.postVisitStatus === '보류'
     ).length;
+    const completed = visitConfirmedPatients.filter(p => // 🔥 종결 통계 추가
+      p.postVisitStatus === '종결'
+    ).length;
     const noStatus = visitConfirmedPatients.filter(p => 
       !p.postVisitStatus
     ).length;
 
-    return { total, needsCallback, inTreatment, onHold, noStatus }; // 🔥 completed -> onHold
+    return { total, needsCallback, inTreatment, onHold, completed, noStatus };
   }, [visitConfirmedPatients]);
 
   // 컴포넌트 마운트 시 데이터 로드
@@ -917,7 +961,7 @@ export default function VisitManagement() {
       </div>
 
       {/* 통계 카드 */}
-      <div className="grid grid-cols-1 md:grid-cols-5 gap-4 mb-6">
+      <div className="grid grid-cols-1 md:grid-cols-6 gap-4 mb-6">
         <div className="bg-white p-4 rounded-lg border">
           <div className="text-2xl font-bold text-gray-900">{stats.total}</div>
           <div className="text-sm text-gray-600">총 내원확정</div>
@@ -933,6 +977,10 @@ export default function VisitManagement() {
         <div className="bg-white p-4 rounded-lg border">
           <div className="text-2xl font-bold text-gray-600">{stats.onHold}</div>
           <div className="text-sm text-gray-600">보류</div>
+        </div>
+        <div className="bg-white p-4 rounded-lg border">
+          <div className="text-2xl font-bold text-red-600">{stats.completed}</div>
+          <div className="text-sm text-gray-600">종결</div>
         </div>
         <div className="bg-white p-4 rounded-lg border">
           <div className="text-2xl font-bold text-gray-400">{stats.noStatus}</div>
@@ -981,6 +1029,16 @@ export default function VisitManagement() {
           }`}
         >
           보류 ({stats.onHold})
+        </button>
+        <button
+          onClick={() => setSelectedFilter('completed')}
+          className={`px-4 py-2 text-sm font-medium rounded-lg transition-colors ${
+            selectedFilter === 'completed'
+              ? 'bg-red-100 text-red-800'
+              : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
+          }`}
+        >
+          종결 ({stats.completed})
         </button>
       </div>
 

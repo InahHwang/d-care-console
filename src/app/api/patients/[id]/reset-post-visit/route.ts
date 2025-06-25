@@ -68,6 +68,7 @@ export async function PUT(
             postVisitNotes: "",
             treatmentStartDate: "",
             nextCallbackDate: "",
+            nextVisitDate: "", // 🔥 이 필드도 초기화 (fallback 필드)
             visitDate: ""
           },
           $set: {
@@ -87,6 +88,7 @@ export async function PUT(
             postVisitNotes: "",
             treatmentStartDate: "",
             nextCallbackDate: "",
+            nextVisitDate: "", // 🔥 이 필드도 초기화 (fallback 필드)
             visitDate: ""
           },
           $set: {
@@ -119,6 +121,7 @@ export async function PUT(
         'postVisitNotes',
         'treatmentStartDate',
         'nextCallbackDate',
+        'nextVisitDate', // 🔥 fallback 필드도 포함
         'visitDate'
       ]
     });
