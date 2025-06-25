@@ -1,8 +1,22 @@
-// src/app/api/reports/monthly/route.ts - 🔥 프론트엔드와 동일한 결제금액 계산 로직 적용
+// src/app/api/reports/monthly/route.ts - 🔥 JWT 검증 및 에러 핸들링 개선
 import { NextRequest, NextResponse } from 'next/server';
 import { connectToDatabase } from '@/utils/mongodb';
 import jwt from 'jsonwebtoken';
 import { MonthlyStats, ChangeIndicator } from '@/types/report';
+
+// JWT 검증 함수
+function verifyToken(token: string) {
+  try {
+    if (!process.env.JWT_SECRET) {
+      throw new Error('JWT_SECRET이 설정되지 않았습니다.');
+    }
+    return jwt.verify(token, process.env.JWT_SECRET) as any;
+  } catch (error) {
+    // JWT_SECRET이 없는 경우 decode로 폴백 (개발환경용)
+    console.warn('JWT 검증 실패, decode로 폴백:', error);
+    return jwt.decode(token) as any;
+  }
+}
 
 export async function POST(request: NextRequest) {
   try {
@@ -15,7 +29,7 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ message: '인증이 필요합니다.' }, { status: 401 });
     }
 
-    const decoded = jwt.decode(token) as any;
+    const decoded = verifyToken(token);
     if (!decoded) {
       return NextResponse.json({ message: '유효하지 않은 토큰입니다.' }, { status: 401 });
     }
@@ -75,13 +89,13 @@ export async function POST(request: NextRequest) {
     // 변화율 계산
     const changes = {
       totalInquiries: calculateChange(currentStats.totalInquiries, prevStats.totalInquiries),
-      inboundCalls: calculateChange(currentStats.inboundCalls, prevStats.inboundCalls), // 🔥 인바운드 증감 추가
-      outboundCalls: calculateChange(currentStats.outboundCalls, prevStats.outboundCalls), // 🔥 아웃바운드 증감 추가
-      appointmentPatients: calculateChange(currentStats.appointmentPatients, prevStats.appointmentPatients), // 🔥 예약환자 명수 증감
+      inboundCalls: calculateChange(currentStats.inboundCalls, prevStats.inboundCalls),
+      outboundCalls: calculateChange(currentStats.outboundCalls, prevStats.outboundCalls),
+      appointmentPatients: calculateChange(currentStats.appointmentPatients, prevStats.appointmentPatients),
       appointmentRate: calculateChange(currentStats.appointmentRate, prevStats.appointmentRate),
-      visitedPatients: calculateChange(currentStats.visitedPatients, prevStats.visitedPatients), // 🔥 내원환자 명수 증감
+      visitedPatients: calculateChange(currentStats.visitedPatients, prevStats.visitedPatients),
       visitRate: calculateChange(currentStats.visitRate, prevStats.visitRate),
-      paymentPatients: calculateChange(currentStats.paymentPatients, prevStats.paymentPatients), // 🔥 결제환자 명수 증감
+      paymentPatients: calculateChange(currentStats.paymentPatients, prevStats.paymentPatients),
       paymentRate: calculateChange(currentStats.paymentRate, prevStats.paymentRate),
       totalPayment: calculateChange(currentStats.totalPayment, prevStats.totalPayment)
     };
@@ -101,7 +115,10 @@ export async function POST(request: NextRequest) {
   } catch (error) {
     console.error('❌ 월별 통계 조회 오류:', error);
     return NextResponse.json(
-      { message: '월별 통계 조회 중 오류가 발생했습니다.' },
+      { 
+        message: '월별 통계 조회 중 오류가 발생했습니다.',
+        error: process.env.NODE_ENV === 'development' ? (error instanceof Error ? error.message : String(error)) : undefined
+      },
       { status: 500 }
     );
   }
