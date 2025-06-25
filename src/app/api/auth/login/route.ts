@@ -10,7 +10,18 @@ import { ObjectId } from 'mongodb';
 const JWT_SECRET = process.env.JWT_SECRET as string;
 
 // 테스트용 임시 사용자 (실제 운영시에는 제거)
-const TEST_USERS: any[] = []; 
+const TEST_USERS = [
+  {
+    _id: 'master_001',
+    id: 'master_001',
+    username: 'dsbrdental',
+    email: 'dsbrdental@naver.com',
+    password: 'ektksqkfms1!',        // 평문 비밀번호
+    name: '마스터관리자',
+    role: 'master',
+    isActive: true
+  },
+];
 
 // 활동 로그 기록 함수
 async function logActivity(userId: string, userName: string, userRole: string, ipAddress: string, userAgent: string) {
