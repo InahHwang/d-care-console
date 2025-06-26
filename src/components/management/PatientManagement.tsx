@@ -87,15 +87,41 @@ export default function PatientManagement() {
     queryKey: ['patients'],
     queryFn: async () => {
       console.log('🚀 React Query: 환자 데이터 로딩 시작');
-      const result = await dispatch(fetchPatients()).unwrap();
+
+      // 🔥 Redux dispatch 대신 직접 API 호출로 변경
+      const response = await fetch('/api/patients', {
+        credentials: 'include',
+        headers: {
+          'Content-Type': 'application/json'
+        }
+      });
+      
+      if (!response.ok) {
+        throw new Error(`API 호출 실패: ${response.status}`);
+      }
+      
+      const result = await response.json();
       console.log('🚀 React Query: 환자 데이터 로딩 완료', result?.patients?.length || 0, '명');
+      
+      // Redux 상태도 동기화 (선택적)
+      if (result.success && result.patients) {
+        // Redux store 업데이트는 별도로 처리
+        setTimeout(() => {
+          dispatch(fetchPatients());
+        }, 0);
+      }
+      
       return result;
     },
-    staleTime: 30 * 1000, // 30초간 fresh
-    gcTime: 5 * 60 * 1000, // 5분간 캐시 유지
+    staleTime: 2 * 60 * 1000, // 2분간 fresh (30초 → 2분으로 증가)
+    gcTime: 10 * 60 * 1000, // 10분간 캐시 유지 (5분 → 10분으로 증가)
     refetchOnWindowFocus: false,
-    refetchOnMount: false, // 마운트시 자동 refetch 방지
+    refetchOnMount: false,
+    refetchInterval: false, // 🔥 자동 refetch 완전 비활성화
+    refetchIntervalInBackground: false,
     enabled: true,
+    retry: 1, // 🔥 재시도 횟수 제한
+    retryDelay: 1000, // 🔥 재시도 지연 시간
   });
 
   // 환자 배열 추출
@@ -104,18 +130,24 @@ export default function PatientManagement() {
   // 🚀 백그라운드 데이터 갱신 (사용자 모르게)
   const backgroundRefresh = useCallback(() => {
     if (isOptimisticEnabled) {
-      queryClient.invalidateQueries({ 
-        queryKey: ['patients'],
-        refetchType: 'none' // UI 로딩 없이 백그라운드에서만 갱신
-      });
+      // 🔥 너무 자주 실행되지 않도록 조건 추가
+      const lastRefresh = queryClient.getQueryState(['patients'])?.dataUpdatedAt;
+      const now = Date.now();
+      
+      if (!lastRefresh || (now - lastRefresh) > 5 * 60 * 1000) { // 5분 이상 경과시에만
+        queryClient.invalidateQueries({ 
+          queryKey: ['patients'],
+          refetchType: 'none'
+        });
+      }
     }
   }, [queryClient, isOptimisticEnabled]);
 
-  // 🚀 주기적 백그라운드 갱신 (5분마다)
+  // 🔥 주기적 백그라운드 갱신 최적화 (5분 → 10분)
   useEffect(() => {
     if (!isOptimisticEnabled) return;
     
-    const interval = setInterval(backgroundRefresh, 5 * 60 * 1000);
+    const interval = setInterval(backgroundRefresh, 10 * 60 * 1000); // 10분마다
     return () => clearInterval(interval);
   }, [backgroundRefresh, isOptimisticEnabled]);
 
@@ -222,28 +254,27 @@ export default function PatientManagement() {
       const timeoutId = setTimeout(() => {
         console.log('🎯 PatientManagement - 목표 달성률 재계산 시작, 환자 수:', filteredPatients.length);
         dispatch(calculateCurrentProgress({ patients: filteredPatients }));
-      }, 500); // 0.5초 debounce
+      }, 1000); // 0.5초 → 1초로 증가
       
       return () => clearTimeout(timeoutId);
     }
-  }, [dispatch, filteredPatients]);
+  }, [dispatch, filteredPatients.length]);
 
   // 🚀 필터 상태 동기화 (Redux와 로컬 상태)
   useEffect(() => {
-    const debounceTimer = setTimeout(() => {
-      // Redux 필터 상태도 업데이트 (다른 컴포넌트와 동기화용)
-      dispatch(setFilters({
-        searchTerm,
-        status: statusFilter as any,
-        interestArea: interestFilter,
-        consultationType: consultationTypeFilter,
-        visitStatus: visitStatusFilter
-      }))
-      dispatch(setPage(1))
-    }, 300)
+  const debounceTimer = setTimeout(() => {
+    dispatch(setFilters({
+      searchTerm,
+      status: statusFilter as any,
+      interestArea: interestFilter,
+      consultationType: consultationTypeFilter,
+      visitStatus: visitStatusFilter
+    }))
+    dispatch(setPage(1))
+  }, 1000) // 300ms → 1초로 증가
     
     return () => clearTimeout(debounceTimer)
-  }, [searchTerm, statusFilter, interestFilter, consultationTypeFilter, visitStatusFilter, dispatch])
+}, [searchTerm, statusFilter, interestFilter, consultationTypeFilter, visitStatusFilter, dispatch])
 
   // 🚀 탭 변경 핸들러 최적화
   const handleTabChange = useCallback((tab: string) => {
@@ -251,17 +282,19 @@ export default function PatientManagement() {
     dispatch(setCurrentMenuItem(tab))
     
     if (tab === '환자 목록') {
-      // React Query 캐시 사용으로 즉시 표시
-      if (!queryPatients || queryPatients.length === 0) {
-        refetchPatients(); // 캐시가 없을 때만 새로 로드
+      // 🔥 캐시가 있고 최신 데이터라면 refetch 하지 않음
+      const queryState = queryClient.getQueryState(['patients']);
+      const isStale = !queryState?.data || Date.now() - (queryState.dataUpdatedAt || 0) > 5 * 60 * 1000;
+      
+      if (isStale && (!queryPatients || queryPatients.length === 0)) {
+        refetchPatients();
       }
-      console.log('🎯 탭 변경: 환자 목록 - 캐시된 데이터 사용');
+      console.log('🎯 탭 변경: 환자 목록 - 캐시 상태 확인됨');
     } else if (tab === '이벤트 타겟') {
-      // 이벤트 타겟 데이터 갱신
       dispatch(initializeEventTargets());
       console.log('🎯 탭 변경: 이벤트 타겟');
     }
-  }, [dispatch, queryPatients?.length, refetchPatients]);
+  }, [dispatch, queryPatients?.length, refetchPatients, queryClient]);
 
   // 🚀 검색 핸들러 최적화
   const handleSearchChange = useCallback((e: React.ChangeEvent<HTMLInputElement>) => {
