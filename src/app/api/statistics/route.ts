@@ -1,11 +1,9 @@
-// src/app/api/statistics/route.ts - 간단한 버전
 import { NextRequest, NextResponse } from 'next/server';
 
 export async function GET(request: NextRequest) {
   try {
-    console.log('📊 Statistics API 호출됨 - 간단 모드');
+    console.log('Statistics API called - simple mode');
     
-    // 🔥 임시로 기본 응답만 반환
     const statistics = {
       thisMonth: {
         newPatients: 0,
@@ -33,20 +31,18 @@ export async function GET(request: NextRequest) {
     });
 
   } catch (error) {
-    console.error('Statistics API 오류:', error instanceof Error ? error.message : String(error));
+    console.error('Statistics API error:', error instanceof Error ? error.message : String(error));
     return NextResponse.json(
-      { message: 'Statistics 조회 중 오류가 발생했습니다.' },
+      { message: 'Statistics query error occurred.' },
       { status: 500 }
     );
   }
 }
 
-// POST 메서드도 간단하게
 export async function POST(request: NextRequest) {
   try {
     const { startDate, endDate } = await request.json();
 
-    // 기본 응답 반환
     const stats = {
       totalPatients: 0,
       confirmedAppointments: 0,
@@ -68,9 +64,9 @@ export async function POST(request: NextRequest) {
     });
 
   } catch (error) {
-    console.error('기간별 통계 오류:', error instanceof Error ? error.message : String(error));
+    console.error('Period statistics error:', error instanceof Error ? error.message : String(error));
     return NextResponse.json(
-      { message: '기간별 통계 조회 중 오류가 발생했습니다.' },
+      { message: 'Period statistics query error occurred.' },
       { status: 500 }
     );
   }
