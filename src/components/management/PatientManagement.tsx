@@ -1,10 +1,12 @@
-// src/components/management/PatientManagement.tsx - 내원 관리 탭 제거 버전
+// src/components/management/PatientManagement.tsx - 성능 최적화 버전
 'use client'
-// 🔥 기존 imports에 추가
+
+// 🚀 기존 imports에 React Query 추가
 import { calculateCurrentProgress } from '@/store/slices/goalsSlice';
-import { useEffect, useState } from 'react'
+import { useEffect, useState, useCallback, useMemo } from 'react'
 import { useDispatch, useSelector } from 'react-redux'
 import { useSearchParams } from 'next/navigation'
+import { useQuery, useQueryClient } from '@tanstack/react-query'
 import { RootState, AppDispatch } from '@/store'
 import { fetchPatients, setFilters, setPage, initializeEventTargets, fetchPostVisitPatients } from '@/store/slices/patientsSlice'
 import { setCurrentMenuItem, openPatientForm } from '@/store/slices/uiSlice'
@@ -15,13 +17,11 @@ import OngoingConsultations from './OngoingConsultations'
 import PatientFormModal from './PatientFormModal'
 import PatientDetailModal from './PatientDetailModal'
 import MessageLogModal from './MessageLogModal'
-// 🔥 VisitManagement import 제거 (사이드바에서 접근)
 import { 
   HiOutlineSearch, 
   HiOutlineAdjustments, 
   HiOutlineUserAdd,
   HiOutlineDocumentText
-  // 🔥 HiOutlineClipboardCheck import 제거
 } from 'react-icons/hi'
 import { FiPhone, FiPhoneCall } from 'react-icons/fi'
 import { Icon } from '../common/Icon'
@@ -30,11 +30,29 @@ import DeleteConfirmModal from './DeleteConfirmModal'
 
 export default function PatientManagement() {
   const dispatch = useDispatch<AppDispatch>()
+  const queryClient = useQueryClient()
   const searchParams = useSearchParams()
+  
+  // 🚀 Optimistic Update 활성화
+  const isOptimisticEnabled = true
   
   const { currentMenuItem } = useSelector((state: RootState) => state.ui)
   
-  const patientsState = useSelector((state: RootState) => state.patients)
+  // 🚨 안전한 Redux 상태 접근
+  const patientsState = useSelector((state: RootState) => state?.patients || {
+    isLoading: true,
+    selectedPatient: null,
+    patients: [],
+    filters: {
+      searchTerm: '',
+      status: 'all',
+      interestArea: 'all',
+      consultationType: 'all',
+      referralSource: 'all',
+      visitStatus: 'all'
+    }
+  })
+
   const { 
     isLoading = true, 
     selectedPatient = null, 
@@ -47,7 +65,7 @@ export default function PatientManagement() {
       referralSource: 'all',
       visitStatus: 'all'
     }
-  } = patientsState || {}
+  } = patientsState
   
   const [activeTab, setActiveTab] = useState('환자 목록')
   
@@ -55,21 +73,117 @@ export default function PatientManagement() {
   const [statusFilter, setStatusFilter] = useState('all')
   const [interestFilter, setInterestFilter] = useState('all')
   const [consultationTypeFilter, setConsultationTypeFilter] = useState<'all' | 'inbound' | 'outbound'>('all')
-  // 🔥 내원 상태 필터 유지 (환자 목록에서 사용)
   const [visitStatusFilter, setVisitStatusFilter] = useState<'all' | 'visit_confirmed' | 'post_visit_needed'>('all')
   
   const [isDataLoaded, setIsDataLoaded] = useState(false)
 
+  // 🚀 React Query로 환자 데이터 관리
+  const {
+    data: queryResult,
+    isLoading: queryLoading,
+    error: queryError,
+    refetch: refetchPatients
+  } = useQuery({
+    queryKey: ['patients'],
+    queryFn: async () => {
+      console.log('🚀 React Query: 환자 데이터 로딩 시작');
+      const result = await dispatch(fetchPatients()).unwrap();
+      console.log('🚀 React Query: 환자 데이터 로딩 완료', result?.patients?.length || 0, '명');
+      return result;
+    },
+    staleTime: 30 * 1000, // 30초간 fresh
+    gcTime: 5 * 60 * 1000, // 5분간 캐시 유지
+    refetchOnWindowFocus: false,
+    refetchOnMount: false, // 마운트시 자동 refetch 방지
+    enabled: true,
+  });
+
+  // 환자 배열 추출
+  const queryPatients = queryResult?.patients || [];
+
+  // 🚀 백그라운드 데이터 갱신 (사용자 모르게)
+  const backgroundRefresh = useCallback(() => {
+    if (isOptimisticEnabled) {
+      queryClient.invalidateQueries({ 
+        queryKey: ['patients'],
+        refetchType: 'none' // UI 로딩 없이 백그라운드에서만 갱신
+      });
+    }
+  }, [queryClient, isOptimisticEnabled]);
+
+  // 🚀 주기적 백그라운드 갱신 (5분마다)
+  useEffect(() => {
+    if (!isOptimisticEnabled) return;
+    
+    const interval = setInterval(backgroundRefresh, 5 * 60 * 1000);
+    return () => clearInterval(interval);
+  }, [backgroundRefresh, isOptimisticEnabled]);
+
+  // 🚀 메모이제이션된 필터링 (서버 요청 없이 클라이언트에서)
+  const filteredPatients = useMemo(() => {
+    // 🚨 안전성 체크 강화
+    if (!queryPatients || !Array.isArray(queryPatients) || queryPatients.length === 0) return [];
+    
+    return queryPatients.filter((patient: any) => {
+      // 🚨 patient 객체 안전성 체크
+      if (!patient) return false;
+      
+      // 검색어 필터
+      if (searchTerm) {
+        const searchLower = searchTerm.toLowerCase();
+        const matchesName = patient.name?.toLowerCase()?.includes(searchLower) || false;
+        const matchesPhone = patient.phoneNumber?.toLowerCase()?.includes(searchLower) || false;
+        const matchesNotes = patient.notes?.toLowerCase()?.includes(searchLower) || false;
+        if (!matchesName && !matchesPhone && !matchesNotes) return false;
+      }
+      
+      // 상태 필터
+      if (statusFilter !== 'all' && patient.status !== statusFilter) return false;
+      
+      // 관심분야 필터
+      if (interestFilter !== 'all') {
+        if (!patient.interestedServices?.includes(interestFilter)) return false;
+      }
+      
+      // 상담타입 필터
+      if (consultationTypeFilter !== 'all' && patient.consultationType !== consultationTypeFilter) return false;
+      
+      // 내원상태 필터
+      if (visitStatusFilter !== 'all') {
+        if (visitStatusFilter === 'visit_confirmed' && !patient.visitConfirmed) return false;
+        if (visitStatusFilter === 'post_visit_needed' && (!patient.visitConfirmed || patient.postVisitStatus !== '재콜백필요')) return false;
+      }
+      
+      return true;
+    });
+  }, [queryPatients, searchTerm, statusFilter, interestFilter, consultationTypeFilter, visitStatusFilter]);
+
+  // 🚀 메모이제이션된 통계 계산
+  const filterStats = useMemo(() => {
+    if (!Array.isArray(filteredPatients)) return { inboundCount: 0, outboundCount: 0, totalCount: 0, visitConfirmedCount: 0, postVisitNeededCount: 0 };
+    
+    const inboundCount = filteredPatients.filter((p: any) => p.consultationType === 'inbound').length;
+    const outboundCount = filteredPatients.filter((p: any) => p.consultationType === 'outbound').length;
+    const totalCount = filteredPatients.length;
+    const visitConfirmedCount = filteredPatients.filter((p: any) => p.visitConfirmed).length;
+    const postVisitNeededCount = filteredPatients.filter((p: any) => 
+      p.visitConfirmed && p.postVisitStatus === '재콜백필요'
+    ).length;
+    
+    return { inboundCount, outboundCount, totalCount, visitConfirmedCount, postVisitNeededCount };
+  }, [filteredPatients]);
+
+  // 🚨 안전성 체크 추가
   if (!patientsState) {
     return (
       <div className="flex items-center justify-center h-64">
         <div className="w-8 h-8 border-2 border-blue-500 border-t-transparent rounded-full animate-spin"></div>
-        <span className="ml-2 text-gray-600">환자 데이터를 불러오는 중...</span>
+        <span className="ml-2 text-gray-600">시스템을 초기화하는 중...</span>
       </div>
     )
   }
 
-  // URL 파라미터에서 탭 정보 가져오기 - 내원 관리 제거
+  // URL 파라미터에서 탭 정보 가져오기
   useEffect(() => {
     const tabParam = searchParams.get('tab')
     if (tabParam) {
@@ -80,7 +194,6 @@ export default function PatientManagement() {
         'ongoing': '진행중 상담',
         'event-targets': '이벤트 타겟',
         'message-logs': '문자발송 내역',
-        // 🔥 'visit-management': '내원 관리' 제거
       }
       const tab = tabMap[tabParam] || '환자 목록'
       dispatch(setCurrentMenuItem(tab))
@@ -88,38 +201,37 @@ export default function PatientManagement() {
     }
   }, [searchParams, dispatch])
 
-  // 초기 데이터 로드
+  // 🚀 초기 데이터 로드 최적화
   useEffect(() => {
-    console.log('PatientManagement - 초기 데이터 로드 시작');
+    console.log('PatientManagement - 초기화 시작');
     
-    dispatch(fetchPatients())
-      .then(() => {
-        console.log('환자 데이터 로드 완료');
-        setIsDataLoaded(true);
-      })
-      .catch(error => {
-        console.error('환자 데이터 로드 실패:', error);
-        setIsDataLoaded(true);
-      });
+    // React Query가 자동으로 데이터 로드하므로 중복 방지
+    if (!queryLoading && queryPatients && Array.isArray(queryPatients) && queryPatients.length > 0) {
+      console.log('🚀 React Query 데이터 사용, Redux 동기화');
+      setIsDataLoaded(true);
+    }
     
-    // 🔥 이벤트 타겟 초기화 복원
+    // 이벤트 타겟 초기화
     dispatch(initializeEventTargets());
     
-    // 🔥 내원 후 관리 환자 데이터는 사이드바 메뉴에서만 로드
-    // dispatch(fetchPostVisitPatients()); 제거
-    
-  }, [dispatch]);
+  }, [dispatch, queryLoading, queryPatients.length]);
 
+  // 🚀 목표 달성률 계산 최적화 (debounced)
   useEffect(() => {
-    if (patients && patients.length >= 0) {
-      console.log('🎯 PatientManagement - 목표 달성률 재계산 시작, 환자 수:', patients.length);
-      dispatch(calculateCurrentProgress({ patients }));
+    if (filteredPatients && filteredPatients.length >= 0) {
+      const timeoutId = setTimeout(() => {
+        console.log('🎯 PatientManagement - 목표 달성률 재계산 시작, 환자 수:', filteredPatients.length);
+        dispatch(calculateCurrentProgress({ patients: filteredPatients }));
+      }, 500); // 0.5초 debounce
+      
+      return () => clearTimeout(timeoutId);
     }
-  }, [dispatch, patients]);
+  }, [dispatch, filteredPatients]);
 
-  // 🔥 필터 적용 - visitStatusFilter 유지 (환자 목록용)
+  // 🚀 필터 상태 동기화 (Redux와 로컬 상태)
   useEffect(() => {
     const debounceTimer = setTimeout(() => {
+      // Redux 필터 상태도 업데이트 (다른 컴포넌트와 동기화용)
       dispatch(setFilters({
         searchTerm,
         status: statusFilter as any,
@@ -133,38 +245,55 @@ export default function PatientManagement() {
     return () => clearTimeout(debounceTimer)
   }, [searchTerm, statusFilter, interestFilter, consultationTypeFilter, visitStatusFilter, dispatch])
 
-  // 탭 변경 핸들러 - 내원 관리 케이스 제거
-  const handleTabChange = (tab: string) => {
+  // 🚀 탭 변경 핸들러 최적화
+  const handleTabChange = useCallback((tab: string) => {
     setActiveTab(tab)
     dispatch(setCurrentMenuItem(tab))
     
     if (tab === '환자 목록') {
-      dispatch(fetchPatients()).then(() => {
-        console.log('🎯 탭 변경으로 인한 데이터 재로드 후 목표 재계산');
-      });
+      // React Query 캐시 사용으로 즉시 표시
+      if (!queryPatients || queryPatients.length === 0) {
+        refetchPatients(); // 캐시가 없을 때만 새로 로드
+      }
+      console.log('🎯 탭 변경: 환자 목록 - 캐시된 데이터 사용');
     } else if (tab === '이벤트 타겟') {
-      // 🔥 이벤트 타겟 탭으로 이동할 때 데이터 새로고침
-      dispatch(fetchPatients()).then(() => {
-        dispatch(initializeEventTargets());
-      });
+      // 이벤트 타겟 데이터 갱신
+      dispatch(initializeEventTargets());
+      console.log('🎯 탭 변경: 이벤트 타겟');
     }
-    // 🔥 내원 관리 탭 처리 로직 제거
-  }
+  }, [dispatch, queryPatients?.length, refetchPatients]);
 
-  const getFilterStats = () => {
-    const inboundCount = patients.filter(p => p.consultationType === 'inbound').length;
-    const outboundCount = patients.filter(p => p.consultationType === 'outbound').length;
-    const totalCount = patients.length;
-    // 🔥 내원 관련 통계는 유지 (환자 목록에서 표시용)
-    const visitConfirmedCount = patients.filter(p => p.visitConfirmed).length;
-    const postVisitNeededCount = patients.filter(p => 
-      p.visitConfirmed && p.postVisitStatus === '재콜백필요'
-    ).length;
-    
-    return { inboundCount, outboundCount, totalCount, visitConfirmedCount, postVisitNeededCount };
-  };
+  // 🚀 검색 핸들러 최적화
+  const handleSearchChange = useCallback((e: React.ChangeEvent<HTMLInputElement>) => {
+    setSearchTerm(e.target.value);
+  }, []);
 
-  const { inboundCount, outboundCount, totalCount, visitConfirmedCount, postVisitNeededCount } = getFilterStats();
+  const handleStatusFilterChange = useCallback((e: React.ChangeEvent<HTMLSelectElement>) => {
+    setStatusFilter(e.target.value);
+  }, []);
+
+  const handleConsultationTypeFilterChange = useCallback((e: React.ChangeEvent<HTMLSelectElement>) => {
+    setConsultationTypeFilter(e.target.value as 'all' | 'inbound' | 'outbound');
+  }, []);
+
+  const handleVisitStatusFilterChange = useCallback((e: React.ChangeEvent<HTMLSelectElement>) => {
+    setVisitStatusFilter(e.target.value as 'all' | 'visit_confirmed' | 'post_visit_needed');
+  }, []);
+
+  const handleInterestFilterChange = useCallback((e: React.ChangeEvent<HTMLSelectElement>) => {
+    setInterestFilter(e.target.value);
+  }, []);
+
+  // 🚀 필터 초기화 핸들러
+  const handleResetFilters = useCallback(() => {
+    setSearchTerm('');
+    setStatusFilter('all');
+    setInterestFilter('all');
+    setConsultationTypeFilter('all');
+    setVisitStatusFilter('all');
+  }, []);
+
+  const { inboundCount, outboundCount, totalCount, visitConfirmedCount, postVisitNeededCount } = filterStats;
 
   return (
     <div>
@@ -181,7 +310,6 @@ export default function PatientManagement() {
             <span className="text-sm text-blue-600">
               아웃바운드: <strong>{outboundCount}명</strong>
             </span>
-            {/* 🔥 내원 관련 통계 유지 (정보 제공용) */}
             <span className="text-sm text-indigo-600">
               내원확정: <strong>{visitConfirmedCount}명</strong>
             </span>
@@ -193,12 +321,15 @@ export default function PatientManagement() {
         
         {process.env.NODE_ENV === 'development' && (
           <div className="text-xs text-gray-500 bg-gray-100 px-2 py-1 rounded">
-            환자 수: {patients?.length || 0} | 로딩: {isLoading ? 'Y' : 'N'}
+            {isOptimisticEnabled ? '🚀 최적화 모드' : '🐌 일반 모드'} | 
+            환자 수: {queryPatients?.length || 0} | 
+            필터링: {totalCount} | 
+            로딩: {queryLoading ? 'Y' : 'N'}
           </div>
         )}
       </div>
 
-      {/* 🔥 탭 메뉴 - 내원 관리 탭 제거 */}
+      {/* 탭 메뉴 */}
       <div className="card p-0 mb-6">
         <div className="flex items-center overflow-x-auto">
           <button
@@ -227,7 +358,6 @@ export default function PatientManagement() {
               <div className="absolute bottom-0 left-0 right-0 h-0.5 bg-primary"></div>
             )}
           </button>
-          {/* 🔥 내원 관리 탭 완전 제거 */}
           <button
             className={`px-6 py-3 text-sm font-medium transition-colors relative ${
               activeTab === '문자발송 내역'
@@ -244,7 +374,7 @@ export default function PatientManagement() {
         </div>
       </div>
 
-      {/* 🔥 필터 영역 - 내원 관리 탭 조건 제거 */}
+      {/* 🚀 최적화된 필터 영역 */}
       {activeTab === '환자 목록' && (
         <div className="card mb-6">
           <div className="flex flex-col md:flex-row items-start md:items-center gap-4">
@@ -254,7 +384,7 @@ export default function PatientManagement() {
                 placeholder="환자명, 연락처 또는 메모 검색"
                 className="pl-10 pr-4 py-2 w-full bg-light-bg rounded-full text-sm focus:outline-none"
                 value={searchTerm}
-                onChange={(e) => setSearchTerm(e.target.value)}
+                onChange={handleSearchChange}
               />
               <Icon 
                 icon={HiOutlineSearch} 
@@ -266,18 +396,17 @@ export default function PatientManagement() {
             <select
               className="px-4 py-2 bg-light-bg rounded-full text-sm focus:outline-none text-text-secondary md:w-40"
               value={consultationTypeFilter}
-              onChange={(e) => setConsultationTypeFilter(e.target.value as 'all' | 'inbound' | 'outbound')}
+              onChange={handleConsultationTypeFilterChange}
             >
               <option value="all">상담 타입 ▼</option>
               <option value="inbound">🟢 인바운드</option>
               <option value="outbound">🔵 아웃바운드</option>
             </select>
 
-            {/* 🔥 내원 상태 필터 유지 (환자 목록에서 유용) */}
             <select
               className="px-4 py-2 bg-light-bg rounded-full text-sm focus:outline-none text-text-secondary md:w-44"
               value={visitStatusFilter}
-              onChange={(e) => setVisitStatusFilter(e.target.value as 'all' | 'visit_confirmed' | 'post_visit_needed')}
+              onChange={handleVisitStatusFilterChange}
             >
               <option value="all">내원 상태 ▼</option>
               <option value="visit_confirmed">📋 내원확정</option>
@@ -287,7 +416,7 @@ export default function PatientManagement() {
             <select
               className="px-4 py-2 bg-light-bg rounded-full text-sm focus:outline-none text-text-secondary md:w-36"
               value={statusFilter}
-              onChange={(e) => setStatusFilter(e.target.value)}
+              onChange={handleStatusFilterChange}
             >
               <option value="all">환자 상태 ▼</option>
               <option value="잠재고객">잠재고객</option>
@@ -302,7 +431,7 @@ export default function PatientManagement() {
             <select
               className="px-4 py-2 bg-light-bg rounded-full text-sm focus:outline-none text-text-secondary md:w-36"
               value={interestFilter}
-              onChange={(e) => setInterestFilter(e.target.value)}
+              onChange={handleInterestFilterChange}
             >
               <option value="all">관심 분야 ▼</option>
               <option value="임플란트">임플란트</option>
@@ -321,18 +450,17 @@ export default function PatientManagement() {
             </button>
           </div>
 
-          {/* 🔥 필터 결과 요약 표시 - visitStatusFilter 유지 */}
+          {/* 🚀 필터 결과 요약 표시 */}
           {(consultationTypeFilter !== 'all' || statusFilter !== 'all' || interestFilter !== 'all' || visitStatusFilter !== 'all' || searchTerm) && (
             <div className="mt-4 p-3 bg-blue-50 rounded-lg">
               <div className="flex items-center justify-between">
                 <div className="flex items-center space-x-2 text-sm text-blue-800">
-                  <span>🔍 필터링 결과:</span>
+                  <span>🔍 필터링 결과: <strong>{totalCount}명</strong></span>
                   {consultationTypeFilter !== 'all' && (
                     <span className="inline-flex items-center px-2 py-1 rounded-full text-xs bg-blue-200 text-blue-800">
                       {consultationTypeFilter === 'inbound' ? '🟢 인바운드' : '🔵 아웃바운드'}
                     </span>
                   )}
-                  {/* 🔥 내원 상태 필터 표시 유지 */}
                   {visitStatusFilter !== 'all' && (
                     <span className="inline-flex items-center px-2 py-1 rounded-full text-xs bg-blue-200 text-blue-800">
                       {visitStatusFilter === 'visit_confirmed' ? '📋 내원확정' : '🔄 추가콜백필요'}
@@ -355,13 +483,7 @@ export default function PatientManagement() {
                   )}
                 </div>
                 <button
-                  onClick={() => {
-                    setSearchTerm('');
-                    setStatusFilter('all');
-                    setInterestFilter('all');
-                    setConsultationTypeFilter('all');
-                    setVisitStatusFilter('all');
-                  }}
+                  onClick={handleResetFilters}
                   className="text-xs text-blue-600 hover:text-blue-800 underline"
                 >
                   전체 보기
@@ -372,11 +494,14 @@ export default function PatientManagement() {
         </div>
       )}
 
-      {/* 콘텐츠 영역 - 내원 관리 케이스 제거 */}
+      {/* 🚀 최적화된 콘텐츠 영역 */}
       <div>
-        {activeTab === '환자 목록' && <PatientList isLoading={isLoading && !isDataLoaded} />}
+        {activeTab === '환자 목록' && (
+          <PatientList 
+            isLoading={queryLoading && (!queryPatients || queryPatients.length === 0)} 
+          />
+        )}
         {activeTab === '이벤트 타겟' && <EventTargetList />}
-        {/* 🔥 내원 관리 케이스 제거 */}
         {activeTab === '문자발송 내역' && <MessageLogModal isOpen={true} onClose={() => {}} embedded={true} />}
         {activeTab === '콜 기록' && <CallHistory />}
         {activeTab === '예정된 콜' && <ScheduledCalls />}
