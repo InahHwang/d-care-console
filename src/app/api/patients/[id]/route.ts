@@ -82,16 +82,35 @@ export async function PUT(
       id, 
       skipLog,
       hasData: !!data,
-      hasConsultation: !!data.consultation // 🔥 상담 정보 포함 여부 확인
+      hasConsultation: !!data.consultation, // 🔥 상담 정보 포함 여부 확인
+      ageValue: data.age, // 🔥 나이 값 확인
+      ageType: typeof data.age // 🔥 나이 타입 확인
     });
     
-    // 🔥 상담 정보 업데이트 처리
+    // 🔥 나이 필드 undefined 처리 개선
     let updateData = {
       ...data,
       updatedAt: new Date().toISOString(),
       referralSource: data.referralSource !== undefined ? data.referralSource : '',
       consultationType: data.consultationType || 'outbound'
     };
+    
+    // 🔥 $unset 연산을 위한 필드들 수집
+    const unsetFields: { [key: string]: "" } = {};
+    
+    // 🔥 나이가 undefined인 경우 DB에서 해당 필드 제거
+    if (data.age === undefined) {
+      unsetFields.age = "";
+      delete updateData.age; // updateData에서도 제거
+      console.log('🔥 API: 나이 필드를 DB에서 제거합니다 (undefined 처리)');
+    }
+    
+    // 🔥 다른 필드들도 undefined 체크 (필요시 추가)
+    if (data.region === undefined) {
+      unsetFields.region = "";
+      delete updateData.region;
+      console.log('🔥 API: 지역 필드를 DB에서 제거합니다 (undefined 처리)');
+    }
     
     // 🔥 상담 정보가 포함된 경우 특별 처리
     if (data.consultation) {
@@ -106,7 +125,30 @@ export async function PUT(
     
     console.log('🔍 API: 처리된 업데이트 데이터', {
       hasConsultation: !!updateData.consultation,
-      consultationData: updateData.consultation
+      consultationData: updateData.consultation,
+      unsetFields: Object.keys(unsetFields),
+      ageInUpdate: 'age' in updateData,
+      ageValue: updateData.age
+    });
+    
+    // 🔥 MongoDB 업데이트 쿼리 구성
+    const updateQuery: any = {};
+    
+    // $set 연산 (일반 업데이트)
+    if (Object.keys(updateData).length > 0) {
+      updateQuery.$set = updateData;
+    }
+    
+    // $unset 연산 (필드 제거)
+    if (Object.keys(unsetFields).length > 0) {
+      updateQuery.$unset = unsetFields;
+    }
+    
+    console.log('🔍 API: MongoDB 업데이트 쿼리:', {
+      hasSet: !!updateQuery.$set,
+      hasUnset: !!updateQuery.$unset,
+      setKeys: updateQuery.$set ? Object.keys(updateQuery.$set) : [],
+      unsetKeys: updateQuery.$unset ? Object.keys(updateQuery.$unset) : []
     });
     
     let result;
@@ -114,14 +156,14 @@ export async function PUT(
       console.log('🔍 API: ObjectId로 업데이트 시도', id);
       result = await db.collection('patients').findOneAndUpdate(
         { _id: new ObjectId(id) },
-        { $set: updateData },
+        updateQuery, // 🔥 $set과 $unset을 포함한 쿼리 사용
         { returnDocument: 'after' }
       );
     } else {
       console.log('🔍 API: patientId로 업데이트 시도', id);
       result = await db.collection('patients').findOneAndUpdate(
         { patientId: id },
-        { $set: updateData },
+        updateQuery, // 🔥 $set과 $unset을 포함한 쿼리 사용
         { returnDocument: 'after' }
       );
     }
@@ -149,6 +191,7 @@ export async function PUT(
       patientName: normalizedPatient.name,
       hasConsultation: !!normalizedPatient.consultation,
       estimateAgreed: normalizedPatient.consultation?.estimateAgreed,
+      ageAfterUpdate: normalizedPatient.age, // 🔥 업데이트 후 나이 값 확인
       skipLog
     });
     

@@ -81,7 +81,7 @@ export default function PatientEditForm({ patient, onClose, onSuccess }: Patient
     notes: patient.notes || '',
     callInDate: patient.callInDate,
     firstConsultDate: patient.firstConsultDate,
-    age: patient.age,
+    age: patient.age, // 🔥 undefined도 그대로 유지
     region: patient.region ? { ...patient.region } : undefined,
     consultationType: patient.consultationType || 'outbound', // 🔥 기본값 명시적 설정
     referralSource: patient.referralSource || '', // 🔥 유입경로 기본값 설정
@@ -189,14 +189,14 @@ export default function PatientEditForm({ patient, onClose, onSuccess }: Patient
     }
   }, [selectedProvince, selectedCity])
   
-  // 🔥 폼 변경 감지 개선 - referralSource 포함
+  // 🔥 폼 변경 감지 개선 - referralSource 포함, age의 undefined 처리 개선
   useEffect(() => {
     // 원본 환자 데이터 정규화
     const originalPatient = {
       name: patient.name || '',
       phoneNumber: patient.phoneNumber || '',
       status: patient.status,
-      age: patient.age,
+      age: patient.age, // 🔥 undefined 그대로 비교
       callInDate: patient.callInDate || '',
       notes: patient.notes || '',
       consultationType: patient.consultationType || 'outbound',
@@ -210,7 +210,7 @@ export default function PatientEditForm({ patient, onClose, onSuccess }: Patient
       name: formValues.name || '',
       phoneNumber: formValues.phoneNumber || '',
       status: formValues.status,
-      age: formValues.age,
+      age: formValues.age, // 🔥 undefined 그대로 비교
       callInDate: formValues.callInDate || '',
       notes: formValues.notes || '',
       consultationType: formValues.consultationType || 'outbound',
@@ -223,7 +223,10 @@ export default function PatientEditForm({ patient, onClose, onSuccess }: Patient
     const isNameChanged = currentForm.name !== originalPatient.name;
     const isPhoneChanged = currentForm.phoneNumber !== originalPatient.phoneNumber;
     const isStatusChanged = currentForm.status !== originalPatient.status;
+    
+    // 🔥 나이 비교 개선 - undefined와 숫자를 정확히 비교
     const isAgeChanged = currentForm.age !== originalPatient.age;
+    
     const isCallInDateChanged = currentForm.callInDate !== originalPatient.callInDate;
     const isNotesChanged = currentForm.notes !== originalPatient.notes;
     const isConsultationTypeChanged = currentForm.consultationType !== originalPatient.consultationType;
@@ -257,12 +260,13 @@ export default function PatientEditForm({ patient, onClose, onSuccess }: Patient
       isConsultationTypeChanged ||
       isReferralSourceChanged; // 🔥 유입경로 변경 포함
     
-    console.log('=== 폼 변경 감지 (유입경로 포함) ===');
+    console.log('=== 폼 변경 감지 (나이 undefined 처리 개선) ===');
     console.log('변경 사항:', {
       name: isNameChanged,
       phone: isPhoneChanged,
       status: isStatusChanged,
       age: isAgeChanged,
+      ageValues: { original: originalPatient.age, current: currentForm.age }, // 🔥 나이 값 비교 로그
       callInDate: isCallInDateChanged,
       notes: isNotesChanged,
       consultationType: isConsultationTypeChanged,
@@ -275,16 +279,28 @@ export default function PatientEditForm({ patient, onClose, onSuccess }: Patient
     setIsChanged(newIsChanged);
   }, [formValues, patient]);
   
-  // 입력값 변경 처리
+  // 🔥 입력값 변경 처리 - 나이 필드 undefined 처리 개선
   const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement | HTMLTextAreaElement>) => {
     const { name, value } = e.target
     
-    // 나이는 숫자로 변환
+    // 🔥 나이 필드 처리 개선 - 빈 값을 명확하게 undefined로 설정
     if (name === 'age') {
-      const numValue = value === '' ? undefined : parseInt(value, 10)
+      let ageValue: number | undefined;
+      
+      if (value === '' || value.trim() === '') {
+        // 빈 값인 경우 undefined로 설정
+        ageValue = undefined;
+        console.log('🔥 나이 필드: 빈 값으로 undefined 설정');
+      } else {
+        // 숫자 값인 경우 파싱
+        const parsedAge = parseInt(value, 10);
+        ageValue = isNaN(parsedAge) ? undefined : parsedAge;
+        console.log('🔥 나이 필드: 숫자 값 설정', { input: value, parsed: ageValue });
+      }
+      
       setFormValues(prev => ({
         ...prev,
-        [name]: numValue
+        age: ageValue  // 🔥 타입 안전성을 위해 명시적으로 age 필드 지정
       }))
     } else {
       setFormValues(prev => ({
@@ -364,6 +380,27 @@ export default function PatientEditForm({ patient, onClose, onSuccess }: Patient
     }
   }
   
+  // 🔥 폼 제출 시 나이 필드 최종 검증 및 정리
+  const prepareFormDataForSubmit = (formData: UpdatePatientData): UpdatePatientData => {
+    const preparedData = { ...formData };
+    
+    // 🔥 나이 필드 최종 정리 - 타입 안전성 개선
+    if (preparedData.age === null || 
+        preparedData.age === undefined || 
+        (typeof preparedData.age === 'number' && isNaN(preparedData.age))) {
+      preparedData.age = undefined; // 명확하게 undefined로 설정
+      console.log('🔥 제출 전 나이 필드 정리: undefined로 설정');
+    }
+    
+    console.log('🔥 제출할 데이터:', {
+      age: preparedData.age,
+      ageType: typeof preparedData.age,
+      isAgeUndefined: preparedData.age === undefined
+    });
+    
+    return preparedData;
+  };
+  
   // 🚀 기존 방식 폼 제출 (fallback)
   const handleTraditionalSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
@@ -395,6 +432,7 @@ export default function PatientEditForm({ patient, onClose, onSuccess }: Patient
       isValid = false
     }
     
+    // 🔥 나이 유효성 검사 개선 - undefined는 허용
     if (formValues.age !== undefined && (formValues.age < 1 || formValues.age > 120)) {
       newErrors.age = '유효한 나이를 입력해주세요 (1-120)'
       isValid = false
@@ -418,15 +456,18 @@ export default function PatientEditForm({ patient, onClose, onSuccess }: Patient
         throw new Error('환자 ID를 찾을 수 없습니다.');
       }
       
+      // 🔥 제출 데이터 최종 정리
+      const preparedData = prepareFormDataForSubmit(formValues);
+      
       console.log('환자 정보 수정 시도:', {
         patientId,
-        formValues
+        preparedData
       });
       
       // Redux 액션 디스패치
       const result = await dispatch(updatePatient({
         patientId: patientId,
-        patientData: formValues
+        patientData: preparedData
       })).unwrap()
       
       console.log('수정 성공 결과:', result);
@@ -469,6 +510,7 @@ export default function PatientEditForm({ patient, onClose, onSuccess }: Patient
       isValid = false
     }
     
+    // 🔥 나이 유효성 검사 개선 - undefined는 허용
     if (formValues.age !== undefined && (formValues.age < 1 || formValues.age > 120)) {
       newErrors.age = '유효한 나이를 입력해주세요 (1-120)'
       isValid = false
@@ -483,8 +525,11 @@ export default function PatientEditForm({ patient, onClose, onSuccess }: Patient
     
     if (!isValid) return
     
+    // 🔥 제출 데이터 최종 정리
+    const preparedData = prepareFormDataForSubmit(formValues);
+    
     // 🚀 Optimistic Update 실행
-    optimisticUpdateMutation.mutate(formValues)
+    optimisticUpdateMutation.mutate(preparedData)
   }
   
   // 🚀 환경변수에 따라 제출 방식 선택
@@ -606,10 +651,10 @@ export default function PatientEditForm({ patient, onClose, onSuccess }: Patient
               )}
             </div>
             
-            {/* 나이 */}
+            {/* 🔥 나이 필드 - placeholder와 도움말 개선 */}
             <div>
               <label htmlFor="age" className="block text-sm font-medium text-text-primary mb-1">
-                나이
+                나이 
               </label>
               <div className="relative">
                 <input
@@ -621,7 +666,7 @@ export default function PatientEditForm({ patient, onClose, onSuccess }: Patient
                   value={formValues.age !== undefined ? formValues.age : ''}
                   onChange={handleChange}
                   className={`form-input pl-10 ${errors.age ? 'border-error' : ''}`}
-                  placeholder="30"
+                  placeholder="나이를 입력하세요"
                 />
                 <span className="absolute left-3 top-1/2 transform -translate-y-1/2 text-text-muted">
                   <Icon icon={HiOutlineCake} size={18} />
@@ -630,6 +675,9 @@ export default function PatientEditForm({ patient, onClose, onSuccess }: Patient
               {errors.age && (
                 <p className="mt-1 text-sm text-error">{errors.age}</p>
               )}
+              <p className="mt-1 text-xs text-gray-500">
+                💡 나이를 모르는 경우 빈 값으로 처리해주세요.
+              </p>
             </div>
             
             {/* 거주지역 - 시/도 및 시/군/구 */}
