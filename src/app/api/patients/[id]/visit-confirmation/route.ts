@@ -153,6 +153,21 @@ export async function PUT(
 
     const todayKorean = getKoreanToday();
     console.log('📅 오늘 날짜:', todayKorean);
+
+    // 🔥 견적금액 자동 연동 로직 추가
+    let estimateInfo = null;
+    if (patient.consultation?.estimatedAmount && patient.consultation.estimatedAmount > 0) {
+      estimateInfo = {
+        regularPrice: 0,  // 정가는 기본값
+        discountPrice: patient.consultation.estimatedAmount,  // 🔥 상담관리의 견적금액을 할인가로 설정
+        discountEvent: '',  // 기본값
+        patientReaction: ''  // 기본값 (나중에 내원관리에서 설정)
+      };
+      console.log('🔥 견적금액 자동 연동:', {
+        consultationAmount: patient.consultation.estimatedAmount,
+        discountPrice: estimateInfo.discountPrice
+      });
+    }
     
     // 🔥 내원확정 처리 - 기본값 추가
     const updateData: any = {
@@ -163,6 +178,15 @@ export async function PUT(
       visitConfirmedAt: todayKorean,
       updatedAt: new Date().toISOString()
     };
+
+    // 🔥 견적정보가 있으면 내원 후 상담 정보에 미리 설정
+    if (estimateInfo) {
+      updateData.postVisitConsultation = {
+        consultationContent: '',  // 빈 값으로 초기화 (나중에 입력)
+        estimateInfo: estimateInfo,  // 🔥 견적금액 자동 설정
+        treatmentContent: ''  // 빈 값으로 초기화
+      };
+    }
 
     console.log('📝 업데이트 데이터:', updateData);
 

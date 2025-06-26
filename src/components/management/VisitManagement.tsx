@@ -55,12 +55,6 @@ const PostVisitStatusModal = ({ isOpen, onClose, onConfirm, patient, isLoading }
       setConsultationContent('');
       setTreatmentContent('');
       
-      // 🔥 견적 정보 완전 초기화
-      setRegularPrice(0);
-      setDiscountPrice(0);
-      setDiscountEvent('');
-      setPatientReaction(''); // 🔥 환자 반응 초기화
-      
       // 기타 필드들 초기화
       setNextCallbackDate('');
       setNextConsultationPlan('');
@@ -68,21 +62,46 @@ const PostVisitStatusModal = ({ isOpen, onClose, onConfirm, patient, isLoading }
       setDownPayment(0);
       setInstallmentPlan('');
       setNextVisitDate('');
-      setCompletionReason(''); // 🔥 종결 사유 초기화
+      setCompletionReason('');
+
+      // 🔥 견적 정보 로드 로직 개선
+      let estimateLoaded = false;
       
-      // 🔥 환자 기존 데이터가 있는 경우에만 로드
+      // 1순위: 기존 내원 후 상담 정보의 견적 데이터
+      if (patient?.postVisitConsultation?.estimateInfo) {
+        const estimate = patient.postVisitConsultation.estimateInfo;
+        setRegularPrice(estimate.regularPrice || 0);
+        setDiscountPrice(estimate.discountPrice || 0);
+        setDiscountEvent(estimate.discountEvent || '');
+        setPatientReaction(estimate.patientReaction || '');
+        estimateLoaded = true;
+        console.log('🔥 기존 내원 후 견적 정보 로드:', estimate);
+      }
+      // 2순위: 상담관리의 견적금액이 있고 아직 내원 후 견적이 없는 경우 자동 연동
+      else if (patient?.consultation?.estimatedAmount && patient.consultation.estimatedAmount > 0) {
+        setRegularPrice(0);
+        setDiscountPrice(patient.consultation.estimatedAmount);  // 🔥 상담관리 견적금액을 할인가로 설정
+        setDiscountEvent('');
+        setPatientReaction('');
+        estimateLoaded = true;
+        console.log('🔥 상담관리 견적금액 자동 연동:', {
+          consultationAmount: patient.consultation.estimatedAmount,
+          autoSetDiscountPrice: patient.consultation.estimatedAmount
+        });
+      }
+      // 3순위: 아무 견적 정보가 없는 경우 기본값
+      else {
+        setRegularPrice(0);
+        setDiscountPrice(0);
+        setDiscountEvent('');
+        setPatientReaction('');
+        console.log('🔥 견적 정보 없음 - 기본값으로 초기화');
+      }
+      
+      // 🔥 환자 기존 데이터가 있는 경우에만 로드 (견적 정보 제외)
       if (patient?.postVisitConsultation) {
         setConsultationContent(patient.postVisitConsultation.consultationContent || '');
         setTreatmentContent((patient.postVisitConsultation as any)?.treatmentContent || '');
-        
-        // 견적 정보 로드 (있는 경우에만)
-        const estimate = patient.postVisitConsultation.estimateInfo;
-        if (estimate) {
-          setRegularPrice(estimate.regularPrice || 0);
-          setDiscountPrice(estimate.discountPrice || 0);
-          setDiscountEvent(estimate.discountEvent || '');
-          setPatientReaction(estimate.patientReaction || ''); // 🔥 환자 반응 로드
-        }
         
         // 기타 필드들 로드
         setNextCallbackDate(patient.postVisitConsultation.nextCallbackDate || '');
@@ -96,7 +115,7 @@ const PostVisitStatusModal = ({ isOpen, onClose, onConfirm, patient, isLoading }
         }
         
         setNextVisitDate(patient.postVisitConsultation.nextVisitDate || '');
-        setCompletionReason((patient.postVisitConsultation as any)?.completionReason || ''); // 🔥 종결 사유 로드
+        setCompletionReason((patient.postVisitConsultation as any)?.completionReason || '');
       }
       
       // 환자의 기존 상태 로드
@@ -104,7 +123,7 @@ const PostVisitStatusModal = ({ isOpen, onClose, onConfirm, patient, isLoading }
         setSelectedStatus(patient.postVisitStatus);
       }
     }
-  }, [isOpen, patient]); // patient 의존성 유지하되 견적 정보는 항상 초기화
+  }, [isOpen, patient]); // patient 의존성 유지
 
   const handleConfirm = () => {
     if (!selectedStatus) {
