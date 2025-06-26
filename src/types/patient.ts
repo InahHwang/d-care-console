@@ -164,6 +164,8 @@ export interface QuickInboundPatient {
 
 // 🔥 환자 타입 정의 (MongoDB ID 추가) - consultationType, referralSource, 담당자 필드, 결제 정보 추가
 export interface Patient {
+  paymentAmount: any;
+  treatmentCost: any;
   memo: any;
   consultation: any;
   _id: string;
