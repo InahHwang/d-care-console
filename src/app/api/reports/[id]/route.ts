@@ -1,43 +1,113 @@
-// src/app/api/reports/[id]/route.ts
+// src/app/api/reports/[id]/route.ts - 개선된 버전
 import { NextRequest, NextResponse } from 'next/server';
 import { connectToDatabase } from '@/utils/mongodb';
 import jwt from 'jsonwebtoken';
 import { ObjectId } from 'mongodb';
+
+// JWT 토큰 추출 헬퍼 함수
+function extractToken(request: NextRequest): string | null {
+  // Authorization 헤더에서 추출
+  const authHeader = request.headers.get('authorization');
+  if (authHeader && authHeader.startsWith('Bearer ')) {
+    return authHeader.replace('Bearer ', '');
+  }
+
+  // 쿠키에서 추출
+  const tokenCookie = request.cookies.get('token');
+  if (tokenCookie) {
+    return tokenCookie.value;
+  }
+
+  // Cookie 헤더에서 직접 추출 (fallback)
+  const cookieHeader = request.headers.get('cookie');
+  if (cookieHeader) {
+    const tokenMatch = cookieHeader.match(/token=([^;]+)/);
+    if (tokenMatch) {
+      return tokenMatch[1];
+    }
+  }
+
+  return null;
+}
+
+// JWT 토큰 검증 헬퍼 함수
+function verifyToken(token: string): any {
+  try {
+    // JWT_SECRET이 있다면 검증, 없다면 디코드만
+    if (process.env.JWT_SECRET) {
+      return jwt.verify(token, process.env.JWT_SECRET);
+    } else {
+      const decoded = jwt.decode(token);
+      if (!decoded) {
+        throw new Error('Invalid token format');
+      }
+      return decoded;
+    }
+  } catch (error) {
+    console.error('JWT 검증 오류:', error);
+    throw new Error('Invalid token');
+  }
+}
 
 export async function GET(
   request: NextRequest,
   { params }: { params: { id: string } }
 ) {
   try {
-    // 인증 확인
-    const token = request.headers.get('authorization')?.replace('Bearer ', '') || 
-                  request.cookies.get('token')?.value ||
-                  request.headers.get('cookie')?.split('token=')[1]?.split(';')[0];
+    console.log('🔍 Reports GET 요청 시작 - ID:', params.id);
 
+    // 1. 토큰 추출 및 검증
+    const token = extractToken(request);
     if (!token) {
+      console.log('❌ 토큰이 없음');
       return NextResponse.json({ message: '인증이 필요합니다.' }, { status: 401 });
     }
 
-    const decoded = jwt.decode(token) as any;
-    if (!decoded) {
+    let decoded;
+    try {
+      decoded = verifyToken(token);
+      console.log('✅ 토큰 검증 성공 - 사용자:', decoded.username || decoded.id);
+    } catch (error) {
+      console.log('❌ 토큰 검증 실패:', error instanceof Error ? error.message : String(error));
       return NextResponse.json({ message: '유효하지 않은 토큰입니다.' }, { status: 401 });
     }
 
+    // 2. ID 유효성 검사
     const { id } = params;
-
     if (!ObjectId.isValid(id)) {
+      console.log('❌ 유효하지 않은 ObjectId:', id);
       return NextResponse.json({ message: '유효하지 않은 보고서 ID입니다.' }, { status: 400 });
     }
 
-    const { db } = await connectToDatabase();
-    const reportsCollection = db.collection('reports');
+    // 3. 데이터베이스 연결
+    let db;
+    try {
+      const connection = await connectToDatabase();
+      db = connection.db;
+      console.log('✅ 데이터베이스 연결 성공');
+    } catch (error) {
+      console.error('❌ 데이터베이스 연결 실패:', error instanceof Error ? error.message : String(error));
+      return NextResponse.json({ message: '데이터베이스 연결에 실패했습니다.' }, { status: 500 });
+    }
 
-    const report = await reportsCollection.findOne({ _id: new ObjectId(id) });
+    // 4. 보고서 조회
+    const reportsCollection = db.collection('reports');
+    
+    let report;
+    try {
+      report = await reportsCollection.findOne({ _id: new ObjectId(id) });
+      console.log('✅ 보고서 조회 완료 - 존재 여부:', !!report);
+    } catch (error) {
+      console.error('❌ 보고서 조회 중 오류:', error instanceof Error ? error.message : String(error));
+      return NextResponse.json({ message: '보고서 조회 중 오류가 발생했습니다.' }, { status: 500 });
+    }
 
     if (!report) {
+      console.log('❌ 보고서를 찾을 수 없음 - ID:', id);
       return NextResponse.json({ message: '보고서를 찾을 수 없습니다.' }, { status: 404 });
     }
 
+    console.log('✅ 보고서 반환 성공');
     return NextResponse.json({ 
       success: true, 
       report: {
@@ -47,9 +117,12 @@ export async function GET(
     });
 
   } catch (error) {
-    console.error('보고서 조회 오류:', error);
+    console.error('💥 Reports GET 전체 오류:', error instanceof Error ? error.message : String(error));
     return NextResponse.json(
-      { message: '보고서 조회 중 오류가 발생했습니다.' },
+      { 
+        message: '보고서 조회 중 예상치 못한 오류가 발생했습니다.',
+        error: process.env.NODE_ENV === 'development' ? (error instanceof Error ? error.message : String(error)) : undefined
+      },
       { status: 500 }
     );
   }
@@ -60,54 +133,62 @@ export async function PATCH(
   { params }: { params: { id: string } }
 ) {
   try {
-    // 인증 확인
-    const token = request.headers.get('authorization')?.replace('Bearer ', '') || 
-                  request.cookies.get('token')?.value ||
-                  request.headers.get('cookie')?.split('token=')[1]?.split(';')[0];
+    console.log('🔍 Reports PATCH 요청 시작 - ID:', params.id);
 
+    // 1. 토큰 추출 및 검증
+    const token = extractToken(request);
     if (!token) {
       return NextResponse.json({ message: '인증이 필요합니다.' }, { status: 401 });
     }
 
-    const decoded = jwt.decode(token) as any;
-    if (!decoded) {
+    let decoded;
+    try {
+      decoded = verifyToken(token);
+    } catch (error) {
       return NextResponse.json({ message: '유효하지 않은 토큰입니다.' }, { status: 401 });
     }
 
+    // 2. ID 유효성 검사
     const { id } = params;
-
     if (!ObjectId.isValid(id)) {
       return NextResponse.json({ message: '유효하지 않은 보고서 ID입니다.' }, { status: 400 });
     }
 
-    const updateData = await request.json();
+    // 3. 요청 데이터 파싱
+    let updateData;
+    try {
+      updateData = await request.json();
+    } catch (error) {
+      return NextResponse.json({ message: '잘못된 요청 데이터입니다.' }, { status: 400 });
+    }
 
+    // 4. 데이터베이스 연결
     const { db } = await connectToDatabase();
     const reportsCollection = db.collection('reports');
 
-    // 현재 보고서 조회
+    // 5. 기존 보고서 조회
     const existingReport = await reportsCollection.findOne({ _id: new ObjectId(id) });
     if (!existingReport) {
       return NextResponse.json({ message: '보고서를 찾을 수 없습니다.' }, { status: 404 });
     }
 
-    // 권한 확인 (본인이 작성한 보고서만 수정 가능, 또는 마스터)
-    if (existingReport.createdBy !== (decoded._id || decoded.id) && decoded.role !== 'master') {
+    // 6. 권한 확인
+    const userId = decoded._id || decoded.id;
+    if (existingReport.createdBy !== userId && decoded.role !== 'master') {
       return NextResponse.json({ message: '보고서를 수정할 권한이 없습니다.' }, { status: 403 });
     }
 
-    // 제출된 보고서는 수정 불가 (마스터 제외)
+    // 7. 제출된 보고서 수정 제한
     if (existingReport.status === 'submitted' && decoded.role !== 'master') {
       return NextResponse.json({ message: '제출된 보고서는 수정할 수 없습니다.' }, { status: 400 });
     }
 
-    // 🔥 새로 추가: 통계 데이터 새로고침 기능
+    // 8. 통계 새로고침 요청 처리
     if (updateData.refreshStats === true) {
       console.log(`🔄 보고서 통계 새로고침 요청: ${existingReport.year}년 ${existingReport.month}월`);
       
       try {
-        // monthly API 호출해서 최신 통계 가져오기
-        const baseUrl = process.env.NEXTAUTH_URL || 'http://localhost:3000';
+        const baseUrl = process.env.NEXTAUTH_URL || process.env.VERCEL_URL || 'http://localhost:3000';
         const statsResponse = await fetch(`${baseUrl}/api/reports/monthly`, {
           method: 'POST',
           headers: {
@@ -122,9 +203,8 @@ export async function PATCH(
 
         if (statsResponse.ok) {
           const { stats } = await statsResponse.json();
-          console.log('✅ 새로운 통계 데이터 획득:', stats);
+          console.log('✅ 새로운 통계 데이터 획득');
           
-          // 기존 매니저 입력 데이터는 보존하고 통계만 업데이트
           const refreshedData = {
             ...stats,
             // 매니저 입력 데이터 보존
@@ -142,14 +222,12 @@ export async function PATCH(
             updatedAt: new Date().toISOString()
           };
 
-          // 보고서 전체 업데이트
           const refreshResult = await reportsCollection.updateOne(
             { _id: new ObjectId(id) },
             { $set: refreshedData }
           );
 
           if (refreshResult.matchedCount > 0) {
-            // 업데이트된 보고서 조회
             const refreshedReport = await reportsCollection.findOne({ _id: new ObjectId(id) });
             
             return NextResponse.json({ 
@@ -168,15 +246,14 @@ export async function PATCH(
           }, { status: 500 });
         }
       } catch (refreshError) {
-        console.error('❌ 통계 새로고침 중 오류:', refreshError);
+        console.error('❌ 통계 새로고침 중 오류:', refreshError instanceof Error ? refreshError.message : String(refreshError));
         return NextResponse.json({ 
           message: '통계 새로고침 중 오류가 발생했습니다.' 
         }, { status: 500 });
       }
     }
 
-    // 🔥 기존 로직: 일반적인 보고서 수정
-    // 업데이트할 필드들 준비
+    // 9. 일반적인 보고서 수정
     const allowedFields = [
       'managerComment',
       'improvementSuggestions', 
@@ -188,14 +265,12 @@ export async function PATCH(
       updatedAt: new Date().toISOString()
     };
 
-    // 허용된 필드만 업데이트
     for (const field of allowedFields) {
       if (updateData[field] !== undefined) {
         updateFields[field] = updateData[field];
       }
     }
 
-    // 보고서 업데이트
     const result = await reportsCollection.updateOne(
       { _id: new ObjectId(id) },
       { $set: updateFields }
@@ -205,7 +280,6 @@ export async function PATCH(
       return NextResponse.json({ message: '보고서를 찾을 수 없습니다.' }, { status: 404 });
     }
 
-    // 업데이트된 보고서 조회
     const updatedReport = await reportsCollection.findOne({ _id: new ObjectId(id) });
 
     return NextResponse.json({ 
@@ -218,9 +292,12 @@ export async function PATCH(
     });
 
   } catch (error) {
-    console.error('보고서 수정 오류:', error);
+    console.error('💥 Reports PATCH 전체 오류:', error instanceof Error ? error.message : String(error));
     return NextResponse.json(
-      { message: '보고서 수정 중 오류가 발생했습니다.' },
+      { 
+        message: '보고서 수정 중 예상치 못한 오류가 발생했습니다.',
+        error: process.env.NODE_ENV === 'development' ? (error instanceof Error ? error.message : String(error)) : undefined
+      },
       { status: 500 }
     );
   }
@@ -232,16 +309,15 @@ export async function DELETE(
 ) {
   try {
     // 인증 확인
-    const token = request.headers.get('authorization')?.replace('Bearer ', '') || 
-                  request.cookies.get('token')?.value ||
-                  request.headers.get('cookie')?.split('token=')[1]?.split(';')[0];
-
+    const token = extractToken(request);
     if (!token) {
       return NextResponse.json({ message: '인증이 필요합니다.' }, { status: 401 });
     }
 
-    const decoded = jwt.decode(token) as any;
-    if (!decoded) {
+    let decoded;
+    try {
+      decoded = verifyToken(token);
+    } catch (error) {
       return NextResponse.json({ message: '유효하지 않은 토큰입니다.' }, { status: 401 });
     }
 
@@ -251,7 +327,6 @@ export async function DELETE(
     }
 
     const { id } = params;
-
     if (!ObjectId.isValid(id)) {
       return NextResponse.json({ message: '유효하지 않은 보고서 ID입니다.' }, { status: 400 });
     }
@@ -271,9 +346,12 @@ export async function DELETE(
     });
 
   } catch (error) {
-    console.error('보고서 삭제 오류:', error);
+    console.error('💥 Reports DELETE 전체 오류:', error instanceof Error ? error.message : String(error));
     return NextResponse.json(
-      { message: '보고서 삭제 중 오류가 발생했습니다.' },
+      { 
+        message: '보고서 삭제 중 예상치 못한 오류가 발생했습니다.',
+        error: process.env.NODE_ENV === 'development' ? (error instanceof Error ? error.message : String(error)) : undefined
+      },
       { status: 500 }
     );
   }
