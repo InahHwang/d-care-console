@@ -245,21 +245,7 @@ const PostVisitStatusModal = ({ isOpen, onClose, onConfirm, patient, isLoading }
                 </button>
               ))}
             </div>
-          </div>
-
-          {/* 상담 내용 */}
-          <div>
-            <label className="block text-sm font-medium text-gray-700 mb-2">
-              상담 내용 <span className="text-red-500">*</span>
-            </label>
-            <textarea
-              value={consultationContent}
-              onChange={(e) => setConsultationContent(e.target.value)}
-              className="w-full px-3 py-2 border border-gray-300 rounded-lg resize-none focus:outline-none focus:ring-2 focus:ring-blue-500"
-              rows={3}
-              placeholder="상담 내용을 자세히 기록해주세요..."
-            />
-          </div>
+          </div>          
 
           {/* 🔥 치료 내용 섹션 추가 */}
           <div>

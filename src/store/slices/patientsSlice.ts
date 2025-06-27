@@ -809,6 +809,9 @@ export const cancelPatientCompletion = createAsyncThunk(
 );
 
 // 🔥 콜백 추가 비동기 액션
+// src/store/slices/patientsSlice.ts 수정 부분
+
+// 🔥 콜백 추가 비동기 액션 수정
 export const addCallback = createAsyncThunk(
   'patients/addCallback',
   async ({ 
@@ -829,12 +832,27 @@ export const addCallback = createAsyncThunk(
       const state = getState() as { patients: PatientsState };
       const patient = state.patients.patients.find(p => p._id === patientId || p.id === patientId);
       
+      // 🔥 1차 콜백이고 상담 내용이 비어있는 경우, 견적정보 상담메모를 자동 연동
+      let finalCallbackData = { ...callbackData };
+      
+      if (patient && callbackData.type === '1차' && (!callbackData.notes || callbackData.notes.trim() === '')) {
+        const consultationNotes = patient.consultation?.consultationNotes;
+        
+        if (consultationNotes && consultationNotes.trim() !== '') {
+          finalCallbackData.notes = consultationNotes;
+          console.log('🔥 Redux: 1차 콜백에 견적정보 상담메모 자동 연동:', {
+            patientName: patient.name,
+            consultationNotes: consultationNotes.substring(0, 50) + '...'
+          });
+        }
+      }
+      
       const response = await fetch(`/api/patients/${patientId}/callbacks`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
         },
-        body: JSON.stringify(callbackData),
+        body: JSON.stringify(finalCallbackData), // 🔥 자동 연동된 데이터 전송
       });
       
       if (!response.ok) {
@@ -850,7 +868,7 @@ export const addCallback = createAsyncThunk(
         await CallbackActivityLogger.create(
           patient.id,
           patient.name,
-          callbackData
+          finalCallbackData // 🔥 자동 연동된 데이터로 로그 기록
         );
       }
       

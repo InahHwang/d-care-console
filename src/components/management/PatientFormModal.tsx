@@ -777,26 +777,6 @@ export default function PatientFormModal() {
                 ))}
               </div>
             </div>
-            
-            {/* 메모 */}
-            <div>
-              <label htmlFor="memo" className="block text-sm font-medium text-text-primary mb-1">
-                메모
-              </label>
-              <div className="relative">
-                <textarea
-                  id="memo"
-                  name="memo"
-                  value={formValues.memo}
-                  onChange={handleChange}
-                  className="form-input pl-10 min-h-[100px]"
-                  placeholder="환자 메모를 입력하세요..."
-                />
-                <span className="absolute left-3 top-6 text-text-muted">
-                  <Icon icon={HiOutlineStar} size={18} />
-                </span>
-              </div>
-            </div>
           </div>
           
           {/* 버튼 영역 */}

@@ -977,14 +977,17 @@ export default function CallbackManagement({ patient }: CallbackManagementProps)
     }
   };
 
-// 콜백 생성 폼 초기화
+  // 🔥 폼 초기화 함수에서 로그 추가
   const resetForm = () => {
     setCallbackDate(format(new Date(), 'yyyy-MM-dd'))
     setCallbackStatus('예정')
-    setCallbackNotes('')
+    setCallbackNotes('') // 🔥 기본적으로는 빈 값
     setCallbackType(getNextCallbackType())
     setIsAddingCallback(false)
     setIsAddingMissedCall(false)
+    setNextPlanNotes('') // 🔥 다음 상담 계획도 빈 값
+    
+    // 기타 상태 초기화...
     if (callbackType === '1차') {
       setNextCallbackType('2차');
     } else if (callbackType === '2차') {
@@ -996,9 +999,8 @@ export default function CallbackManagement({ patient }: CallbackManagementProps)
     } else {
       setNextCallbackType('예약완료');
     }
-    // 새로 추가된 상태 초기화
+    
     setCallbackResult('상담중')
-    setNextPlanNotes('')
     setTerminationReason('')
     setReservationDate(format(new Date(), 'yyyy-MM-dd'))
     setReservationTime('10:00')
@@ -1008,6 +1010,8 @@ export default function CallbackManagement({ patient }: CallbackManagementProps)
     setCallbackToEdit(null)
     setEditNotes('')
     setEditDate('')
+    
+    console.log('🔥 콜백 폼 초기화 완료');
   }
 
 // 취소 모달 초기화
@@ -1081,47 +1085,92 @@ export default function CallbackManagement({ patient }: CallbackManagementProps)
     return '1차'
   }
   
-// 콜백 추가 폼 열기
+// 🔥 1차 콜백 폼 열기 함수 수정
 const handleOpenAddCallback = () => {
-// 종결된 환자인 경우 콜백 추가 불가
-if (patient.isCompleted) {
-alert('종결 처리된 환자에게는 콜백을 추가할 수 없습니다. 먼저 종결 처리를 취소해주세요.');
-return;
-}
-const nextType = getNextCallbackType();
-setCallbackType(nextType);
+  // 종결된 환자인 경우 콜백 추가 불가
+  if (patient.isCompleted) {
+    alert('종결 처리된 환자에게는 콜백을 추가할 수 없습니다. 먼저 종결 처리를 취소해주세요.');
+    return;
+  }
+  
+  const nextType = getNextCallbackType();
+  setCallbackType(nextType);
 
-// 이전 단계 콜백 완료 여부 확인
-if (!isCallbackSequenceValid(nextType)) {
-  alert(`${nextType} 콜백을 추가하기 전에 이전 단계의 콜백을 완료해야 합니다.`);
-  return;
+  // 이전 단계 콜백 완료 여부 확인
+  if (!isCallbackSequenceValid(nextType)) {
+    alert(`${nextType} 콜백을 추가하기 전에 이전 단계의 콜백을 완료해야 합니다.`);
+    return;
+  }
+
+
+  // 🔥 1차 콜백인 경우 견적정보 상담메모 자동 입력
+   if (nextType === '1차') {
+    const treatmentPlan = patient.consultation?.treatmentPlan; // 불편한 부분
+    const consultationNotes = patient.consultation?.consultationNotes; // 상담 메모
+    
+    let autoContent = '';
+    
+    // 불편한 부분이 있으면 추가
+    if (treatmentPlan && treatmentPlan.trim() !== '') {
+      autoContent += `불편한 부분: ${treatmentPlan.trim()}`;
+    }
+    
+    // 상담 메모가 있으면 추가
+    if (consultationNotes && consultationNotes.trim() !== '') {
+      if (autoContent) autoContent += '\n\n'; // 이미 내용이 있으면 줄바꿈 추가
+      autoContent += `상담 내용: ${consultationNotes.trim()}`;
+    }
+    
+    if (autoContent) {
+      setCallbackNotes(autoContent); // 🔥 조합된 내용 자동 입력
+      console.log('🔥 1차 콜백 폼 - 견적정보 자동 입력:', {
+        patientName: patient.name,
+        hasTreatmentPlan: !!treatmentPlan,
+        hasConsultationNotes: !!consultationNotes,
+        combinedContent: autoContent.substring(0, 100) + '...'
+      });
+    } else {
+      setCallbackNotes(''); // 🔥 견적정보가 없으면 빈 값
+      console.log('🔥 1차 콜백 폼 - 견적정보 없음:', {
+        patientName: patient.name,
+        hasConsultation: !!patient.consultation
+      });
+    }
+  } else {
+    setCallbackNotes(''); // 🔥 2차 이상은 빈 값으로 시작
+  }
+
+  // 🔥 다음 상담 계획은 항상 빈 값으로 시작
+  setNextPlanNotes('');
+
+  setIsAddingCallback(true);
+  setIsAddingMissedCall(false);
 }
 
-setIsAddingCallback(true);
-setIsAddingMissedCall(false);
-}
 // 부재중 콜백 추가 폼 열기
 const handleOpenAddMissedCall = () => {
-// 종결된 환자인 경우 콜백 추가 불가
-if (patient.isCompleted) {
-alert('종결 처리된 환자에게는 콜백을 추가할 수 없습니다. 먼저 종결 처리를 취소해주세요.');
-return;
-}
-const nextType = getNextCallbackType();
-setCallbackType(nextType);
+  // 종결된 환자인 경우 콜백 추가 불가
+  if (patient.isCompleted) {
+    alert('종결 처리된 환자에게는 콜백을 추가할 수 없습니다. 먼저 종결 처리를 취소해주세요.');
+    return;
+  }
+  
+  const nextType = getNextCallbackType();
+  setCallbackType(nextType);
 
-// 이전 단계 콜백 완료 여부 확인
-if (!isCallbackSequenceValid(nextType)) {
-  alert(`${nextType} 콜백을 추가하기 전에 이전 단계의 콜백을 완료해야 합니다.`);
-  return;
+  // 이전 단계 콜백 완료 여부 확인
+  if (!isCallbackSequenceValid(nextType)) {
+    alert(`${nextType} 콜백을 추가하기 전에 이전 단계의 콜백을 완료해야 합니다.`);
+    return;
+  }
+
+  setIsAddingCallback(true);
+  setIsAddingMissedCall(true);
+  setCallbackNotes('부재중: 연락이 되지 않았습니다.'); // 🔥 부재중은 고정 메시지
+  setNextPlanNotes(''); // 🔥 다음 상담 계획은 빈 값
+  setCallbackStatus('부재중');
 }
 
-setIsAddingCallback(true);
-setIsAddingMissedCall(true);
-setCallbackNotes('부재중: 연락이 되지 않았습니다.');
-// 부재중 상태로 변경
-setCallbackStatus('부재중'); // '완료' 대신 '부재중' 상태로 설정
-}
 // 🔥 콜백 생성 함수 수정 - 환자 정보 검증 강화
 const handleAddCallback = async () => {
 // 🔥 환자 정보 검증 추가 및 강화

@@ -41,16 +41,26 @@ export const isTreatmentStarted = (consultation?: ConsultationInfo): boolean => 
   return consultation.estimateAgreed === true
 }
 
-// 🔥 상담 정보 유효성 검증
+// 🔥 상담 정보 유효성 검증 (필수 입력값 검증 추가)
 export const validateConsultationInfo = (consultation: Partial<ConsultationInfo>): string[] => {
   const errors: string[] = []
   
+  // 기존 검증 로직 유지
   if (consultation.estimatedAmount !== undefined && consultation.estimatedAmount < 0) {
     errors.push('견적 금액은 0 이상이어야 합니다.')
   }
   
   if (consultation.consultationDate && !isValidDate(consultation.consultationDate)) {
     errors.push('올바른 상담 날짜를 입력해주세요.')
+  }
+  
+  // 🔥 새로 추가된 필수 입력값 검증
+  if (!consultation.treatmentPlan || consultation.treatmentPlan.trim() === '') {
+    errors.push('불편한 부분을 입력해주세요.')
+  }
+  
+  if (!consultation.consultationNotes || consultation.consultationNotes.trim() === '') {
+    errors.push('상담 메모를 입력해주세요.')
   }
   
   return errors

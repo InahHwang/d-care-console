@@ -168,7 +168,7 @@ export default function ConsultationFormModal({
             
             <div>
               <label className="block text-sm font-medium text-gray-700 mb-1">
-                불편한 부분
+                불편한 부분 *
               </label>
               <textarea
                 value={formData.treatmentPlan || ''}
@@ -176,12 +176,13 @@ export default function ConsultationFormModal({
                 rows={3}
                 className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
                 placeholder="환자의 불편한 부분을 입력해주세요 (ex. 치료할 치아 개수, 부위, 증상, 통증정도)"
+                required
               />
             </div>
             
             <div>
               <label className="block text-sm font-medium text-gray-700 mb-1">
-                상담 메모
+                상담 메모 *
               </label>
               <textarea
                 value={formData.consultationNotes || ''}
@@ -189,6 +190,7 @@ export default function ConsultationFormModal({
                 rows={3}
                 className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
                 placeholder="상담 내용이나 특이사항을 입력해주세요..."
+                required
               />
             </div>
           </div>

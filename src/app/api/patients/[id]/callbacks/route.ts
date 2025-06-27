@@ -1,4 +1,4 @@
-// /src/app/api/patients/[id]/callbacks/route.ts
+// src/app/api/patients/[id]/callbacks/route.ts
 
 import { NextRequest, NextResponse } from 'next/server';
 import { connectToDatabase } from '@/utils/mongodb';
@@ -48,14 +48,6 @@ export async function POST(
     // 🔥 프론트엔드 로깅 스킵 여부 확인
     const skipFrontendLog = request.headers.get('X-Skip-Activity-Log') === 'true';
     
-    // 콜백 ID 생성
-    const callbackId = `cb-${Date.now()}`;
-    const newCallback = {
-      id: callbackId,
-      ...callbackData,
-      time: typeof callbackData.time === 'string' ? callbackData.time : undefined
-    };
-    
     // 먼저 환자 찾기
     let patient;
     
@@ -93,6 +85,17 @@ export async function POST(
       
       return NextResponse.json({ error: '환자를 찾을 수 없습니다.' }, { status: 404 });
     }
+    
+    // 🔥 자동 연동 로직 제거 - 프론트엔드에서 처리
+    // 콜백 데이터를 그대로 사용
+    
+    // 콜백 ID 생성
+    const callbackId = `cb-${Date.now()}`;
+    const newCallback = {
+      id: callbackId,
+      ...callbackData,
+      time: typeof callbackData.time === 'string' ? callbackData.time : undefined
+    };
     
     // 환자 정보 업데이트 준비
     const updateData: any = {

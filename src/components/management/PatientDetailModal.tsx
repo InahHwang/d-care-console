@@ -627,26 +627,7 @@ export default function PatientDetailModal() {
                     </div>
                   </div>
                 </div>
-              </div>
-            
-              
-              {/* 메모 카드 - 항상 표시하도록 수정 */}
-              <div className="card">
-                <h3 className="text-md font-semibold text-text-primary mb-4">메모</h3>
-                
-                {(selectedPatient.notes || selectedPatient.memo) ? (
-                  <p className="text-text-primary whitespace-pre-line">
-                    {selectedPatient.notes || selectedPatient.memo}
-                  </p>
-                ) : (
-                  <div>
-                    <p className="text-text-secondary">메모가 없습니다.</p>
-                    <p className="text-xs text-red-500 mt-1">
-                      디버그: notes={selectedPatient.notes ? '있음' : '없음'}, memo={selectedPatient.memo ? '있음' : '없음'}
-                    </p>
-                  </div>
-                )}
-              </div>
+              </div>              
               
               {/* 🔥 상담/결제 정보 카드 (대폭 단순화) */}
               <div className="card">
@@ -729,7 +710,7 @@ export default function PatientDetailModal() {
                       <div className="grid grid-cols-1 gap-4 pt-2 border-t">
                         {selectedPatient.consultation.treatmentPlan && (
                           <div>
-                            <p className="text-sm text-text-secondary">치료 계획</p>
+                            <p className="text-sm text-text-secondary">불편한 부분</p>
                             <p className="text-text-primary whitespace-pre-line">
                               {selectedPatient.consultation.treatmentPlan}
                             </p>
