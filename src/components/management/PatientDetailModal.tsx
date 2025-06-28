@@ -634,7 +634,7 @@ export default function PatientDetailModal() {
                 <div className="flex items-center justify-between mb-4">
                   <h3 className="text-md font-semibold text-text-primary flex items-center gap-2">
                     <Icon icon={HiOutlineCreditCard} size={18} className="text-green-600" />
-                    견적 정보
+                    사전 견적 안내
                   </h3>
                   <button
                     onClick={() => setIsConsultationFormOpen(true)}
@@ -731,7 +731,7 @@ export default function PatientDetailModal() {
                 ) : (
                   <div className="text-center py-8 text-text-secondary">
                     <Icon icon={HiOutlineCreditCard} size={48} className="mx-auto mb-3 text-gray-300" />
-                    <p className="mb-2">견적 정보가 없습니다.</p>
+                    <p className="mb-2">사전 견적 정보가 없습니다.</p>
                     <button
                       onClick={() => setIsConsultationFormOpen(true)}
                       className="text-blue-600 hover:text-blue-800 underline"
