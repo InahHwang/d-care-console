@@ -8,8 +8,8 @@ import { useMutation, useQueryClient } from '@tanstack/react-query'
 import { RootState } from '@/store'
 import { closePatientForm } from '@/store/slices/uiSlice'
 import { createPatient, CreatePatientData, PatientStatus } from '@/store/slices/patientsSlice'
-import { HiOutlineX, HiOutlineUser, HiOutlinePhone, HiOutlineCalendar, HiOutlineStar, HiOutlineLocationMarker, HiOutlineCake, HiOutlineGlobeAlt } from 'react-icons/hi'
-import { FiPhoneCall } from 'react-icons/fi' // 🔥 상담타입 아이콘 추가
+import { HiOutlineX, HiOutlineUser, HiOutlinePhone, HiOutlineCalendar, HiOutlineStar, HiOutlineLocationMarker, HiOutlineCake, HiOutlineGlobeAlt, HiOutlineExclamation } from 'react-icons/hi'
+import { FiPhoneCall } from 'react-icons/fi'
 import { Icon } from '../common/Icon'
 import { provinces, getCitiesByProvince } from '@/constants/regionData'
 import { useActivityLogger } from '@/hooks/useActivityLogger'
@@ -73,6 +73,19 @@ export default function PatientFormModal() {
   const [availableCities, setAvailableCities] = useState<string[]>([])
   const [selectedCity, setSelectedCity] = useState('')
   
+  // 🔥 전화번호 중복 체크 상태 추가
+  const [phoneCheckStatus, setPhoneCheckStatus] = useState<{
+    isChecking: boolean;
+    isDuplicate: boolean;
+    existingPatient: any | null;
+    message: string;
+  }>({
+    isChecking: false,
+    isDuplicate: false,
+    existingPatient: null,
+    message: ''
+  })
+  
   // 유효성 검사 상태
   const [errors, setErrors] = useState({
     name: '',
@@ -80,6 +93,68 @@ export default function PatientFormModal() {
     age: '',
     callInDate: '',
   })
+  
+  // 🔥 전화번호 중복 체크 함수
+  const checkPhoneNumber = async (phoneNumber: string) => {
+    if (!phoneNumber || phoneNumber.length < 13) { // 010-1234-5678 최소 길이
+      setPhoneCheckStatus({
+        isChecking: false,
+        isDuplicate: false,
+        existingPatient: null,
+        message: ''
+      })
+      return
+    }
+
+    setPhoneCheckStatus(prev => ({ ...prev, isChecking: true, message: '' }))
+
+    try {
+      const response = await fetch('/api/patients/check-phone', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ phoneNumber }),
+      })
+
+      const data = await response.json()
+
+      if (data.exists) {
+        setPhoneCheckStatus({
+          isChecking: false,
+          isDuplicate: true,
+          existingPatient: data.patient,
+          message: `이미 등록된 전화번호입니다. (${data.patient.name}님, ${data.patient.patientId})`
+        })
+      } else {
+        setPhoneCheckStatus({
+          isChecking: false,
+          isDuplicate: false,
+          existingPatient: null,
+          message: '사용 가능한 전화번호입니다.'
+        })
+      }
+    } catch (error) {
+      console.error('전화번호 체크 오류:', error)
+      setPhoneCheckStatus({
+        isChecking: false,
+        isDuplicate: false,
+        existingPatient: null,
+        message: '전화번호 확인 중 오류가 발생했습니다.'
+      })
+    }
+  }
+
+  // 🔥 전화번호 입력 시 실시간 체크 (디바운싱 적용)
+  useEffect(() => {
+    const timeoutId = setTimeout(() => {
+      if (formValues.phoneNumber) {
+        checkPhoneNumber(formValues.phoneNumber)
+      }
+    }, 500) // 0.5초 지연
+
+    return () => clearTimeout(timeoutId)
+  }, [formValues.phoneNumber])
   
   // 🚀 Optimistic Update를 위한 React Query Mutation
   const optimisticCreateMutation = useMutation({
@@ -101,7 +176,7 @@ export default function PatientFormModal() {
         patientId: `TEMP-${Date.now()}`,
         ...newPatientData,
         status: '잠재고객' as PatientStatus,
-        consultationType: newPatientData.consultationType || 'outbound', // 🔥 선택한 상담타입 적용
+        consultationType: newPatientData.consultationType || 'outbound',
         createdAt: new Date().toISOString(),
         updatedAt: new Date().toISOString(),
         consultantId: currentUser?.id || '',
@@ -274,6 +349,13 @@ export default function PatientFormModal() {
       age: '',
       callInDate: '',
     })
+    // 🔥 전화번호 체크 상태도 초기화
+    setPhoneCheckStatus({
+      isChecking: false,
+      isDuplicate: false,
+      existingPatient: null,
+      message: ''
+    })
   }
   
   // 입력값 변경 처리
@@ -336,6 +418,12 @@ export default function PatientFormModal() {
       alert('로그인이 필요합니다.');
       return;
     }
+
+    // 🔥 전화번호 중복 체크
+    if (phoneCheckStatus.isDuplicate) {
+      alert('이미 등록된 전화번호입니다. 다른 번호를 입력해주세요.');
+      return;
+    }
     
     // 유효성 검사
     let isValid = true
@@ -379,14 +467,14 @@ export default function PatientFormModal() {
       const patientData: CreatePatientData = {
         ...formValues,
         status: '잠재고객' as PatientStatus,
-        consultationType: formValues.consultationType // 🔥 선택한 상담타입 사용
+        consultationType: formValues.consultationType
       };
       
-      console.log('신규 환자 등록 데이터:', patientData); // 디버깅용
+      console.log('신규 환자 등록 데이터:', patientData);
       console.log('등록자 정보:', { 
         userId: currentUser.id, 
         userName: currentUser.name 
-      }); // 🔥 등록자 정보 로깅
+      });
       
       // Redux 액션 디스패치하여 환자 생성
       const result = await dispatch(createPatient(patientData)).unwrap()
@@ -456,6 +544,12 @@ export default function PatientFormModal() {
       alert('로그인이 필요합니다.');
       return;
     }
+
+    // 🔥 전화번호 중복 체크
+    if (phoneCheckStatus.isDuplicate) {
+      alert('이미 등록된 전화번호입니다. 다른 번호를 입력해주세요.');
+      return;
+    }
     
     // 유효성 검사 (동일)
     let isValid = true
@@ -497,7 +591,7 @@ export default function PatientFormModal() {
     const patientData: CreatePatientData = {
       ...formValues,
       status: '잠재고객' as PatientStatus,
-      consultationType: formValues.consultationType // 🔥 선택한 상담타입 사용
+      consultationType: formValues.consultationType
     };
     
     // 🚀 Optimistic Update 실행
@@ -576,7 +670,7 @@ export default function PatientFormModal() {
         {/* 모달 바디 */}
         <form onSubmit={handleSubmit} className="p-6">
           <div className="space-y-5">
-            {/* 🔥 상담 타입 선택 필드 추가 - 수정폼과 동일한 위치와 스타일 */}
+            {/* 🔥 상담 타입 선택 필드 추가 */}
             <div>
               <label htmlFor="consultationType" className="block text-sm font-medium text-text-primary mb-1">
                 상담 타입
@@ -625,7 +719,7 @@ export default function PatientFormModal() {
               )}
             </div>
             
-            {/* 연락처 */}
+            {/* 🔥 연락처 - 중복 체크 기능 추가 */}
             <div>
               <label htmlFor="phoneNumber" className="block text-sm font-medium text-text-primary mb-1">
                 연락처 <span className="text-error">*</span>
@@ -637,15 +731,56 @@ export default function PatientFormModal() {
                   name="phoneNumber"
                   value={formValues.phoneNumber}
                   onChange={handlePhoneChange}
-                  className={`form-input pl-10 ${errors.phoneNumber ? 'border-error' : ''}`}
+                  className={`form-input pl-10 pr-10 ${
+                    errors.phoneNumber ? 'border-error' : 
+                    phoneCheckStatus.isDuplicate ? 'border-red-500' :
+                    phoneCheckStatus.message && !phoneCheckStatus.isDuplicate ? 'border-green-500' : ''
+                  }`}
                   placeholder="010-1234-5678"
                 />
                 <span className="absolute left-3 top-1/2 transform -translate-y-1/2 text-text-muted">
                   <Icon icon={HiOutlinePhone} size={18} />
                 </span>
+                {/* 🔥 중복 체크 상태 표시 */}
+                {phoneCheckStatus.isChecking && (
+                  <span className="absolute right-3 top-1/2 transform -translate-y-1/2">
+                    <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-blue-600"></div>
+                  </span>
+                )}
+                {!phoneCheckStatus.isChecking && phoneCheckStatus.message && (
+                  <span className={`absolute right-3 top-1/2 transform -translate-y-1/2 ${
+                    phoneCheckStatus.isDuplicate ? 'text-red-500' : 'text-green-500'
+                  }`}>
+                    {phoneCheckStatus.isDuplicate ? '❌' : '✅'}
+                  </span>
+                )}
               </div>
               {errors.phoneNumber && (
                 <p className="mt-1 text-sm text-error">{errors.phoneNumber}</p>
+              )}
+              {/* 🔥 전화번호 중복 체크 메시지 */}
+              {phoneCheckStatus.message && (
+                <div className={`mt-2 p-2 rounded-md flex items-center gap-2 text-sm ${
+                  phoneCheckStatus.isDuplicate 
+                    ? 'bg-red-50 text-red-700 border border-red-200'
+                    : 'bg-green-50 text-green-700 border border-green-200'
+                }`}>
+                  <Icon icon={phoneCheckStatus.isDuplicate ? HiOutlineExclamation : HiOutlinePhone} size={16} />
+                  <span>{phoneCheckStatus.message}</span>
+                </div>
+              )}
+              {/* 🔥 중복 환자 정보 표시 */}
+              {phoneCheckStatus.isDuplicate && phoneCheckStatus.existingPatient && (
+                <div className="mt-2 p-3 bg-gray-50 border border-gray-200 rounded-md">
+                  <p className="text-sm font-medium text-gray-800">기존 환자 정보:</p>
+                  <div className="mt-1 text-xs text-gray-600 space-y-1">
+                    <p>• 이름: {phoneCheckStatus.existingPatient.name}</p>
+                    <p>• 환자번호: {phoneCheckStatus.existingPatient.patientId}</p>
+                    <p>• 상태: {phoneCheckStatus.existingPatient.status}</p>
+                    <p>• 상담타입: {phoneCheckStatus.existingPatient.consultationType === 'inbound' ? '인바운드' : '아웃바운드'}</p>
+                    <p>• 등록일: {new Date(phoneCheckStatus.existingPatient.createdAt).toLocaleDateString()}</p>
+                  </div>
+                </div>
               )}
             </div>
             
@@ -779,8 +914,6 @@ export default function PatientFormModal() {
               )}
             </div>            
             
-            {/* 환자 상태 필드 제거 - 모든 신규 환자는 '잠재고객'으로 자동 설정 */}
-            
             {/* 관심 분야 */}
             <div>
               <label className="block text-sm font-medium text-text-primary mb-2">
@@ -817,8 +950,15 @@ export default function PatientFormModal() {
             </button>
             <button 
               type="submit" 
-              className="btn btn-primary"
-              disabled={currentIsLoading || !currentUser} // 🔥 로그인 안된 경우 비활성화
+              className={`btn btn-primary ${
+                phoneCheckStatus.isDuplicate || phoneCheckStatus.isChecking ? 'opacity-50 cursor-not-allowed' : ''
+              }`}
+              disabled={
+                currentIsLoading || 
+                !currentUser || 
+                phoneCheckStatus.isDuplicate || 
+                phoneCheckStatus.isChecking
+              }
             >
               {currentIsLoading ? '처리 중...' : '등록하기'}
             </button>
