@@ -1,4 +1,4 @@
-// src/components/management/VisitManagement.tsx - 초기화 기능 추가 버전
+// src/components/management/VisitManagement.tsx - 상담 정보 표시 기능 추가
 
 'use client'
 
@@ -7,7 +7,7 @@ import { RootState, AppDispatch } from '@/store'
 import { Patient, PostVisitStatus, EstimateInfo, PaymentInfo, PostVisitConsultationInfo, PatientReaction } from '@/types/patient'
 import { selectPatient, updatePostVisitStatus, fetchPostVisitPatients, fetchPatients, resetPostVisitData } from '@/store/slices/patientsSlice'
 import { useState, useEffect, useMemo } from 'react'
-import { HiOutlinePhone, HiOutlineCalendar, HiOutlineClipboardList, HiOutlineRefresh } from 'react-icons/hi'
+import { HiOutlinePhone, HiOutlineCalendar, HiOutlineClipboardList, HiOutlineRefresh, HiOutlineInformationCircle, HiOutlineClipboard } from 'react-icons/hi'
 import { FiPhone, FiPhoneCall } from 'react-icons/fi'
 import { Icon } from '../common/Icon'
 import PatientDetailModal from './PatientDetailModal'
@@ -20,7 +20,7 @@ interface PostVisitStatusModalProps {
   isLoading: boolean;
 }
 
-// 🔥 완전히 개편된 내원 후 상태 업데이트 모달
+// 🔥 완전히 개편된 내원 후 상태 업데이트 모달 - 상담 정보 표시 추가
 const PostVisitStatusModal = ({ isOpen, onClose, onConfirm, patient, isLoading }: PostVisitStatusModalProps) => {
   const [selectedStatus, setSelectedStatus] = useState<PostVisitStatus>('');
   const [consultationContent, setConsultationContent] = useState('');
@@ -46,6 +46,24 @@ const PostVisitStatusModal = ({ isOpen, onClose, onConfirm, patient, isLoading }
 
   // 🔥 종결 사유 상태 추가
   const [completionReason, setCompletionReason] = useState('');
+
+  // 🔥 상담 정보 표시용 함수들 추가
+  const getConsultationDisplayInfo = () => {
+    if (!patient?.consultation) {
+      return null;
+    }
+
+    const consultation = patient.consultation;
+    return {
+      hasConsultation: true,
+      estimatedAmount: consultation.estimatedAmount || 0,
+      consultationDate: consultation.consultationDate || '미입력',
+      treatmentPlan: consultation.treatmentPlan || '미입력', // 불편한 부분
+      consultationNotes: consultation.consultationNotes || '미입력', // 상담 메모
+      estimateAgreed: consultation.estimateAgreed,
+      estimateAgreedText: consultation.estimateAgreed ? '동의' : '거부'
+    };
+  };
 
   // 🔥 모달이 열릴 때마다 모든 필드 초기화 (견적 정보 포함)
   useEffect(() => {
@@ -186,39 +204,73 @@ const PostVisitStatusModal = ({ isOpen, onClose, onConfirm, patient, isLoading }
     { value: '알 수 없음', label: '알 수 없음', color: 'bg-gray-100 text-gray-800' },
   ];
 
+  // 🔥 상담 정보 가져오기
+  const consultationInfo = getConsultationDisplayInfo();
+
   return (
     <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
-      <div className="bg-white rounded-lg p-6 w-full max-w-2xl max-h-[90vh] overflow-y-auto">
+      <div className="bg-white rounded-lg p-6 w-full max-w-3xl max-h-[90vh] overflow-y-auto">
         <h3 className="text-lg font-semibold text-gray-900 mb-4">
           내원 후 상태 업데이트
         </h3>
         
         {patient && (
-          <div className="mb-4 p-3 bg-gray-50 rounded-lg">
+          <div className="mb-6 p-3 bg-gray-50 rounded-lg">
             <p className="text-sm font-medium text-gray-700">{patient.name}</p>
             <p className="text-xs text-gray-500">{patient.phoneNumber}</p>
-            {/* 종결 시 추가 필드 */}
-          {selectedStatus === '종결' && (
-            <div className="border border-red-200 rounded-lg p-4 bg-red-50">
-              <h4 className="text-sm font-medium text-gray-700 mb-3">종결 정보</h4>
-              <div className="space-y-3">
-                <div>
-                  <label className="block text-xs text-gray-600 mb-1">
-                    종결 사유 <span className="text-red-500">*</span>
-                  </label>
-                  <textarea
-                    value={completionReason}
-                    onChange={(e) => setCompletionReason(e.target.value)}
-                    className="w-full px-3 py-2 border border-gray-300 rounded-lg resize-none text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
-                    rows={3}
-                    placeholder="종결 사유를 상세히 기록해주세요 (예: 치료 완료, 환자 요청으로 중단, 타 병원 이전 등)"
-                    required
-                  />
+          </div>
+        )}
+
+        {/* 🔥 기존 상담 정보 표시 섹션 추가 */}
+        {consultationInfo && (
+          <div className="mb-6 border border-blue-200 rounded-lg p-4 bg-blue-50">
+            <h4 className="text-sm font-medium text-blue-800 mb-3 flex items-center gap-2">
+              <Icon icon={HiOutlineInformationCircle} size={16} />
+              상담 관리에서 입력된 정보
+            </h4>
+            
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4 text-sm">
+              <div>
+                <span className="text-blue-700 font-medium">상담 날짜:</span>
+                <span className="ml-2 text-blue-600">{consultationInfo.consultationDate}</span>
+              </div>
+              
+              <div>
+                <span className="text-blue-700 font-medium">견적 금액:</span>
+                <span className="ml-2 text-blue-600">
+                  {consultationInfo.estimatedAmount > 0 
+                    ? `${consultationInfo.estimatedAmount.toLocaleString()}원` 
+                    : '미입력'
+                  }
+                </span>
+              </div>
+              
+              <div className="md:col-span-2">
+                <span className="text-blue-700 font-medium">불편한 부분:</span>
+                <div className="mt-1 p-2 bg-white rounded border text-blue-600 whitespace-pre-line">
+                  {consultationInfo.treatmentPlan}
                 </div>
               </div>
+              
+              <div className="md:col-span-2">
+                <span className="text-blue-700 font-medium">상담 메모:</span>
+                <div className="mt-1 p-2 bg-white rounded border text-blue-600 whitespace-pre-line">
+                  {consultationInfo.consultationNotes}
+                </div>
+              </div>
+              
+              <div>
+                <span className="text-blue-700 font-medium">견적 동의:</span>
+                <span className={`ml-2 px-2 py-1 rounded-full text-xs font-medium ${
+                  consultationInfo.estimateAgreed 
+                    ? 'bg-green-100 text-green-800' 
+                    : 'bg-red-100 text-red-800'
+                }`}>
+                  {consultationInfo.estimateAgreedText}
+                </span>
+              </div>
             </div>
-          )}
-        </div>
+          </div>
         )}
 
         <div className="space-y-6">
@@ -428,6 +480,28 @@ const PostVisitStatusModal = ({ isOpen, onClose, onConfirm, patient, isLoading }
                     value={nextVisitDate}
                     onChange={(e) => setNextVisitDate(e.target.value)}
                     className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  />
+                </div>
+              </div>
+            </div>
+          )}
+
+          {/* 종결 시 추가 필드 */}
+          {selectedStatus === '종결' && (
+            <div className="border border-red-200 rounded-lg p-4 bg-red-50">
+              <h4 className="text-sm font-medium text-gray-700 mb-3">종결 정보</h4>
+              <div className="space-y-3">
+                <div>
+                  <label className="block text-xs text-gray-600 mb-1">
+                    종결 사유 <span className="text-red-500">*</span>
+                  </label>
+                  <textarea
+                    value={completionReason}
+                    onChange={(e) => setCompletionReason(e.target.value)}
+                    className="w-full px-3 py-2 border border-gray-300 rounded-lg resize-none text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+                    rows={3}
+                    placeholder="종결 사유를 상세히 기록해주세요 (예: 치료 완료, 환자 요청으로 중단, 타 병원 이전 등)"
+                    required
                   />
                 </div>
               </div>

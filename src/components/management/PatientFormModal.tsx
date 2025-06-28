@@ -9,9 +9,10 @@ import { RootState } from '@/store'
 import { closePatientForm } from '@/store/slices/uiSlice'
 import { createPatient, CreatePatientData, PatientStatus } from '@/store/slices/patientsSlice'
 import { HiOutlineX, HiOutlineUser, HiOutlinePhone, HiOutlineCalendar, HiOutlineStar, HiOutlineLocationMarker, HiOutlineCake, HiOutlineGlobeAlt } from 'react-icons/hi'
+import { FiPhoneCall } from 'react-icons/fi' // 🔥 상담타입 아이콘 추가
 import { Icon } from '../common/Icon'
 import { provinces, getCitiesByProvince } from '@/constants/regionData'
-import { useActivityLogger } from '@/hooks/useActivityLogger' // 🔥 활동 로깅 훅 추가
+import { useActivityLogger } from '@/hooks/useActivityLogger'
 
 // 관심 분야 옵션
 const interestAreaOptions = [
@@ -100,7 +101,7 @@ export default function PatientFormModal() {
         patientId: `TEMP-${Date.now()}`,
         ...newPatientData,
         status: '잠재고객' as PatientStatus,
-        consultationType: 'outbound',
+        consultationType: newPatientData.consultationType || 'outbound', // 🔥 선택한 상담타입 적용
         createdAt: new Date().toISOString(),
         updatedAt: new Date().toISOString(),
         consultantId: currentUser?.id || '',
@@ -373,12 +374,12 @@ export default function PatientFormModal() {
     if (!isValid) return
     
     try {
-      // 🔥 환자 상태는 '잠재고객'으로 고정, consultationType은 'outbound'로 설정
+      // 🔥 환자 상태는 '잠재고객'으로 고정, consultationType은 선택한 값 사용
       // 담당자 정보는 API에서 자동으로 설정됨
       const patientData: CreatePatientData = {
         ...formValues,
         status: '잠재고객' as PatientStatus,
-        consultationType: 'outbound' // 신규 환자 등록은 아웃바운드로 설정
+        consultationType: formValues.consultationType // 🔥 선택한 상담타입 사용
       };
       
       console.log('신규 환자 등록 데이터:', patientData); // 디버깅용
@@ -496,7 +497,7 @@ export default function PatientFormModal() {
     const patientData: CreatePatientData = {
       ...formValues,
       status: '잠재고객' as PatientStatus,
-      consultationType: 'outbound'
+      consultationType: formValues.consultationType // 🔥 선택한 상담타입 사용
     };
     
     // 🚀 Optimistic Update 실행
@@ -575,6 +576,31 @@ export default function PatientFormModal() {
         {/* 모달 바디 */}
         <form onSubmit={handleSubmit} className="p-6">
           <div className="space-y-5">
+            {/* 🔥 상담 타입 선택 필드 추가 - 수정폼과 동일한 위치와 스타일 */}
+            <div>
+              <label htmlFor="consultationType" className="block text-sm font-medium text-text-primary mb-1">
+                상담 타입
+              </label>
+              <div className="relative">
+                <select
+                  id="consultationType"
+                  name="consultationType"
+                  value={formValues.consultationType || 'outbound'}
+                  onChange={handleChange}
+                  className="form-input pl-10 appearance-none"
+                >
+                  <option value="outbound">아웃바운드</option>
+                  <option value="inbound">인바운드</option>
+                </select>
+                <span className="absolute left-3 top-1/2 transform -translate-y-1/2 text-text-muted">
+                  <Icon icon={FiPhoneCall} size={18} />
+                </span>
+                <span className="absolute right-3 top-1/2 transform -translate-y-1/2 text-text-muted">
+                  ▼
+                </span>
+              </div>
+            </div>
+            
             {/* 이름 */}
             <div>
               <label htmlFor="name" className="block text-sm font-medium text-text-primary mb-1">
