@@ -1,4 +1,4 @@
-// src/components/management/VisitManagement.tsx - 상담 정보 표시 기능 추가
+// src/components/management/VisitManagement.tsx - 필터 기능 추가 (완전판)
 
 'use client'
 
@@ -6,11 +6,14 @@ import { useSelector, useDispatch } from 'react-redux'
 import { RootState, AppDispatch } from '@/store'
 import { Patient, PostVisitStatus, EstimateInfo, PaymentInfo, PostVisitConsultationInfo, PatientReaction } from '@/types/patient'
 import { selectPatient, updatePostVisitStatus, fetchPostVisitPatients, fetchPatients, resetPostVisitData } from '@/store/slices/patientsSlice'
-import { useState, useEffect, useMemo } from 'react'
-import { HiOutlinePhone, HiOutlineCalendar, HiOutlineClipboardList, HiOutlineRefresh, HiOutlineInformationCircle, HiOutlineClipboard } from 'react-icons/hi'
+import { useState, useEffect, useMemo, useCallback } from 'react'
+import { HiOutlinePhone, HiOutlineCalendar, HiOutlineClipboardList, HiOutlineRefresh, HiOutlineInformationCircle, HiOutlineClipboard, HiOutlineSearch } from 'react-icons/hi'
 import { FiPhone, FiPhoneCall } from 'react-icons/fi'
 import { Icon } from '../common/Icon'
 import PatientDetailModal from './PatientDetailModal'
+
+// 🔥 날짜 필터 타입 추가
+type SimpleDateFilterType = 'all' | 'daily' | 'monthly';
 
 interface PostVisitStatusModalProps {
   isOpen: boolean;
@@ -742,22 +745,106 @@ export default function VisitManagement() {
     isLoading
   } = useSelector((state: RootState) => state.patients)
 
+  // 🔥 필터 상태들 추가
+  const [searchTerm, setSearchTerm] = useState('')
   const [selectedFilter, setSelectedFilter] = useState<'all' | 'needs_callback' | 'in_treatment' | 'on_hold' | 'completed'>('all')
+  const [consultationTypeFilter, setConsultationTypeFilter] = useState<'all' | 'inbound' | 'outbound'>('all')
+  
+  // 🔥 날짜 필터 상태들 추가
+  const [dateFilterType, setDateFilterType] = useState<SimpleDateFilterType>('all')
+  const [dailyStartDate, setDailyStartDate] = useState('')
+  const [dailyEndDate, setDailyEndDate] = useState('')
+  const [selectedYear, setSelectedYear] = useState(new Date().getFullYear())
+  const [selectedMonth, setSelectedMonth] = useState(new Date().getMonth() + 1)
+
+  // 기존 상태들
   const [isStatusModalOpen, setIsStatusModalOpen] = useState(false)
   const [selectedPatientForUpdate, setSelectedPatientForUpdate] = useState<Patient | null>(null)
   const [isUpdating, setIsUpdating] = useState(false)
-  // 🔥 데이터 초기화 관련 상태 추가
   const [isResetting, setIsResetting] = useState(false)
+
+  // 🔥 연도 목록 생성
+  const availableYears = useMemo(() => {
+    const currentYear = new Date().getFullYear();
+    const years = [];
+    for (let year = currentYear; year >= currentYear - 5; year--) {
+      years.push(year);
+    }
+    return years;
+  }, []);
+
+  // 🔥 월 목록
+  const months = [
+    { value: 1, label: '1월' },
+    { value: 2, label: '2월' },
+    { value: 3, label: '3월' },
+    { value: 4, label: '4월' },
+    { value: 5, label: '5월' },
+    { value: 6, label: '6월' },
+    { value: 7, label: '7월' },
+    { value: 8, label: '8월' },
+    { value: 9, label: '9월' },
+    { value: 10, label: '10월' },
+    { value: 11, label: '11월' },
+    { value: 12, label: '12월' }
+  ];
+
+  // 🔥 월별 필터 날짜 범위 계산
+  const getMonthlyDateRange = useCallback(() => {
+    const startDate = `${selectedYear}-${String(selectedMonth).padStart(2, '0')}-01`;
+    const lastDay = new Date(selectedYear, selectedMonth, 0).getDate();
+    const endDate = `${selectedYear}-${String(selectedMonth).padStart(2, '0')}-${String(lastDay).padStart(2, '0')}`;
+    return { startDate, endDate };
+  }, [selectedYear, selectedMonth]);
 
   // 내원확정된 환자들 필터링
   const visitConfirmedPatients = useMemo(() => {
     return patients.filter(patient => patient.visitConfirmed === true)
   }, [patients])
 
-  // 선택된 필터에 따라 환자 목록 필터링
+  // 🔥 필터링 로직 개선 - 검색어와 날짜 필터 추가
   const filteredPatients = useMemo(() => {
     let filtered = visitConfirmedPatients;
     
+    // 🔥 날짜 필터링 (콜 유입날짜 기준)
+    if (dateFilterType !== 'all') {
+      filtered = filtered.filter(patient => {
+        const callInDate = patient.callInDate;
+        if (!callInDate) return false;
+        
+        if (dateFilterType === 'daily') {
+          if (dailyStartDate && dailyEndDate) {
+            if (callInDate < dailyStartDate || callInDate > dailyEndDate) {
+              return false;
+            }
+          }
+        } else if (dateFilterType === 'monthly') {
+          const { startDate, endDate } = getMonthlyDateRange();
+          if (callInDate < startDate || callInDate > endDate) {
+            return false;
+          }
+        }
+        return true;
+      });
+    }
+
+    // 🔥 검색어 필터링 (환자명, 연락처, 메모)
+    if (searchTerm) {
+      const searchLower = searchTerm.toLowerCase();
+      filtered = filtered.filter(patient => {
+        const matchesName = patient.name?.toLowerCase()?.includes(searchLower) || false;
+        const matchesPhone = patient.phoneNumber?.toLowerCase()?.includes(searchLower) || false;
+        const matchesNotes = patient.notes?.toLowerCase()?.includes(searchLower) || false;
+        return matchesName || matchesPhone || matchesNotes;
+      });
+    }
+
+    // 🔥 상담 타입 필터링
+    if (consultationTypeFilter !== 'all') {
+      filtered = filtered.filter(patient => patient.consultationType === consultationTypeFilter);
+    }
+
+    // 내원 후 상태 필터링
     switch (selectedFilter) {
       case 'needs_callback':
         filtered = filtered.filter(patient => 
@@ -769,12 +856,12 @@ export default function VisitManagement() {
           patient.postVisitStatus === '치료시작'
         );
         break;
-      case 'on_hold': // 🔥 completed -> on_hold로 변경
+      case 'on_hold':
         filtered = filtered.filter(patient => 
           patient.postVisitStatus === '보류'
         );
         break;
-      case 'completed': // 🔥 종결 필터 추가
+      case 'completed':
         filtered = filtered.filter(patient => 
           patient.postVisitStatus === '종결'
         );
@@ -784,29 +871,77 @@ export default function VisitManagement() {
     }
     
     return filtered;
-  }, [visitConfirmedPatients, selectedFilter]);
+  }, [visitConfirmedPatients, selectedFilter, searchTerm, consultationTypeFilter, dateFilterType, dailyStartDate, dailyEndDate, getMonthlyDateRange]);
 
-  // 통계 계산
+  // 통계 계산 - 필터링된 데이터 기준
   const stats = useMemo(() => {
-    const total = visitConfirmedPatients.length;
-    const needsCallback = visitConfirmedPatients.filter(p => 
+    const total = filteredPatients.length;
+    const needsCallback = filteredPatients.filter(p => 
       p.postVisitStatus === '재콜백필요'
     ).length;
-    const inTreatment = visitConfirmedPatients.filter(p => 
+    const inTreatment = filteredPatients.filter(p => 
       p.postVisitStatus === '치료시작'
     ).length;
-    const onHold = visitConfirmedPatients.filter(p => // 🔥 completed -> onHold로 변경
+    const onHold = filteredPatients.filter(p => 
       p.postVisitStatus === '보류'
     ).length;
-    const completed = visitConfirmedPatients.filter(p => // 🔥 종결 통계 추가
+    const completed = filteredPatients.filter(p => 
       p.postVisitStatus === '종결'
     ).length;
-    const noStatus = visitConfirmedPatients.filter(p => 
+    const noStatus = filteredPatients.filter(p => 
       !p.postVisitStatus
     ).length;
 
     return { total, needsCallback, inTreatment, onHold, completed, noStatus };
-  }, [visitConfirmedPatients]);
+  }, [filteredPatients]);
+
+  // 🔥 필터 핸들러들
+  const handleSearchChange = useCallback((e: React.ChangeEvent<HTMLInputElement>) => {
+    setSearchTerm(e.target.value);
+  }, []);
+
+  const handleConsultationTypeFilterChange = useCallback((e: React.ChangeEvent<HTMLSelectElement>) => {
+    setConsultationTypeFilter(e.target.value as 'all' | 'inbound' | 'outbound');
+  }, []);
+
+  const handleDateFilterTypeChange = useCallback((filterType: SimpleDateFilterType) => {
+    setDateFilterType(filterType);
+    
+    if (filterType === 'all') {
+      setDailyStartDate('');
+      setDailyEndDate('');
+    } else if (filterType === 'daily') {
+      const today = new Date().toISOString().split('T')[0];
+      setDailyStartDate(today);
+      setDailyEndDate(today);
+    }
+  }, []);
+
+  const handleResetFilters = useCallback(() => {
+    setSearchTerm('');
+    setConsultationTypeFilter('all');
+    setDateFilterType('all');
+    setDailyStartDate('');
+    setDailyEndDate('');
+    setSelectedYear(new Date().getFullYear());
+    setSelectedMonth(new Date().getMonth() + 1);
+    setSelectedFilter('all');
+  }, []);
+
+  // 🔥 현재 날짜 필터의 표시명 계산
+  const getDateFilterDisplayText = () => {
+    if (dateFilterType === 'all') return null;
+    if (dateFilterType === 'daily' && dailyStartDate && dailyEndDate) {
+      if (dailyStartDate === dailyEndDate) {
+        return `📅 ${dailyStartDate}`;
+      }
+      return `📅 ${dailyStartDate} ~ ${dailyEndDate}`;
+    }
+    if (dateFilterType === 'monthly') {
+      return `📅 ${selectedYear}년 ${selectedMonth}월`;
+    }
+    return null;
+  };
 
   // 컴포넌트 마운트 시 데이터 로드
   useEffect(() => {
@@ -1039,11 +1174,171 @@ export default function VisitManagement() {
         </button>
       </div>
 
-      {/* 통계 카드 */}
+      {/* 🔥 필터 영역 추가 */}
+      <div className="card mb-6">
+        <div className="flex flex-col gap-4">
+          {/* 첫 번째 줄: 검색, 상담타입 */}
+          <div className="flex flex-col md:flex-row items-start md:items-center gap-4">
+            <div className="relative flex-1">
+              <input
+                type="text"
+                placeholder="환자명, 연락처 또는 메모 검색"
+                className="pl-10 pr-4 py-2 w-full bg-light-bg rounded-full text-sm focus:outline-none"
+                value={searchTerm}
+                onChange={handleSearchChange}
+              />
+              <Icon 
+                icon={HiOutlineSearch} 
+                size={18} 
+                className="absolute left-3 top-1/2 transform -translate-y-1/2 text-text-muted" 
+              />
+            </div>
+            <select
+              className="px-4 py-2 bg-light-bg rounded-full text-sm focus:outline-none text-text-secondary md:w-40"
+              value={consultationTypeFilter}
+              onChange={handleConsultationTypeFilterChange}
+            >
+              <option value="all">상담 타입 ▼</option>
+              <option value="inbound">🟢 인바운드</option>
+              <option value="outbound">🔵 아웃바운드</option>
+            </select>
+          </div>
+
+          {/* 두 번째 줄: 날짜 필터 */}
+          <div className="flex flex-col md:flex-row items-start md:items-center gap-4">
+            <div className="flex items-center gap-2">
+              <Icon icon={HiOutlineCalendar} size={18} className="text-text-muted" />
+              <span className="text-sm text-text-secondary">콜 유입날짜:</span>
+            </div>
+            
+            {/* 날짜 필터 타입 선택 버튼들 */}
+            <div className="flex items-center gap-2">
+              <button
+                onClick={() => handleDateFilterTypeChange('all')}
+                className={`px-4 py-2 rounded-full text-sm font-medium transition-colors ${
+                  dateFilterType === 'all'
+                    ? 'bg-blue-500 text-white'
+                    : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
+                }`}
+              >
+                전체
+              </button>
+              <button
+                onClick={() => handleDateFilterTypeChange('daily')}
+                className={`px-4 py-2 rounded-full text-sm font-medium transition-colors ${
+                  dateFilterType === 'daily'
+                    ? 'bg-blue-500 text-white'
+                    : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
+                }`}
+              >
+                일별 선택
+              </button>
+              <button
+                onClick={() => handleDateFilterTypeChange('monthly')}
+                className={`px-4 py-2 rounded-full text-sm font-medium transition-colors ${
+                  dateFilterType === 'monthly'
+                    ? 'bg-blue-500 text-white'
+                    : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
+                }`}
+              >
+                월별 선택
+              </button>
+            </div>
+
+            {/* 일별 선택시 날짜 입력 필드 */}
+            {dateFilterType === 'daily' && (
+              <>
+                <input
+                  type="date"
+                  value={dailyStartDate}
+                  onChange={(e) => setDailyStartDate(e.target.value)}
+                  className="px-4 py-2 bg-light-bg rounded-full text-sm focus:outline-none text-text-secondary"
+                />
+                <span className="text-text-muted">~</span>
+                <input
+                  type="date"
+                  value={dailyEndDate}
+                  onChange={(e) => setDailyEndDate(e.target.value)}
+                  className="px-4 py-2 bg-light-bg rounded-full text-sm focus:outline-none text-text-secondary"
+                />
+              </>
+            )}
+
+            {/* 월별 선택시 연/월 선택 필드 */}
+            {dateFilterType === 'monthly' && (
+              <>
+                <select
+                  value={selectedYear}
+                  onChange={(e) => setSelectedYear(parseInt(e.target.value))}
+                  className="px-4 py-2 bg-light-bg rounded-full text-sm focus:outline-none text-text-secondary"
+                >
+                  {availableYears.map(year => (
+                    <option key={year} value={year}>{year}년</option>
+                  ))}
+                </select>
+                <select
+                  value={selectedMonth}
+                  onChange={(e) => setSelectedMonth(parseInt(e.target.value))}
+                  className="px-4 py-2 bg-light-bg rounded-full text-sm focus:outline-none text-text-secondary"
+                >
+                  {months.map(month => (
+                    <option key={month.value} value={month.value}>{month.label}</option>
+                  ))}
+                </select>
+              </>
+            )}
+          </div>
+        </div>
+
+        {/* 🔥 필터 결과 요약 표시 */}
+        {(consultationTypeFilter !== 'all' || dateFilterType !== 'all' || searchTerm || selectedFilter !== 'all') && (
+          <div className="mt-4 p-3 bg-blue-50 rounded-lg">
+            <div className="flex items-center justify-between">
+              <div className="flex items-center space-x-2 text-sm text-blue-800 flex-wrap">
+                <span>🔍 필터링 결과: <strong>{stats.total}명</strong></span>
+                
+                {getDateFilterDisplayText() && (
+                  <span className="inline-flex items-center px-2 py-1 rounded-full text-xs bg-blue-200 text-blue-800">
+                    {getDateFilterDisplayText()}
+                  </span>
+                )}
+                
+                {consultationTypeFilter !== 'all' && (
+                  <span className="inline-flex items-center px-2 py-1 rounded-full text-xs bg-blue-200 text-blue-800">
+                    {consultationTypeFilter === 'inbound' ? '🟢 인바운드' : '🔵 아웃바운드'}
+                  </span>
+                )}
+                
+                {selectedFilter !== 'all' && (
+                  <span className="inline-flex items-center px-2 py-1 rounded-full text-xs bg-blue-200 text-blue-800">
+                    {selectedFilter === 'needs_callback' ? '재콜백 필요' : 
+                     selectedFilter === 'in_treatment' ? '치료 시작' :
+                     selectedFilter === 'on_hold' ? '보류' : '종결'}
+                  </span>
+                )}
+                
+                {searchTerm && (
+                  <span className="inline-flex items-center px-2 py-1 rounded-full text-xs bg-blue-200 text-blue-800">
+                    "{searchTerm}"
+                  </span>
+                )}
+              </div>
+              <button
+                onClick={handleResetFilters}
+                className="text-xs text-blue-600 hover:text-blue-800 underline"
+              >
+                전체 보기
+              </button>
+            </div>
+          </div>
+        )}
+      </div>
+
+      {/* 통계 카드 - 필터링된 결과 반영 */}
       <div className="grid grid-cols-1 md:grid-cols-6 gap-4 mb-6">
         <div className="bg-white p-4 rounded-lg border">
           <div className="text-2xl font-bold text-gray-900">{stats.total}</div>
-          <div className="text-sm text-gray-600">총 내원확정</div>
+          <div className="text-sm text-gray-600">필터링 결과</div>
         </div>
         <div className="bg-white p-4 rounded-lg border">
           <div className="text-2xl font-bold text-yellow-600">{stats.needsCallback}</div>
@@ -1121,7 +1416,7 @@ export default function VisitManagement() {
         </button>
       </div>
 
-      {/* 🔥 환자 목록 - 액션 열에 초기화 버튼 추가 */}
+      {/* 환자 목록 테이블 */}
       <div className="card p-0">
         <div className="overflow-x-auto">
           <table className="w-full min-w-[1200px] table-auto">
@@ -1133,7 +1428,7 @@ export default function VisitManagement() {
                 <th className="px-4 py-3 text-left text-xs font-semibold text-gray-600">지역</th>
                 <th className="px-4 py-3 text-left text-xs font-semibold text-gray-600">연락처</th>
                 <th className="px-4 py-3 text-left text-xs font-semibold text-gray-600">내원 후 상태</th>
-                <th className="px-4 py-3 text-left text-xs font-semibold text-gray-600">환자 반응</th> {/* 🔥 견적동의 → 환자반응 */}
+                <th className="px-4 py-3 text-left text-xs font-semibold text-gray-600">환자 반응</th>
                 <th className="px-4 py-3 text-left text-xs font-semibold text-gray-600">치료 내용</th>
                 <th className="px-4 py-3 text-left text-xs font-semibold text-gray-600">다음 예약/재콜백</th>
                 <th className="px-4 py-3 text-center text-xs font-semibold text-gray-600">액션</th>
@@ -1150,10 +1445,7 @@ export default function VisitManagement() {
               ) : filteredPatients.length === 0 ? (
                 <tr>
                   <td colSpan={10} className="px-4 py-8 text-center text-gray-500">
-                    {selectedFilter === 'all' 
-                      ? '내원확정된 환자가 없습니다.' 
-                      : '해당 조건의 환자가 없습니다.'
-                    }
+                    조건에 맞는 환자가 없습니다.
                   </td>
                 </tr>
               ) : (
@@ -1214,7 +1506,6 @@ export default function VisitManagement() {
                           >
                             <Icon icon={HiOutlineClipboardList} size={16} />
                           </button>
-                          {/* 🔥 데이터 초기화 버튼 - 아이콘 변경 */}
                           {patient.postVisitConsultation && (
                             <button
                               onClick={() => handleResetPatientData(patient)}
