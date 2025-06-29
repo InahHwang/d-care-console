@@ -1,7 +1,7 @@
-// src/components/management/PatientManagement.tsx - 성능 최적화 버전
+// src/components/management/PatientManagement.tsx - 날짜 필터링 기능 추가
+
 'use client'
 
-// 🚀 기존 imports에 React Query 추가
 import { calculateCurrentProgress } from '@/store/slices/goalsSlice';
 import { useEffect, useState, useCallback, useMemo } from 'react'
 import { useDispatch, useSelector } from 'react-redux'
@@ -21,24 +21,26 @@ import {
   HiOutlineSearch, 
   HiOutlineAdjustments, 
   HiOutlineUserAdd,
-  HiOutlineDocumentText
+  HiOutlineDocumentText,
+  HiOutlineCalendar // 🔥 추가
 } from 'react-icons/hi'
 import { FiPhone, FiPhoneCall } from 'react-icons/fi'
 import { Icon } from '../common/Icon'
 import EventTargetList from './EventTargetList'
 import DeleteConfirmModal from './DeleteConfirmModal'
 
+// 🔥 간소화된 날짜 필터 타입
+type SimpleDateFilterType = 'all' | 'daily' | 'monthly';
+
 export default function PatientManagement() {
   const dispatch = useDispatch<AppDispatch>()
   const queryClient = useQueryClient()
   const searchParams = useSearchParams()
   
-  // 🚀 Optimistic Update 활성화
   const isOptimisticEnabled = true
   
   const { currentMenuItem } = useSelector((state: RootState) => state.ui)
   
-  // 🚨 안전한 Redux 상태 접근
   const patientsState = useSelector((state: RootState) => state?.patients || {
     isLoading: true,
     selectedPatient: null,
@@ -75,9 +77,56 @@ export default function PatientManagement() {
   const [consultationTypeFilter, setConsultationTypeFilter] = useState<'all' | 'inbound' | 'outbound'>('all')
   const [visitStatusFilter, setVisitStatusFilter] = useState<'all' | 'visit_confirmed' | 'post_visit_needed'>('all')
   
+  // 🔥 간소화된 날짜 필터 상태
+  const [dateFilterType, setDateFilterType] = useState<SimpleDateFilterType>('all')
+  
+  // 일별 선택용 상태
+  const [dailyStartDate, setDailyStartDate] = useState('')
+  const [dailyEndDate, setDailyEndDate] = useState('')
+  
+  // 월별 선택용 상태
+  const [selectedYear, setSelectedYear] = useState(new Date().getFullYear())
+  const [selectedMonth, setSelectedMonth] = useState(new Date().getMonth() + 1)
+  
   const [isDataLoaded, setIsDataLoaded] = useState(false)
 
-  // 🚀 React Query로 환자 데이터 관리
+  // 🔥 현재 연도와 월 목록 생성
+  const availableYears = useMemo(() => {
+    const currentYear = new Date().getFullYear();
+    const years = [];
+    for (let year = currentYear; year >= currentYear - 5; year--) {
+      years.push(year);
+    }
+    return years;
+  }, []);
+
+  const months = [
+    { value: 1, label: '1월' },
+    { value: 2, label: '2월' },
+    { value: 3, label: '3월' },
+    { value: 4, label: '4월' },
+    { value: 5, label: '5월' },
+    { value: 6, label: '6월' },
+    { value: 7, label: '7월' },
+    { value: 8, label: '8월' },
+    { value: 9, label: '9월' },
+    { value: 10, label: '10월' },
+    { value: 11, label: '11월' },
+    { value: 12, label: '12월' }
+  ];
+
+  // 🔥 월별 필터 날짜 범위 계산
+  const getMonthlyDateRange = useCallback(() => {
+    const startDate = `${selectedYear}-${String(selectedMonth).padStart(2, '0')}-01`;
+    
+    // 해당 월의 마지막 일 계산
+    const lastDay = new Date(selectedYear, selectedMonth, 0).getDate();
+    const endDate = `${selectedYear}-${String(selectedMonth).padStart(2, '0')}-${String(lastDay).padStart(2, '0')}`;
+    
+    return { startDate, endDate };
+  }, [selectedYear, selectedMonth]);
+
+  // React Query로 환자 데이터 관리 (기존 코드 유지)
   const {
     data: queryResult,
     isLoading: queryLoading,
@@ -88,7 +137,6 @@ export default function PatientManagement() {
     queryFn: async () => {
       console.log('🚀 React Query: 환자 데이터 로딩 시작');
 
-      // 🔥 Redux dispatch 대신 직접 API 호출로 변경
       const response = await fetch('/api/patients', {
         credentials: 'include',
         headers: {
@@ -103,9 +151,7 @@ export default function PatientManagement() {
       const result = await response.json();
       console.log('🚀 React Query: 환자 데이터 로딩 완료', result?.patients?.length || 0, '명');
       
-      // Redux 상태도 동기화 (선택적)
       if (result.success && result.patients) {
-        // Redux store 업데이트는 별도로 처리
         setTimeout(() => {
           dispatch(fetchPatients());
         }, 0);
@@ -113,28 +159,25 @@ export default function PatientManagement() {
       
       return result;
     },
-    staleTime: 2 * 60 * 1000, // 2분간 fresh (30초 → 2분으로 증가)
-    gcTime: 10 * 60 * 1000, // 10분간 캐시 유지 (5분 → 10분으로 증가)
+    staleTime: 2 * 60 * 1000,
+    gcTime: 10 * 60 * 1000,
     refetchOnWindowFocus: false,
     refetchOnMount: false,
-    refetchInterval: false, // 🔥 자동 refetch 완전 비활성화
+    refetchInterval: false,
     refetchIntervalInBackground: false,
     enabled: true,
-    retry: 1, // 🔥 재시도 횟수 제한
-    retryDelay: 1000, // 🔥 재시도 지연 시간
+    retry: 1,
+    retryDelay: 1000,
   });
 
-  // 환자 배열 추출
   const queryPatients = queryResult?.patients || [];
 
-  // 🚀 백그라운드 데이터 갱신 (사용자 모르게)
   const backgroundRefresh = useCallback(() => {
     if (isOptimisticEnabled) {
-      // 🔥 너무 자주 실행되지 않도록 조건 추가
       const lastRefresh = queryClient.getQueryState(['patients'])?.dataUpdatedAt;
       const now = Date.now();
       
-      if (!lastRefresh || (now - lastRefresh) > 5 * 60 * 1000) { // 5분 이상 경과시에만
+      if (!lastRefresh || (now - lastRefresh) > 5 * 60 * 1000) {
         queryClient.invalidateQueries({ 
           queryKey: ['patients'],
           refetchType: 'none'
@@ -143,24 +186,42 @@ export default function PatientManagement() {
     }
   }, [queryClient, isOptimisticEnabled]);
 
-  // 🔥 주기적 백그라운드 갱신 최적화 (5분 → 10분)
   useEffect(() => {
     if (!isOptimisticEnabled) return;
     
-    const interval = setInterval(backgroundRefresh, 10 * 60 * 1000); // 10분마다
+    const interval = setInterval(backgroundRefresh, 10 * 60 * 1000);
     return () => clearInterval(interval);
   }, [backgroundRefresh, isOptimisticEnabled]);
 
-  // 🚀 메모이제이션된 필터링 (서버 요청 없이 클라이언트에서)
+  // 🔥 간소화된 날짜 필터링 로직
   const filteredPatients = useMemo(() => {
-    // 🚨 안전성 체크 강화
     if (!queryPatients || !Array.isArray(queryPatients) || queryPatients.length === 0) return [];
     
     return queryPatients.filter((patient: any) => {
-      // 🚨 patient 객체 안전성 체크
       if (!patient) return false;
       
-      // 검색어 필터
+      // 🔥 날짜 필터링
+      if (dateFilterType !== 'all') {
+        const callInDate = patient.callInDate;
+        if (!callInDate) return false;
+        
+        if (dateFilterType === 'daily') {
+          // 일별 선택: 사용자가 직접 선택한 기간
+          if (dailyStartDate && dailyEndDate) {
+            if (callInDate < dailyStartDate || callInDate > dailyEndDate) {
+              return false;
+            }
+          }
+        } else if (dateFilterType === 'monthly') {
+          // 월별 선택: 선택한 연/월의 전체 기간
+          const { startDate, endDate } = getMonthlyDateRange();
+          if (callInDate < startDate || callInDate > endDate) {
+            return false;
+          }
+        }
+      }
+      
+      // 검색어 필터 (기존)
       if (searchTerm) {
         const searchLower = searchTerm.toLowerCase();
         const matchesName = patient.name?.toLowerCase()?.includes(searchLower) || false;
@@ -169,18 +230,18 @@ export default function PatientManagement() {
         if (!matchesName && !matchesPhone && !matchesNotes) return false;
       }
       
-      // 상태 필터
+      // 상태 필터 (기존)
       if (statusFilter !== 'all' && patient.status !== statusFilter) return false;
       
-      // 관심분야 필터
+      // 관심분야 필터 (기존)
       if (interestFilter !== 'all') {
         if (!patient.interestedServices?.includes(interestFilter)) return false;
       }
       
-      // 상담타입 필터
+      // 상담타입 필터 (기존)
       if (consultationTypeFilter !== 'all' && patient.consultationType !== consultationTypeFilter) return false;
       
-      // 내원상태 필터
+      // 내원상태 필터 (기존)
       if (visitStatusFilter !== 'all') {
         if (visitStatusFilter === 'visit_confirmed' && !patient.visitConfirmed) return false;
         if (visitStatusFilter === 'post_visit_needed' && (!patient.visitConfirmed || patient.postVisitStatus !== '재콜백필요')) return false;
@@ -188,9 +249,9 @@ export default function PatientManagement() {
       
       return true;
     });
-  }, [queryPatients, searchTerm, statusFilter, interestFilter, consultationTypeFilter, visitStatusFilter]);
+  }, [queryPatients, searchTerm, statusFilter, interestFilter, consultationTypeFilter, visitStatusFilter, dateFilterType, dailyStartDate, dailyEndDate, getMonthlyDateRange]);
 
-  // 🚀 메모이제이션된 통계 계산
+  // 메모이제이션된 통계 계산 (기존 코드 유지)
   const filterStats = useMemo(() => {
     if (!Array.isArray(filteredPatients)) return { inboundCount: 0, outboundCount: 0, totalCount: 0, visitConfirmedCount: 0, postVisitNeededCount: 0 };
     
@@ -205,7 +266,6 @@ export default function PatientManagement() {
     return { inboundCount, outboundCount, totalCount, visitConfirmedCount, postVisitNeededCount };
   }, [filteredPatients]);
 
-  // 🚨 안전성 체크 추가
   if (!patientsState) {
     return (
       <div className="flex items-center justify-center h-64">
@@ -215,7 +275,7 @@ export default function PatientManagement() {
     )
   }
 
-  // URL 파라미터에서 탭 정보 가져오기
+  // URL 파라미터에서 탭 정보 가져오기 (기존 코드 유지)
   useEffect(() => {
     const tabParam = searchParams.get('tab')
     if (tabParam) {
@@ -233,56 +293,53 @@ export default function PatientManagement() {
     }
   }, [searchParams, dispatch])
 
-  // 🚀 초기 데이터 로드 최적화
+  // 초기 데이터 로드 최적화 (기존 코드 유지)
   useEffect(() => {
     console.log('PatientManagement - 초기화 시작');
     
-    // React Query가 자동으로 데이터 로드하므로 중복 방지
     if (!queryLoading && queryPatients && Array.isArray(queryPatients) && queryPatients.length > 0) {
       console.log('🚀 React Query 데이터 사용, Redux 동기화');
       setIsDataLoaded(true);
     }
     
-    // 이벤트 타겟 초기화
     dispatch(initializeEventTargets());
     
   }, [dispatch, queryLoading, queryPatients.length]);
 
-  // 🚀 목표 달성률 계산 최적화 (debounced)
+  // 목표 달성률 계산 최적화 (기존 코드 유지)
   useEffect(() => {
     if (filteredPatients && filteredPatients.length >= 0) {
       const timeoutId = setTimeout(() => {
         console.log('🎯 PatientManagement - 목표 달성률 재계산 시작, 환자 수:', filteredPatients.length);
         dispatch(calculateCurrentProgress({ patients: filteredPatients }));
-      }, 1000); // 0.5초 → 1초로 증가
+      }, 1000);
       
       return () => clearTimeout(timeoutId);
     }
   }, [dispatch, filteredPatients.length]);
 
-  // 🚀 필터 상태 동기화 (Redux와 로컬 상태)
+  // 필터 상태 동기화 (기존 코드 유지)
   useEffect(() => {
-  const debounceTimer = setTimeout(() => {
-    dispatch(setFilters({
-      searchTerm,
-      status: statusFilter as any,
-      interestArea: interestFilter,
-      consultationType: consultationTypeFilter,
-      visitStatus: visitStatusFilter
-    }))
-    dispatch(setPage(1))
-  }, 1000) // 300ms → 1초로 증가
-    
+    const debounceTimer = setTimeout(() => {
+      dispatch(setFilters({
+        searchTerm,
+        status: statusFilter as any,
+        interestArea: interestFilter,
+        consultationType: consultationTypeFilter,
+        visitStatus: visitStatusFilter
+      }))
+      dispatch(setPage(1))
+    }, 1000)
+      
     return () => clearTimeout(debounceTimer)
-}, [searchTerm, statusFilter, interestFilter, consultationTypeFilter, visitStatusFilter, dispatch])
+  }, [searchTerm, statusFilter, interestFilter, consultationTypeFilter, visitStatusFilter, dateFilterType, dailyStartDate, dailyEndDate, selectedYear, selectedMonth, dispatch])
 
-  // 🚀 탭 변경 핸들러 최적화
+  // 탭 변경 핸들러 최적화 (기존 코드 유지)
   const handleTabChange = useCallback((tab: string) => {
     setActiveTab(tab)
     dispatch(setCurrentMenuItem(tab))
     
     if (tab === '환자 목록') {
-      // 🔥 캐시가 있고 최신 데이터라면 refetch 하지 않음
       const queryState = queryClient.getQueryState(['patients']);
       const isStale = !queryState?.data || Date.now() - (queryState.dataUpdatedAt || 0) > 5 * 60 * 1000;
       
@@ -296,7 +353,7 @@ export default function PatientManagement() {
     }
   }, [dispatch, queryPatients?.length, refetchPatients, queryClient]);
 
-  // 🚀 검색 핸들러 최적화
+  // 기존 핸들러들 (유지)
   const handleSearchChange = useCallback((e: React.ChangeEvent<HTMLInputElement>) => {
     setSearchTerm(e.target.value);
   }, []);
@@ -317,14 +374,51 @@ export default function PatientManagement() {
     setInterestFilter(e.target.value);
   }, []);
 
-  // 🚀 필터 초기화 핸들러
+  // 🔥 날짜 필터 핸들러들
+  const handleDateFilterTypeChange = useCallback((filterType: SimpleDateFilterType) => {
+    setDateFilterType(filterType);
+    
+    // 필터 타입 변경시 날짜 초기화
+    if (filterType === 'all') {
+      setDailyStartDate('');
+      setDailyEndDate('');
+    } else if (filterType === 'daily') {
+      // 일별 선택시 오늘 날짜로 초기화
+      const today = new Date().toISOString().split('T')[0];
+      setDailyStartDate(today);
+      setDailyEndDate(today);
+    }
+    // 월별은 이미 현재 연/월로 초기화되어 있음
+  }, []);
+
+  // 🔥 필터 초기화 핸들러
   const handleResetFilters = useCallback(() => {
     setSearchTerm('');
     setStatusFilter('all');
     setInterestFilter('all');
     setConsultationTypeFilter('all');
     setVisitStatusFilter('all');
+    setDateFilterType('all');
+    setDailyStartDate('');
+    setDailyEndDate('');
+    setSelectedYear(new Date().getFullYear());
+    setSelectedMonth(new Date().getMonth() + 1);
   }, []);
+
+  // 🔥 현재 날짜 필터의 표시명 계산
+  const getDateFilterDisplayText = () => {
+    if (dateFilterType === 'all') return null;
+    if (dateFilterType === 'daily' && dailyStartDate && dailyEndDate) {
+      if (dailyStartDate === dailyEndDate) {
+        return `📅 ${dailyStartDate}`;
+      }
+      return `📅 ${dailyStartDate} ~ ${dailyEndDate}`;
+    }
+    if (dateFilterType === 'monthly') {
+      return `📅 ${selectedYear}년 ${selectedMonth}월`;
+    }
+    return null;
+  };
 
   const { inboundCount, outboundCount, totalCount, visitConfirmedCount, postVisitNeededCount } = filterStats;
 
@@ -362,7 +456,7 @@ export default function PatientManagement() {
         )}
       </div>
 
-      {/* 탭 메뉴 */}
+      {/* 탭 메뉴 (기존 코드 유지) */}
       <div className="card p-0 mb-6">
         <div className="flex items-center overflow-x-auto">
           <button
@@ -407,72 +501,161 @@ export default function PatientManagement() {
         </div>
       </div>
 
-      {/* 🚀 최적화된 필터 영역 */}
+      {/* 🔥 최적화된 필터 영역 (날짜 필터 추가) */}
       {activeTab === '환자 목록' && (
         <div className="card mb-6">
-          <div className="flex flex-col md:flex-row items-start md:items-center gap-4">
-            <div className="relative flex-1">
-              <input
-                type="text"
-                placeholder="환자명, 연락처 또는 메모 검색"
-                className="pl-10 pr-4 py-2 w-full bg-light-bg rounded-full text-sm focus:outline-none"
-                value={searchTerm}
-                onChange={handleSearchChange}
-              />
-              <Icon 
-                icon={HiOutlineSearch} 
-                size={18} 
-                className="absolute left-3 top-1/2 transform -translate-y-1/2 text-text-muted" 
-              />
+          <div className="flex flex-col gap-4">
+            {/* 첫 번째 줄: 검색, 상담타입, 내원상태, 환자상태, 관심분야 */}
+            <div className="flex flex-col md:flex-row items-start md:items-center gap-4">
+              <div className="relative flex-1">
+                <input
+                  type="text"
+                  placeholder="환자명, 연락처 또는 메모 검색"
+                  className="pl-10 pr-4 py-2 w-full bg-light-bg rounded-full text-sm focus:outline-none"
+                  value={searchTerm}
+                  onChange={handleSearchChange}
+                />
+                <Icon 
+                  icon={HiOutlineSearch} 
+                  size={18} 
+                  className="absolute left-3 top-1/2 transform -translate-y-1/2 text-text-muted" 
+                />
+              </div>
+
+              <select
+                className="px-4 py-2 bg-light-bg rounded-full text-sm focus:outline-none text-text-secondary md:w-40"
+                value={consultationTypeFilter}
+                onChange={handleConsultationTypeFilterChange}
+              >
+                <option value="all">상담 타입 ▼</option>
+                <option value="inbound">🟢 인바운드</option>
+                <option value="outbound">🔵 아웃바운드</option>
+              </select>
+
+              <select
+                className="px-4 py-2 bg-light-bg rounded-full text-sm focus:outline-none text-text-secondary md:w-44"
+                value={visitStatusFilter}
+                onChange={handleVisitStatusFilterChange}
+              >
+                <option value="all">내원 상태 ▼</option>
+                <option value="visit_confirmed">📋 내원확정</option>
+                <option value="post_visit_needed">🔄 추가콜백필요</option>
+              </select>
+
+              <select
+                className="px-4 py-2 bg-light-bg rounded-full text-sm focus:outline-none text-text-secondary md:w-36"
+                value={statusFilter}
+                onChange={handleStatusFilterChange}
+              >
+                <option value="all">환자 상태 ▼</option>
+                <option value="잠재고객">잠재고객</option>
+                <option value="콜백필요">콜백필요</option>
+                <option value="부재중">부재중</option>
+                <option value="활성고객">활성고객</option>
+                <option value="VIP">VIP</option>
+                <option value="예약확정">예약 확정</option>
+                <option value="종결">종결</option>
+              </select>
+
+              <select
+                className="px-4 py-2 bg-light-bg rounded-full text-sm focus:outline-none text-text-secondary md:w-36"
+                value={interestFilter}
+                onChange={handleInterestFilterChange}
+              >
+                <option value="all">관심 분야 ▼</option>
+                <option value="임플란트">임플란트</option>
+                <option value="교정">교정</option>
+                <option value="미백">미백</option>
+                <option value="신경치료">신경치료</option>
+                <option value="충치치료">충치치료</option>
+              </select>
             </div>
 
-            <select
-              className="px-4 py-2 bg-light-bg rounded-full text-sm focus:outline-none text-text-secondary md:w-40"
-              value={consultationTypeFilter}
-              onChange={handleConsultationTypeFilterChange}
-            >
-              <option value="all">상담 타입 ▼</option>
-              <option value="inbound">🟢 인바운드</option>
-              <option value="outbound">🔵 아웃바운드</option>
-            </select>
+          {/* 🔥 두 번째 줄: 간소화된 날짜 필터 */}
+          <div className="flex flex-col md:flex-row items-start md:items-center gap-4">
+            <div className="flex items-center gap-2">
+              <Icon icon={HiOutlineCalendar} size={18} className="text-text-muted" />
+              <span className="text-sm text-text-secondary">콜 유입날짜:</span>
+            </div>
 
-            <select
-              className="px-4 py-2 bg-light-bg rounded-full text-sm focus:outline-none text-text-secondary md:w-44"
-              value={visitStatusFilter}
-              onChange={handleVisitStatusFilterChange}
-            >
-              <option value="all">내원 상태 ▼</option>
-              <option value="visit_confirmed">📋 내원확정</option>
-              <option value="post_visit_needed">🔄 추가콜백필요</option>
-            </select>
+            {/* 날짜 필터 타입 선택 버튼들 */}
+            <div className="flex items-center gap-2">
+              <button
+                onClick={() => handleDateFilterTypeChange('all')}
+                className={`px-4 py-2 rounded-full text-sm font-medium transition-colors ${
+                  dateFilterType === 'all'
+                    ? 'bg-blue-500 text-white'
+                    : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
+                }`}
+              >
+                전체
+              </button>
+              <button
+                onClick={() => handleDateFilterTypeChange('daily')}
+                className={`px-4 py-2 rounded-full text-sm font-medium transition-colors ${
+                  dateFilterType === 'daily'
+                    ? 'bg-blue-500 text-white'
+                    : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
+                }`}
+              >
+                일별 선택
+              </button>
+              <button
+                onClick={() => handleDateFilterTypeChange('monthly')}
+                className={`px-4 py-2 rounded-full text-sm font-medium transition-colors ${
+                  dateFilterType === 'monthly'
+                    ? 'bg-blue-500 text-white'
+                    : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
+                }`}
+              >
+                월별 선택
+              </button>
+            </div>
 
-            <select
-              className="px-4 py-2 bg-light-bg rounded-full text-sm focus:outline-none text-text-secondary md:w-36"
-              value={statusFilter}
-              onChange={handleStatusFilterChange}
-            >
-              <option value="all">환자 상태 ▼</option>
-              <option value="잠재고객">잠재고객</option>
-              <option value="콜백필요">콜백필요</option>
-              <option value="부재중">부재중</option>
-              <option value="활성고객">활성고객</option>
-              <option value="VIP">VIP</option>
-              <option value="예약확정">예약 확정</option>
-              <option value="종결">종결</option>
-            </select>
+            {/* 🔥 일별 선택시 날짜 입력 필드 */}
+            {dateFilterType === 'daily' && (
+              <>
+                <input
+                  type="date"
+                  value={dailyStartDate}
+                  onChange={(e) => setDailyStartDate(e.target.value)}
+                  className="px-4 py-2 bg-light-bg rounded-full text-sm focus:outline-none text-text-secondary"
+                />
+                <span className="text-text-muted">~</span>
+                <input
+                  type="date"
+                  value={dailyEndDate}
+                  onChange={(e) => setDailyEndDate(e.target.value)}
+                  className="px-4 py-2 bg-light-bg rounded-full text-sm focus:outline-none text-text-secondary"
+                />
+              </>
+            )}
 
-            <select
-              className="px-4 py-2 bg-light-bg rounded-full text-sm focus:outline-none text-text-secondary md:w-36"
-              value={interestFilter}
-              onChange={handleInterestFilterChange}
-            >
-              <option value="all">관심 분야 ▼</option>
-              <option value="임플란트">임플란트</option>
-              <option value="교정">교정</option>
-              <option value="미백">미백</option>
-              <option value="신경치료">신경치료</option>
-              <option value="충치치료">충치치료</option>
-            </select>
+            {/* 🔥 월별 선택시 연/월 선택 필드 */}
+            {dateFilterType === 'monthly' && (
+              <>
+                <select
+                  value={selectedYear}
+                  onChange={(e) => setSelectedYear(parseInt(e.target.value))}
+                  className="px-4 py-2 bg-light-bg rounded-full text-sm focus:outline-none text-text-secondary"
+                >
+                  {availableYears.map(year => (
+                    <option key={year} value={year}>{year}년</option>
+                  ))}
+                </select>
+                <select
+                  value={selectedMonth}
+                  onChange={(e) => setSelectedMonth(parseInt(e.target.value))}
+                  className="px-4 py-2 bg-light-bg rounded-full text-sm focus:outline-none text-text-secondary"
+                >
+                  {months.map(month => (
+                    <option key={month.value} value={month.value}>{month.label}</option>
+                  ))}
+                </select>
+              </>
+            )}
+
+            <div className="flex-1"></div>
 
             <button
               className="px-6 py-2 bg-primary rounded-full text-sm font-medium text-white hover:bg-primary/90 transition-colors flex items-center gap-2"
@@ -482,33 +665,45 @@ export default function PatientManagement() {
               <span>+ 신규 환자</span>
             </button>
           </div>
+          </div>
 
-          {/* 🚀 필터 결과 요약 표시 */}
-          {(consultationTypeFilter !== 'all' || statusFilter !== 'all' || interestFilter !== 'all' || visitStatusFilter !== 'all' || searchTerm) && (
+          {/* 🔥 필터 결과 요약 표시 */}
+          {(consultationTypeFilter !== 'all' || statusFilter !== 'all' || interestFilter !== 'all' || visitStatusFilter !== 'all' || dateFilterType !== 'all' || searchTerm) && (
             <div className="mt-4 p-3 bg-blue-50 rounded-lg">
               <div className="flex items-center justify-between">
-                <div className="flex items-center space-x-2 text-sm text-blue-800">
+                <div className="flex items-center space-x-2 text-sm text-blue-800 flex-wrap">
                   <span>🔍 필터링 결과: <strong>{totalCount}명</strong></span>
+                  
+                  {getDateFilterDisplayText() && (
+                    <span className="inline-flex items-center px-2 py-1 rounded-full text-xs bg-blue-200 text-blue-800">
+                      {getDateFilterDisplayText()}
+                    </span>
+                  )}
+                  
                   {consultationTypeFilter !== 'all' && (
                     <span className="inline-flex items-center px-2 py-1 rounded-full text-xs bg-blue-200 text-blue-800">
                       {consultationTypeFilter === 'inbound' ? '🟢 인바운드' : '🔵 아웃바운드'}
                     </span>
                   )}
+                  
                   {visitStatusFilter !== 'all' && (
                     <span className="inline-flex items-center px-2 py-1 rounded-full text-xs bg-blue-200 text-blue-800">
                       {visitStatusFilter === 'visit_confirmed' ? '📋 내원확정' : '🔄 추가콜백필요'}
                     </span>
                   )}
+                  
                   {statusFilter !== 'all' && (
                     <span className="inline-flex items-center px-2 py-1 rounded-full text-xs bg-blue-200 text-blue-800">
                       {statusFilter}
                     </span>
                   )}
+                  
                   {interestFilter !== 'all' && (
                     <span className="inline-flex items-center px-2 py-1 rounded-full text-xs bg-blue-200 text-blue-800">
                       {interestFilter}
                     </span>
                   )}
+                  
                   {searchTerm && (
                     <span className="inline-flex items-center px-2 py-1 rounded-full text-xs bg-blue-200 text-blue-800">
                       "{searchTerm}"
@@ -527,11 +722,12 @@ export default function PatientManagement() {
         </div>
       )}
 
-      {/* 🚀 최적화된 콘텐츠 영역 */}
+      {/* 콘텐츠 영역 (기존 코드 유지) */}
       <div>
         {activeTab === '환자 목록' && (
           <PatientList 
-            isLoading={queryLoading && (!queryPatients || queryPatients.length === 0)} 
+            isLoading={queryLoading && (!queryPatients || queryPatients.length === 0)}
+            filteredPatients={filteredPatients}
           />
         )}
         {activeTab === '이벤트 타겟' && <EventTargetList />}
