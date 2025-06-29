@@ -21,7 +21,7 @@ export type PostVisitStatus =
   | '치료시작'      // 치료 시작
   | '보류'          // 환자 요청으로 보류
   | '종결'          // 환자 요청으로 보류
-  | '';
+  | '';            // 🔥 빈 문자열 추가 (상태 미설정)
 
 // 🔥 환자 반응 타입 추가 (견적 동의 대신)
 export type PatientReaction = 

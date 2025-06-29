@@ -1,4 +1,4 @@
-// src/hooks/useGoalsCalculation.ts - 기존 기능 모두 유지하면서 최적화된 버전
+// src/hooks/useGoalsCalculation.ts - 에러 수정된 버전
 import { useEffect, useMemo } from 'react';
 import { useSelector, useDispatch } from 'react-redux';
 import { RootState } from '@/store';
@@ -48,9 +48,10 @@ interface PerformanceData {
   };
 }
 
-// 🎯 환자 상태 카운트 타입 - 🔥 수정: newPatients 제거, overdueCallbacks 추가
+// 🎯 환자 상태 카운트 타입 - 🔥 callbackUnregistered 추가
 interface PatientStatusCounts {
-  overdueCallbacks: number;  // 🔥 새로 추가: 미처리 콜백
+  callbackUnregistered: number;  // 🔥 새로 추가: 콜백 미등록 (잠재고객 + 콜백 없음)
+  overdueCallbacks: number;      // 미처리 콜백
   callbackNeeded: number;
   absentCount: number;
   todayScheduled: number;
@@ -153,17 +154,19 @@ export const useGoalsCalculation = (): UseGoalsCalculationResult => {
         });
       }
 
+      // 🔥 수정: 빈 데이터일 때 callbackUnregistered도 포함
       if (patients.length === 0) {
         return {
           performance: {
-            totalInquiries: { count: 0, trend: 0, inboundChange: 0, outboundChange: 0, inboundCount: 0, outboundCount: 0 },  // 🔥 변경
+            totalInquiries: { count: 0, trend: 0, inboundChange: 0, outboundChange: 0, inboundCount: 0, outboundCount: 0 },
             appointmentRate: { value: 0, trend: 0, count: 0 },
             visitRate: { value: 0, trend: 0, count: 0 },
             paymentRate: { value: 0, trend: 0, count: 0 },
-            totalTreatmentAmount: { amount: 0, count: 0, trend: 0 } // 🔥 새로 추가
+            totalTreatmentAmount: { amount: 0, count: 0, trend: 0 }
           },
           statusCounts: {
-            overdueCallbacks: 0,  // 🔥 새로 추가
+            callbackUnregistered: 0,  // 🔥 수정: 누락된 필드 추가
+            overdueCallbacks: 0,
             callbackNeeded: 0,
             absentCount: 0,
             todayScheduled: 0
@@ -387,8 +390,15 @@ export const useGoalsCalculation = (): UseGoalsCalculationResult => {
       // 🔥 4.5 치료금액 원 단위 증감 계산 (% 증감률 대신 원 단위 차이로 변경)
       const treatmentAmountTrendAmount = currentMonthTreatmentAmount - prevMonthTreatmentAmount;
 
-      // 🔥 5. 환자 상태별 카운트 계산 - overdueCallbacks 추가
-      // 5.1 미처리 콜백 계산 (새로 추가)
+      // 🔥 5. 환자 상태별 카운트 계산 - callbackUnregistered 추가
+      // 5.1 콜백 미등록 계산 (새로 추가)
+      const callbackUnregistered = patients.filter(patient => {
+        // 잠재고객 상태이면서 콜백이 등록되지 않은 환자
+        return patient.status === '잠재고객' && 
+               (!patient.callbackHistory || patient.callbackHistory.length === 0);
+      }).length;
+
+      // 5.2 미처리 콜백 계산
       const today = new Date();
       const todayStart = new Date(today.getFullYear(), today.getMonth(), today.getDate());
       const overdueCallbacks = patients.filter(patient => {
@@ -407,45 +417,46 @@ export const useGoalsCalculation = (): UseGoalsCalculationResult => {
         });
       }).length;
 
-      // 5.2 기존 상태별 카운트
+      // 5.3 기존 상태별 카운트
       const callbackNeeded = patients.filter(p => p.status === '콜백필요').length;
       const absentCount = patients.filter(p => p.status === '부재중').length;
       
-      // 5.3 오늘 예정된 콜백 수
+      // 5.4 오늘 예정된 콜백 수 - 🔥 수정: todayStr 변수명 충돌 해결
+      const todayDateStr = today.toISOString().split('T')[0]; // 🔥 변수명 변경
       const todayCallbacks = patients.filter(p => {
         if (p.callbackHistory && p.callbackHistory.length > 0) {
           return p.callbackHistory.some(callback => 
-            callback.status === '예정' && callback.date === todayStr
+            callback.status === '예정' && callback.date === todayDateStr // 🔥 변수명 변경
           );
         }
-        return p.nextCallbackDate === todayStr;
+        return p.nextCallbackDate === todayDateStr; // 🔥 변수명 변경
       }).length;
 
-      // 6. 오늘 예정된 콜 데이터 (기존 로직 유지)
+      // 6. 오늘 예정된 콜 데이터 (기존 로직 유지) - 🔥 수정: todayStr 변수명 충돌 해결
       const todaysCallsData = patients
         .filter(p => {
           if (p.callbackHistory && p.callbackHistory.length > 0) {
             return p.callbackHistory.some(callback => 
-              callback.status === '예정' && callback.date === todayStr
+              callback.status === '예정' && callback.date === todayDateStr // 🔥 변수명 변경
             );
           }
-          return p.nextCallbackDate === todayStr;
+          return p.nextCallbackDate === todayDateStr; // 🔥 변수명 변경
         })
         .slice(0, 5)
         .map((patient, index) => {
-          let scheduledTime = `${todayStr}T09:00:00`;
+          let scheduledTime = `${todayDateStr}T09:00:00`; // 🔥 변수명 변경
           
           if (patient.callbackHistory) {
             const todayCallback = patient.callbackHistory.find(cb => 
-              cb.status === '예정' && cb.date === todayStr
+              cb.status === '예정' && cb.date === todayDateStr // 🔥 변수명 변경
             );
             
             if (todayCallback && todayCallback.time) {
-              scheduledTime = `${todayStr}T${todayCallback.time}:00`;
+              scheduledTime = `${todayDateStr}T${todayCallback.time}:00`; // 🔥 변수명 변경
             } else {
               const hours = 9 + Math.floor(index / 2);
               const minutes = (index % 2) * 30;
-              scheduledTime = `${todayStr}T${hours}:${minutes === 0 ? '00' : minutes}:00`;
+              scheduledTime = `${todayDateStr}T${hours}:${minutes === 0 ? '00' : minutes}:00`; // 🔥 변수명 변경
             }
           }
           
@@ -475,6 +486,7 @@ export const useGoalsCalculation = (): UseGoalsCalculationResult => {
         console.log('   💰 치료시작(분자):', currentMonthTreatmentStarted, '→ 전환율:', Math.round(paymentRate * 10) / 10, '% (전월 대비', paymentRateTrendPp.toFixed(1), '%p)');
         console.log('   💵 이번달 치료금액 합계:', currentMonthTreatmentAmount.toLocaleString(), '원 (전월 대비', treatmentAmountTrendAmount.toLocaleString(), '원)');
         console.log('🚨 환자 상태 카운트:');
+        console.log('   - 콜백 미등록:', callbackUnregistered, '명');  // 🔥 새로 추가
         console.log('   - 미처리 콜백:', overdueCallbacks, '건');
         console.log('   - 콜백 필요:', callbackNeeded, '명');
         console.log('   - 부재중:', absentCount, '명');
@@ -515,7 +527,8 @@ export const useGoalsCalculation = (): UseGoalsCalculationResult => {
           }
         },
         statusCounts: {
-          overdueCallbacks,      // 🔥 새로 추가: 미처리 콜백
+          callbackUnregistered,      // 🔥 새로 추가: 콜백 미등록
+          overdueCallbacks,          // 미처리 콜백
           callbackNeeded,
           absentCount,
           todayScheduled: todayCallbacks

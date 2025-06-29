@@ -1,4 +1,5 @@
-// src/app/api/patients/status-filter/route.ts
+// src/app/api/patients/status-filter/route.ts - "콜백 미등록" 케이스 추가
+
 import { NextRequest, NextResponse } from 'next/server';
 import { connectToDatabase } from '@/utils/mongodb';
 import { ObjectId } from 'mongodb';
@@ -29,9 +30,30 @@ export async function GET(request: NextRequest) {
     let patients = [];
     
     switch (filterType) {
+      // 🔥 새로 추가: 콜백 미등록 환자들
+      case 'callbackUnregistered': {
+        // 상태가 "잠재고객"이면서 콜백이 등록되지 않은 환자들
+        const allPatients = await db.collection('patients')
+          .find({
+            status: '잠재고객', // 잠재고객 상태만
+            $or: [
+              { isCompleted: { $ne: true } },
+              { isCompleted: { $exists: false } }
+            ]
+          })
+          .toArray();
+        
+        patients = allPatients.filter((patient: any) => {
+          // callbackHistory가 없거나 빈 배열인 환자들
+          return !patient.callbackHistory || patient.callbackHistory.length === 0;
+        });
+        
+        console.log(`[API] 콜백 미등록 환자 ${patients.length}명 조회 완료`);
+        break;
+      }
+
       case 'overdueCallbacks': {
-        // 🔥 새로 추가: 미처리 콜백 환자들
-        // 1. 모든 환자를 가져와서 callbackHistory 확인
+        // 🔥 기존: 미처리 콜백 환자들
         const allPatients = await db.collection('patients')
           .find({
             $or: [

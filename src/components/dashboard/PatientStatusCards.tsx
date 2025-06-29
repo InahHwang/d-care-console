@@ -1,10 +1,11 @@
-// src/components/dashboard/PatientStatusCards.tsx
+// src/components/dashboard/PatientStatusCards.tsx - 순서 변경: 미처리 콜백 → 콜백 미등록
 import React, { useState } from 'react';
 import PatientListModal from '../management/PatientListModal';
 
-// 환자 상태별 카운트 타입 정의 - 🔥 수정: newPatients 제거, overdueCallbacks 추가
+// 환자 상태별 카운트 타입 정의
 interface PatientStatusCounts {
-  overdueCallbacks: number;  // 🔥 새로 추가: 미처리 콜백
+  callbackUnregistered: number;  // 콜백 미등록
+  overdueCallbacks: number;      // 미처리 콜백
   callbackNeeded: number;
   absentCount: number;
   todayScheduled: number;
@@ -14,8 +15,8 @@ interface PatientStatusCardsProps {
   statusCounts: PatientStatusCounts;
 }
 
-// 필터 타입 정의 - 🔥 수정: newPatients 제거, overdueCallbacks 추가
-export type PatientFilterType = 'overdueCallbacks' | 'callbackNeeded' | 'absent' | 'todayScheduled';
+// 필터 타입 정의
+export type PatientFilterType = 'callbackUnregistered' | 'overdueCallbacks' | 'callbackNeeded' | 'absent' | 'todayScheduled';
 
 const PatientStatusCards: React.FC<PatientStatusCardsProps> = ({ statusCounts }) => {
   const [isModalOpen, setIsModalOpen] = useState(false);
@@ -35,6 +36,8 @@ const PatientStatusCards: React.FC<PatientStatusCardsProps> = ({ statusCounts })
     switch (filterType) {
       case 'overdueCallbacks':
         return '🚨 미처리 콜백 - 즉시 대응 필요';
+      case 'callbackUnregistered':
+        return '📋 콜백 미등록 - 잠재고객 상담 등록 필요';
       case 'callbackNeeded':
         return '콜백이 필요한 환자';
       case 'absent':
@@ -48,8 +51,8 @@ const PatientStatusCards: React.FC<PatientStatusCardsProps> = ({ statusCounts })
 
   return (
     <>
-      <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-        {/* 🔥 새로 추가: 미처리 콜백 (첫 번째 자리) */}
+      <div className="grid grid-cols-2 md:grid-cols-5 gap-4">
+        {/* 🔥 첫 번째: 미처리 콜백 (가장 우선순위) */}
         <div 
           className="card p-4 cursor-pointer hover:shadow-lg transition-shadow duration-200 hover:bg-red-50 border-l-4 border-red-500"
           onClick={() => handleCardClick('overdueCallbacks')}
@@ -72,7 +75,30 @@ const PatientStatusCards: React.FC<PatientStatusCardsProps> = ({ statusCounts })
           </div>
         </div>
 
-        {/* 콜백 필요 환자 수 */}
+        {/* 🔥 두 번째: 콜백 미등록 */}
+        <div 
+          className="card p-4 cursor-pointer hover:shadow-lg transition-shadow duration-200 hover:bg-orange-50 border-l-4 border-orange-500"
+          onClick={() => handleCardClick('callbackUnregistered')}
+        >
+          <div className="flex items-center mb-2">
+            <div className="w-8 h-8 bg-orange-100 rounded-full flex items-center justify-center mr-3">
+              <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4 text-orange-600" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5H7a2 2 0 00-2 2v10a2 2 0 002 2h8a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2m-6 9l2 2 4-4" />
+              </svg>
+            </div>
+            <div>
+              <p className="text-sm font-medium text-orange-700">📋 콜백 미등록</p>
+              <p className="text-xl font-bold text-orange-600 hover:text-orange-700 transition-colors">
+                {statusCounts.callbackUnregistered}명
+              </p>
+            </div>
+          </div>
+          <div className="mt-1 text-xs text-orange-600">
+            잠재고객 상태, 콜백 등록 필요
+          </div>
+        </div>
+
+        {/* 세 번째: 콜백 필요 환자 수 */}
         <div 
           className="card p-4 cursor-pointer hover:shadow-lg transition-shadow duration-200 hover:bg-gray-50"
           onClick={() => handleCardClick('callbackNeeded')}
@@ -95,7 +121,7 @@ const PatientStatusCards: React.FC<PatientStatusCardsProps> = ({ statusCounts })
           </div>
         </div>
 
-        {/* 부재중 환자 수 */}
+        {/* 네 번째: 부재중 환자 수 */}
         <div 
           className="card p-4 cursor-pointer hover:shadow-lg transition-shadow duration-200 hover:bg-gray-50"
           onClick={() => handleCardClick('absent')}
@@ -118,7 +144,7 @@ const PatientStatusCards: React.FC<PatientStatusCardsProps> = ({ statusCounts })
           </div>
         </div>
 
-        {/* 오늘 예정된 콜백 */}
+        {/* 다섯 번째: 오늘 예정된 콜백 */}
         <div 
           className="card p-4 cursor-pointer hover:shadow-lg transition-shadow duration-200 hover:bg-gray-50"
           onClick={() => handleCardClick('todayScheduled')}

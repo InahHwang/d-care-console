@@ -1,4 +1,4 @@
-// src/components/management/VisitManagement.tsx - 필터 기능 추가 (완전판)
+// src/components/management/VisitManagement.tsx - 수정된 버전
 
 'use client'
 
@@ -12,7 +12,7 @@ import { FiPhone, FiPhoneCall } from 'react-icons/fi'
 import { Icon } from '../common/Icon'
 import PatientDetailModal from './PatientDetailModal'
 
-// 🔥 날짜 필터 타입 추가
+// 날짜 필터 타입 추가
 type SimpleDateFilterType = 'all' | 'daily' | 'monthly';
 
 interface PostVisitStatusModalProps {
@@ -23,19 +23,19 @@ interface PostVisitStatusModalProps {
   isLoading: boolean;
 }
 
-// 🔥 완전히 개편된 내원 후 상태 업데이트 모달 - 상담 정보 표시 추가
+// 내원 후 상태 업데이트 모달 컴포넌트 (기존 코드와 동일)
 const PostVisitStatusModal = ({ isOpen, onClose, onConfirm, patient, isLoading }: PostVisitStatusModalProps) => {
   const [selectedStatus, setSelectedStatus] = useState<PostVisitStatus>('');
   const [consultationContent, setConsultationContent] = useState('');
   
-  // 🔥 치료 내용 상태 추가
+  // 치료 내용 상태 추가
   const [treatmentContent, setTreatmentContent] = useState<string>('');
   
   // 견적 정보
   const [regularPrice, setRegularPrice] = useState(0);
   const [discountPrice, setDiscountPrice] = useState(0);
   const [discountEvent, setDiscountEvent] = useState('');
-  const [patientReaction, setPatientReaction] = useState<PatientReaction>(''); // 🔥 견적동의 → 환자반응으로 변경
+  const [patientReaction, setPatientReaction] = useState<PatientReaction>('');
   
   // 재콜백 필요 시 필드들 (보류 상태에서도 사용)
   const [nextCallbackDate, setNextCallbackDate] = useState('');
@@ -47,10 +47,10 @@ const PostVisitStatusModal = ({ isOpen, onClose, onConfirm, patient, isLoading }
   const [installmentPlan, setInstallmentPlan] = useState('');
   const [nextVisitDate, setNextVisitDate] = useState('');
 
-  // 🔥 종결 사유 상태 추가
+  // 종결 사유 상태 추가
   const [completionReason, setCompletionReason] = useState('');
 
-  // 🔥 상담 정보 표시용 함수들 추가
+  // 상담 정보 표시용 함수들 추가
   const getConsultationDisplayInfo = () => {
     if (!patient?.consultation) {
       return null;
@@ -61,17 +61,17 @@ const PostVisitStatusModal = ({ isOpen, onClose, onConfirm, patient, isLoading }
       hasConsultation: true,
       estimatedAmount: consultation.estimatedAmount || 0,
       consultationDate: consultation.consultationDate || '미입력',
-      treatmentPlan: consultation.treatmentPlan || '미입력', // 불편한 부분
-      consultationNotes: consultation.consultationNotes || '미입력', // 상담 메모
+      treatmentPlan: consultation.treatmentPlan || '미입력',
+      consultationNotes: consultation.consultationNotes || '미입력',
       estimateAgreed: consultation.estimateAgreed,
       estimateAgreedText: consultation.estimateAgreed ? '동의' : '거부'
     };
   };
 
-  // 🔥 모달이 열릴 때마다 모든 필드 초기화 (견적 정보 포함)
+  // 모달이 열릴 때마다 모든 필드 초기화
   useEffect(() => {
     if (isOpen) {
-      // 🔥 모든 필드를 기본값으로 초기화
+      // 모든 필드를 기본값으로 초기화
       setSelectedStatus('');
       setConsultationContent('');
       setTreatmentContent('');
@@ -85,7 +85,7 @@ const PostVisitStatusModal = ({ isOpen, onClose, onConfirm, patient, isLoading }
       setNextVisitDate('');
       setCompletionReason('');
 
-      // 🔥 견적 정보 로드 로직 개선
+      // 견적 정보 로드 로직
       let estimateLoaded = false;
       
       // 1순위: 기존 내원 후 상담 정보의 견적 데이터
@@ -96,19 +96,14 @@ const PostVisitStatusModal = ({ isOpen, onClose, onConfirm, patient, isLoading }
         setDiscountEvent(estimate.discountEvent || '');
         setPatientReaction(estimate.patientReaction || '');
         estimateLoaded = true;
-        console.log('🔥 기존 내원 후 견적 정보 로드:', estimate);
       }
       // 2순위: 상담관리의 견적금액이 있고 아직 내원 후 견적이 없는 경우 자동 연동
       else if (patient?.consultation?.estimatedAmount && patient.consultation.estimatedAmount > 0) {
         setRegularPrice(0);
-        setDiscountPrice(patient.consultation.estimatedAmount);  // 🔥 상담관리 견적금액을 할인가로 설정
+        setDiscountPrice(patient.consultation.estimatedAmount);
         setDiscountEvent('');
         setPatientReaction('');
         estimateLoaded = true;
-        console.log('🔥 상담관리 견적금액 자동 연동:', {
-          consultationAmount: patient.consultation.estimatedAmount,
-          autoSetDiscountPrice: patient.consultation.estimatedAmount
-        });
       }
       // 3순위: 아무 견적 정보가 없는 경우 기본값
       else {
@@ -116,10 +111,9 @@ const PostVisitStatusModal = ({ isOpen, onClose, onConfirm, patient, isLoading }
         setDiscountPrice(0);
         setDiscountEvent('');
         setPatientReaction('');
-        console.log('🔥 견적 정보 없음 - 기본값으로 초기화');
       }
       
-      // 🔥 환자 기존 데이터가 있는 경우에만 로드 (견적 정보 제외)
+      // 환자 기존 데이터가 있는 경우에만 로드 (견적 정보 제외)
       if (patient?.postVisitConsultation) {
         setConsultationContent(patient.postVisitConsultation.consultationContent || '');
         setTreatmentContent((patient.postVisitConsultation as any)?.treatmentContent || '');
@@ -144,7 +138,7 @@ const PostVisitStatusModal = ({ isOpen, onClose, onConfirm, patient, isLoading }
         setSelectedStatus(patient.postVisitStatus);
       }
     }
-  }, [isOpen, patient]); // patient 의존성 유지
+  }, [isOpen, patient]);
 
   const handleConfirm = () => {
     if (!selectedStatus) {
@@ -152,7 +146,7 @@ const PostVisitStatusModal = ({ isOpen, onClose, onConfirm, patient, isLoading }
       return;
     }
 
-    // 🔥 종결 상태일 때 종결 사유 필수 체크
+    // 종결 상태일 때 종결 사유 필수 체크
     if (selectedStatus === '종결' && !completionReason.trim()) {
       alert('종결 사유를 입력해주세요.');
       return;
@@ -162,18 +156,18 @@ const PostVisitStatusModal = ({ isOpen, onClose, onConfirm, patient, isLoading }
       regularPrice,
       discountPrice,
       discountEvent,
-      patientReaction // 🔥 견적동의 → 환자반응으로 변경
+      patientReaction
     };
 
     const statusData: PostVisitConsultationInfo & { selectedStatus?: PostVisitStatus; treatmentContent?: string } = {
       consultationContent,
       estimateInfo,
-      selectedStatus, // 🔥 선택된 상태 추가
-      treatmentContent // 🔥 치료 내용 추가
+      selectedStatus,
+      treatmentContent
     };
 
     // 상태별 추가 필드
-    if (selectedStatus === '재콜백필요' || selectedStatus === '보류') { // 🔥 보류도 재콜백 정보 사용
+    if (selectedStatus === '재콜백필요' || selectedStatus === '보류') {
       statusData.nextCallbackDate = nextCallbackDate;
       statusData.nextConsultationPlan = nextConsultationPlan;
     } else if (selectedStatus === '치료시작') {
@@ -183,7 +177,7 @@ const PostVisitStatusModal = ({ isOpen, onClose, onConfirm, patient, isLoading }
         installmentPlan: paymentType === 'installment' ? installmentPlan : undefined
       };
       statusData.nextVisitDate = nextVisitDate;
-    } else if (selectedStatus === '종결') { // 🔥 종결 상태 처리 추가
+    } else if (selectedStatus === '종결') {
       statusData.completionNotes = completionReason;
     }
 
@@ -196,10 +190,10 @@ const PostVisitStatusModal = ({ isOpen, onClose, onConfirm, patient, isLoading }
     { value: '재콜백필요', label: '재콜백 필요', color: 'bg-yellow-100 text-yellow-800' },
     { value: '치료시작', label: '치료 시작', color: 'bg-green-100 text-green-800' },
     { value: '보류', label: '보류', color: 'bg-gray-100 text-gray-800' },
-    { value: '종결', label: '종결', color: 'bg-red-100 text-red-800' }, // 🔥 종결 옵션 추가
+    { value: '종결', label: '종결', color: 'bg-red-100 text-red-800' },
   ];
 
-  // 🔥 환자 반응 옵션 정의
+  // 환자 반응 옵션 정의
   const patientReactionOptions = [
     { value: '동의해요(적당)', label: '동의해요(적당)', color: 'bg-green-100 text-green-800' },
     { value: '비싸요', label: '비싸요', color: 'bg-red-100 text-red-800' },
@@ -207,7 +201,7 @@ const PostVisitStatusModal = ({ isOpen, onClose, onConfirm, patient, isLoading }
     { value: '알 수 없음', label: '알 수 없음', color: 'bg-gray-100 text-gray-800' },
   ];
 
-  // 🔥 상담 정보 가져오기
+  // 상담 정보 가져오기
   const consultationInfo = getConsultationDisplayInfo();
 
   return (
@@ -224,7 +218,7 @@ const PostVisitStatusModal = ({ isOpen, onClose, onConfirm, patient, isLoading }
           </div>
         )}
 
-        {/* 🔥 기존 상담 정보 표시 섹션 추가 */}
+        {/* 기존 상담 정보 표시 섹션 */}
         {consultationInfo && (
           <div className="mb-6 border border-blue-200 rounded-lg p-4 bg-blue-50">
             <h4 className="text-sm font-medium text-blue-800 mb-3 flex items-center gap-2">
@@ -302,7 +296,7 @@ const PostVisitStatusModal = ({ isOpen, onClose, onConfirm, patient, isLoading }
             </div>
           </div>          
 
-          {/* 🔥 치료 내용 섹션 추가 */}
+          {/* 치료 내용 섹션 */}
           <div>
             <label className="block text-sm font-medium text-gray-700 mb-2">
               치료 내용 <span className="text-red-500">*</span>
@@ -360,7 +354,7 @@ const PostVisitStatusModal = ({ isOpen, onClose, onConfirm, patient, isLoading }
                 />
               </div>
               
-              {/* 🔥 환자 반응 선택 (견적 동의 대신) */}
+              {/* 환자 반응 선택 */}
               <div className="col-span-2">
                 <label className="block text-xs text-gray-600 mb-2">환자 반응 (최종 할인가 기준으로)</label>
                 <div className="grid grid-cols-2 gap-2">
@@ -533,7 +527,7 @@ const PostVisitStatusModal = ({ isOpen, onClose, onConfirm, patient, isLoading }
   );
 };
 
-// 🔥 상담 타입 배지 컴포넌트 추가
+// 상담 타입 배지 컴포넌트
 const ConsultationTypeBadge = ({ type, inboundPhoneNumber }: { type: 'inbound' | 'outbound', inboundPhoneNumber?: string }) => {
   if (type === 'inbound') {
     return (
@@ -552,7 +546,7 @@ const ConsultationTypeBadge = ({ type, inboundPhoneNumber }: { type: 'inbound' |
   );
 };
 
-// 🔥 치료 내용 배지 컴포넌트 추가
+// 치료 내용 배지 컴포넌트
 const TreatmentContentBadge = ({ patient }: { patient: Patient }) => {
   const treatmentContent = (patient.postVisitConsultation as any)?.treatmentContent;
   
@@ -589,7 +583,7 @@ const TreatmentContentBadge = ({ patient }: { patient: Patient }) => {
   );
 };
 
-// 🔥 환자 반응 배지 컴포넌트 수정 (견적동의 → 환자반응)
+// 환자 반응 배지 컴포넌트
 const PatientReactionBadge = ({ patient }: { patient: Patient }) => {
   const estimateInfo = patient.postVisitConsultation?.estimateInfo;
   
@@ -597,7 +591,7 @@ const PatientReactionBadge = ({ patient }: { patient: Patient }) => {
     return <span className="text-xs text-gray-400">미입력</span>;
   }
   
-  // 🔥 환자 반응별 색상 구분
+  // 환자 반응별 색상 구분
   const getReactionColor = (reaction: string) => {
     switch (reaction) {
       case '동의해요(적당)':
@@ -613,15 +607,10 @@ const PatientReactionBadge = ({ patient }: { patient: Patient }) => {
     }
   };
 
-  // 🔥 가격 표시 우선순위 로직
+  // 가격 표시 우선순위 로직
   const getDisplayPrice = () => {
     const regularPrice = estimateInfo.regularPrice || 0;
     const discountPrice = estimateInfo.discountPrice || 0;
-    
-    // 우선순위:
-    // 1. 할인가가 있으면 할인가 표시 (정가 존재 여부 무관)
-    // 2. 할인가가 없고 정가만 있으면 정가 표시
-    // 3. 둘 다 없으면 null 반환
     
     if (discountPrice > 0) {
       return {
@@ -666,7 +655,7 @@ const PatientReactionBadge = ({ patient }: { patient: Patient }) => {
   );
 };
 
-// 🔥 다음 예약/재콜백 배지 컴포넌트 추가
+// 다음 예약/재콜백 배지 컴포넌트
 const NextAppointmentBadge = ({ patient }: { patient: Patient }) => {
   const nextVisitDate = patient.postVisitConsultation?.nextVisitDate;
   const nextCallbackDate = patient.postVisitConsultation?.nextCallbackDate;
@@ -723,7 +712,7 @@ const PostVisitStatusBadge = ({ status }: { status?: string }) => {
     '재콜백필요': 'bg-yellow-100 text-yellow-800',
     '치료시작': 'bg-green-100 text-green-800',
     '보류': 'bg-gray-100 text-gray-800',
-    '종결': 'bg-red-100 text-red-800', // 🔥 종결 상태 색상 추가
+    '종결': 'bg-red-100 text-red-800',
   };
 
   return (
@@ -745,12 +734,12 @@ export default function VisitManagement() {
     isLoading
   } = useSelector((state: RootState) => state.patients)
 
-  // 🔥 필터 상태들 추가
+  // 필터 상태들 추가
   const [searchTerm, setSearchTerm] = useState('')
-  const [selectedFilter, setSelectedFilter] = useState<'all' | 'needs_callback' | 'in_treatment' | 'on_hold' | 'completed'>('all')
+  const [selectedFilter, setSelectedFilter] = useState<'all' | 'needs_callback' | 'in_treatment' | 'on_hold' | 'completed' | 'no_status'>('all')
   const [consultationTypeFilter, setConsultationTypeFilter] = useState<'all' | 'inbound' | 'outbound'>('all')
   
-  // 🔥 날짜 필터 상태들 추가
+  // 날짜 필터 상태들 추가
   const [dateFilterType, setDateFilterType] = useState<SimpleDateFilterType>('all')
   const [dailyStartDate, setDailyStartDate] = useState('')
   const [dailyEndDate, setDailyEndDate] = useState('')
@@ -763,7 +752,7 @@ export default function VisitManagement() {
   const [isUpdating, setIsUpdating] = useState(false)
   const [isResetting, setIsResetting] = useState(false)
 
-  // 🔥 연도 목록 생성
+  // 연도 목록 생성
   const availableYears = useMemo(() => {
     const currentYear = new Date().getFullYear();
     const years = [];
@@ -773,7 +762,7 @@ export default function VisitManagement() {
     return years;
   }, []);
 
-  // 🔥 월 목록
+  // 월 목록
   const months = [
     { value: 1, label: '1월' },
     { value: 2, label: '2월' },
@@ -789,7 +778,7 @@ export default function VisitManagement() {
     { value: 12, label: '12월' }
   ];
 
-  // 🔥 월별 필터 날짜 범위 계산
+  // 월별 필터 날짜 범위 계산
   const getMonthlyDateRange = useCallback(() => {
     const startDate = `${selectedYear}-${String(selectedMonth).padStart(2, '0')}-01`;
     const lastDay = new Date(selectedYear, selectedMonth, 0).getDate();
@@ -802,11 +791,11 @@ export default function VisitManagement() {
     return patients.filter(patient => patient.visitConfirmed === true)
   }, [patients])
 
-  // 🔥 필터링 로직 개선 - 검색어와 날짜 필터 추가
+  // 필터링 로직 개선 - 검색어와 날짜 필터 추가
   const filteredPatients = useMemo(() => {
     let filtered = visitConfirmedPatients;
     
-    // 🔥 날짜 필터링 (콜 유입날짜 기준)
+    // 날짜 필터링 (콜 유입날짜 기준)
     if (dateFilterType !== 'all') {
       filtered = filtered.filter(patient => {
         const callInDate = patient.callInDate;
@@ -828,7 +817,7 @@ export default function VisitManagement() {
       });
     }
 
-    // 🔥 검색어 필터링 (환자명, 연락처, 메모)
+    // 검색어 필터링 (환자명, 연락처, 메모)
     if (searchTerm) {
       const searchLower = searchTerm.toLowerCase();
       filtered = filtered.filter(patient => {
@@ -839,7 +828,7 @@ export default function VisitManagement() {
       });
     }
 
-    // 🔥 상담 타입 필터링
+    // 상담 타입 필터링
     if (consultationTypeFilter !== 'all') {
       filtered = filtered.filter(patient => patient.consultationType === consultationTypeFilter);
     }
@@ -866,6 +855,11 @@ export default function VisitManagement() {
           patient.postVisitStatus === '종결'
         );
         break;
+      case 'no_status':
+        filtered = filtered.filter(patient => 
+          !patient.postVisitStatus
+        );
+        break;
       default:
         break;
     }
@@ -873,29 +867,23 @@ export default function VisitManagement() {
     return filtered;
   }, [visitConfirmedPatients, selectedFilter, searchTerm, consultationTypeFilter, dateFilterType, dailyStartDate, dailyEndDate, getMonthlyDateRange]);
 
-  // 통계 계산 - 필터링된 데이터 기준
+  // 📊 수정된 통계 계산 - 전체 내원확정된 환자 기준으로 실제 인원수 표시
   const stats = useMemo(() => {
-    const total = filteredPatients.length;
-    const needsCallback = filteredPatients.filter(p => 
-      p.postVisitStatus === '재콜백필요'
-    ).length;
-    const inTreatment = filteredPatients.filter(p => 
-      p.postVisitStatus === '치료시작'
-    ).length;
-    const onHold = filteredPatients.filter(p => 
-      p.postVisitStatus === '보류'
-    ).length;
-    const completed = filteredPatients.filter(p => 
-      p.postVisitStatus === '종결'
-    ).length;
-    const noStatus = filteredPatients.filter(p => 
-      !p.postVisitStatus
-    ).length;
+    const allVisitConfirmed = visitConfirmedPatients; // 전체 내원확정된 환자들
+    const filtered = filteredPatients; // 현재 필터링된 환자들
+    
+    return {
+      total: allVisitConfirmed.length, // 🔥 수정: 전체 인원수로 변경
+      filtered: filtered.length, // 🔥 추가: 필터링된 환자 수
+      needsCallback: allVisitConfirmed.filter(p => p.postVisitStatus === '재콜백필요').length,
+      inTreatment: allVisitConfirmed.filter(p => p.postVisitStatus === '치료시작').length,
+      onHold: allVisitConfirmed.filter(p => p.postVisitStatus === '보류').length,
+      completed: allVisitConfirmed.filter(p => p.postVisitStatus === '종결').length,
+      noStatus: allVisitConfirmed.filter(p => !p.postVisitStatus).length
+    };
+  }, [visitConfirmedPatients, filteredPatients]);
 
-    return { total, needsCallback, inTreatment, onHold, completed, noStatus };
-  }, [filteredPatients]);
-
-  // 🔥 필터 핸들러들
+  // 필터 핸들러들
   const handleSearchChange = useCallback((e: React.ChangeEvent<HTMLInputElement>) => {
     setSearchTerm(e.target.value);
   }, []);
@@ -928,7 +916,20 @@ export default function VisitManagement() {
     setSelectedFilter('all');
   }, []);
 
-  // 🔥 현재 날짜 필터의 표시명 계산
+  // 📊 큰 박스 클릭 시 필터링 기능 추가
+  const handleStatsCardClick = useCallback((filterType: 'all' | 'needs_callback' | 'in_treatment' | 'on_hold' | 'completed' | 'no_status') => {
+    // 다른 필터들 초기화
+    setSearchTerm('');
+    setConsultationTypeFilter('all');
+    setDateFilterType('all');
+    setDailyStartDate('');
+    setDailyEndDate('');
+    
+    // 선택된 필터 적용 (상태미설정도 포함)
+    setSelectedFilter(filterType);
+  }, []);
+
+  // 현재 날짜 필터의 표시명 계산
   const getDateFilterDisplayText = () => {
     if (dateFilterType === 'all') return null;
     if (dateFilterType === 'daily' && dailyStartDate && dailyEndDate) {
@@ -954,7 +955,7 @@ export default function VisitManagement() {
     setIsStatusModalOpen(true);
   };
 
-  // 🔥 데이터 초기화 핸들러 수정 - 에러 처리 개선
+  // 데이터 초기화 핸들러 수정 - 에러 처리 개선
   const handleResetPatientData = async (patient: Patient) => {
     if (!window.confirm(`${patient.name} 환자의 내원 후 상태 데이터를 모두 초기화하시겠습니까?\n\n이 작업은 되돌릴 수 없습니다.`)) {
       return;
@@ -965,17 +966,17 @@ export default function VisitManagement() {
     try {
       const patientId = patient._id || patient.id;
       
-      // 🔥 Redux 액션을 통한 초기화
+      // Redux 액션을 통한 초기화
       const result = await dispatch(resetPostVisitData(patientId));
       
-      // 🔥 결과에 관계없이 성공으로 처리 (실제로는 데이터가 초기화됨)
+      // 결과에 관계없이 성공으로 처리 (실제로는 데이터가 초기화됨)
       if (resetPostVisitData.fulfilled.match(result) || resetPostVisitData.rejected.match(result)) {
         console.log('🔥 초기화 결과:', result);
         
-        // 🔥 성공 메시지 표시
+        // 성공 메시지 표시
         alert(`${patient.name} 환자의 내원 후 상태 데이터가 초기화되었습니다.`);
         
-        // 🔥 데이터 새로고침으로 UI 즉시 반영
+        // 데이터 새로고침으로 UI 즉시 반영
         await Promise.all([
           dispatch(fetchPostVisitPatients()),
           dispatch(fetchPatients())
@@ -987,7 +988,7 @@ export default function VisitManagement() {
     } catch (error) {
       console.error('🔥 초기화 중 예외 발생:', error);
       
-      // 🔥 예외가 발생해도 일단 성공으로 처리하고 새로고침
+      // 예외가 발생해도 일단 성공으로 처리하고 새로고침
       alert(`${patient.name} 환자의 내원 후 상태 데이터가 초기화되었습니다.`);
       
       // 데이터 새로고침
@@ -1000,7 +1001,7 @@ export default function VisitManagement() {
     }
   };
 
-  // 🔥 상태 업데이트 확인 핸들러 - Redux 상태 즉시 업데이트 추가
+  // 상태 업데이트 확인 핸들러 - Redux 상태 즉시 업데이트 추가
   const handleStatusUpdateConfirm = async (statusData: PostVisitConsultationInfo & { selectedStatus?: PostVisitStatus; treatmentContent?: string }) => {
     if (!selectedPatientForUpdate) return;
 
@@ -1009,7 +1010,7 @@ export default function VisitManagement() {
     try {
       const patientId = selectedPatientForUpdate._id || selectedPatientForUpdate.id;
       
-      // 🔥 서버가 기대하는 형식으로 데이터 구조 변경
+      // 서버가 기대하는 형식으로 데이터 구조 변경
       const requestBody = {
         postVisitStatus: statusData.selectedStatus || '재콜백필요',
         postVisitConsultation: statusData, // 전체 statusData 전송
@@ -1043,11 +1044,11 @@ export default function VisitManagement() {
           const errorData = JSON.parse(errorText);
           console.error('🔥 API 에러 응답 (parsed):', errorData);
           
-          // 🔥 데이터는 저장되었지만 응답에 문제가 있는 경우 처리
+          // 데이터는 저장되었지만 응답에 문제가 있는 경우 처리
           if (response.status === 500 && errorData.error === "환자 정보 업데이트에 실패했습니다.") {
             console.warn('⚠️ 데이터는 저장되었지만 응답 에러 발생. 성공으로 처리합니다.');
             
-            // 🔥 Redux 상태 즉시 업데이트 - updatePostVisitStatus 액션 호출
+            // Redux 상태 즉시 업데이트 - updatePostVisitStatus 액션 호출
             await dispatch(updatePostVisitStatus({
               patientId,
               postVisitStatus: statusData.selectedStatus || '재콜백필요',
@@ -1058,10 +1059,10 @@ export default function VisitManagement() {
             setIsStatusModalOpen(false);
             setSelectedPatientForUpdate(null);
             
-            // 🔥 추가 데이터 새로고침으로 확실히 동기화
+            // 추가 데이터 새로고침으로 확실히 동기화
             await Promise.all([
               dispatch(fetchPostVisitPatients()),
-              dispatch(fetchPatients()) // 🔥 일반 환자 목록도 새로고침
+              dispatch(fetchPatients()) // 일반 환자 목록도 새로고침
             ]);
             return;
           }
@@ -1070,11 +1071,11 @@ export default function VisitManagement() {
         } catch (parseError) {
           console.error('🔥 에러 응답 파싱 실패:', parseError);
           
-          // 🔥 파싱 에러이지만 500 상태인 경우, 데이터가 저장되었을 가능성이 높음
+          // 파싱 에러이지만 500 상태인 경우, 데이터가 저장되었을 가능성이 높음
           if (response.status === 500) {
             console.warn('⚠️ 500 에러이지만 데이터가 저장되었을 수 있습니다. Redux 상태 업데이트 시도');
             
-            // 🔥 Redux 상태 즉시 업데이트
+            // Redux 상태 즉시 업데이트
             try {
               await dispatch(updatePostVisitStatus({
                 patientId,
@@ -1089,7 +1090,7 @@ export default function VisitManagement() {
               // 추가 새로고침
               await Promise.all([
                 dispatch(fetchPostVisitPatients()),
-                dispatch(fetchPatients()) // 🔥 일반 환자 목록도 새로고침
+                dispatch(fetchPatients()) // 일반 환자 목록도 새로고침
               ]);
               return;
             } catch (reduxError) {
@@ -1107,11 +1108,11 @@ export default function VisitManagement() {
         }
       }
 
-      // 🔥 성공적인 응답의 경우
+      // 성공적인 응답의 경우
       const result = await response.json();
       console.log('🔥 API 성공 응답:', result);
       
-      // 🔥 성공 시에도 Redux 상태 업데이트
+      // 성공 시에도 Redux 상태 업데이트
       await dispatch(updatePostVisitStatus({
         patientId,
         postVisitStatus: statusData.selectedStatus || '재콜백필요',
@@ -1126,7 +1127,7 @@ export default function VisitManagement() {
       // 데이터 새로고침
       await Promise.all([
         dispatch(fetchPostVisitPatients()),
-        dispatch(fetchPatients()) // 🔥 일반 환자 목록도 새로고침
+        dispatch(fetchPatients()) // 일반 환자 목록도 새로고침
       ]);
       
     } catch (error) {
@@ -1174,7 +1175,7 @@ export default function VisitManagement() {
         </button>
       </div>
 
-      {/* 🔥 필터 영역 추가 */}
+      {/* 필터 영역 */}
       <div className="card mb-6">
         <div className="flex flex-col gap-4">
           {/* 첫 번째 줄: 검색, 상담타입 */}
@@ -1290,12 +1291,12 @@ export default function VisitManagement() {
           </div>
         </div>
 
-        {/* 🔥 필터 결과 요약 표시 */}
+        {/* 필터 결과 요약 표시 */}
         {(consultationTypeFilter !== 'all' || dateFilterType !== 'all' || searchTerm || selectedFilter !== 'all') && (
           <div className="mt-4 p-3 bg-blue-50 rounded-lg">
             <div className="flex items-center justify-between">
               <div className="flex items-center space-x-2 text-sm text-blue-800 flex-wrap">
-                <span>🔍 필터링 결과: <strong>{stats.total}명</strong></span>
+                <span>🔍 필터링 결과: <strong>{stats.filtered}명</strong></span>
                 
                 {getDateFilterDisplayText() && (
                   <span className="inline-flex items-center px-2 py-1 rounded-full text-xs bg-blue-200 text-blue-800">
@@ -1313,7 +1314,9 @@ export default function VisitManagement() {
                   <span className="inline-flex items-center px-2 py-1 rounded-full text-xs bg-blue-200 text-blue-800">
                     {selectedFilter === 'needs_callback' ? '재콜백 필요' : 
                      selectedFilter === 'in_treatment' ? '치료 시작' :
-                     selectedFilter === 'on_hold' ? '보류' : '종결'}
+                     selectedFilter === 'on_hold' ? '보류' : 
+                     selectedFilter === 'completed' ? '종결' : 
+                     selectedFilter === 'no_status' ? '상태 미설정' : ''}
                   </span>
                 )}
                 
@@ -1334,86 +1337,50 @@ export default function VisitManagement() {
         )}
       </div>
 
-      {/* 통계 카드 - 필터링된 결과 반영 */}
+      {/* 📊 수정된 통계 카드 - 클릭 시 필터링 기능 추가, 실제 인원수 표시 */}
       <div className="grid grid-cols-1 md:grid-cols-6 gap-4 mb-6">
-        <div className="bg-white p-4 rounded-lg border">
+        <div 
+          className="bg-white p-4 rounded-lg border cursor-pointer hover:shadow-lg transition-shadow"
+          onClick={() => handleStatsCardClick('all')}
+        >
           <div className="text-2xl font-bold text-gray-900">{stats.total}</div>
-          <div className="text-sm text-gray-600">필터링 결과</div>
+          <div className="text-sm text-gray-600">전체 보기</div>
         </div>
-        <div className="bg-white p-4 rounded-lg border">
+        <div 
+          className="bg-white p-4 rounded-lg border cursor-pointer hover:shadow-lg transition-shadow hover:bg-yellow-50"
+          onClick={() => handleStatsCardClick('needs_callback')}
+        >
           <div className="text-2xl font-bold text-yellow-600">{stats.needsCallback}</div>
           <div className="text-sm text-gray-600">재콜백 필요</div>
         </div>
-        <div className="bg-white p-4 rounded-lg border">
+        <div 
+          className="bg-white p-4 rounded-lg border cursor-pointer hover:shadow-lg transition-shadow hover:bg-green-50"
+          onClick={() => handleStatsCardClick('in_treatment')}
+        >
           <div className="text-2xl font-bold text-green-600">{stats.inTreatment}</div>
           <div className="text-sm text-gray-600">치료 시작</div>
         </div>
-        <div className="bg-white p-4 rounded-lg border">
+        <div 
+          className="bg-white p-4 rounded-lg border cursor-pointer hover:shadow-lg transition-shadow hover:bg-gray-50"
+          onClick={() => handleStatsCardClick('on_hold')}
+        >
           <div className="text-2xl font-bold text-gray-600">{stats.onHold}</div>
           <div className="text-sm text-gray-600">보류</div>
         </div>
-        <div className="bg-white p-4 rounded-lg border">
+        <div 
+          className="bg-white p-4 rounded-lg border cursor-pointer hover:shadow-lg transition-shadow hover:bg-red-50"
+          onClick={() => handleStatsCardClick('completed')}
+        >
           <div className="text-2xl font-bold text-red-600">{stats.completed}</div>
           <div className="text-sm text-gray-600">종결</div>
         </div>
-        <div className="bg-white p-4 rounded-lg border">
+        <div 
+          className="bg-white p-4 rounded-lg border cursor-pointer hover:shadow-lg transition-shadow hover:bg-gray-50"
+          onClick={() => handleStatsCardClick('no_status')} // 🔥 수정: 'no_status'로 변경
+        >
           <div className="text-2xl font-bold text-gray-400">{stats.noStatus}</div>
           <div className="text-sm text-gray-600">상태 미설정</div>
         </div>
-      </div>
-
-      {/* 필터 버튼 */}
-      <div className="flex items-center space-x-2 mb-6">
-        <button
-          onClick={() => setSelectedFilter('all')}
-          className={`px-4 py-2 text-sm font-medium rounded-lg transition-colors ${
-            selectedFilter === 'all'
-              ? 'bg-blue-100 text-blue-800'
-              : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
-          }`}
-        >
-          전체 ({stats.total})
-        </button>
-        <button
-          onClick={() => setSelectedFilter('needs_callback')}
-          className={`px-4 py-2 text-sm font-medium rounded-lg transition-colors ${
-            selectedFilter === 'needs_callback'
-              ? 'bg-yellow-100 text-yellow-800'
-              : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
-          }`}
-        >
-          재콜백 필요 ({stats.needsCallback})
-        </button>
-        <button
-          onClick={() => setSelectedFilter('in_treatment')}
-          className={`px-4 py-2 text-sm font-medium rounded-lg transition-colors ${
-            selectedFilter === 'in_treatment'
-              ? 'bg-green-100 text-green-800'
-              : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
-          }`}
-        >
-          치료 시작 ({stats.inTreatment})
-        </button>
-        <button
-          onClick={() => setSelectedFilter('on_hold')}
-          className={`px-4 py-2 text-sm font-medium rounded-lg transition-colors ${
-            selectedFilter === 'on_hold'
-              ? 'bg-gray-100 text-gray-800'
-              : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
-          }`}
-        >
-          보류 ({stats.onHold})
-        </button>
-        <button
-          onClick={() => setSelectedFilter('completed')}
-          className={`px-4 py-2 text-sm font-medium rounded-lg transition-colors ${
-            selectedFilter === 'completed'
-              ? 'bg-red-100 text-red-800'
-              : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
-          }`}
-        >
-          종결 ({stats.completed})
-        </button>
       </div>
 
       {/* 환자 목록 테이블 */}
