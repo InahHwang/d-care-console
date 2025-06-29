@@ -126,19 +126,21 @@ export default function Sidebar() {
           href="/visit-management"
           badge={visitManagementBadge}
         />
-        <SidebarItem 
+       {/* 임시 비활성화
+       <SidebarItem 
           icon={HiOutlineChartBar} 
           text="통계 분석" 
           isActive={getIsActive('통계 분석')} 
           href="/statistics"
         />
+        */}
         <SidebarItem 
           icon={HiOutlineDocumentReport} 
           text="월별보고서" 
           isActive={getIsActive('월별보고서')} 
           href="/reports"
         />
-        {/* 🔥 스마트 보고서 메뉴 추가 */}
+        {/* 임시 비활성화
         <SidebarItem 
           icon={HiOutlineLightBulb} 
           text="스마트 보고서" 
@@ -146,6 +148,8 @@ export default function Sidebar() {
           href="/smart-reports"
           aiLabel={true}
         />
+        */}
+        
         <SidebarItem 
           icon={HiOutlineCog} 
           text="설정" 
