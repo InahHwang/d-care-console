@@ -41,9 +41,7 @@ const LossAnalysisSection: React.FC<{ reportData: MonthlyReportData }> = ({ repo
           <h2 className="text-lg font-bold text-gray-900 flex items-center gap-2">
             <AlertTriangle className="w-5 h-5 text-red-600" />
             미예약/미내원 환자 손실 분석
-            <span className="text-sm font-normal text-red-600 bg-red-100 px-2 py-1 rounded">
-              경각심 필요
-            </span>
+
           </h2>
           <button
             onClick={() => setShowDetails(!showDetails)}
