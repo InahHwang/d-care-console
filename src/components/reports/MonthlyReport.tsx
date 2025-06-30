@@ -1,6 +1,6 @@
 // src/components/reports/MonthlyReport.tsx
 import React, { useState, useEffect } from 'react';
-import { Calendar, Phone, Users, CreditCard, MapPin, TrendingUp, Edit3, Send, Download, MessageSquare, PhoneCall, RefreshCw } from 'lucide-react';
+import { Calendar, Phone, Users, CreditCard, MapPin, TrendingUp, Edit3, Send, Download, MessageSquare, PhoneCall, RefreshCw, AlertTriangle, TrendingDown, DollarSign, Eye, EyeOff } from 'lucide-react';
 import { MonthlyReportData } from '@/types/report';
 import { useAppDispatch, useAppSelector } from '@/hooks/reduxHooks';
 import { saveReport, submitReport, updateCurrentReport, refreshReportData } from '@/store/slices/reportsSlice';
@@ -8,6 +8,194 @@ import { saveReport, submitReport, updateCurrentReport, refreshReportData } from
 interface MonthlyReportProps {
   reportData: MonthlyReportData;
 }
+
+// 🔥 새로 추가: 손실 분석 섹션 컴포넌트
+const LossAnalysisSection: React.FC<{ reportData: MonthlyReportData }> = ({ reportData }) => {
+  const [showDetails, setShowDetails] = useState(false);
+  const lossAnalysis = reportData.lossAnalysis;
+  
+  if (!lossAnalysis) return null;
+
+  // 손실률에 따른 스타일링
+  const getLossRateStyle = (rate: number): string => {
+    if (rate <= 20) return 'text-green-600 bg-green-50 border-green-200';
+    if (rate <= 40) return 'text-yellow-600 bg-yellow-50 border-yellow-200';
+    if (rate <= 60) return 'text-orange-600 bg-orange-50 border-orange-200';
+    return 'text-red-600 bg-red-50 border-red-200';
+  };
+
+  const formatAmount = (amount: number): string => {
+    if (amount >= 100000000) return `${(amount / 100000000).toFixed(1)}억원`;
+    if (amount >= 10000) return `${(amount / 10000).toFixed(0)}만원`;
+    return `${amount.toLocaleString()}원`;
+  };
+
+  const totalLoss = lossAnalysis.totalLoss;
+  const consultationLoss = lossAnalysis.consultationLoss;
+  const visitLoss = lossAnalysis.visitLoss;
+
+  return (
+    <div className="bg-white rounded-lg shadow-sm border mb-6">
+      <div className="p-6 border-b bg-red-50">
+        <div className="flex items-center justify-between">
+          <h2 className="text-lg font-bold text-gray-900 flex items-center gap-2">
+            <AlertTriangle className="w-5 h-5 text-red-600" />
+            미예약/미내원 환자 손실 분석
+            <span className="text-sm font-normal text-red-600 bg-red-100 px-2 py-1 rounded">
+              경각심 필요
+            </span>
+          </h2>
+          <button
+            onClick={() => setShowDetails(!showDetails)}
+            className="flex items-center gap-1 px-3 py-1 text-sm text-red-600 border border-red-200 rounded-lg hover:bg-red-50 no-print"
+          >
+            {showDetails ? <EyeOff className="w-3 h-3" /> : <Eye className="w-3 h-3" />}
+            {showDetails ? '간단히 보기' : '상세히 보기'}
+          </button>
+        </div>
+      </div>
+      
+      <div className="p-6">
+        {/* 📊 핵심 지표 카드 */}
+        <div className="mb-6">
+          <div className={`border rounded-lg p-6 ${getLossRateStyle(totalLoss.lossRate)}`}>
+            <div className="text-center">
+              <div className="flex items-center justify-center gap-2 mb-3">
+                <TrendingDown className="w-8 h-8" />
+                <h3 className="text-2xl font-bold">
+                  총 {totalLoss.totalPatients}명의 환자를 놓쳤습니다
+                </h3>
+              </div>
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-4 text-center">
+                <div>
+                  <div className="text-3xl font-bold mb-1">
+                    {formatAmount(totalLoss.totalAmount)}
+                  </div>
+                  <div className="text-sm font-medium">예상 손실 매출</div>
+                </div>
+                <div>
+                  <div className="text-3xl font-bold mb-1">
+                    {totalLoss.lossRate}%
+                  </div>
+                  <div className="text-sm font-medium">전체 문의 대비 손실률</div>
+                </div>
+                <div>
+                  <div className="text-3xl font-bold mb-1">
+                    {totalLoss.totalAmount > 0 ? (totalLoss.totalAmount / totalLoss.totalPatients / 10000).toFixed(0) : 0}만원
+                  </div>
+                  <div className="text-sm font-medium">환자당 평균 손실액</div>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        {/* 💡 가정 시나리오 */}
+        <div className="bg-blue-50 border border-blue-200 rounded-lg p-6 mb-6">
+          <div className="flex items-start gap-3">
+            <DollarSign className="w-6 h-6 text-blue-600 mt-1 flex-shrink-0" />
+            <div>
+              <h3 className="text-lg font-semibold text-blue-900 mb-2">
+                💰 만약 이 환자들이 모두 치료를 받았다면...
+              </h3>
+              <div className="space-y-2 text-blue-800">
+                <p className="text-base">
+                  <span className="font-bold text-xl">{formatAmount(totalLoss.totalAmount)}</span>의 
+                  <span className="font-semibold"> 추가 매출</span>이 발생했을 것입니다.
+                </p>
+                <p className="text-sm">
+                  • 이는 현재 월 총 매출 <span className="font-semibold">{formatAmount(reportData.totalPayment)}</span>의 
+                  <span className="font-bold"> {reportData.totalPayment > 0 ? ((totalLoss.totalAmount / reportData.totalPayment) * 100).toFixed(1) : 0}%</span>에 해당합니다.
+                </p>
+                <p className="text-sm">
+                  • 전체 잠재 매출: <span className="font-bold">{formatAmount(reportData.totalPayment + totalLoss.totalAmount)}</span>
+                </p>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        {/* 📋 상세 분석 (토글 가능) */}
+        {showDetails && (
+          <div className="space-y-6">
+            {/* 상담 관리 손실군 */}
+            <div className="bg-orange-50 border border-orange-200 rounded-lg p-4">
+              <h4 className="font-semibold text-orange-900 mb-3 flex items-center gap-2">
+                <Users className="w-5 h-5" />
+                상담 관리 손실군 ({consultationLoss.totalCount}명)
+              </h4>
+              <div className="grid grid-cols-2 md:grid-cols-4 gap-4 text-sm">
+                <div className="text-center">
+                  <div className="text-2xl font-bold text-orange-900">{consultationLoss.terminated}명</div>
+                  <div className="text-orange-700">상담 종결</div>
+                </div>
+                <div className="text-center">
+                  <div className="text-2xl font-bold text-orange-900">{consultationLoss.missed}명</div>
+                  <div className="text-orange-700">연락 두절</div>
+                </div>
+                <div className="text-center md:col-span-2">
+                  <div className="text-2xl font-bold text-orange-900">{formatAmount(consultationLoss.estimatedAmount)}</div>
+                  <div className="text-orange-700">예상 손실 금액</div>
+                </div>
+              </div>
+              <p className="text-xs text-orange-600 mt-2">
+                💡 이들은 우리 치과에 관심을 보였지만 상담 단계에서 이탈한 환자들입니다.
+              </p>
+            </div>
+
+            {/* 내원 관리 손실군 */}
+            <div className="bg-purple-50 border border-purple-200 rounded-lg p-4">
+              <h4 className="font-semibold text-purple-900 mb-3 flex items-center gap-2">
+                <Users className="w-5 h-5" />
+                내원 관리 손실군 ({visitLoss.totalCount}명)
+              </h4>
+              <div className="grid grid-cols-2 md:grid-cols-5 gap-4 text-sm">
+                <div className="text-center">
+                  <div className="text-xl font-bold text-purple-900">{visitLoss.terminated}명</div>
+                  <div className="text-purple-700">내원 후 종결</div>
+                </div>
+                <div className="text-center">
+                  <div className="text-xl font-bold text-purple-900">{visitLoss.onHold}명</div>
+                  <div className="text-purple-700">치료 보류</div>
+                </div>
+                <div className="text-center">
+                  <div className="text-xl font-bold text-purple-900">{visitLoss.callbackNeeded}명</div>
+                  <div className="text-purple-700">재콜백 필요</div>
+                </div>
+                <div className="text-center md:col-span-2">
+                  <div className="text-xl font-bold text-purple-900">{formatAmount(visitLoss.estimatedAmount)}</div>
+                  <div className="text-purple-700">예상 손실 금액</div>
+                </div>
+              </div>
+              <p className="text-xs text-purple-600 mt-2">
+                💡 이들은 실제 내원까지 했지만 치료로 이어지지 않은 환자들입니다.
+              </p>
+            </div>
+
+            {/* 개선 포인트 제안 */}
+            <div className="bg-gray-50 border rounded-lg p-4">
+              <h4 className="font-semibold text-gray-900 mb-3">🎯 개선 포인트 제안</h4>
+              <div className="space-y-2 text-sm text-gray-700">
+                <div className="flex items-start gap-2">
+                  <span className="w-4 h-4 bg-orange-100 text-orange-600 rounded-full flex items-center justify-center text-xs font-bold mt-0.5">1</span>
+                  <span><strong>상담 프로세스 개선:</strong> 종결/부재중 환자의 주요 이탈 포인트 분석 필요</span>
+                </div>
+                <div className="flex items-start gap-2">
+                  <span className="w-4 h-4 bg-purple-100 text-purple-600 rounded-full flex items-center justify-center text-xs font-bold mt-0.5">2</span>
+                  <span><strong>내원 후 상담 강화:</strong> 치료 계획 설명 및 환자 니즈 파악 개선</span>
+                </div>
+                <div className="flex items-start gap-2">
+                  <span className="w-4 h-4 bg-blue-100 text-blue-600 rounded-full flex items-center justify-center text-xs font-bold mt-0.5">3</span>
+                  <span><strong>후속 관리 체계화:</strong> 재콜백 환자에 대한 체계적인 팔로업 프로세스 구축</span>
+                </div>
+              </div>
+            </div>
+          </div>
+        )}
+      </div>
+    </div>
+  );
+};
 
 const MonthlyReport: React.FC<MonthlyReportProps> = ({ reportData }) => {
   const dispatch = useAppDispatch();
@@ -500,6 +688,9 @@ const MonthlyReport: React.FC<MonthlyReportProps> = ({ reportData }) => {
             </div>
           </div>
         </div>
+
+        {/* 🔥 새로 추가: 손실 분석 섹션 */}
+        <LossAnalysisSection reportData={reportData} />
 
         {/* 이슈 및 개선사항 */}
         <div className="bg-white rounded-lg shadow-sm border mb-6">

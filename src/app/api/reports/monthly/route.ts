@@ -1,8 +1,9 @@
-// src/app/api/reports/monthly/route.ts - 🔥 JWT 검증 및 에러 핸들링 개선
+// src/app/api/reports/monthly/route.ts - 🔥 JWT 검증 및 에러 핸들링 개선, 손실 분석 추가
 import { NextRequest, NextResponse } from 'next/server';
 import { connectToDatabase } from '@/utils/mongodb';
 import jwt from 'jsonwebtoken';
 import { MonthlyStats, ChangeIndicator } from '@/types/report';
+import { calculateLossAnalysis } from '@/utils/lossAnalysisUtils'; // 🔥 새로 추가
 
 // JWT 검증 함수
 function verifyToken(token: string) {
@@ -124,7 +125,7 @@ export async function POST(request: NextRequest) {
   }
 }
 
-// 🔥 월별 통계 계산 함수 - 프론트엔드와 동일한 결제금액 계산 로직 적용
+// 🔥 월별 통계 계산 함수 - 프론트엔드와 동일한 결제금액 계산 로직 적용 + 손실 분석 추가
 function calculateMonthlyStats(patients: any[]): MonthlyStats {
   const totalInquiries = patients.length;
   
@@ -260,6 +261,11 @@ function calculateMonthlyStats(patients: any[]): MonthlyStats {
     }))
     .sort((a, b) => b.count - a.count);
 
+  // 🔥 새로 추가: 손실 분석 계산
+  const lossAnalysis = calculateLossAnalysis(patients);
+  
+  console.log('🔥 손실 분석 결과:', lossAnalysis);
+
   const finalStats = {
     totalInquiries,
     inboundCalls,
@@ -273,10 +279,12 @@ function calculateMonthlyStats(patients: any[]): MonthlyStats {
     paymentRate: Math.round(paymentRate * 10) / 10,
     averageAge: Math.round(averageAge * 10) / 10,
     regionStats,
-    channelStats
+    channelStats,
+    // 🔥 새로 추가: 손실 분석 데이터
+    lossAnalysis
   };
 
-  console.log('🎯 최종 통계 결과:', finalStats);
+  console.log('🎯 최종 통계 결과 (손실 분석 포함):', finalStats);
   
   return finalStats;
 }
