@@ -1,11 +1,13 @@
-// src/types/report.ts
+// src/types/report.ts - 🔥 상담 손실 타입 확장
 
-// 🔥 새로 추가: 손실 환자 분석 타입
+// 🔥 수정된 손실 환자 분석 타입
 export interface LossPatientAnalysis {
   consultationLoss: {
-    terminated: number; // 상담 "종결" 환자수
-    missed: number;     // 상담 "부재중" 환자수
-    totalCount: number; // 상담 손실 총 환자수
+    terminated: number;   // 상담 "종결" 환자수
+    missed: number;       // 상담 "부재중" 환자수
+    potential: number;    // 🔥 새로 추가: "잠재고객" 환자수
+    callback: number;     // 🔥 새로 추가: "콜백필요" 환자수
+    totalCount: number;   // 상담 손실 총 환자수 (예약확정 외 모든 환자)
     estimatedAmount: number; // 예상 손실 금액 (견적 합계)
   };
   visitLoss: {

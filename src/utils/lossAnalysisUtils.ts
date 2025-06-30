@@ -1,4 +1,4 @@
-// src/utils/lossAnalysisUtils.ts
+// src/utils/lossAnalysisUtils.ts - 🔥 상담 손실군 로직 개선
 import { Patient } from '@/types/patient';
 import { LossPatientAnalysis, LossPatientDetail } from '@/types/report';
 
@@ -8,22 +8,30 @@ import { LossPatientAnalysis, LossPatientDetail } from '@/types/report';
 export function calculateLossAnalysis(patients: Patient[]): LossPatientAnalysis {
   console.log(`🔍 손실 분석 시작 - 총 환자 수: ${patients.length}명`);
   
-  // 1. 상담 관리 손실군 분석
+  // 🔥 1. 상담 관리 손실군 분석 - "예약확정" 외의 모든 환자
   const consultationLossPatients = patients.filter(p => 
-    p.status === '종결' || p.status === '부재중'
-  );
+    p.status !== '예약확정' && p.status !== 'VIP'  // 예약확정과 VIP 제외
+);
   
+  // 상담 손실군을 세부 상태별로 분류
   const consultationTerminated = consultationLossPatients.filter(p => p.status === '종결').length;
   const consultationMissed = consultationLossPatients.filter(p => p.status === '부재중').length;
+  const consultationPotential = consultationLossPatients.filter(p => p.status === '잠재고객').length;
+  const consultationCallback = consultationLossPatients.filter(p => p.status === '콜백필요').length;
   
   // 상담 손실 견적 금액 계산
   const consultationLossAmount = consultationLossPatients.reduce((sum, p) => {
     return sum + getPatientEstimatedAmount(p);
   }, 0);
   
-  console.log(`📞 상담 손실: 종결 ${consultationTerminated}명, 부재중 ${consultationMissed}명, 손실금액 ${consultationLossAmount.toLocaleString()}원`);
+  console.log(`📞 상담 손실 상세:`);
+  console.log(`   • 종결: ${consultationTerminated}명`);
+  console.log(`   • 부재중: ${consultationMissed}명`);
+  console.log(`   • 잠재고객: ${consultationPotential}명`);
+  console.log(`   • 콜백필요: ${consultationCallback}명`);
+  console.log(`   • 총 상담 손실: ${consultationLossPatients.length}명, 손실금액: ${consultationLossAmount.toLocaleString()}원`);
   
-  // 2. 내원 관리 손실군 분석
+  // 2. 내원 관리 손실군 분석 (기존과 동일)
   const visitLossPatients = patients.filter(p => 
     p.visitConfirmed === true && 
     (p.postVisitStatus === '종결' || p.postVisitStatus === '보류' || p.postVisitStatus === '재콜백필요')
@@ -51,6 +59,9 @@ export function calculateLossAnalysis(patients: Patient[]): LossPatientAnalysis 
     consultationLoss: {
       terminated: consultationTerminated,
       missed: consultationMissed,
+      // 🔥 새로 추가: 기타 상담 손실 상태들의 합계
+      potential: consultationPotential,
+      callback: consultationCallback,
       totalCount: consultationLossPatients.length,
       estimatedAmount: consultationLossAmount
     },
@@ -70,14 +81,14 @@ export function calculateLossAnalysis(patients: Patient[]): LossPatientAnalysis 
 }
 
 /**
- * 🔥 손실 환자 상세 리스트 생성
+ * 🔥 손실 환자 상세 리스트 생성 - 상담 손실군 로직 개선
  */
 export function getLossPatientDetails(patients: Patient[]): LossPatientDetail[] {
   const lossPatients: LossPatientDetail[] = [];
   
-  // 상담 관리 손실군
+  // 🔥 상담 관리 손실군 - "예약확정" 외의 모든 환자
   const consultationLoss = patients.filter(p => 
-    p.status === '종결' || p.status === '부재중'
+    p.status !== '예약확정'
   );
   
   consultationLoss.forEach(p => {
@@ -93,7 +104,7 @@ export function getLossPatientDetails(patients: Patient[]): LossPatientDetail[] 
     });
   });
   
-  // 내원 관리 손실군
+  // 내원 관리 손실군 (기존과 동일)
   const visitLoss = patients.filter(p => 
     p.visitConfirmed === true && 
     (p.postVisitStatus === '종결' || p.postVisitStatus === '보류' || p.postVisitStatus === '재콜백필요')
@@ -146,7 +157,14 @@ function getPatientEstimatedAmount(patient: Patient): number {
     estimatedAmount = patient.treatmentCost;
   }
   
-  console.log(`💰 ${patient.name} 견적금액: ${estimatedAmount.toLocaleString()}원`);
+  // 4. 🔥 견적이 없는 경우 평균 치료비로 추정 (선택적)
+  else {
+    // 견적 정보가 없는 환자는 0원으로 처리하거나
+    // 평균 치료비(예: 150만원)로 추정할 수 있음
+    estimatedAmount = 0; // 또는 1500000 (평균 치료비)
+  }
+  
+  console.log(`💰 ${patient.name} (${patient.status}) 견적금액: ${estimatedAmount.toLocaleString()}원`);
   
   return estimatedAmount;
 }

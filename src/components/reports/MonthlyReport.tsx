@@ -118,30 +118,46 @@ const LossAnalysisSection: React.FC<{ reportData: MonthlyReportData }> = ({ repo
         {/* 📋 상세 분석 (토글 가능) */}
         {showDetails && (
           <div className="space-y-6">
-            {/* 상담 관리 손실군 */}
+            {/* 🔥 수정된 상담 관리 손실군 */}
             <div className="bg-orange-50 border border-orange-200 rounded-lg p-4">
               <h4 className="font-semibold text-orange-900 mb-3 flex items-center gap-2">
                 <Users className="w-5 h-5" />
                 상담 관리 손실군 ({consultationLoss.totalCount}명)
+                <span className="text-xs bg-orange-100 text-orange-700 px-2 py-1 rounded">
+                  예약확정 외 환자
+                </span>
               </h4>
-              <div className="grid grid-cols-2 md:grid-cols-4 gap-4 text-sm">
+              
+              {/* 🔥 4개 상태 + 총 손실금액 = 5개 컬럼으로 확장 */}
+              <div className="grid grid-cols-2 md:grid-cols-5 gap-3 text-sm">
                 <div className="text-center">
-                  <div className="text-2xl font-bold text-orange-900">{consultationLoss.terminated}명</div>
-                  <div className="text-orange-700">상담 종결</div>
+                  <div className="text-xl font-bold text-orange-900">{consultationLoss.terminated}명</div>
+                  <div className="text-orange-700 text-xs">종결</div>
                 </div>
                 <div className="text-center">
-                  <div className="text-2xl font-bold text-orange-900">{consultationLoss.missed}명</div>
-                  <div className="text-orange-700">연락 두절</div>
+                  <div className="text-xl font-bold text-orange-900">{consultationLoss.missed}명</div>
+                  <div className="text-orange-700 text-xs">부재중</div>
                 </div>
-                <div className="text-center md:col-span-2">
-                  <div className="text-2xl font-bold text-orange-900">{formatAmount(consultationLoss.estimatedAmount)}</div>
-                  <div className="text-orange-700">예상 손실 금액</div>
+                <div className="text-center">
+                  <div className="text-xl font-bold text-orange-900">{consultationLoss.potential}명</div>
+                  <div className="text-orange-700 text-xs">잠재고객</div>
+                </div>
+                <div className="text-center">
+                  <div className="text-xl font-bold text-orange-900">{consultationLoss.callback}명</div>
+                  <div className="text-orange-700 text-xs">콜백필요</div>
+                </div>
+                <div className="text-center bg-orange-100 rounded p-2">
+                  <div className="text-xl font-bold text-orange-900">{formatAmount(consultationLoss.estimatedAmount)}</div>
+                  <div className="text-orange-700 text-xs font-medium">총 손실금액</div>
                 </div>
               </div>
+              
               <p className="text-xs text-orange-600 mt-2">
-                💡 이들은 우리 치과에 관심을 보였지만 상담 단계에서 이탈한 환자들입니다.
+                💡 예약확정에 도달하지 못한 모든 환자들입니다. 
               </p>
             </div>
+
+            {/* 내원 관리 손실군은 기존과 동일... */}
 
             {/* 내원 관리 손실군 */}
             <div className="bg-purple-50 border border-purple-200 rounded-lg p-4">
