@@ -563,11 +563,13 @@ export default function PatientManagement() {
                 onChange={handleInterestFilterChange}
               >
                 <option value="all">관심 분야 ▼</option>
-                <option value="임플란트">임플란트</option>
-                <option value="교정">교정</option>
-                <option value="미백">미백</option>
-                <option value="신경치료">신경치료</option>
+                <option value="단일 임플란트">단일 임플란트</option>
+                <option value="다수 임플란트">다수 임플란트</option>
+                <option value="무치악 임플란트">무치악 임플란트</option>
+                <option value="틀니">틀니</option>
+                <option value="라미네이트">라미네이트</option>
                 <option value="충치치료">충치치료</option>
+                <option value="기타">기타</option>
               </select>
             </div>
 

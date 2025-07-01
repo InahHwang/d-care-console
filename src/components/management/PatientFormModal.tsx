@@ -16,11 +16,11 @@ import { useActivityLogger } from '@/hooks/useActivityLogger'
 
 // 관심 분야 옵션
 const interestAreaOptions = [
-  { value: '풀케이스', label: '풀케이스' },
-  { value: '임플란트', label: '임플란트' },
+  { value: '단일 임플란트', label: '단일 임플란트' },
+  { value: '다수 임플란트', label: '다수 임플란트' },
+  { value: '무치악 임플란트', label: '무치악 임플란트' },
+  { value: '틀니', label: '틀니' },
   { value: '라미네이트', label: '라미네이트' },
-  { value: '미백', label: '미백' },
-  { value: '신경치료', label: '신경치료' },
   { value: '충치치료', label: '충치치료' },
   { value: '기타', label: '기타' },
 ]
@@ -93,6 +93,25 @@ export default function PatientFormModal() {
     age: '',
     callInDate: '',
   })
+
+  // 🔥 폼 제출 전 데이터 정리 함수 - 컴포넌트 레벨로 이동
+  const prepareCreateDataForSubmit = (formData: CreatePatientData): CreatePatientData => {
+    const preparedData = { ...formData };
+    
+    // 🔥 나이가 undefined인 경우 필드 제거 (DB에 저장되지 않음)
+    if (preparedData.age === undefined) {
+      delete preparedData.age;
+      console.log('🔥 신규 등록: 나이 필드 제거 (undefined)');
+    }
+    
+    // 🔥 지역이 비어있는 경우 필드 제거
+    if (!preparedData.region || !preparedData.region.province) {
+      delete preparedData.region;
+      console.log('🔥 신규 등록: 지역 필드 제거 (미선택)');
+    }
+    
+    return preparedData;
+  };
   
   // 🔥 전화번호 중복 체크 함수
   const checkPhoneNumber = async (phoneNumber: string) => {
@@ -358,16 +377,28 @@ export default function PatientFormModal() {
     })
   }
   
-  // 입력값 변경 처리
+  // 🔥 입력값 변경 처리 - prepareCreateDataForSubmit 함수 제거됨
   const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement | HTMLTextAreaElement>) => {
     const { name, value } = e.target
     
-    // 나이는 숫자로 변환
+    // 🔥 나이 필드 처리 개선 - 빈 값을 명확하게 undefined로 설정
     if (name === 'age') {
-      const numValue = value === '' ? undefined : parseInt(value, 10)
+      let ageValue: number | undefined;
+      
+      if (value === '' || value.trim() === '') {
+        // 빈 값인 경우 undefined로 설정 (DB에 저장하지 않음)
+        ageValue = undefined;
+        console.log('🔥 나이 필드: 빈 값으로 undefined 설정');
+      } else {
+        // 숫자 값인 경우 파싱
+        const parsedAge = parseInt(value, 10);
+        ageValue = isNaN(parsedAge) ? undefined : parsedAge;
+        console.log('🔥 나이 필드: 숫자 값 설정', { input: value, parsed: ageValue });
+      }
+      
       setFormValues(prev => ({
         ...prev,
-        [name]: numValue
+        age: ageValue
       }))
     } else {
       setFormValues(prev => ({
@@ -409,7 +440,7 @@ export default function PatientFormModal() {
     })
   }
   
-  // 🚀 기존 방식 폼 제출 (fallback)
+  // 🚀 기존 방식 폼 제출 (fallback) - 수정됨
   const handleTraditionalSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
     
@@ -462,30 +493,24 @@ export default function PatientFormModal() {
     if (!isValid) return
     
     try {
-      // 🔥 환자 상태는 '잠재고객'으로 고정, consultationType은 선택한 값 사용
-      // 담당자 정보는 API에서 자동으로 설정됨
-      const patientData: CreatePatientData = {
+      // 🔥 제출 데이터 정리
+      const preparedData = prepareCreateDataForSubmit({
         ...formValues,
         status: '잠재고객' as PatientStatus,
         consultationType: formValues.consultationType
-      };
-      
-      console.log('신규 환자 등록 데이터:', patientData);
-      console.log('등록자 정보:', { 
-        userId: currentUser.id, 
-        userName: currentUser.name 
       });
       
-      // Redux 액션 디스패치하여 환자 생성
-      const result = await dispatch(createPatient(patientData)).unwrap()
-
+      console.log('신규 환자 등록 데이터:', preparedData);
+      
+      // Redux 액션 디스패치
+      const result = await dispatch(createPatient(preparedData)).unwrap()
       
       // 🔥 환자 등록 성공 시 활동 로그 기록
       try {
         await logPatientAction(
           'patient_create',
-          result.id, // 생성된 환자 ID
-          result.name, // 생성된 환자 이름
+          result.id,
+          result.name,
           {
             patientId: result.id,
             patientName: result.name,
@@ -504,7 +529,6 @@ export default function PatientFormModal() {
         console.log('✅ 환자 등록 활동 로그 기록 성공');
       } catch (logError) {
         console.warn('⚠️ 활동 로그 기록 실패:', logError);
-        // 로그 실패해도 메인 기능에는 영향 없도록 처리
       }
       
       // 성공 처리
@@ -535,7 +559,7 @@ export default function PatientFormModal() {
     }
   }
   
-  // 🚀 Optimistic 방식 폼 제출
+  // 🚀 Optimistic 방식 폼 제출 - 수정됨
   const handleOptimisticSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
     
@@ -587,15 +611,17 @@ export default function PatientFormModal() {
     
     if (!isValid) return
     
-    // 환자 데이터 준비
-    const patientData: CreatePatientData = {
+    // 🔥 환자 데이터 준비 및 정리
+    const preparedData = prepareCreateDataForSubmit({
       ...formValues,
       status: '잠재고객' as PatientStatus,
       consultationType: formValues.consultationType
-    };
+    });
+    
+    console.log('🚀 Optimistic: 정리된 환자 데이터:', preparedData);
     
     // 🚀 Optimistic Update 실행
-    optimisticCreateMutation.mutate(patientData)
+    optimisticCreateMutation.mutate(preparedData)
   }
   
   // 전화번호 자동 포맷팅

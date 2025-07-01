@@ -1,4 +1,4 @@
-// src/components/management/PatientList.tsx - 필터링된 데이터 지원 버전
+// src/components/management/PatientList.tsx - 내원확정 즉시 반영 수정 버전
 
 'use client'
 
@@ -16,6 +16,8 @@ import PatientDetailModal from './PatientDetailModal'
 import PatientTooltip from './PatientTooltip'
 import ReservationDateModal from './ReservationDateModal'
 import CancelVisitConfirmationModal from './CancelVisitConfirmationModal'
+// 🔥 useQueryClient 추가 import
+import { useQueryClient } from '@tanstack/react-query'
 
 interface PatientListProps {
   isLoading?: boolean;
@@ -198,6 +200,8 @@ const CallbackCountBadge = ({ patient }: { patient: Patient }) => {
 
 export default function PatientList({ isLoading = false, filteredPatients }: PatientListProps) {
   const dispatch = useDispatch<AppDispatch>()
+  // 🔥 useQueryClient 훅 추가
+  const queryClient = useQueryClient()
   
   const [isMounted, setIsMounted] = useState(false)
   const [tooltipRefreshTrigger, setTooltipRefreshTrigger] = useState(0)
@@ -278,7 +282,7 @@ export default function PatientList({ isLoading = false, filteredPatients }: Pat
     dispatch(selectPatient(patientId));
   }
 
-  // 내원 확정 핸들러
+  // 🔥 내원 확정 핸들러 - Redux 액션 사용으로 완전 변경
   const handleToggleVisitConfirmation = async (patient: Patient, e: React.MouseEvent) => {
     e.stopPropagation();
     
@@ -289,8 +293,9 @@ export default function PatientList({ isLoading = false, filteredPatients }: Pat
       return;
     }
     
-    console.log('내원 확정 버튼 클릭:', patientId, '현재 내원확정 상태:', patient.visitConfirmed, '환자 상태:', patient.status);
+    console.log('🔥 내원 확정 버튼 클릭:', patientId, '현재 내원확정 상태:', patient.visitConfirmed);
     
+    // 🔥 내원확정 취소 로직 (기존과 동일)
     if (patient.visitConfirmed) {
       console.log('내원확정 취소 확인 모달 띄우기');
       setSelectedPatientForCancel(patient);
@@ -298,37 +303,24 @@ export default function PatientList({ isLoading = false, filteredPatients }: Pat
       return;
     }
     
+    // 🔥 예약확정 환자의 내원확정 처리 - Redux 액션 사용
     if (patient.status === '예약확정' && !patient.visitConfirmed) {
       try {
-        console.log('예약확정 환자의 내원확정 처리 - 모달 없이 바로 처리');
+        console.log('🔥 예약확정 환자의 내원확정 처리 - Redux 액션 사용');
         
-        const visitDate = patient.reservationDate || new Date().toISOString().split('T')[0];
-        const visitTime = patient.reservationTime || '09:00';
+        // Redux 액션 호출로 변경
+        const result = await dispatch(toggleVisitConfirmation(patientId));
         
-        const visitResponse = await fetch(`/api/patients/${patientId}/visit-confirmation`, {
-          method: 'PUT',
-          headers: {
-            'Content-Type': 'application/json',
-          },
-          body: JSON.stringify({
-            reservationDate: visitDate,
-            reservationTime: visitTime,
-            isDirectVisitConfirmation: true
-          }),
-        });
-
-        if (!visitResponse.ok) {
-          const errorData = await visitResponse.json();
-          throw new Error(errorData.error || '내원확정 처리에 실패했습니다.');
+        if (toggleVisitConfirmation.fulfilled.match(result)) {
+          console.log('✅ Redux 내원확정 처리 성공');
+          
+          // 🔥 React Query 캐시 무효화로 즉시 UI 반영
+          queryClient.invalidateQueries({ queryKey: ['patients'] });
+          setTooltipRefreshTrigger(prev => prev + 1);
+        } else {
+          console.error('❌ Redux 내원확정 처리 실패:', result.payload);
+          throw new Error(result.payload as string || '내원확정 처리에 실패했습니다.');
         }
-
-        const responseData = await visitResponse.json();
-        console.log('🔥 API 응답 데이터:', responseData);
-
-        await dispatch(fetchPatients()).unwrap();
-        setTooltipRefreshTrigger(prev => prev + 1);
-
-        console.log('예약확정 환자 내원확정 처리 성공');
         
       } catch (error) {
         console.error('예약확정 환자 내원확정 처리 실패:', error);
@@ -337,6 +329,7 @@ export default function PatientList({ isLoading = false, filteredPatients }: Pat
       return;
     }
     
+    // 🔥 일반 환자의 내원확정 처리 - 예약일자 모달 (기존과 동일)
     if (!patient.visitConfirmed && patient.status !== '예약확정') {
       console.log('예약일자 입력 모달 띄우기 - 갑작스러운 내원 케이스');
       setSelectedPatientForReservation(patient);
@@ -345,7 +338,7 @@ export default function PatientList({ isLoading = false, filteredPatients }: Pat
     }
   };
 
-  // 예약일자 모달 확인 핸들러
+  // 🔥 예약일자 모달 확인 핸들러 - Redux 액션 사용으로 개선
   const handleReservationConfirm = async (reservationDate: string, reservationTime: string) => {
     if (!selectedPatientForReservation) {
       console.error('선택된 환자가 없습니다.');
@@ -357,12 +350,13 @@ export default function PatientList({ isLoading = false, filteredPatients }: Pat
     try {
       const patientId = selectedPatientForReservation._id || selectedPatientForReservation.id;
       
-      console.log('예약일자 처리 시작:', {
+      console.log('🔥 예약일자 처리 시작 (Redux 액션 사용):', {
         patientId,
         reservationDate,
         reservationTime
       });
 
+      // 🔥 1단계: 예약완료 처리 (기존 API 호출 유지)
       const reservationResponse = await fetch(`/api/patients/${patientId}/reservation-complete`, {
         method: 'PUT',
         headers: {
@@ -380,33 +374,26 @@ export default function PatientList({ isLoading = false, filteredPatients }: Pat
         throw new Error(errorData.error || '예약완료 처리에 실패했습니다.');
       }
 
-      console.log('1단계: 예약완료 처리 성공');
+      console.log('✅ 1단계: 예약완료 처리 성공');
 
-      const visitResponse = await fetch(`/api/patients/${patientId}/visit-confirmation`, {
-        method: 'PUT',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({
-          reservationDate,
-          reservationTime
-        }),
-      });
-
-      if (!visitResponse.ok) {
-        const errorData = await visitResponse.json();
-        throw new Error(errorData.error || '내원확정 처리에 실패했습니다.');
-      }
+      // 🔥 2단계: 내원확정 처리 - Redux 액션 사용
+      const result = await dispatch(toggleVisitConfirmation(patientId));
       
-      console.log('2단계: 내원확정 처리 성공');
+      if (toggleVisitConfirmation.fulfilled.match(result)) {
+        console.log('✅ 2단계: Redux 내원확정 처리 성공');
+        
+        // 🔥 React Query 캐시 무효화로 즉시 UI 반영
+        queryClient.invalidateQueries({ queryKey: ['patients'] });
+        setTooltipRefreshTrigger(prev => prev + 1);
 
-      await dispatch(fetchPatients()).unwrap();
-      setTooltipRefreshTrigger(prev => prev + 1);
+        alert(`${selectedPatientForReservation.name} 환자의 예약완료 및 내원확정 처리가 완료되었습니다.`);
 
-      alert(`${selectedPatientForReservation.name} 환자의 예약완료 및 내원확정 처리가 완료되었습니다.`);
-
-      setIsReservationModalOpen(false);
-      setSelectedPatientForReservation(null);
+        setIsReservationModalOpen(false);
+        setSelectedPatientForReservation(null);
+      } else {
+        console.error('❌ Redux 내원확정 처리 실패:', result.payload);
+        throw new Error(result.payload as string || '내원확정 처리에 실패했습니다.');
+      }
 
     } catch (error) {
       console.error('예약일자 처리 실패:', error);
@@ -423,7 +410,7 @@ export default function PatientList({ isLoading = false, filteredPatients }: Pat
     }
   };
 
-  // 내원확정 취소 확인 핸들러
+  // 🔥 내원확정 취소 확인 핸들러 - Redux 액션 사용으로 개선
   const handleConfirmCancelVisit = async (reason: string) => {
     if (!selectedPatientForCancel) {
       console.error('취소할 환자가 선택되지 않았습니다.');
@@ -435,8 +422,9 @@ export default function PatientList({ isLoading = false, filteredPatients }: Pat
     try {
       const patientId = selectedPatientForCancel._id || selectedPatientForCancel.id;
       
-      console.log('내원확정 취소 처리 시작:', patientId);
+      console.log('🔥 내원확정 취소 처리 시작 (Redux 액션 사용):', patientId);
 
+      // 🔥 취소 API 호출 후 Redux 액션으로 상태 업데이트
       const cancelResponse = await fetch(`/api/patients/${patientId}/cancel-visit-confirmation`, {
         method: 'PUT',
         headers: {
@@ -452,15 +440,16 @@ export default function PatientList({ isLoading = false, filteredPatients }: Pat
         throw new Error(errorData.error || '내원확정 취소에 실패했습니다.');
       }
 
-      console.log('내원확정 취소 API 호출 성공');
+      console.log('✅ 내원확정 취소 API 호출 성공');
 
-      const responseData = await cancelResponse.json();
-      console.log('취소 API 응답:', responseData);
-
+      // 🔥 Redux 액션으로 상태 동기화 (toggleVisitConfirmation 대신 fetchPatients 사용)
       await dispatch(fetchPatients()).unwrap();
+      
+      // 🔥 React Query 캐시 무효화로 즉시 UI 반영
+      queryClient.invalidateQueries({ queryKey: ['patients'] });
       setTooltipRefreshTrigger(prev => prev + 1);
 
-      console.log('내원확정 취소 완료 및 데이터 새로고침 성공');
+      console.log('✅ 내원확정 취소 완료 및 데이터 새로고침 성공');
       alert(`${selectedPatientForCancel.name} 환자의 내원확정이 취소되었습니다.`);
 
       setIsCancelModalOpen(false);

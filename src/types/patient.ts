@@ -55,6 +55,7 @@ export interface PostVisitConsultationInfo {
   paymentInfo?: PaymentInfo;     // 납부 방식 (치료시작일 때)
   nextVisitDate?: string;        // 다음 내원 예정일 (치료시작일 때)
   completionNotes?: string;      // 완료 메모 (치료완료일 때)
+  treatmentContent?: string; // 🔥 이 필드 추가
 }
 
 // 🔥 상담/결제 정보 타입 정의 (대폭 단순화) - 호환성 유지

@@ -45,11 +45,11 @@ const patientStatusOptions = [
 
 // 관심 분야 옵션
 const interestAreaOptions = [
-  { value: '풀케이스', label: '풀케이스' },
-  { value: '임플란트', label: '임플란트' },
+  { value: '단일 임플란트', label: '단일 임플란트' },
+  { value: '다수 임플란트', label: '다수 임플란트' },
+  { value: '무치악 임플란트', label: '무치악 임플란트' },
+  { value: '틀니', label: '틀니' },
   { value: '라미네이트', label: '라미네이트' },
-  { value: '미백', label: '미백' },
-  { value: '신경치료', label: '신경치료' },
   { value: '충치치료', label: '충치치료' },
   { value: '기타', label: '기타' },
 ]
@@ -401,22 +401,41 @@ export default function PatientEditForm({ patient, onClose, onSuccess }: Patient
   const prepareFormDataForSubmit = (formData: UpdatePatientData): UpdatePatientData => {
     const preparedData = { ...formData };
     
-    // 🔥 나이 필드 최종 정리 - 타입 안전성 개선
+    // 🔥 나이 필드 처리 개선 - undefined인 경우 요청에서 완전히 제외
     if (preparedData.age === null || 
         preparedData.age === undefined || 
         (typeof preparedData.age === 'number' && isNaN(preparedData.age))) {
-      preparedData.age = undefined; // 명확하게 undefined로 설정
-      console.log('🔥 제출 전 나이 필드 정리: undefined로 설정');
+      delete preparedData.age; // 🔥 undefined 대신 필드 자체를 제거
+      console.log('🔥 제출 전 나이 필드 제거: 기존 DB 값 유지');
+    }
+
+    // 🔥 지역 필드 처리 개선 - undefined인 경우 요청에서 완전히 제외
+    if (!preparedData.region || 
+        !preparedData.region.province || 
+        preparedData.region.province === '') {
+      delete preparedData.region; // 🔥 undefined 대신 필드 자체를 제거
+      console.log('🔥 제출 전 지역 필드 제거: 기존 DB 값 유지');
     }
     
-    console.log('🔥 제출할 데이터:', {
-      age: preparedData.age,
-      ageType: typeof preparedData.age,
-      isAgeUndefined: preparedData.age === undefined
+    // 🔥 빈 문자열 필드들도 정리 (선택적)
+    Object.keys(preparedData).forEach(key => {
+      if (preparedData[key as keyof UpdatePatientData] === '') {
+        // 빈 문자열은 그대로 유지 (의도적으로 비운 것일 수 있음)
+        // delete preparedData[key]; // 필요시 주석 해제
+      }
     });
     
-    return preparedData;
-  };
+    console.log('🔥 제출할 데이터:', {
+    age: preparedData.age,
+    ageType: typeof preparedData.age,
+    hasAge: 'age' in preparedData,
+    region: preparedData.region,
+    hasRegion: 'region' in preparedData,
+    excludedFields: Object.keys(formData).filter(key => !(key in preparedData))
+  });
+  
+  return preparedData;
+}; 
   
   // 🚀 기존 방식 폼 제출 (fallback)
   const handleTraditionalSubmit = async (e: React.FormEvent) => {

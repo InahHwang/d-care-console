@@ -248,6 +248,7 @@ export const updatePostVisitStatus = createAsyncThunk(
         patientId,
         postVisitStatus,
         hasConsultation: !!postVisitConsultation,
+        treatmentContent: postVisitConsultation?.treatmentContent, // 🔥 치료 내용 로그 추가
         patientReaction: postVisitConsultation?.estimateInfo?.patientReaction // 🔥 환자 반응 로그
       });
       const response = await fetch(`/api/patients/${patientId}/post-visit-status`, {
@@ -273,6 +274,7 @@ export const updatePostVisitStatus = createAsyncThunk(
       console.log('Redux: 내원 후 상태 업데이트 성공:', {
         name: updatedPatient.name,
         postVisitStatus: updatedPatient.postVisitStatus,
+        treatmentContent: updatedPatient.postVisitConsultation?.treatmentContent, // 🔥 치료 내용 로그 추가
         patientReaction: updatedPatient.postVisitConsultation?.estimateInfo?.patientReaction // 🔥 환자 반응 로그
       });
       

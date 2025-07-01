@@ -82,12 +82,13 @@ export async function PUT(
       id, 
       skipLog,
       hasData: !!data,
-      hasConsultation: !!data.consultation, // 🔥 상담 정보 포함 여부 확인
-      ageValue: data.age, // 🔥 나이 값 확인
-      ageType: typeof data.age // 🔥 나이 타입 확인
+      hasConsultation: !!data.consultation,
+      ageValue: data.age,
+      ageType: typeof data.age,
+      regionValue: data.region
     });
     
-    // 🔥 나이 필드 undefined 처리 개선
+    // 🔥 업데이트 데이터 처리 - undefined 필드는 요청에서 제외하여 기존 값 유지
     let updateData = {
       ...data,
       updatedAt: new Date().toISOString(),
@@ -95,21 +96,16 @@ export async function PUT(
       consultationType: data.consultationType || 'outbound'
     };
     
-    // 🔥 $unset 연산을 위한 필드들 수집
-    const unsetFields: { [key: string]: "" } = {};
-    
-    // 🔥 나이가 undefined인 경우 DB에서 해당 필드 제거
+    // 🔥 나이가 undefined인 경우 updateData에서 제거 (기존 DB 값 유지)
     if (data.age === undefined) {
-      unsetFields.age = "";
-      delete updateData.age; // updateData에서도 제거
-      console.log('🔥 API: 나이 필드를 DB에서 제거합니다 (undefined 처리)');
+      delete updateData.age;
+      console.log('🔥 API: 나이 필드가 undefined이므로 업데이트에서 제외 (기존 값 유지)');
     }
     
-    // 🔥 다른 필드들도 undefined 체크 (필요시 추가)
+    // 🔥 지역이 undefined인 경우 updateData에서 제거 (기존 DB 값 유지)
     if (data.region === undefined) {
-      unsetFields.region = "";
       delete updateData.region;
-      console.log('🔥 API: 지역 필드를 DB에서 제거합니다 (undefined 처리)');
+      console.log('🔥 API: 지역 필드가 undefined이므로 업데이트에서 제외 (기존 값 유지)');
     }
     
     // 🔥 상담 정보가 포함된 경우 특별 처리
@@ -126,44 +122,27 @@ export async function PUT(
     console.log('🔍 API: 처리된 업데이트 데이터', {
       hasConsultation: !!updateData.consultation,
       consultationData: updateData.consultation,
-      unsetFields: Object.keys(unsetFields),
       ageInUpdate: 'age' in updateData,
-      ageValue: updateData.age
+      ageValue: updateData.age,
+      regionInUpdate: 'region' in updateData,
+      regionValue: updateData.region,
+      updateDataKeys: Object.keys(updateData)
     });
     
-    // 🔥 MongoDB 업데이트 쿼리 구성
-    const updateQuery: any = {};
-    
-    // $set 연산 (일반 업데이트)
-    if (Object.keys(updateData).length > 0) {
-      updateQuery.$set = updateData;
-    }
-    
-    // $unset 연산 (필드 제거)
-    if (Object.keys(unsetFields).length > 0) {
-      updateQuery.$unset = unsetFields;
-    }
-    
-    console.log('🔍 API: MongoDB 업데이트 쿼리:', {
-      hasSet: !!updateQuery.$set,
-      hasUnset: !!updateQuery.$unset,
-      setKeys: updateQuery.$set ? Object.keys(updateQuery.$set) : [],
-      unsetKeys: updateQuery.$unset ? Object.keys(updateQuery.$unset) : []
-    });
-    
+    // 🔥 MongoDB 업데이트 - $set만 사용 (필드 제거 없음)
     let result;
     if (ObjectId.isValid(id)) {
       console.log('🔍 API: ObjectId로 업데이트 시도', id);
       result = await db.collection('patients').findOneAndUpdate(
         { _id: new ObjectId(id) },
-        updateQuery, // 🔥 $set과 $unset을 포함한 쿼리 사용
+        { $set: updateData }, // 🔥 $set만 사용, undefined 필드는 제외됨
         { returnDocument: 'after' }
       );
     } else {
       console.log('🔍 API: patientId로 업데이트 시도', id);
       result = await db.collection('patients').findOneAndUpdate(
         { patientId: id },
-        updateQuery, // 🔥 $set과 $unset을 포함한 쿼리 사용
+        { $set: updateData }, // 🔥 $set만 사용, undefined 필드는 제외됨
         { returnDocument: 'after' }
       );
     }
@@ -175,8 +154,6 @@ export async function PUT(
     
     // 🔥 백엔드에서 별도 활동 로그 기록이 있었다면 여기서 스킵
     if (!skipLog) {
-      // 만약 여기서 활동 로그를 기록하는 코드가 있었다면, 
-      // skipLog가 false일 때만 실행되도록 해야 함
       console.log('🔍 API: 백엔드 활동 로그 기록 (현재는 없음)');
     } else {
       console.log('🔍 API: 🚫 프론트엔드에서 로깅 처리하므로 백엔드 로깅 스킵');
@@ -190,8 +167,8 @@ export async function PUT(
       normalized_id: normalizedPatient.id,
       patientName: normalizedPatient.name,
       hasConsultation: !!normalizedPatient.consultation,
-      estimateAgreed: normalizedPatient.consultation?.estimateAgreed,
-      ageAfterUpdate: normalizedPatient.age, // 🔥 업데이트 후 나이 값 확인
+      ageAfterUpdate: normalizedPatient.age,
+      regionAfterUpdate: normalizedPatient.region,
       skipLog
     });
     

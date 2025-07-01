@@ -70,75 +70,98 @@ const PostVisitStatusModal = ({ isOpen, onClose, onConfirm, patient, isLoading }
 
   // 모달이 열릴 때마다 모든 필드 초기화
   useEffect(() => {
-    if (isOpen) {
-      // 모든 필드를 기본값으로 초기화
-      setSelectedStatus('');
-      setConsultationContent('');
-      setTreatmentContent('');
-      
-      // 기타 필드들 초기화
-      setNextCallbackDate('');
-      setNextConsultationPlan('');
-      setPaymentType('lump_sum');
-      setDownPayment(0);
-      setInstallmentPlan('');
-      setNextVisitDate('');
-      setCompletionReason('');
+  if (isOpen) {
+    // 모든 필드를 기본값으로 초기화
+    setSelectedStatus('');
+    setConsultationContent('');
+    setTreatmentContent(''); // 🔥 일단 초기화
+    
+    // 기타 필드들 초기화
+    setNextCallbackDate('');
+    setNextConsultationPlan('');
+    setPaymentType('lump_sum');
+    setDownPayment(0);
+    setInstallmentPlan('');
+    setNextVisitDate('');
+    setCompletionReason('');
 
-      // 견적 정보 로드 로직
-      let estimateLoaded = false;
+    // 견적 정보 로드 로직
+    let estimateLoaded = false;
+
+    // 1순위: 기존 내원 후 상담 정보의 견적 데이터
+    if (patient?.postVisitConsultation?.estimateInfo) {
+      const estimate = patient.postVisitConsultation.estimateInfo;
+      setRegularPrice(estimate.regularPrice || 0);
+      setDiscountPrice(estimate.discountPrice || 0);
+      setDiscountEvent(estimate.discountEvent || '');
+      setPatientReaction(estimate.patientReaction || '');
+      estimateLoaded = true;
+    }
+    // 2순위: 상담관리의 견적금액이 있고 아직 내원 후 견적이 없는 경우 자동 연동
+    else if (patient?.consultation?.estimatedAmount && patient.consultation.estimatedAmount > 0) {
+      setRegularPrice(0);
+      setDiscountPrice(patient.consultation.estimatedAmount);
+      setDiscountEvent('');
+      setPatientReaction('');
+      estimateLoaded = true;
+    }
+    // 3순위: 아무 견적 정보가 없는 경우 기본값
+    else {
+      setRegularPrice(0);
+      setDiscountPrice(0);
+      setDiscountEvent('');
+      setPatientReaction('');
+    }
+    
+    // 환자 기존 데이터가 있는 경우에만 로드 (견적 정보 제외)
+    if (patient?.postVisitConsultation) {
+      setConsultationContent(patient.postVisitConsultation.consultationContent || '');
+      setTreatmentContent((patient.postVisitConsultation as any)?.treatmentContent || '');
       
-      // 1순위: 기존 내원 후 상담 정보의 견적 데이터
-      if (patient?.postVisitConsultation?.estimateInfo) {
-        const estimate = patient.postVisitConsultation.estimateInfo;
-        setRegularPrice(estimate.regularPrice || 0);
-        setDiscountPrice(estimate.discountPrice || 0);
-        setDiscountEvent(estimate.discountEvent || '');
-        setPatientReaction(estimate.patientReaction || '');
-        estimateLoaded = true;
-      }
-      // 2순위: 상담관리의 견적금액이 있고 아직 내원 후 견적이 없는 경우 자동 연동
-      else if (patient?.consultation?.estimatedAmount && patient.consultation.estimatedAmount > 0) {
-        setRegularPrice(0);
-        setDiscountPrice(patient.consultation.estimatedAmount);
-        setDiscountEvent('');
-        setPatientReaction('');
-        estimateLoaded = true;
-      }
-      // 3순위: 아무 견적 정보가 없는 경우 기본값
-      else {
-        setRegularPrice(0);
-        setDiscountPrice(0);
-        setDiscountEvent('');
-        setPatientReaction('');
-      }
+      // 기타 필드들 로드
+      setNextCallbackDate(patient.postVisitConsultation.nextCallbackDate || '');
+      setNextConsultationPlan(patient.postVisitConsultation.nextConsultationPlan || '');
       
-      // 환자 기존 데이터가 있는 경우에만 로드 (견적 정보 제외)
-      if (patient?.postVisitConsultation) {
-        setConsultationContent(patient.postVisitConsultation.consultationContent || '');
-        setTreatmentContent((patient.postVisitConsultation as any)?.treatmentContent || '');
-        
-        // 기타 필드들 로드
-        setNextCallbackDate(patient.postVisitConsultation.nextCallbackDate || '');
-        setNextConsultationPlan(patient.postVisitConsultation.nextConsultationPlan || '');
-        
-        const payment = patient.postVisitConsultation.paymentInfo;
-        if (payment) {
-          setPaymentType(payment.paymentType || 'lump_sum');
-          setDownPayment(payment.downPayment || 0);
-          setInstallmentPlan(payment.installmentPlan || '');
-        }
-        
-        setNextVisitDate(patient.postVisitConsultation.nextVisitDate || '');
-        setCompletionReason((patient.postVisitConsultation as any)?.completionReason || '');
+      const payment = patient.postVisitConsultation.paymentInfo;
+      if (payment) {
+        setPaymentType(payment.paymentType || 'lump_sum');
+        setDownPayment(payment.downPayment || 0);
+        setInstallmentPlan(payment.installmentPlan || '');
       }
       
-      // 환자의 기존 상태 로드
-      if (patient?.postVisitStatus) {
-        setSelectedStatus(patient.postVisitStatus);
+      setNextVisitDate(patient.postVisitConsultation.nextVisitDate || '');
+      setCompletionReason((patient.postVisitConsultation as any)?.completionReason || '');
+    }
+    
+    // 환자의 기존 상태 로드
+    if (patient?.postVisitStatus) {
+      setSelectedStatus(patient.postVisitStatus);
+    }
+
+    // 🔥 관심 분야 -> 치료 내용 자동 연동 (기존 코드 개선)
+    // 기존에 치료 내용이 없는 경우에만 관심분야에서 자동 연동
+    if (!patient?.postVisitConsultation?.treatmentContent && 
+        patient?.interestedServices && 
+        patient.interestedServices.length > 0) {
+      
+      // 관심 분야 중 유효한 첫 번째 항목을 자동 연동 (기타 제외)
+      const validInterests = patient.interestedServices.filter(interest => 
+        interest && interest.trim() !== '' && interest !== '기타'
+      );
+      
+      if (validInterests.length > 0) {
+        const firstValidInterest = validInterests[0];
+        setTreatmentContent(firstValidInterest);
+        console.log('🔥 관심 분야 자동 연동:', {
+          patientName: patient.name,
+          allInterestedServices: patient.interestedServices,
+          validInterests: validInterests,
+          autoLinkedTreatment: firstValidInterest
+        });
       }
     }
-  }, [isOpen, patient]);
+  }
+}, [isOpen, patient]);
 
   const handleConfirm = () => {
     if (!selectedStatus) {
@@ -548,13 +571,28 @@ const ConsultationTypeBadge = ({ type, inboundPhoneNumber }: { type: 'inbound' |
 
 // 치료 내용 배지 컴포넌트
 const TreatmentContentBadge = ({ patient }: { patient: Patient }) => {
-  const treatmentContent = (patient.postVisitConsultation as any)?.treatmentContent;
+  // 1순위: 저장된 치료 내용
+  const savedTreatmentContent = (patient.postVisitConsultation as any)?.treatmentContent;
   
-  if (!treatmentContent) {
+  // 2순위: 관심 분야에서 자동 연동 (저장된 치료 내용이 없을 때)
+  let displayTreatmentContent = savedTreatmentContent;
+  
+  if (!savedTreatmentContent && patient.interestedServices && patient.interestedServices.length > 0) {
+    // 관심 분야 중 유효한 첫 번째 항목을 자동 연동 (기타 제외)
+    const validInterests = patient.interestedServices.filter(interest => 
+      interest && interest.trim() !== '' && interest !== '기타'
+    );
+    
+    if (validInterests.length > 0) {
+      displayTreatmentContent = validInterests[0];
+    }
+  }
+  
+  if (!displayTreatmentContent) {
     return <span className="text-xs text-gray-400">미입력</span>;
   }
   
-  // 치료 내용별 색상 구분
+  // 치료 내용별 색상 구분 (기존과 동일)
   const getColorClass = (content: string) => {
     switch (content) {
       case '단일 임플란트':
@@ -575,13 +613,15 @@ const TreatmentContentBadge = ({ patient }: { patient: Patient }) => {
         return 'bg-gray-100 text-gray-800';
     }
   };
-  
+
+  // 🔥 기존 디자인과 동일하게 단순한 배지만 표시
   return (
-    <span className={`inline-flex items-center px-2 py-1 rounded-full text-xs font-medium ${getColorClass(treatmentContent)}`}>
-      {treatmentContent}
+    <span className={`inline-flex items-center px-2 py-1 rounded-full text-xs font-medium ${getColorClass(displayTreatmentContent)}`}>
+      {displayTreatmentContent}
     </span>
   );
 };
+
 
 // 환자 반응 배지 컴포넌트
 const PatientReactionBadge = ({ patient }: { patient: Patient }) => {

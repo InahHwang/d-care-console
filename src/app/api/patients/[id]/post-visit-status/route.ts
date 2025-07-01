@@ -18,7 +18,8 @@ export async function PUT(
     console.log('내원 후 상태 업데이트 요청:', {
       patientId,
       postVisitStatus,
-      hasConsultation: !!postVisitConsultation
+      hasConsultation: !!postVisitConsultation,
+      treatmentContent: postVisitConsultation?.treatmentContent // 🔥 치료 내용 로그 추가
     });
     
     // 환자 ID 유효성 검사
@@ -52,7 +53,12 @@ export async function PUT(
     }
     
     // 🔥 내원 후 상담 정보 업데이트 (환자 반응 지원)
-    if (postVisitConsultation) {
+   if (postVisitConsultation) {
+      // 🔥 치료 내용 필드 확인 및 로깅
+      if (postVisitConsultation.treatmentContent) {
+        console.log('🔥 치료 내용 업데이트:', postVisitConsultation.treatmentContent);
+      }
+
       // 🔥 견적 정보에서 patientReaction 필드 확인
       if (postVisitConsultation.estimateInfo && postVisitConsultation.estimateInfo.patientReaction) {
         console.log('환자 반응 업데이트:', postVisitConsultation.estimateInfo.patientReaction);
@@ -81,6 +87,7 @@ export async function PUT(
       ...updateData,
       postVisitConsultation: updateData.postVisitConsultation ? {
         ...updateData.postVisitConsultation,
+        treatmentContent: updateData.postVisitConsultation.treatmentContent, // 🔥 치료 내용 로그
         estimateInfo: updateData.postVisitConsultation.estimateInfo ? {
           ...updateData.postVisitConsultation.estimateInfo,
           patientReaction: updateData.postVisitConsultation.estimateInfo.patientReaction
@@ -120,6 +127,7 @@ export async function PUT(
       patientId,
       name: updatedPatient.name,
       postVisitStatus: updatedPatient.postVisitStatus,
+      treatmentContent: updatedPatient.postVisitConsultation?.treatmentContent, // 🔥 치료 내용 로그
       patientReaction: updatedPatient.postVisitConsultation?.estimateInfo?.patientReaction
     });
     
