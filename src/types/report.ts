@@ -56,6 +56,7 @@ export interface ChannelStat {
 
 // 월별 통계 계산용 타입 - 🔥 손실 분석 추가
 export interface MonthlyStats {
+  patientConsultations: any;
   totalInquiries: number;
   inboundCalls: number;
   outboundCalls: number;
@@ -72,6 +73,19 @@ export interface MonthlyStats {
   // 🔥 새로 추가: 손실 분석 데이터
   lossAnalysis: LossPatientAnalysis;
 }
+
+export interface PatientConsultationSummary {
+  _id: string;
+  name: string;
+  age?: number;
+  discomfort: string;        // 불편한 부분 (treatmentPlan 필드)
+  consultationSummary: string; // 상담 메모 요약 (consultationNotes 필드)
+  fullDiscomfort?: string;     // 전체 불편한 부분 내용 (모달용)
+  fullConsultation?: string;   // 전체 상담 내용 (모달용)
+  estimatedAmount: number;
+  estimateAgreed: boolean;
+}
+
 
 export interface MonthlyReportData {
   _id?: string;
@@ -132,6 +146,9 @@ export interface MonthlyReportData {
   // 메타데이터
   createdAt: string;
   updatedAt: string;
+
+  // 🔥 새로 추가: 환자별 상담 내용 요약
+  patientConsultations?: PatientConsultationSummary[];
 }
 
 // 보고서 목록용 타입

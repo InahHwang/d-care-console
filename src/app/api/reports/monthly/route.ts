@@ -2,7 +2,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { connectToDatabase } from '@/utils/mongodb';
 import jwt from 'jsonwebtoken';
-import { MonthlyStats, ChangeIndicator } from '@/types/report';
+import { MonthlyStats, ChangeIndicator, PatientConsultationSummary } from '@/types/report';
 import { calculateLossAnalysis } from '@/utils/lossAnalysisUtils'; // 🔥 새로 추가
 
 // JWT 검증 함수
@@ -103,7 +103,9 @@ export async function POST(request: NextRequest) {
 
     const result = {
       ...currentStats,
-      changes
+      changes,
+      // 🔥 환자별 상담 내용도 함께 반환
+      patientConsultations: currentStats.patientConsultations
     };
 
     console.log('✅ 최종 결과:', result);
@@ -189,6 +191,30 @@ function calculateMonthlyStats(patients: any[]): MonthlyStats {
     
     return sum + finalAmount;
   }, 0);
+
+  // 🔥 새로 추가: 환자별 상담 내용 요약 생성
+  const patientConsultations: PatientConsultationSummary[] = patients
+    .filter(p => p.consultation && (p.consultation.treatmentPlan || p.consultation.consultationNotes))
+    .map(p => {
+      const consultation = p.consultation;
+      const discomfort = consultation.treatmentPlan || '';
+      const consultationNotes = consultation.consultationNotes || '';
+      
+      return {
+        _id: p._id,
+        name: p.name,
+        age: p.age,
+        discomfort: truncateText(discomfort, 50), // 50자로 제한
+        consultationSummary: truncateText(consultationNotes, 80), // 80자로 제한
+        fullDiscomfort: discomfort, // 전체 내용
+        fullConsultation: consultationNotes, // 전체 내용
+        consultationDate: consultation.consultationDate,
+        estimatedAmount: consultation.estimatedAmount || 0,
+        estimateAgreed: consultation.estimateAgreed || false
+      };
+    })
+    .sort((a, b) => new Date(b.consultationDate).getTime() - new Date(a.consultationDate).getTime()); // 최신순 정렬
+
   
   // 결제 전환율 계산 (신규문의 기준)
   const paymentRate = totalInquiries > 0 ? (paymentPatients / totalInquiries) * 100 : 0;
@@ -280,13 +306,21 @@ function calculateMonthlyStats(patients: any[]): MonthlyStats {
     averageAge: Math.round(averageAge * 10) / 10,
     regionStats,
     channelStats,
-    // 🔥 새로 추가: 손실 분석 데이터
-    lossAnalysis
+    lossAnalysis,
+    // 🔥 새로 추가
+    patientConsultations
   };
 
   console.log('🎯 최종 통계 결과 (손실 분석 포함):', finalStats);
   
   return finalStats;
+}
+
+// 텍스트 자르기 헬퍼 함수
+function truncateText(text: string, maxLength: number): string {
+  if (!text) return '';
+  if (text.length <= maxLength) return text;
+  return text.substring(0, maxLength) + '...';
 }
 
 // 🔥 전화번호로 지역 추정 함수 수정 - 휴대폰 번호(010) 케이스 제거

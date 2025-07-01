@@ -1,7 +1,7 @@
 // src/components/reports/MonthlyReport.tsx
 import React, { useState, useEffect } from 'react';
-import { Calendar, Phone, Users, CreditCard, MapPin, TrendingUp, Edit3, Send, Download, MessageSquare, PhoneCall, RefreshCw, AlertTriangle, TrendingDown, DollarSign, Eye, EyeOff } from 'lucide-react';
-import { MonthlyReportData } from '@/types/report';
+import { Calendar, Phone, Users, CreditCard, MapPin, TrendingUp, Edit3, Send, Download, MessageSquare, PhoneCall, RefreshCw, AlertTriangle, TrendingDown, DollarSign, Eye, EyeOff, X } from 'lucide-react';
+import { MonthlyReportData, PatientConsultationSummary } from '@/types/report';
 import { useAppDispatch, useAppSelector } from '@/hooks/reduxHooks';
 import { saveReport, submitReport, updateCurrentReport, refreshReportData } from '@/store/slices/reportsSlice';
 
@@ -212,6 +212,18 @@ const LossAnalysisSection: React.FC<{ reportData: MonthlyReportData }> = ({ repo
 };
 
 const MonthlyReport: React.FC<MonthlyReportProps> = ({ reportData }) => {
+  // 🔥 환자 상담 내용 상세 모달 상태 추가
+  const [selectedPatientConsultation, setSelectedPatientConsultation] = useState<PatientConsultationSummary | null>(null);
+
+  // 🔥 환자 클릭 핸들러
+  const handlePatientConsultationClick = (patient: PatientConsultationSummary) => {
+    setSelectedPatientConsultation(patient);
+  };
+
+  // 🔥 환자 상담 상세 모달 닫기
+  const handleClosePatientConsultationModal = () => {
+    setSelectedPatientConsultation(null);
+  };
   const dispatch = useAppDispatch();
   const { isSubmitting, isRefreshing } = useAppSelector((state) => state.reports);
   
@@ -703,6 +715,12 @@ const MonthlyReport: React.FC<MonthlyReportProps> = ({ reportData }) => {
           </div>
         </div>
 
+        {/* 🔥 새로 추가: 환자별 상담 내용 요약 섹션 */}
+        <PatientConsultationSection 
+          reportData={reportData}
+          onPatientClick={handlePatientConsultationClick}
+        />
+
         {/* 🔥 새로 추가: 손실 분석 섹션 */}
         <LossAnalysisSection reportData={reportData} />
 
@@ -1034,6 +1052,12 @@ const MonthlyReport: React.FC<MonthlyReportProps> = ({ reportData }) => {
         )}
       </div>
 
+      {/* 🔥 환자 상담 내용 상세 모달 */}
+      <PatientConsultationDetailModal
+        patient={selectedPatientConsultation}
+        onClose={handleClosePatientConsultationModal}
+      />
+
       {/* 🔥 새로 추가: 제출 확인 모달 */}
       {showSubmitModal && (
         <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 no-print">
@@ -1092,6 +1116,251 @@ const MonthlyReport: React.FC<MonthlyReportProps> = ({ reportData }) => {
           </div>
         </div>
       )}
+    </div>
+  );
+};
+
+// 🔥 환자별 상담 내용 요약 섹션 컴포넌트
+const PatientConsultationSection: React.FC<{ 
+  reportData: MonthlyReportData;
+  onPatientClick: (patient: PatientConsultationSummary) => void;
+}> = ({ reportData, onPatientClick }) => {
+  const [isExpanded, setIsExpanded] = useState(false); // 🔥 접힘/펼침 상태
+  const consultations = reportData.patientConsultations || [];
+  
+  return (
+    <div className="bg-white rounded-lg shadow-sm border mb-6">
+      <div className="p-6 border-b bg-indigo-50">
+        <div className="flex items-center justify-between">
+          <h2 className="text-lg font-bold text-gray-900 flex items-center gap-2">
+            <MessageSquare className="w-5 h-5 text-indigo-600" />
+            환자별 상담 내용 요약
+            <span className="text-sm bg-indigo-100 text-indigo-700 px-2 py-1 rounded-full">
+              총 {consultations.length}명
+            </span>
+          </h2>
+          
+          {/* 🔥 펼침/접힘 토글 버튼 */}
+          <button
+            onClick={() => setIsExpanded(!isExpanded)}
+            className="flex items-center gap-2 px-4 py-2 text-sm text-indigo-600 border border-indigo-200 rounded-lg hover:bg-indigo-50 no-print transition-colors"
+          >
+            {isExpanded ? (
+              <>
+                <EyeOff className="w-4 h-4" />
+                접기
+              </>
+            ) : (
+              <>
+                <Eye className="w-4 h-4" />
+                상세보기 ({consultations.length}명)
+              </>
+            )}
+          </button>
+        </div>
+        
+        {/* 🔥 접힌 상태일 때 간단한 요약 표시 */}
+        {!isExpanded && consultations.length > 0 && (
+          <div className="mt-4 p-4 bg-white rounded-lg border">
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-4 text-sm">
+              <div className="text-center">
+                <div className="text-2xl font-bold text-indigo-600">
+                  {consultations.length}명
+                </div>
+                <div className="text-gray-600">상담 기록</div>
+              </div>
+              <div className="text-center">
+                <div className="text-2xl font-bold text-green-600">
+                  {consultations.filter(c => c.estimateAgreed).length}명
+                </div>
+                <div className="text-gray-600">견적 동의</div>
+              </div>
+              <div className="text-center">
+                <div className="text-2xl font-bold text-orange-600">
+                  {Math.round(consultations.reduce((sum, c) => sum + c.estimatedAmount, 0) / 10000)}만원
+                </div>
+                <div className="text-gray-600">평균 견적</div>
+              </div>
+            </div>
+          </div>
+        )}
+        
+        {!isExpanded && (
+          <p className="text-sm text-gray-600 mt-3">
+            이번 달 상담 내용이 기록된 환자들의 요약입니다. "상세보기" 버튼을 클릭하면 전체 목록을 확인할 수 있습니다.
+          </p>
+        )}
+      </div>
+      
+      {/* 🔥 펼쳐진 상태일 때만 테이블 표시 */}
+      {isExpanded && (
+        <>
+          {consultations.length === 0 ? (
+            <div className="p-8 text-center text-gray-500">
+              <MessageSquare className="w-12 h-12 mx-auto mb-4 text-gray-300" />
+              <p>이번 달 상담 내용이 기록된 환자가 없습니다.</p>
+            </div>
+          ) : (
+            <div className="overflow-x-auto">
+              <table className="w-full">
+                <thead className="bg-gray-50">
+                  <tr>
+                    <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                      환자명
+                    </th>
+                    <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                      나이
+                    </th>
+                    <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                      불편한 부분
+                    </th>
+                    <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                      상담 메모 요약
+                    </th>
+                    <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                      견적금액
+                    </th>
+                    <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                      동의여부
+                    </th>
+                  </tr>
+                </thead>
+                <tbody className="bg-white divide-y divide-gray-200">
+                  {consultations.map((patient, index) => (
+                    <tr 
+                      key={patient._id}
+                      onClick={() => onPatientClick(patient)}
+                      className="hover:bg-indigo-50 cursor-pointer transition-colors"
+                    >
+                      <td className="px-4 py-4 whitespace-nowrap">
+                        <div className="text-sm font-medium text-gray-900">
+                          {patient.name}
+                        </div>
+                      </td>
+                      <td className="px-4 py-4 whitespace-nowrap">
+                        <div className="text-sm text-gray-600">
+                          {patient.age ? `${patient.age}세` : '-'}
+                        </div>
+                      </td>
+                      <td className="px-4 py-4">
+                        <div className="text-sm text-gray-900 max-w-xs">
+                          {patient.discomfort || '-'}
+                          {patient.fullDiscomfort && patient.fullDiscomfort.length > 50 && (
+                            <span className="text-indigo-600 ml-1">더보기</span>
+                          )}
+                        </div>
+                      </td>
+                      <td className="px-4 py-4">
+                        <div className="text-sm text-gray-900 max-w-sm">
+                          {patient.consultationSummary || '-'}
+                          {patient.fullConsultation && patient.fullConsultation.length > 80 && (
+                            <span className="text-indigo-600 ml-1">더보기</span>
+                          )}
+                        </div>
+                      </td>
+                      <td className="px-4 py-4 whitespace-nowrap">
+                        <div className="text-sm font-medium text-gray-900">
+                          {patient.estimatedAmount.toLocaleString()}원
+                        </div>
+                      </td>
+                      <td className="px-4 py-4 whitespace-nowrap">
+                        <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${
+                          patient.estimateAgreed 
+                            ? 'bg-green-100 text-green-800' 
+                            : 'bg-red-100 text-red-800'
+                        }`}>
+                          {patient.estimateAgreed ? '동의' : '거부'}
+                        </span>
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          )}
+        </>
+      )}
+    </div>
+  );
+};
+
+// 🔥 환자 상담 내용 상세 모달 컴포넌트
+const PatientConsultationDetailModal: React.FC<{
+  patient: PatientConsultationSummary | null;
+  onClose: () => void;
+}> = ({ patient, onClose }) => {
+  if (!patient) return null;
+
+  return (
+    <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 no-print">
+      <div className="bg-white rounded-lg p-6 w-full max-w-2xl max-h-[80vh] overflow-auto">
+        <div className="flex items-center justify-between mb-6">
+          <div>
+            <h3 className="text-lg font-semibold text-gray-900">상담 내용 상세</h3>
+            <p className="text-sm text-gray-600">
+              {patient.name} {patient.age ? `(${patient.age}세)` : '(나이 정보 없음)'}
+            </p>
+          </div>
+          <button
+            onClick={onClose}
+            className="text-gray-400 hover:text-gray-600"
+          >
+            <X className="w-6 h-6" />
+          </button>
+        </div>
+        
+        <div className="space-y-6">
+          {/* 견적 정보 */}
+          <div className="bg-gray-50 p-4 rounded-lg">
+            <h4 className="font-medium text-gray-900 mb-2">견적 정보</h4>
+            <div className="grid grid-cols-2 gap-4 text-sm">
+              <div>
+                <span className="text-gray-600">견적 금액:</span>
+                <span className="ml-2 font-medium">{patient.estimatedAmount.toLocaleString()}원</span>
+              </div>
+              <div>
+                <span className="text-gray-600">동의 여부:</span>
+                <span className={`ml-2 px-2 py-1 rounded-full text-xs font-medium ${
+                  patient.estimateAgreed 
+                    ? 'bg-green-100 text-green-800' 
+                    : 'bg-red-100 text-red-800'
+                }`}>
+                  {patient.estimateAgreed ? '동의' : '거부'}
+                </span>
+              </div>
+            </div>
+          </div>
+          
+          {/* 불편한 부분 */}
+          <div>
+            <h4 className="font-medium text-gray-900 mb-2">불편한 부분</h4>
+            <div className="bg-white border rounded-lg p-4">
+              <p className="text-gray-700 whitespace-pre-line">
+                {patient.fullDiscomfort || '기록된 내용이 없습니다.'}
+              </p>
+            </div>
+          </div>
+          
+          {/* 상담 메모 */}
+          <div>
+            <h4 className="font-medium text-gray-900 mb-2">상담 메모</h4>
+            <div className="bg-white border rounded-lg p-4">
+              <p className="text-gray-700 whitespace-pre-line">
+                {patient.fullConsultation || '기록된 내용이 없습니다.'}
+              </p>
+            </div>
+          </div>
+        </div>
+        
+        <div className="flex justify-end mt-6">
+          <button
+            onClick={onClose}
+            className="px-4 py-2 bg-gray-600 text-white rounded-lg hover:bg-gray-700"
+          >
+            닫기
+          </button>
+        </div>
+      </div>
     </div>
   );
 };
