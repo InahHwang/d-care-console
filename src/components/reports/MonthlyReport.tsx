@@ -1179,7 +1179,7 @@ const PatientConsultationSection: React.FC<{
                 <div className="text-2xl font-bold text-orange-600">
                   {Math.round(consultations.reduce((sum, c) => sum + c.estimatedAmount, 0) / 10000)}만원
                 </div>
-                <div className="text-gray-600">평균 견적</div>
+                <div className="text-gray-600">견적 합계</div>
               </div>
             </div>
           </div>
