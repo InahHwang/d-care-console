@@ -1,4 +1,5 @@
-// src/utils/lossAnalysisUtils.ts - 🔥 상담 손실군 로직 개선
+// src/utils/lossAnalysisUtils.ts - 🔥 완전 수정 버전
+
 import { Patient } from '@/types/patient';
 import { LossPatientAnalysis, LossPatientDetail } from '@/types/report';
 
@@ -11,7 +12,7 @@ export function calculateLossAnalysis(patients: Patient[]): LossPatientAnalysis 
   // 🔥 1. 상담 관리 손실군 분석 - "예약확정" 외의 모든 환자
   const consultationLossPatients = patients.filter(p => 
     p.status !== '예약확정' && p.status !== 'VIP'  // 예약확정과 VIP 제외
-);
+  );
   
   // 상담 손실군을 세부 상태별로 분류
   const consultationTerminated = consultationLossPatients.filter(p => p.status === '종결').length;
@@ -31,22 +32,24 @@ export function calculateLossAnalysis(patients: Patient[]): LossPatientAnalysis 
   console.log(`   • 콜백필요: ${consultationCallback}명`);
   console.log(`   • 총 상담 손실: ${consultationLossPatients.length}명, 손실금액: ${consultationLossAmount.toLocaleString()}원`);
   
-  // 2. 내원 관리 손실군 분석 (기존과 동일)
+  // 🔥 2. 내원 관리 손실군 분석 - 수정된 4개 상태 적용
   const visitLossPatients = patients.filter(p => 
     p.visitConfirmed === true && 
-    (p.postVisitStatus === '종결' || p.postVisitStatus === '보류' || p.postVisitStatus === '재콜백필요')
+    p.postVisitStatus !== '치료시작'  // 치료시작이 아닌 모든 상태
   );
-  
+
+  // 각 상태별 카운트 - 수정된 상태명 적용
   const visitTerminated = visitLossPatients.filter(p => p.postVisitStatus === '종결').length;
-  const visitOnHold = visitLossPatients.filter(p => p.postVisitStatus === '보류').length;
   const visitCallbackNeeded = visitLossPatients.filter(p => p.postVisitStatus === '재콜백필요').length;
+  const visitAgreedButNotStarted = visitLossPatients.filter(p => p.postVisitStatus === '치료동의').length;
   
   // 내원 손실 견적 금액 계산
   const visitLossAmount = visitLossPatients.reduce((sum, p) => {
     return sum + getPatientEstimatedAmount(p);
   }, 0);
   
-  console.log(`🏥 내원 손실: 종결 ${visitTerminated}명, 보류 ${visitOnHold}명, 재콜백필요 ${visitCallbackNeeded}명, 손실금액 ${visitLossAmount.toLocaleString()}원`);
+  // 🔥 수정된 로그 출력
+  console.log(`🏥 내원 손실: 종결 ${visitTerminated}명, 재콜백필요 ${visitCallbackNeeded}명, 치료동의 ${visitAgreedButNotStarted}명, 손실금액 ${visitLossAmount.toLocaleString()}원`);
   
   // 3. 전체 손실 분석
   const totalLossPatients = consultationLossPatients.length + visitLossPatients.length;
@@ -59,7 +62,6 @@ export function calculateLossAnalysis(patients: Patient[]): LossPatientAnalysis 
     consultationLoss: {
       terminated: consultationTerminated,
       missed: consultationMissed,
-      // 🔥 새로 추가: 기타 상담 손실 상태들의 합계
       potential: consultationPotential,
       callback: consultationCallback,
       totalCount: consultationLossPatients.length,
@@ -67,8 +69,8 @@ export function calculateLossAnalysis(patients: Patient[]): LossPatientAnalysis 
     },
     visitLoss: {
       terminated: visitTerminated,
-      onHold: visitOnHold,
       callbackNeeded: visitCallbackNeeded,
+      agreedButNotStarted: visitAgreedButNotStarted,
       totalCount: visitLossPatients.length,
       estimatedAmount: visitLossAmount
     },
@@ -81,14 +83,14 @@ export function calculateLossAnalysis(patients: Patient[]): LossPatientAnalysis 
 }
 
 /**
- * 🔥 손실 환자 상세 리스트 생성 - 상담 손실군 로직 개선
+ * 🔥 손실 환자 상세 리스트 생성 - 완전 수정된 버전
  */
 export function getLossPatientDetails(patients: Patient[]): LossPatientDetail[] {
   const lossPatients: LossPatientDetail[] = [];
   
   // 🔥 상담 관리 손실군 - "예약확정" 외의 모든 환자
   const consultationLoss = patients.filter(p => 
-    p.status !== '예약확정'
+    p.status !== '예약확정' && p.status !== 'VIP'
   );
   
   consultationLoss.forEach(p => {
@@ -104,10 +106,12 @@ export function getLossPatientDetails(patients: Patient[]): LossPatientDetail[] 
     });
   });
   
-  // 내원 관리 손실군 (기존과 동일)
+  // 🔥 내원 관리 손실군 - 완전히 수정된 버전 (37번째 줄 수정)
   const visitLoss = patients.filter(p => 
     p.visitConfirmed === true && 
-    (p.postVisitStatus === '종결' || p.postVisitStatus === '보류' || p.postVisitStatus === '재콜백필요')
+    p.postVisitStatus !== '치료시작' && 
+    p.postVisitStatus !== '' && 
+    p.postVisitStatus !== undefined
   );
   
   visitLoss.forEach(p => {

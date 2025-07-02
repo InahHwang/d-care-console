@@ -23,8 +23,8 @@ export interface LossPatientAnalysis {
   };
   visitLoss: {
     terminated: number;      // 내원 "종결" 환자수
-    onHold: number;         // 내원 "보류" 환자수
     callbackNeeded: number; // 내원 "재콜백필요" 환자수
+    agreedButNotStarted: number;  // 🔥 새로 추가: "치료동의" 환자수 (동의했지만 시작 안함)
     totalCount: number;     // 내원 손실 총 환자수
     estimatedAmount: number; // 예상 손실 금액 (견적 합계)
   };

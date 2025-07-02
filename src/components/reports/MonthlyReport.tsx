@@ -388,26 +388,26 @@ const LossAnalysisSection: React.FC<{ reportData: MonthlyReportData }> = ({ repo
                 <Users className="w-5 h-5" />
                 내원 관리 손실군 ({visitLoss.totalCount}명)
               </h4>
-              <div className="grid grid-cols-2 md:grid-cols-5 gap-4 text-sm">
+              <div className="grid grid-cols-2 md:grid-cols-4 gap-4 text-sm">
                 <div className="text-center">
                   <div className="text-xl font-bold text-purple-900">{visitLoss.terminated}명</div>
                   <div className="text-purple-700">내원 후 종결</div>
                 </div>
                 <div className="text-center">
-                  <div className="text-xl font-bold text-purple-900">{visitLoss.onHold}명</div>
-                  <div className="text-purple-700">치료 보류</div>
-                </div>
-                <div className="text-center">
                   <div className="text-xl font-bold text-purple-900">{visitLoss.callbackNeeded}명</div>
                   <div className="text-purple-700">재콜백 필요</div>
                 </div>
-                <div className="text-center md:col-span-2">
+                <div className="text-center">
+                  <div className="text-xl font-bold text-purple-900">{visitLoss.agreedButNotStarted}명</div>
+                  <div className="text-purple-700">치료동의 후 미시작</div>
+                </div>
+                <div className="text-center">
                   <div className="text-xl font-bold text-purple-900">{formatAmount(visitLoss.estimatedAmount)}</div>
                   <div className="text-purple-700">예상 손실 금액</div>
                 </div>
               </div>
               <p className="text-xs text-purple-600 mt-2">
-                💡 이들은 실제 내원까지 했지만 치료로 이어지지 않은 환자들입니다.
+                💡 내원은 했지만 치료시작에 도달하지 못한 환자들입니다.
               </p>
             </div>
 
