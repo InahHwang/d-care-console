@@ -1,13 +1,238 @@
 // src/components/reports/MonthlyReport.tsx
 import React, { useState, useEffect } from 'react';
-import { Calendar, Phone, Users, CreditCard, MapPin, TrendingUp, Edit3, Send, Download, MessageSquare, PhoneCall, RefreshCw, AlertTriangle, TrendingDown, DollarSign, Eye, EyeOff, X } from 'lucide-react';
-import { MonthlyReportData, PatientConsultationSummary } from '@/types/report';
+import { Calendar, Phone, Users, CreditCard, MapPin, TrendingUp, Edit3, Send, Download, MessageSquare, PhoneCall, RefreshCw, AlertTriangle, TrendingDown, DollarSign, Eye, EyeOff, X, Plus, Trash2, Edit, MessageCircle } from 'lucide-react';
+import { MonthlyReportData, PatientConsultationSummary, DirectorFeedback } from '@/types/report';
 import { useAppDispatch, useAppSelector } from '@/hooks/reduxHooks';
-import { saveReport, submitReport, updateCurrentReport, refreshReportData } from '@/store/slices/reportsSlice';
+import { saveReport, submitReport, updateCurrentReport, refreshReportData, addDirectorFeedback, updateDirectorFeedback, deleteDirectorFeedback } from '@/store/slices/reportsSlice';
 
 interface MonthlyReportProps {
   reportData: MonthlyReportData;
 }
+
+// 🔥 새로 추가: 피드백 컴포넌트
+const DirectorFeedbackSection: React.FC<{
+  targetSection: string;
+  sectionTitle: string;
+  feedbacks: DirectorFeedback[];
+  reportId?: string;
+  userRole?: string;
+  currentUserId?: string;
+}> = ({ targetSection, sectionTitle, feedbacks, reportId, userRole, currentUserId }) => {
+  const dispatch = useAppDispatch();
+  const { isFeedbackSubmitting } = useAppSelector((state) => state.reports);
+  
+  const [showFeedbackForm, setShowFeedbackForm] = useState(false);
+  const [editingFeedbackId, setEditingFeedbackId] = useState<string | null>(null);
+  const [feedbackContent, setFeedbackContent] = useState('');
+
+  // 해당 섹션의 피드백들만 필터링
+  const sectionFeedbacks = feedbacks.filter(f => f.targetSection === targetSection);
+
+  // 피드백 작성 권한 확인 (원장님만 가능)
+  const canWriteFeedback = userRole === 'master' || userRole === 'director';
+
+  const handleAddFeedback = async () => {
+    if (!reportId || !feedbackContent.trim()) return;
+
+    try {
+      await dispatch(addDirectorFeedback({
+        reportId,
+        feedbackData: {
+          content: feedbackContent.trim(),
+          targetSection
+        }
+      })).unwrap();
+      
+      setFeedbackContent('');
+      setShowFeedbackForm(false);
+    } catch (error) {
+      alert('피드백 추가에 실패했습니다: ' + error);
+    }
+  };
+
+  const handleUpdateFeedback = async (feedbackId: string) => {
+    if (!reportId || !feedbackContent.trim()) return;
+
+    try {
+      await dispatch(updateDirectorFeedback({
+        reportId,
+        feedbackId,
+        feedbackData: {
+          content: feedbackContent.trim(),
+          targetSection
+        }
+      })).unwrap();
+      
+      setFeedbackContent('');
+      setEditingFeedbackId(null);
+    } catch (error) {
+      alert('피드백 수정에 실패했습니다: ' + error);
+    }
+  };
+
+  const handleDeleteFeedback = async (feedbackId: string) => {
+    if (!reportId) return;
+    
+    if (!confirm('이 피드백을 삭제하시겠습니까?')) return;
+
+    try {
+      await dispatch(deleteDirectorFeedback({
+        reportId,
+        feedbackId
+      })).unwrap();
+    } catch (error) {
+      alert('피드백 삭제에 실패했습니다: ' + error);
+    }
+  };
+
+  const startEdit = (feedback: DirectorFeedback) => {
+    setEditingFeedbackId(feedback.feedbackId);
+    setFeedbackContent(feedback.content);
+    setShowFeedbackForm(false);
+  };
+
+  const cancelEdit = () => {
+    setEditingFeedbackId(null);
+    setFeedbackContent('');
+  };
+
+  // 피드백이 없고 권한이 없으면 렌더링하지 않음
+  if (sectionFeedbacks.length === 0 && !canWriteFeedback) {
+    return null;
+  }
+
+  return (
+    <div className="mt-4 p-4 bg-blue-50 border border-blue-200 rounded-lg">
+      <div className="flex items-center justify-between mb-3">
+        <h4 className="font-medium text-blue-900 flex items-center gap-2">
+          <MessageCircle className="w-4 h-4" />
+          원장님 피드백 ({sectionTitle})
+          {sectionFeedbacks.length > 0 && (
+            <span className="text-xs bg-blue-100 text-blue-700 px-2 py-1 rounded-full">
+              {sectionFeedbacks.length}개
+            </span>
+          )}
+        </h4>
+        
+        {canWriteFeedback && !showFeedbackForm && !editingFeedbackId && (
+          <button
+            onClick={() => setShowFeedbackForm(true)}
+            className="flex items-center gap-1 px-2 py-1 text-xs text-blue-600 border border-blue-300 rounded hover:bg-blue-100 no-print"
+          >
+            <Plus className="w-3 h-3" />
+            피드백 추가
+          </button>
+        )}
+      </div>
+
+      {/* 기존 피드백 목록 */}
+      <div className="space-y-3">
+        {sectionFeedbacks.map((feedback) => (
+          <div key={feedback.feedbackId} className="bg-white border border-blue-200 rounded p-3">
+            {editingFeedbackId === feedback.feedbackId ? (
+              // 수정 모드
+              <div className="space-y-2">
+                <textarea
+                  value={feedbackContent}
+                  onChange={(e) => setFeedbackContent(e.target.value)}
+                  className="w-full h-20 p-2 text-sm border rounded focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                  placeholder="피드백 내용을 입력하세요..."
+                />
+                <div className="flex gap-2">
+                  <button
+                    onClick={() => handleUpdateFeedback(feedback.feedbackId)}
+                    disabled={isFeedbackSubmitting || !feedbackContent.trim()}
+                    className="px-3 py-1 text-xs bg-blue-600 text-white rounded hover:bg-blue-700 disabled:opacity-50"
+                  >
+                    {isFeedbackSubmitting ? '저장 중...' : '저장'}
+                  </button>
+                  <button
+                    onClick={cancelEdit}
+                    className="px-3 py-1 text-xs text-gray-600 border rounded hover:bg-gray-50"
+                  >
+                    취소
+                  </button>
+                </div>
+              </div>
+            ) : (
+              // 보기 모드
+              <>
+                <div className="flex items-start justify-between">
+                  <div className="flex-1">
+                    <p className="text-sm text-gray-800 whitespace-pre-line">
+                      {feedback.content}
+                    </p>
+                    <div className="flex items-center gap-2 mt-2 text-xs text-gray-500">
+                      <span>{feedback.createdByName}</span>
+                      <span>•</span>
+                      <span>{new Date(feedback.createdAt).toLocaleDateString()}</span>
+                      {feedback.updatedAt && (
+                        <>
+                          <span>•</span>
+                          <span>수정됨</span>
+                        </>
+                      )}
+                    </div>
+                  </div>
+                  
+                  {/* 수정/삭제 버튼 (작성자 또는 master만) */}
+                  {canWriteFeedback && (feedback.createdBy === currentUserId || userRole === 'master') && (
+                    <div className="flex gap-1 ml-2 no-print">
+                      <button
+                        onClick={() => startEdit(feedback)}
+                        className="p-1 text-gray-400 hover:text-blue-600"
+                        title="수정"
+                      >
+                        <Edit className="w-3 h-3" />
+                      </button>
+                      <button
+                        onClick={() => handleDeleteFeedback(feedback.feedbackId)}
+                        className="p-1 text-gray-400 hover:text-red-600"
+                        title="삭제"
+                      >
+                        <Trash2 className="w-3 h-3" />
+                      </button>
+                    </div>
+                  )}
+                </div>
+              </>
+            )}
+          </div>
+        ))}
+      </div>
+
+      {/* 새 피드백 작성 폼 */}
+      {showFeedbackForm && canWriteFeedback && (
+        <div className="mt-3 p-3 bg-white border border-blue-200 rounded">
+          <textarea
+            value={feedbackContent}
+            onChange={(e) => setFeedbackContent(e.target.value)}
+            className="w-full h-20 p-2 text-sm border rounded focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+            placeholder="피드백 내용을 입력하세요..."
+          />
+          <div className="flex gap-2 mt-2">
+            <button
+              onClick={handleAddFeedback}
+              disabled={isFeedbackSubmitting || !feedbackContent.trim()}
+              className="px-3 py-1 text-xs bg-blue-600 text-white rounded hover:bg-blue-700 disabled:opacity-50"
+            >
+              {isFeedbackSubmitting ? '추가 중...' : '피드백 추가'}
+            </button>
+            <button
+              onClick={() => {
+                setShowFeedbackForm(false);
+                setFeedbackContent('');
+              }}
+              className="px-3 py-1 text-xs text-gray-600 border rounded hover:bg-gray-50"
+            >
+              취소
+            </button>
+          </div>
+        </div>
+      )}
+    </div>
+  );
+};
 
 // 🔥 새로 추가: 손실 분석 섹션 컴포넌트
 const LossAnalysisSection: React.FC<{ reportData: MonthlyReportData }> = ({ reportData }) => {
@@ -212,20 +437,9 @@ const LossAnalysisSection: React.FC<{ reportData: MonthlyReportData }> = ({ repo
 };
 
 const MonthlyReport: React.FC<MonthlyReportProps> = ({ reportData }) => {
-  // 🔥 환자 상담 내용 상세 모달 상태 추가
-  const [selectedPatientConsultation, setSelectedPatientConsultation] = useState<PatientConsultationSummary | null>(null);
-
-  // 🔥 환자 클릭 핸들러
-  const handlePatientConsultationClick = (patient: PatientConsultationSummary) => {
-    setSelectedPatientConsultation(patient);
-  };
-
-  // 🔥 환자 상담 상세 모달 닫기
-  const handleClosePatientConsultationModal = () => {
-    setSelectedPatientConsultation(null);
-  };
   const dispatch = useAppDispatch();
   const { isSubmitting, isRefreshing } = useAppSelector((state) => state.reports);
+  const { user } = useAppSelector((state) => state.auth); // 🔥 사용자 정보 가져오기
   
   const [managerComment, setManagerComment] = useState(reportData.managerComment || '');
   const [improvementSuggestions, setImprovementSuggestions] = useState(reportData.improvementSuggestions || '');
@@ -238,9 +452,9 @@ const MonthlyReport: React.FC<MonthlyReportProps> = ({ reportData }) => {
     question4: reportData.managerAnswers?.question4 || ''
   });
   const [isEditingAnswers, setIsEditingAnswers] = useState(false);
-  
-  // 🔥 새로 추가: 제출 확인 모달 상태
   const [showSubmitModal, setShowSubmitModal] = useState(false);
+  // 🔥 환자 상담 내용 상세 모달 상태
+  const [selectedPatientConsultation, setSelectedPatientConsultation] = useState<PatientConsultationSummary | null>(null);
 
   // 로컬 상태를 Redux 상태와 동기화
   useEffect(() => {
@@ -258,7 +472,7 @@ const MonthlyReport: React.FC<MonthlyReportProps> = ({ reportData }) => {
   const handleRefreshData = async () => {
     if (!reportData._id) return;
     
-    if (!confirm('보고서 데이터를 최신 정보로 새로고침하시겠습니까?\n\n작성하신 매니저 의견은 그대로 유지됩니다.')) {
+    if (!confirm('보고서 데이터를 최신 정보로 새로고침하시겠습니까?\n\n작성하신 매니저 의견과 피드백은 그대로 유지됩니다.')) {
       return;
     }
     
@@ -347,7 +561,6 @@ const MonthlyReport: React.FC<MonthlyReportProps> = ({ reportData }) => {
     return errors;
   };
 
-  // 🔥 제출 확인 모달 열기
   const handleShowSubmitModal = () => {
     const validationErrors = validateBeforeSubmit();
     
@@ -382,11 +595,22 @@ const MonthlyReport: React.FC<MonthlyReportProps> = ({ reportData }) => {
     }
   };
 
+  const handlePatientConsultationClick = (patient: PatientConsultationSummary) => {
+    setSelectedPatientConsultation(patient);
+  };
+
+  const handleClosePatientConsultationModal = () => {
+    setSelectedPatientConsultation(null);
+  };
+
   const isReadOnly = reportData.status === 'submitted' || reportData.status === 'approved';
+
+  // 🔥 피드백 데이터 가져오기
+  const directorFeedbacks = reportData.directorFeedbacks || [];
 
   return (
     <div className="min-h-screen bg-gray-50 p-6">
-      {/* PDF 전용 스타일 추가 */}
+      {/* PDF 전용 스타일 */}
       <style jsx global>{`
         @media print {
           .no-print {
@@ -921,7 +1145,7 @@ const MonthlyReport: React.FC<MonthlyReportProps> = ({ reportData }) => {
           </div>
           <div className="p-6">
             <div className="space-y-6">
-              {/* 질문 1 */}
+              {/* 질문 1 + 피드백 */}
               <div>
                 <h3 className="font-medium text-gray-900 mb-3">
                   1. 전화 상담 후 미내원하신 환자들의 원인은 무엇이라 생각하나요?
@@ -944,9 +1168,18 @@ const MonthlyReport: React.FC<MonthlyReportProps> = ({ reportData }) => {
                     )}
                   </div>
                 )}
+                {/* 🔥 피드백 섹션 추가 */}
+                <DirectorFeedbackSection
+                  targetSection="managerAnswers.question1"
+                  sectionTitle="미내원 환자 원인 분석"
+                  feedbacks={directorFeedbacks}
+                  reportId={reportData._id}
+                  userRole={user?.role}
+                  currentUserId={user?.id || user?._id}
+                />
               </div>
 
-              {/* 질문 2 */}
+              {/* 질문 2 + 피드백 */}
               <div>
                 <h3 className="font-medium text-gray-900 mb-3">
                   2. 내원 후 치료에 동의하지 않으신 환자분의 원인은 무엇이라 생각하나요?
@@ -969,9 +1202,18 @@ const MonthlyReport: React.FC<MonthlyReportProps> = ({ reportData }) => {
                     )}
                   </div>
                 )}
+                {/* 🔥 피드백 섹션 추가 */}
+                <DirectorFeedbackSection
+                  targetSection="managerAnswers.question2"
+                  sectionTitle="치료 거부 환자 원인 분석"
+                  feedbacks={directorFeedbacks}
+                  reportId={reportData._id}
+                  userRole={user?.role}
+                  currentUserId={user?.id || user?._id}
+                />
               </div>
 
-              {/* 질문 3 */}
+              {/* 질문 3 + 피드백 */}
               <div>
                 <h3 className="font-medium text-gray-900 mb-3">
                   3. 환자들의 내원, 치료 동의를 이끌어 내기 위해 어떤 부분에서 개선이 필요할까요?
@@ -997,9 +1239,18 @@ const MonthlyReport: React.FC<MonthlyReportProps> = ({ reportData }) => {
                     )}
                   </div>
                 )}
+                {/* 🔥 피드백 섹션 추가 */}
+                <DirectorFeedbackSection
+                  targetSection="managerAnswers.question3"
+                  sectionTitle="개선 방안"
+                  feedbacks={directorFeedbacks}
+                  reportId={reportData._id}
+                  userRole={user?.role}
+                  currentUserId={user?.id || user?._id}
+                />
               </div>
 
-              {/* 질문 4 - 새로 추가 */}
+              {/* 질문 4 + 피드백 */}
               <div>
                 <h3 className="font-medium text-gray-900 mb-3">
                   4. 기타 의견
@@ -1025,6 +1276,15 @@ const MonthlyReport: React.FC<MonthlyReportProps> = ({ reportData }) => {
                     )}
                   </div>
                 )}
+                {/* 🔥 피드백 섹션 추가 */}
+                <DirectorFeedbackSection
+                  targetSection="managerAnswers.question4"
+                  sectionTitle="기타 의견"
+                  feedbacks={directorFeedbacks}
+                  reportId={reportData._id}
+                  userRole={user?.role}
+                  currentUserId={user?.id || user?._id}
+                />
               </div>
             </div>
           </div>

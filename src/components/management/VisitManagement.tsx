@@ -1,10 +1,10 @@
-// src/components/management/VisitManagement.tsx - 수정된 버전
+// src/components/management/VisitManagement.tsx - 치료 동의 상태 추가된 버전
 
 'use client'
 
 import { useSelector, useDispatch } from 'react-redux'
 import { RootState, AppDispatch } from '@/store'
-import { Patient, PostVisitStatus, EstimateInfo, PaymentInfo, PostVisitConsultationInfo, PatientReaction } from '@/types/patient'
+import { Patient, PostVisitStatus, EstimateInfo, PaymentInfo, PostVisitConsultationInfo, PatientReaction, TreatmentConsentInfo } from '@/types/patient'
 import { selectPatient, updatePostVisitStatus, fetchPostVisitPatients, fetchPatients, resetPostVisitData } from '@/store/slices/patientsSlice'
 import { useState, useEffect, useMemo, useCallback } from 'react'
 import { HiOutlinePhone, HiOutlineCalendar, HiOutlineClipboardList, HiOutlineRefresh, HiOutlineInformationCircle, HiOutlineClipboard, HiOutlineSearch } from 'react-icons/hi'
@@ -23,7 +23,7 @@ interface PostVisitStatusModalProps {
   isLoading: boolean;
 }
 
-// 내원 후 상태 업데이트 모달 컴포넌트 (기존 코드와 동일)
+// 내원 후 상태 업데이트 모달 컴포넌트 - 치료 동의 상태 추가
 const PostVisitStatusModal = ({ isOpen, onClose, onConfirm, patient, isLoading }: PostVisitStatusModalProps) => {
   const [selectedStatus, setSelectedStatus] = useState<PostVisitStatus>('');
   const [consultationContent, setConsultationContent] = useState('');
@@ -37,9 +37,14 @@ const PostVisitStatusModal = ({ isOpen, onClose, onConfirm, patient, isLoading }
   const [discountEvent, setDiscountEvent] = useState('');
   const [patientReaction, setPatientReaction] = useState<PatientReaction>('');
   
-  // 재콜백 필요 시 필드들 (보류 상태에서도 사용)
+  // 재콜백 필요 시 필드들
   const [nextCallbackDate, setNextCallbackDate] = useState('');
   const [nextConsultationPlan, setNextConsultationPlan] = useState('');
+  
+  // 🔥 치료 동의 시 필드들 추가
+  const [treatmentStartDate, setTreatmentStartDate] = useState('');
+  const [consentNotes, setConsentNotes] = useState('');
+  const [estimatedTreatmentPeriod, setEstimatedTreatmentPeriod] = useState('');
   
   // 치료 시작 시 필드들
   const [paymentType, setPaymentType] = useState<'installment' | 'lump_sum'>('lump_sum');
@@ -79,6 +84,12 @@ const PostVisitStatusModal = ({ isOpen, onClose, onConfirm, patient, isLoading }
     // 기타 필드들 초기화
     setNextCallbackDate('');
     setNextConsultationPlan('');
+    
+    // 🔥 치료 동의 관련 필드들 초기화
+    setTreatmentStartDate('');
+    setConsentNotes('');
+    setEstimatedTreatmentPeriod('');
+    
     setPaymentType('lump_sum');
     setDownPayment(0);
     setInstallmentPlan('');
@@ -121,6 +132,14 @@ const PostVisitStatusModal = ({ isOpen, onClose, onConfirm, patient, isLoading }
       // 기타 필드들 로드
       setNextCallbackDate(patient.postVisitConsultation.nextCallbackDate || '');
       setNextConsultationPlan(patient.postVisitConsultation.nextConsultationPlan || '');
+      
+      // 🔥 치료 동의 정보 로드
+      const treatmentConsent = patient.postVisitConsultation.treatmentConsentInfo;
+      if (treatmentConsent) {
+        setTreatmentStartDate(treatmentConsent.treatmentStartDate || '');
+        setConsentNotes(treatmentConsent.consentNotes || '');
+        setEstimatedTreatmentPeriod(treatmentConsent.estimatedTreatmentPeriod || '');
+      }
       
       const payment = patient.postVisitConsultation.paymentInfo;
       if (payment) {
@@ -190,9 +209,16 @@ const PostVisitStatusModal = ({ isOpen, onClose, onConfirm, patient, isLoading }
     };
 
     // 상태별 추가 필드
-    if (selectedStatus === '재콜백필요' || selectedStatus === '보류') {
+    if (selectedStatus === '재콜백필요') {
       statusData.nextCallbackDate = nextCallbackDate;
       statusData.nextConsultationPlan = nextConsultationPlan;
+    } else if (selectedStatus === '치료동의') {
+      // 🔥 치료 동의 정보 추가
+      statusData.treatmentConsentInfo = {
+        treatmentStartDate,
+        consentNotes,
+        estimatedTreatmentPeriod
+      };
     } else if (selectedStatus === '치료시작') {
       statusData.paymentInfo = {
         paymentType,
@@ -209,10 +235,11 @@ const PostVisitStatusModal = ({ isOpen, onClose, onConfirm, patient, isLoading }
 
   if (!isOpen) return null;
 
+  // 🔥 상태 옵션 수정 - 순서와 내용 변경
   const statusOptions = [
     { value: '재콜백필요', label: '재콜백 필요', color: 'bg-yellow-100 text-yellow-800' },
+    { value: '치료동의', label: '치료 동의', color: 'bg-blue-100 text-blue-800' },
     { value: '치료시작', label: '치료 시작', color: 'bg-green-100 text-green-800' },
-    { value: '보류', label: '보류', color: 'bg-gray-100 text-gray-800' },
     { value: '종결', label: '종결', color: 'bg-red-100 text-red-800' },
   ];
 
@@ -402,16 +429,10 @@ const PostVisitStatusModal = ({ isOpen, onClose, onConfirm, patient, isLoading }
             </div>
           </div>
 
-          {/* 재콜백 필요 시 또는 보류 시 추가 필드 */}
-          {(selectedStatus === '재콜백필요' || selectedStatus === '보류') && (
-            <div className={`border rounded-lg p-4 ${
-              selectedStatus === '재콜백필요' 
-                ? 'border-yellow-200 bg-yellow-50' 
-                : 'border-gray-200 bg-gray-50'
-            }`}>
-              <h4 className="text-sm font-medium text-gray-700 mb-3">
-                {selectedStatus === '재콜백필요' ? '재콜백 정보' : '보류 정보'}
-              </h4>
+          {/* 재콜백 필요 시 추가 필드 */}
+          {selectedStatus === '재콜백필요' && (
+            <div className="border border-yellow-200 rounded-lg p-4 bg-yellow-50">
+              <h4 className="text-sm font-medium text-gray-700 mb-3">재콜백 정보</h4>
               <div className="space-y-3">
                 <div>
                   <label className="block text-xs text-gray-600 mb-1">다음 콜백 예정일</label>
@@ -429,7 +450,45 @@ const PostVisitStatusModal = ({ isOpen, onClose, onConfirm, patient, isLoading }
                     onChange={(e) => setNextConsultationPlan(e.target.value)}
                     className="w-full px-3 py-2 border border-gray-300 rounded-lg resize-none text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
                     rows={2}
-                    placeholder={`다음 ${selectedStatus === '재콜백필요' ? '상담' : '연락'} 시 진행할 내용을 기록하세요`}
+                    placeholder="다음 상담 시 진행할 내용을 기록하세요"
+                  />
+                </div>
+              </div>
+            </div>
+          )}
+
+          {/* 🔥 치료 동의 시 추가 필드 */}
+          {selectedStatus === '치료동의' && (
+            <div className="border border-blue-200 rounded-lg p-4 bg-blue-50">
+              <h4 className="text-sm font-medium text-gray-700 mb-3">치료 동의 정보</h4>
+              <div className="space-y-3">
+                <div>
+                  <label className="block text-xs text-gray-600 mb-1">치료 시작 예정일</label>
+                  <input
+                    type="date"
+                    value={treatmentStartDate}
+                    onChange={(e) => setTreatmentStartDate(e.target.value)}
+                    className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  />
+                </div>
+                <div>
+                  <label className="block text-xs text-gray-600 mb-1">예상 치료 기간</label>
+                  <input
+                    type="text"
+                    value={estimatedTreatmentPeriod}
+                    onChange={(e) => setEstimatedTreatmentPeriod(e.target.value)}
+                    className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+                    placeholder="예: 3개월, 6개월, 1년"
+                  />
+                </div>
+                <div>
+                  <label className="block text-xs text-gray-600 mb-1">치료 동의 메모</label>
+                  <textarea
+                    value={consentNotes}
+                    onChange={(e) => setConsentNotes(e.target.value)}
+                    className="w-full px-3 py-2 border border-gray-300 rounded-lg resize-none text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+                    rows={2}
+                    placeholder="치료 동의와 관련된 특이사항이나 메모를 입력하세요"
                   />
                 </div>
               </div>
@@ -622,7 +681,6 @@ const TreatmentContentBadge = ({ patient }: { patient: Patient }) => {
   );
 };
 
-
 // 환자 반응 배지 컴포넌트
 const PatientReactionBadge = ({ patient }: { patient: Patient }) => {
   const estimateInfo = patient.postVisitConsultation?.estimateInfo;
@@ -695,13 +753,14 @@ const PatientReactionBadge = ({ patient }: { patient: Patient }) => {
   );
 };
 
-// 다음 예약/재콜백 배지 컴포넌트
+// 🔥 다음 예약/재콜백 배지 컴포넌트 - 치료 동의 상태 추가
 const NextAppointmentBadge = ({ patient }: { patient: Patient }) => {
   const nextVisitDate = patient.postVisitConsultation?.nextVisitDate;
   const nextCallbackDate = patient.postVisitConsultation?.nextCallbackDate;
+  const treatmentStartDate = patient.postVisitConsultation?.treatmentConsentInfo?.treatmentStartDate; // 🔥 치료 시작 예정일 추가
   const fallbackNextVisitDate = patient.nextVisitDate;
   
-  // 우선순위: nextVisitDate > nextCallbackDate > fallbackNextVisitDate
+  // 🔥 우선순위: nextVisitDate > treatmentStartDate > nextCallbackDate > fallbackNextVisitDate
   if (nextVisitDate) {
     return (
       <div className="flex items-center space-x-1">
@@ -710,6 +769,18 @@ const NextAppointmentBadge = ({ patient }: { patient: Patient }) => {
           예약
         </span>
         <span className="text-sm text-gray-600">{nextVisitDate}</span>
+      </div>
+    );
+  }
+  
+  if (treatmentStartDate) {
+    return (
+      <div className="flex items-center space-x-1">
+        <Icon icon={HiOutlineCalendar} size={14} />
+        <span className="inline-flex items-center px-2 py-1 rounded-full text-xs font-medium bg-blue-100 text-blue-800 mr-1">
+          치료시작
+        </span>
+        <span className="text-sm text-gray-600">{treatmentStartDate}</span>
       </div>
     );
   }
@@ -738,7 +809,7 @@ const NextAppointmentBadge = ({ patient }: { patient: Patient }) => {
   return <span className="text-sm text-gray-400">-</span>;
 };
 
-// 내원 후 상태 배지 컴포넌트
+// 🔥 내원 후 상태 배지 컴포넌트 - 치료 동의 상태 추가
 const PostVisitStatusBadge = ({ status }: { status?: string }) => {
   if (!status) {
     return (
@@ -750,8 +821,8 @@ const PostVisitStatusBadge = ({ status }: { status?: string }) => {
 
   const statusColors: Record<string, string> = {
     '재콜백필요': 'bg-yellow-100 text-yellow-800',
+    '치료동의': 'bg-blue-100 text-blue-800', // 🔥 치료 동의 상태 추가
     '치료시작': 'bg-green-100 text-green-800',
-    '보류': 'bg-gray-100 text-gray-800',
     '종결': 'bg-red-100 text-red-800',
   };
 
@@ -776,7 +847,7 @@ export default function VisitManagement() {
 
   // 필터 상태들 추가
   const [searchTerm, setSearchTerm] = useState('')
-  const [selectedFilter, setSelectedFilter] = useState<'all' | 'needs_callback' | 'in_treatment' | 'on_hold' | 'completed' | 'no_status'>('all')
+  const [selectedFilter, setSelectedFilter] = useState<'all' | 'needs_callback' | 'treatment_consent' | 'in_treatment' | 'completed' | 'no_status'>('all') // 🔥 치료 동의 필터 추가
   const [consultationTypeFilter, setConsultationTypeFilter] = useState<'all' | 'inbound' | 'outbound'>('all')
   
   // 날짜 필터 상태들 추가
@@ -873,21 +944,21 @@ export default function VisitManagement() {
       filtered = filtered.filter(patient => patient.consultationType === consultationTypeFilter);
     }
 
-    // 내원 후 상태 필터링
+    // 🔥 내원 후 상태 필터링 - 치료 동의 상태 추가
     switch (selectedFilter) {
       case 'needs_callback':
         filtered = filtered.filter(patient => 
           patient.postVisitStatus === '재콜백필요'
         );
         break;
+      case 'treatment_consent': // 🔥 치료 동의 필터 추가
+        filtered = filtered.filter(patient => 
+          patient.postVisitStatus === '치료동의'
+        );
+        break;
       case 'in_treatment':
         filtered = filtered.filter(patient => 
           patient.postVisitStatus === '치료시작'
-        );
-        break;
-      case 'on_hold':
-        filtered = filtered.filter(patient => 
-          patient.postVisitStatus === '보류'
         );
         break;
       case 'completed':
@@ -907,7 +978,7 @@ export default function VisitManagement() {
     return filtered;
   }, [visitConfirmedPatients, selectedFilter, searchTerm, consultationTypeFilter, dateFilterType, dailyStartDate, dailyEndDate, getMonthlyDateRange]);
 
-  // 📊 수정된 통계 계산 - 전체 내원확정된 환자 기준으로 실제 인원수 표시
+  // 📊 수정된 통계 계산 - 전체 내원확정된 환자 기준으로 실제 인원수 표시, 치료 동의 상태 추가
   const stats = useMemo(() => {
     const allVisitConfirmed = visitConfirmedPatients; // 전체 내원확정된 환자들
     const filtered = filteredPatients; // 현재 필터링된 환자들
@@ -916,8 +987,8 @@ export default function VisitManagement() {
       total: allVisitConfirmed.length, // 🔥 수정: 전체 인원수로 변경
       filtered: filtered.length, // 🔥 추가: 필터링된 환자 수
       needsCallback: allVisitConfirmed.filter(p => p.postVisitStatus === '재콜백필요').length,
+      treatmentConsent: allVisitConfirmed.filter(p => p.postVisitStatus === '치료동의').length, // 🔥 치료 동의 통계 추가
       inTreatment: allVisitConfirmed.filter(p => p.postVisitStatus === '치료시작').length,
-      onHold: allVisitConfirmed.filter(p => p.postVisitStatus === '보류').length,
       completed: allVisitConfirmed.filter(p => p.postVisitStatus === '종결').length,
       noStatus: allVisitConfirmed.filter(p => !p.postVisitStatus).length
     };
@@ -956,8 +1027,8 @@ export default function VisitManagement() {
     setSelectedFilter('all');
   }, []);
 
-  // 📊 큰 박스 클릭 시 필터링 기능 추가
-  const handleStatsCardClick = useCallback((filterType: 'all' | 'needs_callback' | 'in_treatment' | 'on_hold' | 'completed' | 'no_status') => {
+  // 📊 큰 박스 클릭 시 필터링 기능 추가 - 치료 동의 상태 추가
+  const handleStatsCardClick = useCallback((filterType: 'all' | 'needs_callback' | 'treatment_consent' | 'in_treatment' | 'completed' | 'no_status') => {
     // 다른 필터들 초기화
     setSearchTerm('');
     setConsultationTypeFilter('all');
@@ -1353,8 +1424,8 @@ export default function VisitManagement() {
                 {selectedFilter !== 'all' && (
                   <span className="inline-flex items-center px-2 py-1 rounded-full text-xs bg-blue-200 text-blue-800">
                     {selectedFilter === 'needs_callback' ? '재콜백 필요' : 
+                     selectedFilter === 'treatment_consent' ? '치료 동의' : // 🔥 치료 동의 필터 표시 추가
                      selectedFilter === 'in_treatment' ? '치료 시작' :
-                     selectedFilter === 'on_hold' ? '보류' : 
                      selectedFilter === 'completed' ? '종결' : 
                      selectedFilter === 'no_status' ? '상태 미설정' : ''}
                   </span>
@@ -1377,7 +1448,7 @@ export default function VisitManagement() {
         )}
       </div>
 
-      {/* 📊 수정된 통계 카드 - 클릭 시 필터링 기능 추가, 실제 인원수 표시 */}
+      {/* 📊 수정된 통계 카드 - 클릭 시 필터링 기능 추가, 실제 인원수 표시, 치료 동의 상태 추가 */}
       <div className="grid grid-cols-1 md:grid-cols-6 gap-4 mb-6">
         <div 
           className="bg-white p-4 rounded-lg border cursor-pointer hover:shadow-lg transition-shadow"
@@ -1393,19 +1464,20 @@ export default function VisitManagement() {
           <div className="text-2xl font-bold text-yellow-600">{stats.needsCallback}</div>
           <div className="text-sm text-gray-600">재콜백 필요</div>
         </div>
+        {/* 🔥 치료 동의 통계 카드 추가 */}
+        <div 
+          className="bg-white p-4 rounded-lg border cursor-pointer hover:shadow-lg transition-shadow hover:bg-blue-50"
+          onClick={() => handleStatsCardClick('treatment_consent')}
+        >
+          <div className="text-2xl font-bold text-blue-600">{stats.treatmentConsent}</div>
+          <div className="text-sm text-gray-600">치료 동의</div>
+        </div>
         <div 
           className="bg-white p-4 rounded-lg border cursor-pointer hover:shadow-lg transition-shadow hover:bg-green-50"
           onClick={() => handleStatsCardClick('in_treatment')}
         >
           <div className="text-2xl font-bold text-green-600">{stats.inTreatment}</div>
           <div className="text-sm text-gray-600">치료 시작</div>
-        </div>
-        <div 
-          className="bg-white p-4 rounded-lg border cursor-pointer hover:shadow-lg transition-shadow hover:bg-gray-50"
-          onClick={() => handleStatsCardClick('on_hold')}
-        >
-          <div className="text-2xl font-bold text-gray-600">{stats.onHold}</div>
-          <div className="text-sm text-gray-600">보류</div>
         </div>
         <div 
           className="bg-white p-4 rounded-lg border cursor-pointer hover:shadow-lg transition-shadow hover:bg-red-50"

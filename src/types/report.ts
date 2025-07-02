@@ -1,5 +1,16 @@
 // src/types/report.ts - 🔥 상담 손실 타입 확장
 
+// 🔥 새로 추가: 원장님 피드백 타입
+export interface DirectorFeedback {
+  updatedAt: any;
+  feedbackId: string;
+  content: string;
+  createdAt: string;
+  createdBy: string; // 원장님 ID
+  createdByName: string; // 원장님 이름
+  targetSection: 'managerComment' | 'improvementSuggestions' | 'managerAnswers.question1' | 'managerAnswers.question2' | 'managerAnswers.question3' | 'managerAnswers.question4'; // 어느 섹션에 대한 피드백인지
+}
+
 // 🔥 수정된 손실 환자 분석 타입
 export interface LossPatientAnalysis {
   consultationLoss: {
@@ -87,6 +98,7 @@ export interface PatientConsultationSummary {
 }
 
 
+// 🔥 기존 MonthlyReportData 타입에 피드백 필드 추가
 export interface MonthlyReportData {
   _id?: string;
   month: number;
@@ -127,10 +139,10 @@ export interface MonthlyReportData {
   regionStats: RegionStat[];
   channelStats: ChannelStat[];
   
-  // 🔥 새로 추가: 손실 분석 데이터
+  // 손실 분석 데이터
   lossAnalysis: LossPatientAnalysis;
   
-  // 🔥 새로 추가: 손실 환자 상세 리스트 (선택적)
+  // 손실 환자 상세 리스트 (선택적)
   lossPatientDetails?: LossPatientDetail[];
   
   // 매니저 입력 데이터
@@ -143,12 +155,21 @@ export interface MonthlyReportData {
     question4?: string; // 기타 의견
   };
   
-  // 메타데이터
+  // 🔥 새로 추가: 원장님 피드백 배열
+  directorFeedbacks?: DirectorFeedback[];
+  
+  // 메타데이터  
   createdAt: string;
   updatedAt: string;
 
-  // 🔥 새로 추가: 환자별 상담 내용 요약
+  // 환자별 상담 내용 요약
   patientConsultations?: PatientConsultationSummary[];
+}
+
+// 🔥 새로 추가: 피드백 생성/수정용 타입
+export interface FeedbackFormData {
+  content: string;
+  targetSection: string;
 }
 
 // 보고서 목록용 타입
@@ -177,7 +198,7 @@ export interface ReportFormData {
   };
 }
 
-// 보고서 업데이트 타입 (새로고침 포함)
+// 기존 ReportUpdateData 타입에 피드백 관련 필드 추가
 export interface ReportUpdateData {
   managerComment?: string;
   improvementSuggestions?: string;
@@ -189,4 +210,9 @@ export interface ReportUpdateData {
   };
   status?: 'draft' | 'submitted' | 'approved';
   refreshStats?: boolean; // 통계 새로고침 플래그
+  
+  // 🔥 새로 추가: 피드백 관련 필드
+  feedbackAction?: 'add' | 'update' | 'delete';
+  feedbackData?: FeedbackFormData;
+  feedbackId?: string; // 수정/삭제시 필요
 }

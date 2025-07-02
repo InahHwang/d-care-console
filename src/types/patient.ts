@@ -1,4 +1,4 @@
-// src/types/patient.ts - 환자 반응 타입 수정
+// src/types/patient.ts - 내원 후 상태 타입 수정
 
 import { EventCategory } from '@/types/messageLog';
 
@@ -15,12 +15,12 @@ export type ReferralSource =
   | '기타'
   | '';
 
-  // 내원 후 상태 타입 추가
+// 🔥 내원 후 상태 타입 수정 - 순서와 옵션 변경
 export type PostVisitStatus = 
   | '재콜백필요'    // 내원했지만 추가 상담 필요
+  | '치료동의'      // 🔥 새로 추가: 치료에 동의했지만 아직 시작하지 않음
   | '치료시작'      // 치료 시작
-  | '보류'          // 환자 요청으로 보류
-  | '종결'          // 환자 요청으로 보류
+  | '종결'          // 치료 완료 또는 종결
   | '';            // 🔥 빈 문자열 추가 (상태 미설정)
 
 // 🔥 환자 반응 타입 추가 (견적 동의 대신)
@@ -46,7 +46,14 @@ export interface PaymentInfo {
   installmentPlan?: string;    // 분할 계획
 }
 
-// 🔥 내원 후 상담 정보 타입 추가
+// 🔥 치료 동의 정보 타입 추가
+export interface TreatmentConsentInfo {
+  treatmentStartDate?: string;        // 🔥 치료 시작 예정일
+  consentNotes?: string;              // 치료 동의 관련 메모
+  estimatedTreatmentPeriod?: string;  // 예상 치료 기간
+}
+
+// 🔥 내원 후 상담 정보 타입 추가 - 치료 동의 정보 포함
 export interface PostVisitConsultationInfo {
   consultationContent: string;   // 상담 내용
   estimateInfo: EstimateInfo;    // 견적 정보
@@ -54,8 +61,9 @@ export interface PostVisitConsultationInfo {
   nextConsultationPlan?: string; // 다음 상담 계획 (재콜백필요일 때)
   paymentInfo?: PaymentInfo;     // 납부 방식 (치료시작일 때)
   nextVisitDate?: string;        // 다음 내원 예정일 (치료시작일 때)
-  completionNotes?: string;      // 완료 메모 (치료완료일 때)
-  treatmentContent?: string; // 🔥 이 필드 추가
+  completionNotes?: string;      // 완료 메모 (종결일 때)
+  treatmentContent?: string;     // 🔥 치료 내용
+  treatmentConsentInfo?: TreatmentConsentInfo; // 🔥 치료 동의 정보 (치료동의일 때)
 }
 
 // 🔥 상담/결제 정보 타입 정의 (대폭 단순화) - 호환성 유지

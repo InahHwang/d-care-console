@@ -172,6 +172,96 @@ export async function PATCH(
       return NextResponse.json({ message: '보고서를 찾을 수 없습니다.' }, { status: 404 });
     }
 
+    // 🔥 새로 추가: 피드백 관련 처리
+    if (updateData.feedbackAction) {
+      console.log('🔥 피드백 처리 요청:', updateData.feedbackAction);
+      
+      // 원장님 권한 확인 (master 또는 director 역할)
+      if (decoded.role !== 'master' && decoded.role !== 'director') {
+        return NextResponse.json({ message: '피드백을 작성할 권한이 없습니다.' }, { status: 403 });
+      }
+
+      const currentFeedbacks = existingReport.directorFeedbacks || [];
+      let updatedFeedbacks = [...currentFeedbacks];
+
+      switch (updateData.feedbackAction) {
+        case 'add':
+          // 새 피드백 추가
+          const newFeedback = {
+            feedbackId: new ObjectId().toString(),
+            content: updateData.feedbackData.content,
+            targetSection: updateData.feedbackData.targetSection,
+            createdAt: new Date().toISOString(),
+            createdBy: decoded._id || decoded.id,
+            createdByName: decoded.name || decoded.username || '원장님'
+          };
+          updatedFeedbacks.push(newFeedback);
+          console.log('✅ 새 피드백 추가:', newFeedback.feedbackId);
+          break;
+
+        case 'update':
+          // 기존 피드백 수정
+          const feedbackIndex = updatedFeedbacks.findIndex(f => f.feedbackId === updateData.feedbackId);
+          if (feedbackIndex === -1) {
+            return NextResponse.json({ message: '수정할 피드백을 찾을 수 없습니다.' }, { status: 404 });
+          }
+          
+          // 피드백 작성자 확인
+          if (updatedFeedbacks[feedbackIndex].createdBy !== (decoded._id || decoded.id) && decoded.role !== 'master') {
+            return NextResponse.json({ message: '다른 사람의 피드백을 수정할 권한이 없습니다.' }, { status: 403 });
+          }
+          
+          updatedFeedbacks[feedbackIndex] = {
+            ...updatedFeedbacks[feedbackIndex],
+            content: updateData.feedbackData.content,
+            updatedAt: new Date().toISOString()
+          };
+          console.log('✅ 피드백 수정:', updateData.feedbackId);
+          break;
+
+        case 'delete':
+          // 피드백 삭제
+          const deleteIndex = updatedFeedbacks.findIndex(f => f.feedbackId === updateData.feedbackId);
+          if (deleteIndex === -1) {
+            return NextResponse.json({ message: '삭제할 피드백을 찾을 수 없습니다.' }, { status: 404 });
+          }
+          
+          // 피드백 작성자 확인
+          if (updatedFeedbacks[deleteIndex].createdBy !== (decoded._id || decoded.id) && decoded.role !== 'master') {
+            return NextResponse.json({ message: '다른 사람의 피드백을 삭제할 권한이 없습니다.' }, { status: 403 });
+          }
+          
+          updatedFeedbacks.splice(deleteIndex, 1);
+          console.log('✅ 피드백 삭제:', updateData.feedbackId);
+          break;
+      }
+
+      // 피드백 업데이트
+      const feedbackResult = await reportsCollection.updateOne(
+        { _id: new ObjectId(id) },
+        { 
+          $set: { 
+            directorFeedbacks: updatedFeedbacks,
+            updatedAt: new Date().toISOString()
+          }
+        }
+      );
+
+      if (feedbackResult.matchedCount > 0) {
+        const updatedReport = await reportsCollection.findOne({ _id: new ObjectId(id) });
+        return NextResponse.json({ 
+          success: true, 
+          report: {
+            ...updatedReport,
+            _id: updatedReport!._id.toString()
+          },
+          message: updateData.feedbackAction === 'add' ? '피드백이 추가되었습니다.' :
+                   updateData.feedbackAction === 'update' ? '피드백이 수정되었습니다.' :
+                   '피드백이 삭제되었습니다.'
+        });
+      }
+    }
+
     // 6. 권한 확인
     const userId = decoded._id || decoded.id;
     if (existingReport.createdBy !== userId && decoded.role !== 'master') {

@@ -1,14 +1,16 @@
 // src/store/slices/reportsSlice.ts
 import { createSlice, createAsyncThunk, PayloadAction } from '@reduxjs/toolkit';
-import { MonthlyReportData, ReportListItem, ReportFormData } from '@/types/report';
+import { MonthlyReportData, ReportListItem, ReportFormData, FeedbackFormData } from '@/types/report';
 import { RootState } from '../index';
+
 
 interface ReportsState {
   reports: ReportListItem[];
   currentReport: MonthlyReportData | null;
   isLoading: boolean;
   isSubmitting: boolean;
-  isRefreshing: boolean; // 🔥 새로 추가: 데이터 새로고침 상태
+  isRefreshing: boolean;
+  isFeedbackSubmitting: boolean; // 🔥 새로 추가: 피드백 제출 상태
   error: string | null;
 }
 
@@ -17,7 +19,8 @@ const initialState: ReportsState = {
   currentReport: null,
   isLoading: false,
   isSubmitting: false,
-  isRefreshing: false, // 🔥 새로 추가
+  isRefreshing: false,
+  isFeedbackSubmitting: false, // 🔥 새로 추가
   error: null,
 };
 
@@ -202,6 +205,101 @@ export const deleteReport = createAsyncThunk(
   }
 );
 
+// 🔥 새로 추가: 피드백 추가
+export const addDirectorFeedback = createAsyncThunk(
+  'reports/addDirectorFeedback',
+  async ({ reportId, feedbackData }: { reportId: string; feedbackData: FeedbackFormData }, { rejectWithValue }) => {
+    try {
+      const token = localStorage.getItem('token');
+      const response = await fetch(`/api/reports/${reportId}`, {
+        method: 'PATCH',
+        headers: {
+          'Authorization': `Bearer ${token}`,
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ 
+          feedbackAction: 'add',
+          feedbackData
+        }),
+      });
+      
+      if (!response.ok) {
+        const errorData = await response.json();
+        throw new Error(errorData.message || '피드백 추가에 실패했습니다.');
+      }
+      
+      const data = await response.json();
+      return data.report;
+    } catch (error) {
+      return rejectWithValue(error instanceof Error ? error.message : '알 수 없는 오류가 발생했습니다.');
+    }
+  }
+);
+
+// 🔥 새로 추가: 피드백 수정
+export const updateDirectorFeedback = createAsyncThunk(
+  'reports/updateDirectorFeedback',
+  async ({ reportId, feedbackId, feedbackData }: { reportId: string; feedbackId: string; feedbackData: FeedbackFormData }, { rejectWithValue }) => {
+    try {
+      const token = localStorage.getItem('token');
+      const response = await fetch(`/api/reports/${reportId}`, {
+        method: 'PATCH',
+        headers: {
+          'Authorization': `Bearer ${token}`,
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ 
+          feedbackAction: 'update',
+          feedbackId,
+          feedbackData
+        }),
+      });
+      
+      if (!response.ok) {
+        const errorData = await response.json();
+        throw new Error(errorData.message || '피드백 수정에 실패했습니다.');
+      }
+      
+      const data = await response.json();
+      return data.report;
+    } catch (error) {
+      return rejectWithValue(error instanceof Error ? error.message : '알 수 없는 오류가 발생했습니다.');
+    }
+  }
+);
+
+// 🔥 새로 추가: 피드백 삭제
+export const deleteDirectorFeedback = createAsyncThunk(
+  'reports/deleteDirectorFeedback',
+  async ({ reportId, feedbackId }: { reportId: string; feedbackId: string }, { rejectWithValue }) => {
+    try {
+      const token = localStorage.getItem('token');
+      const response = await fetch(`/api/reports/${reportId}`, {
+        method: 'PATCH',
+        headers: {
+          'Authorization': `Bearer ${token}`,
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ 
+          feedbackAction: 'delete',
+          feedbackId
+        }),
+      });
+      
+      if (!response.ok) {
+        const errorData = await response.json();
+        throw new Error(errorData.message || '피드백 삭제에 실패했습니다.');
+      }
+      
+      const data = await response.json();
+      return data.report;
+    } catch (error) {
+      return rejectWithValue(error instanceof Error ? error.message : '알 수 없는 오류가 발생했습니다.');
+    }
+  }
+);
+
+
 const reportsSlice = createSlice({
   name: 'reports',
   initialState,
@@ -367,6 +465,47 @@ const reportsSlice = createSlice({
       .addCase(deleteReport.rejected, (state, action) => {
         state.isSubmitting = false;
         state.error = action.payload as string;
+      })
+      // 🔥 새로 추가: addDirectorFeedback
+      .addCase(addDirectorFeedback.pending, (state) => {
+        state.isFeedbackSubmitting = true;
+        state.error = null;
+      })
+      .addCase(addDirectorFeedback.fulfilled, (state, action) => {
+        state.isFeedbackSubmitting = false;
+        state.currentReport = action.payload;
+      })
+      .addCase(addDirectorFeedback.rejected, (state, action) => {
+        state.isFeedbackSubmitting = false;
+        state.error = action.payload as string;
+      })
+      
+      // 🔥 새로 추가: updateDirectorFeedback
+      .addCase(updateDirectorFeedback.pending, (state) => {
+        state.isFeedbackSubmitting = true;
+        state.error = null;
+      })
+      .addCase(updateDirectorFeedback.fulfilled, (state, action) => {
+        state.isFeedbackSubmitting = false;
+        state.currentReport = action.payload;
+      })
+      .addCase(updateDirectorFeedback.rejected, (state, action) => {
+        state.isFeedbackSubmitting = false;
+        state.error = action.payload as string;
+      })
+      
+      // 🔥 새로 추가: deleteDirectorFeedback
+      .addCase(deleteDirectorFeedback.pending, (state) => {
+        state.isFeedbackSubmitting = true;
+        state.error = null;
+      })
+      .addCase(deleteDirectorFeedback.fulfilled, (state, action) => {
+        state.isFeedbackSubmitting = false;
+        state.currentReport = action.payload;
+      })
+      .addCase(deleteDirectorFeedback.rejected, (state, action) => {
+        state.isFeedbackSubmitting = false;
+        state.error = action.payload as string;
       });
   },
 });
@@ -379,6 +518,7 @@ export const selectCurrentReport = (state: RootState) => state.reports.currentRe
 export const selectReportsLoading = (state: RootState) => state.reports.isLoading;
 export const selectReportsSubmitting = (state: RootState) => state.reports.isSubmitting;
 export const selectReportsRefreshing = (state: RootState) => state.reports.isRefreshing; // 🔥 새로 추가
+export const selectFeedbackSubmitting = (state: RootState) => state.reports.isFeedbackSubmitting; // 🔥 새로 추가
 export const selectReportsError = (state: RootState) => state.reports.error;
 
 export default reportsSlice.reducer;
