@@ -137,11 +137,10 @@ const goalsSlice = createSlice({
       // 이번 달 신규 문의가 아니면 제외
       if (!isThisMonth) return false;
       
-      // 🎯 2단계: 예약/내원 조건 확인 (로직 간소화)
+      // 🎯 2단계: 예약확정 또는 내원확정 조건 (내원완료 status 제거)
       const isQualified = 
         patient.status === '예약확정' || 
-        patient.visitConfirmed === true || 
-        patient.status === '내원완료';
+        patient.visitConfirmed === true;
       
       if (isQualified) {
         console.log('✅ 이번달 예약/내원 환자:', patient.name, '상태:', patient.status, '내원확정:', patient.visitConfirmed, '문의일:', patient.callInDate);

@@ -228,24 +228,32 @@ export const useGoalsCalculation = (): UseGoalsCalculationResult => {
       
       // 🔥 2. 예약 전환율 계산 - 퍼널 기준 (이번달 신규문의 → 예약확정) - 문자열 비교로 수정
       const currentMonthConfirmedAppointments = patients.filter(patient => {
-        const callInDate = patient.callInDate;
-        return callInDate >= firstDayOfMonthStr && 
-               callInDate <= todayStr && 
-               patient.status === '예약확정';
-      });
+      const callInDate = patient.callInDate;
+      const isThisMonth = callInDate >= firstDayOfMonthStr && 
+                        callInDate <= todayStr;
       
-      // 2.2 이번달 예약 전환율 계산 (퍼널: 신규문의 → 예약확정)
-      const appointmentRate = currentMonthInquiries > 0 
-        ? (currentMonthConfirmedAppointments.length / currentMonthInquiries) * 100 
-        : 0;
+      if (!isThisMonth) return false;
       
-      // 2.3 지난달 예약 전환율 계산 (전월 대비 트렌드용) - 문자열 비교로 수정
-      const prevMonthConfirmedAppointments = patients.filter(patient => {
-        const callInDate = patient.callInDate;
-        return callInDate >= firstDayOfPrevMonthStr && 
-               callInDate <= lastDayOfPrevMonthStr && 
-               patient.status === '예약확정';
-      });
+      // 🎯 목표 계산과 동일한 조건: 예약확정 또는 내원확정
+      return patient.status === '예약확정' || patient.visitConfirmed === true;
+    });
+
+    // 2.2 이번달 예약 전환율 계산 (퍼널: 신규문의 → 예약/내원)
+    const appointmentRate = currentMonthInquiries > 0 
+      ? (currentMonthConfirmedAppointments.length / currentMonthInquiries) * 100 
+      : 0;
+
+    // 2.3 지난달 예약 전환율 계산 (전월 대비 트렌드용) - 동일한 로직 적용
+    const prevMonthConfirmedAppointments = patients.filter(patient => {
+      const callInDate = patient.callInDate;
+      const isPrevMonth = callInDate >= firstDayOfPrevMonthStr && 
+                        callInDate <= lastDayOfPrevMonthStr;
+      
+      if (!isPrevMonth) return false;
+      
+      // 🎯 목표 계산과 동일한 조건: 예약확정 또는 내원확정
+      return patient.status === '예약확정' || patient.visitConfirmed === true;
+    });
       
       const prevMonthAppointmentRate = prevMonthInquiries > 0 
         ? (prevMonthConfirmedAppointments.length / prevMonthInquiries) * 100 
