@@ -127,39 +127,28 @@ const goalsSlice = createSlice({
 
       // 🔥 수정: 이번 달 예약 건수 계산 (월별 필터링 추가)
       const appointmentsThisMonth = patients.filter(patient => {
-        // 🎯 1단계: 먼저 이번 달에 등록된 환자인지 확인
-        if (!patient.createdAt) return false;
-        
-        const createdDate = new Date(patient.createdAt);
-        const isThisMonth = createdDate.getMonth() === currentMonth && 
-                           createdDate.getFullYear() === currentYear;
-        
-        // 이번 달 환자가 아니면 제외
-        if (!isThisMonth) return false;
-        
-        // 🎯 2단계: 이번 달 환자 중에서 예약/내원 조건 확인
-        let isQualified = false;
-        
-        // 1. 예약확정 상태인 환자
-        if (patient.status === '예약확정') {
-          console.log('✅ 이번달 예약확정 환자:', patient.name, '상태:', patient.status, '등록일:', patient.createdAt);
-          isQualified = true;
-        }
-        
-        // 2. 내원확정된 환자 (visitConfirmed가 true)
-        if (patient.visitConfirmed === true) {
-          console.log('✅ 이번달 내원확정 환자:', patient.name, '내원확정:', patient.visitConfirmed, '등록일:', patient.createdAt);
-          isQualified = true;
-        }
-        
-        // 3. 상태가 '내원완료'인 환자도 포함
-        if (patient.status === '내원완료') {
-          console.log('✅ 이번달 내원완료 환자:', patient.name, '상태:', patient.status, '등록일:', patient.createdAt);
-          isQualified = true;
-        }
-        
-        return isQualified;
-      }).length;
+      // 🎯 1단계: 이번 달 신규 문의 환자인지 확인 (callInDate 기준)
+      if (!patient.callInDate) return false;
+      
+      const callInDate = new Date(patient.callInDate); // ✅ callInDate 기준으로 통일
+      const isThisMonth = callInDate.getMonth() === currentMonth && 
+                        callInDate.getFullYear() === currentYear;
+      
+      // 이번 달 신규 문의가 아니면 제외
+      if (!isThisMonth) return false;
+      
+      // 🎯 2단계: 예약/내원 조건 확인 (로직 간소화)
+      const isQualified = 
+        patient.status === '예약확정' || 
+        patient.visitConfirmed === true || 
+        patient.status === '내원완료';
+      
+      if (isQualified) {
+        console.log('✅ 이번달 예약/내원 환자:', patient.name, '상태:', patient.status, '내원확정:', patient.visitConfirmed, '문의일:', patient.callInDate);
+      }
+      
+      return isQualified;
+    }).length;
 
       console.log('📊 계산 결과 (월별 필터링 적용):');
       console.log('   - 신규 환자:', newPatientsThisMonth, '명');

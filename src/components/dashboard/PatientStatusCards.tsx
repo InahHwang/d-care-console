@@ -117,7 +117,7 @@ const PatientStatusCards: React.FC<PatientStatusCardsProps> = ({ statusCounts })
             </div>
           </div>
           <div className="mt-1 text-xs text-text-muted">
-            콜백 조치가 필요한 환자 수
+            상담 + 내원 관리 콜백 필요 환자
           </div>
         </div>
 

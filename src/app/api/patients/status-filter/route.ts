@@ -87,18 +87,29 @@ export async function GET(request: NextRequest) {
       }
       
       case 'callbackNeeded':
-        // 콜백이 필요한 환자: 상태가 '콜백필요'인 환자
-        filter = { status: '콜백필요' };
-        patients = await db.collection('patients')
+        const allPatients = await db.collection('patients')
           .find({
-            ...filter,
             $or: [
               { isCompleted: { $ne: true } },
               { isCompleted: { $exists: false } }
             ]
           })
-          .sort({ updatedAt: -1 })
           .toArray();
+        
+        patients = allPatients.filter((patient: any) => {
+          // 상담 관리의 콜백 필요 OR 내원 관리의 재콜백 필요
+          return patient.status === '콜백필요' || 
+                patient.postVisitStatus === '재콜백필요';
+        });
+        
+        // 최신 업데이트순으로 정렬
+        patients.sort((a: any, b: any) => {
+          const dateA = new Date(a.updatedAt || a.createdAt);
+          const dateB = new Date(b.updatedAt || b.createdAt);
+          return dateB.getTime() - dateA.getTime();
+        });
+        
+        console.log(`[API] 콜백 필요 환자 ${patients.length}명 조회 완료 (상담관리 + 내원관리)`);
         break;
         
       case 'absent':

@@ -610,12 +610,22 @@ const PostVisitStatusModal = ({ isOpen, onClose, onConfirm, patient, isLoading }
 };
 
 // 상담 타입 배지 컴포넌트
-const ConsultationTypeBadge = ({ type, inboundPhoneNumber }: { type: 'inbound' | 'outbound', inboundPhoneNumber?: string }) => {
+const ConsultationTypeBadge = ({ type, inboundPhoneNumber }: { type: 'inbound' | 'outbound' | 'returning', inboundPhoneNumber?: string }) => {
   if (type === 'inbound') {
     return (
       <span className="inline-flex items-center px-2 py-1 rounded-full text-xs font-medium bg-green-100 text-green-800">
         <FiPhone className="w-3 h-3 mr-1" />
         인바운드
+      </span>
+    );
+  }
+
+  // 🔥 구신환 타입 추가
+  if (type === 'returning') {
+    return (
+      <span className="inline-flex items-center px-2 py-1 rounded-full text-xs font-medium bg-purple-100 text-purple-800">
+        <FiPhoneCall className="w-3 h-3 mr-1" />
+        구신환
       </span>
     );
   }
@@ -848,7 +858,7 @@ export default function VisitManagement() {
   // 필터 상태들 추가
   const [searchTerm, setSearchTerm] = useState('')
   const [selectedFilter, setSelectedFilter] = useState<'all' | 'needs_callback' | 'treatment_consent' | 'in_treatment' | 'completed' | 'no_status'>('all') // 🔥 치료 동의 필터 추가
-  const [consultationTypeFilter, setConsultationTypeFilter] = useState<'all' | 'inbound' | 'outbound'>('all')
+  const [consultationTypeFilter, setConsultationTypeFilter] = useState<'all' | 'inbound' | 'outbound' | 'returning'>('all')
   
   // 날짜 필터 상태들 추가
   const [dateFilterType, setDateFilterType] = useState<SimpleDateFilterType>('all')
@@ -1000,7 +1010,7 @@ export default function VisitManagement() {
   }, []);
 
   const handleConsultationTypeFilterChange = useCallback((e: React.ChangeEvent<HTMLSelectElement>) => {
-    setConsultationTypeFilter(e.target.value as 'all' | 'inbound' | 'outbound');
+    setConsultationTypeFilter(e.target.value as 'all' | 'inbound' | 'outbound' | 'returning');
   }, []);
 
   const handleDateFilterTypeChange = useCallback((filterType: SimpleDateFilterType) => {
@@ -1313,6 +1323,7 @@ export default function VisitManagement() {
               <option value="all">상담 타입 ▼</option>
               <option value="inbound">🟢 인바운드</option>
               <option value="outbound">🔵 아웃바운드</option>
+              <option value="returning">🟣 구신환</option>
             </select>
           </div>
 
@@ -1417,7 +1428,9 @@ export default function VisitManagement() {
                 
                 {consultationTypeFilter !== 'all' && (
                   <span className="inline-flex items-center px-2 py-1 rounded-full text-xs bg-blue-200 text-blue-800">
-                    {consultationTypeFilter === 'inbound' ? '🟢 인바운드' : '🔵 아웃바운드'}
+                    {consultationTypeFilter === 'inbound' ? '🟢 인바운드' : 
+                    consultationTypeFilter === 'outbound' ? '🔵 아웃바운드' : 
+                    consultationTypeFilter === 'returning' ? '🟣 구신환' : ''} {/* 🔥 구신환 표시 추가 */}
                   </span>
                 )}
                 

@@ -3,7 +3,7 @@
 import { EventCategory } from '@/types/messageLog';
 
 // 🔥 상담 타입 추가
-export type ConsultationType = 'inbound' | 'outbound';
+export type ConsultationType = 'inbound' | 'outbound' | 'returning';
 
 // 🔥 유입경로 타입 추가
 export type ReferralSource = 

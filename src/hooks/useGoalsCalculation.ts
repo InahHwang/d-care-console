@@ -418,7 +418,7 @@ export const useGoalsCalculation = (): UseGoalsCalculationResult => {
       }).length;
 
       // 5.3 기존 상태별 카운트
-      const callbackNeeded = patients.filter(p => p.status === '콜백필요').length;
+      const callbackNeeded = patients.filter(p => p.status === '콜백필요'|| p.postVisitStatus === '재콜백필요' ).length;
       const absentCount = patients.filter(p => p.status === '부재중').length;
       
       // 5.4 오늘 예정된 콜백 수 - 🔥 수정: todayStr 변수명 충돌 해결

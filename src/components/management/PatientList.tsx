@@ -70,7 +70,7 @@ const getLastConsultationDate = (patient: Patient): string => {
 };
 
 // 상담 타입 배지 컴포넌트
-const ConsultationTypeBadge = ({ type, inboundPhoneNumber }: { type: 'inbound' | 'outbound', inboundPhoneNumber?: string }) => {
+const ConsultationTypeBadge = ({ type, inboundPhoneNumber }: { type: 'inbound' | 'outbound' | 'returning', inboundPhoneNumber?: string }) => {
   if (type === 'inbound') {
     return (
       <div className="flex items-center space-x-1">
@@ -83,6 +83,16 @@ const ConsultationTypeBadge = ({ type, inboundPhoneNumber }: { type: 'inbound' |
           </span>
         )}
       </div>
+    );
+  }
+
+  // 🔥 구신환 타입 추가
+  if (type === 'returning') {
+    return (
+      <span className="inline-flex items-center px-2 py-1 rounded-full text-xs font-medium bg-purple-100 text-purple-800">
+        <FiPhoneCall className="w-3 h-3 mr-1" />
+        구신환
+      </span>
     );
   }
   
@@ -553,6 +563,8 @@ export default function PatientList({ isLoading = false, filteredPatients }: Pat
                     ? 'bg-gray-50/70'
                     : patient.consultationType === 'inbound' 
                     ? 'bg-green-50/30'
+                    : patient.consultationType === 'returning' // 🔥 구신환 배경색 추가
+                    ? 'bg-purple-50/30'
                     : patient.status === 'VIP' 
                     ? 'bg-purple-50/30' 
                     : patient.status === '부재중' 
