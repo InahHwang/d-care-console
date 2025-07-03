@@ -8,15 +8,17 @@ import AdminLayout from '@/components/admin/AdminLayout';
 import UserManagement from '@/components/admin/UserManagement';
 import ActivityLogs from '@/components/admin/ActivityLogs';
 import AdminDashboard from '@/components/admin/AdminDashboard';
+import DailyTasksManagement from '@/components/admin/DailyTasksManagement'; 
 
 import { 
   HiOutlineUsers, 
   HiOutlineClipboardList, 
   HiOutlineChartBar,
-  HiOutlineShieldCheck
+  HiOutlineShieldCheck,
+  HiOutlineClipboardCheck
 } from 'react-icons/hi';
 
-type AdminTab = 'dashboard' | 'users' | 'logs' | 'settings';
+type AdminTab = 'dashboard' | 'users' | 'logs' | 'daily-tasks' | 'settings';
 
 export default function AdminPage() {
   const [activeTab, setActiveTab] = useState<AdminTab>('dashboard');
@@ -35,6 +37,12 @@ export default function AdminPage() {
       description: '담당자 계정 관리'
     },
     {
+      id: 'daily-tasks' as AdminTab,  // 🔥 새로 추가
+      name: '오늘 처리된 업무',
+      icon: HiOutlineClipboardCheck, // 이 아이콘 import 추가 필요
+      description: '매니저들이 오늘 처리한 업무 현황'
+    },
+    {
       id: 'logs' as AdminTab,
       name: '활동 로그',
       icon: HiOutlineClipboardList,
@@ -50,6 +58,8 @@ export default function AdminPage() {
 
   const renderTabContent = () => {
     switch (activeTab) {
+      case 'daily-tasks':
+        return <DailyTasksManagement />;
       case 'dashboard':
         return <AdminDashboard />;
       case 'users':
