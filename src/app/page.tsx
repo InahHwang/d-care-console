@@ -42,6 +42,16 @@ export default function Home() {
     todayCalls
   } = useGoalsCalculation();
 
+  // 🔥 임시 디버깅 로그 추가
+  console.log('🔥 대시보드 페이지 디버깅:', {
+    todayCalls: todayCalls,
+    todayCallsLength: todayCalls?.length || 0,
+    todayCallsType: typeof todayCalls,
+    isArray: Array.isArray(todayCalls),
+    statusCounts: statusCounts,
+    첫번째콜: todayCalls?.[0] || null
+  });
+
   // 컴포넌트 마운트 시 기본 데이터 로드
   useEffect(() => {
     dispatch(setCurrentMenuItem('대시보드'));

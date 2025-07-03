@@ -17,8 +17,29 @@ interface TodayCallsTableProps {
 }
 
 export default function TodayCallsTable({ calls = [], isLoading = false }: TodayCallsTableProps) {
+  // 🔥 임시 디버깅 로그 추가
+  console.log('🔥 TodaysCallsTable 디버깅:', {
+    calls,
+    callsLength: calls.length,
+    isLoading,
+    callsType: typeof calls,
+    firstCall: calls[0] || null
+  });
+
   const dispatch = useAppDispatch()
   const patients = useAppSelector((state: RootState) => state.patients.patients)
+
+  // 🔥 환자 데이터도 확인
+    console.log('🔥 환자 데이터 확인:', {
+      patientsLength: patients.length,
+      오늘날짜: new Date().toISOString().split('T')[0],
+      환자콜백예시: patients.slice(0, 3).map(p => ({
+        name: p.name,
+        callbackHistory: p.callbackHistory || [],
+        nextCallbackDate: p.nextCallbackDate
+      }))
+    });
+
   const [searchTerm, setSearchTerm] = useState('')
   const [currentPage, setCurrentPage] = useState(1)
   const [filter, setFilter] = useState<string>('전체')
