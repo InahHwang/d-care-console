@@ -399,8 +399,8 @@ export const useGoalsCalculation = (): UseGoalsCalculationResult => {
       const todayCallbacks = patients.filter(p => {
         // 1. 기존 조건: 상담관리 콜백 (callbackHistory 또는 nextCallbackDate)
         const hasManagementCallback = (() => {
-          // 🔥 내원확정된 환자는 상담관리에서 제외
-          if (p.visitConfirmed === true) {
+          // 🔥 내원확정된 환자 중에서 재콜백필요가 아닌 경우만 상담관리에서 제외
+          if (p.visitConfirmed === true && p.postVisitStatus !== '재콜백필요') {
             return false;
           }
           
@@ -424,8 +424,8 @@ export const useGoalsCalculation = (): UseGoalsCalculationResult => {
         .filter(patient => {
           // 1. 기존 조건: 상담관리 콜백 (callbackHistory 또는 nextCallbackDate)
           const hasManagementCallback = (() => {
-            // 🔥 내원확정된 환자는 상담관리에서 제외
-            if (patient.visitConfirmed === true) {
+            // 🔥 내원확정된 환자 중에서 재콜백필요가 아닌 경우만 상담관리에서 제외
+            if (patient.visitConfirmed === true && patient.postVisitStatus !== '재콜백필요') {
               return false;
             }
             
