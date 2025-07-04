@@ -398,14 +398,21 @@ export const useGoalsCalculation = (): UseGoalsCalculationResult => {
       // 🔥 오늘 예정된 콜백 수 - 상담관리 + 내원관리 통합
       const todayCallbacks = patients.filter(p => {
         // 1. 기존 조건: 상담관리 콜백 (callbackHistory 또는 nextCallbackDate)
-        const hasManagementCallback = p.callbackHistory?.some(callback => 
-          callback.status === '예정' && callback.date === todayStr
-        ) || p.nextCallbackDate === todayStr;
+        const hasManagementCallback = (() => {
+          // 🔥 내원확정된 환자는 상담관리에서 제외
+          if (p.visitConfirmed === true) {
+            return false;
+          }
+          
+          return p.callbackHistory?.some((callback: any) => 
+            callback.status === '예정' && callback.date === todayStr
+          ) || p.nextCallbackDate === todayStr;
+        })();
 
-        // 2. 🔥 새로운 조건: 내원관리 콜백 (visitConfirmed=true이고 postVisitStatus가 '재콜백필요')
+        // 2. 🔥 새로운 조건: 내원관리 콜백 수 계산 (정확히 '재콜백필요' 상태만)
         const hasPostVisitCallback = p.visitConfirmed === true && 
                                     p.postVisitStatus === '재콜백필요' &&
-                                    p.callbackHistory?.some(callback => 
+                                    p.callbackHistory?.some((callback: any) => 
                                       callback.status === '예정' && callback.date === todayStr
                                     );
 
@@ -416,14 +423,21 @@ export const useGoalsCalculation = (): UseGoalsCalculationResult => {
       const todaysCallsData: Call[] = patients
         .filter(patient => {
           // 1. 기존 조건: 상담관리 콜백 (callbackHistory 또는 nextCallbackDate)
-          const hasManagementCallback = patient.callbackHistory?.some(callback => 
-            callback.status === '예정' && callback.date === todayStr
-          ) || patient.nextCallbackDate === todayStr;
+          const hasManagementCallback = (() => {
+            // 🔥 내원확정된 환자는 상담관리에서 제외
+            if (patient.visitConfirmed === true) {
+              return false;
+            }
+            
+            return patient.callbackHistory?.some((callback: any) => 
+              callback.status === '예정' && callback.date === todayStr
+            ) || patient.nextCallbackDate === todayStr;
+          })();
 
-          // 2. 🔥 새로운 조건: 내원관리 콜백 (visitConfirmed=true이고 postVisitStatus가 '재콜백필요')
+          // 2. 🔥 새로운 조건: 내원관리 콜백 (visitConfirmed=true이고 정확히 postVisitStatus가 '재콜백필요')
           const hasPostVisitCallback = patient.visitConfirmed === true && 
                                       patient.postVisitStatus === '재콜백필요' &&
-                                      patient.callbackHistory?.some(callback => 
+                                      patient.callbackHistory?.some((callback: any) => 
                                         callback.status === '예정' && callback.date === todayStr
                                       );
 

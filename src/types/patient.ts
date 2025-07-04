@@ -5,6 +5,9 @@ import { EventCategory } from '@/types/messageLog';
 // 🔥 상담 타입 추가
 export type ConsultationType = 'inbound' | 'outbound' | 'returning';
 
+// 🔥 내원관리 전용 콜백 타입 추가
+export type VisitManagementCallbackType = '내원1차' | '내원2차' | '내원3차';
+
 // 🔥 유입경로 타입 추가
 export type ReferralSource = 
   | '유튜브'
@@ -136,26 +139,41 @@ export interface CallbackItem {
   id: string;
   date: string;
   status: CallbackStatus;
-  notes?: string;          
-  resultNotes?: string;   
+  notes?: string;
+  resultNotes?: string;
   customerResponse?: 'very_positive' | 'positive' | 'neutral' | 'negative' | 'very_negative';
-  type: '1차' | '2차' | '3차' | '4차' | '5차';
+  type: '1차' | '2차' | '3차' | '4차' | '5차' | VisitManagementCallbackType; 
   cancelReason?: string;
   cancelDate?: string;
   isCompletionRecord?: boolean;
   // 🔥 이벤트 타겟 설정 단계 추가
-  nextStep?: '2차_콜백' | '3차_콜백' | '4차_콜백' | '5차_콜백' | '예약_확정' | '종결_처리' | '이벤트_타겟_설정' | '';
+   nextStep?: '2차_콜백' | '3차_콜백' | '4차_콜백' | '5차_콜백' | '예약_확정' | '종결_처리' | '이벤트_타겟_설정' | '내원2차_콜백' | '내원3차_콜백' | ''; // 🔥 내원관리 단계 추가
   
   // 🔥 담당자 정보 추가
   handledBy?: string;          // 처리한 담당자 ID
   handledByName?: string;      // 처리한 담당자 이름
   createdBy?: string;          // 콜백을 생성한 담당자 ID
   createdByName?: string;      // 콜백을 생성한 담당자 이름
+
   // 🔥 새로 추가할 필드들
   originalScheduledDate?: string;  // 원래 예정일 보존
   actualCompletedDate?: string;    // 실제 처리일
   isDelayed?: boolean;             // 지연 처리 여부
   delayReason?: string;            // 지연 사유
+
+  // 🔥 내원관리 전용 필드들
+  isVisitManagementCallback?: boolean; // 내원관리 콜백 구분용
+  visitManagementReason?: string; // 내원 후 콜백 사유
+}
+
+// 🔥 내원관리 콜백 생성을 위한 타입
+export interface CreateVisitCallbackData {
+  type: VisitManagementCallbackType;
+  date: string;
+  status: CallbackStatus;
+  notes?: string;
+  reason: string; // 내원 후 콜백 사유 (필수)
+  isVisitManagementCallback: true;
 }
 
 // 종결 처리를 위한 타입 정의

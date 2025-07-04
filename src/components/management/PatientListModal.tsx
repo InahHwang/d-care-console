@@ -1,4 +1,4 @@
-// src/components/management/PatientListModal.tsx
+// src/components/management/PatientListModal.tsx - 새로고침 버튼 추가
 import React, { useEffect, useState } from 'react';
 import { useAppDispatch } from '@/hooks/reduxHooks';
 import { selectPatient } from '@/store/slices/patientsSlice';
@@ -31,15 +31,27 @@ const PatientListModal: React.FC<PatientListModalProps> = ({
     setError(null);
     
     try {
-      const response = await fetch(`/api/patients/status-filter?type=${filterType}`);
+      console.log(`🔍 API 호출: /api/patients/status-filter?type=${filterType}`);
+      
+      const response = await fetch(`/api/patients/status-filter?type=${filterType}`, {
+        // 🔥 캐시 방지
+        cache: 'no-cache',
+        headers: {
+          'Cache-Control': 'no-cache',
+          'Pragma': 'no-cache'
+        }
+      });
       
       if (!response.ok) {
         throw new Error('환자 목록을 불러오는데 실패했습니다.');
       }
       
       const data = await response.json();
+      console.log(`🔍 API 응답 (${filterType}):`, data);
+      
       setPatients(data);
     } catch (err) {
+      console.error('🚨 API 에러:', err);
       setError(err instanceof Error ? err.message : '알 수 없는 오류가 발생했습니다.');
     } finally {
       setIsLoading(false);
@@ -63,6 +75,12 @@ const PatientListModal: React.FC<PatientListModalProps> = ({
     setIsDetailModalOpen(false);
   };
 
+  // 🔥 새로고침 핸들러 추가
+  const handleRefresh = () => {
+    console.log('🔄 수동 새로고침 시작');
+    fetchFilteredPatients();
+  };
+
   const getStatusBadgeColor = (status: PatientStatus) => {
     switch (status) {
       case '콜백필요':
@@ -70,7 +88,6 @@ const PatientListModal: React.FC<PatientListModalProps> = ({
       case '부재중':
         return 'bg-red-100 text-red-800';
       case '잠재고객':
-
         return 'bg-green-100 text-green-800';
       case 'VIP':
         return 'bg-purple-100 text-purple-800';
@@ -177,7 +194,17 @@ const PatientListModal: React.FC<PatientListModalProps> = ({
         <div className="bg-white rounded-lg w-full max-w-5xl mx-4 max-h-[80vh] overflow-hidden">
           {/* 모달 헤더 */}
           <div className="flex items-center justify-between p-6 border-b">
-            <h2 className="text-xl font-semibold text-gray-900">{title}</h2>
+            <div className="flex items-center gap-3">
+              <h2 className="text-xl font-semibold text-gray-900">{title}</h2>
+              {/* 🔥 새로고침 버튼 추가 */}
+              <button
+                onClick={handleRefresh}
+                disabled={isLoading}
+                className="px-3 py-1 bg-blue-100 text-blue-600 rounded-md hover:bg-blue-200 disabled:opacity-50 text-sm"
+              >
+                {isLoading ? '새로고침...' : '🔄 새로고침'}
+              </button>
+            </div>
             <button
               onClick={onClose}
               className="text-gray-400 hover:text-gray-600 transition-colors"
@@ -220,6 +247,10 @@ const PatientListModal: React.FC<PatientListModalProps> = ({
               <div className="space-y-3">
                 <div className="text-sm text-gray-600 mb-4">
                   총 <span className="font-semibold text-blue-600">{patients.length}명</span>의 환자가 있습니다.
+                  {/* 🔥 디버깅 정보 추가 */}
+                  <div className="text-xs text-gray-400 mt-1">
+                    필터: {filterType} | 마지막 조회: {new Date().toLocaleTimeString()}
+                  </div>
                 </div>
                 
                 {patients.map((patient) => {
@@ -238,6 +269,14 @@ const PatientListModal: React.FC<PatientListModalProps> = ({
                         <span className={`px-2 py-1 rounded-full text-xs font-medium ${getStatusBadgeColor(patient.status)}`}>
                           {patient.status}
                         </span>
+                        
+                        {/* 🔥 내원 관리 상태 표시 추가 */}
+                        {patient.visitConfirmed && patient.postVisitStatus && (
+                          <span className="px-2 py-1 rounded-full text-xs font-medium bg-purple-100 text-purple-800">
+                            {patient.postVisitStatus}
+                          </span>
+                        )}
+                        
                         {/* 🔥 새로 추가: 미처리 콜백 필터일 때 경고 뱃지 표시 */}
                         {filterType === 'overdueCallbacks' && overdueCallback && (
                           <span className="px-2 py-1 rounded-full text-xs font-medium bg-red-100 text-red-800">

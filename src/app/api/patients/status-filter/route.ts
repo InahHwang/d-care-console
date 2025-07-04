@@ -144,6 +144,11 @@ export async function GET(request: NextRequest) {
         patients = allPatients.filter((patient: any) => {
           // 1. 기존 조건: 상담관리 콜백 (callbackHistory 또는 nextCallbackDate)
           const hasManagementCallback = (() => {
+            // 🔥 내원확정된 환자는 상담관리에서 제외 (내원관리로 이관)
+            if (patient.visitConfirmed === true) {
+              return false;
+            }
+            
             // callbackHistory에서 오늘 예정된 콜백 확인
             if (patient.callbackHistory && patient.callbackHistory.length > 0) {
               const hasTodayCallback = patient.callbackHistory.some((callback: any) => {
@@ -158,7 +163,13 @@ export async function GET(request: NextRequest) {
 
           // 2. 🔥 새로운 조건: 내원관리 콜백 (visitConfirmed=true이고 postVisitStatus가 '재콜백필요')
           const hasPostVisitCallback = (() => {
-            if (patient.visitConfirmed !== true || patient.postVisitStatus !== '재콜백필요') {
+            // 기본 조건: 내원 확정되어야 함
+            if (patient.visitConfirmed !== true) {
+              return false;
+            }
+            
+            // 🔥 명확한 조건: 정확히 '재콜백필요' 상태만 포함
+            if (patient.postVisitStatus !== '재콜백필요') {
               return false;
             }
             
