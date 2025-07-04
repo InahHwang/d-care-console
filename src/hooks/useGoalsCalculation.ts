@@ -395,14 +395,21 @@ export const useGoalsCalculation = (): UseGoalsCalculationResult => {
         });
       }
       
-      // 🔥 오늘 예정된 콜백 수 - 통일된 todayStr 사용
+      // 🔥 오늘 예정된 콜백 수 - 상담관리 + 내원관리 통합
       const todayCallbacks = patients.filter(p => {
-        if (p.callbackHistory && p.callbackHistory.length > 0) {
-          return p.callbackHistory.some(callback => 
-            callback.status === '예정' && callback.date === todayStr
-          );
-        }
-        return p.nextCallbackDate === todayStr;
+        // 1. 기존 조건: 상담관리 콜백 (callbackHistory 또는 nextCallbackDate)
+        const hasManagementCallback = p.callbackHistory?.some(callback => 
+          callback.status === '예정' && callback.date === todayStr
+        ) || p.nextCallbackDate === todayStr;
+
+        // 2. 🔥 새로운 조건: 내원관리 콜백 (visitConfirmed=true이고 postVisitStatus가 '재콜백필요')
+        const hasPostVisitCallback = p.visitConfirmed === true && 
+                                    p.postVisitStatus === '재콜백필요' &&
+                                    p.callbackHistory?.some(callback => 
+                                      callback.status === '예정' && callback.date === todayStr
+                                    );
+
+        return hasManagementCallback || hasPostVisitCallback;
       }).length;
 
       // 🔥 🔥 🔥 오늘 예정된 콜 데이터 생성 - 상담관리 + 내원관리 통합
