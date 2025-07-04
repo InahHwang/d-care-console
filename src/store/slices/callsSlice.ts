@@ -2,6 +2,7 @@
 
 import { createSlice, createAsyncThunk, PayloadAction } from '@reduxjs/toolkit';
 
+// 🔥 Call 타입 정의 - 새로운 필드 추가
 export interface Call {
   id: string;
   patientId: string;
@@ -13,6 +14,14 @@ export interface Call {
   notes?: string;
   createdAt: string;
   updatedAt: string;
+  
+  // 🔥 새로 추가된 필드들
+  callSource?: 'management' | 'postVisit'; // 콜백 출처 구분
+  postVisitInfo?: {
+    visitConfirmed: boolean;
+    postVisitStatus: string;
+    hasPostVisitConsultation: boolean;
+  };
 }
 
 export interface CallSummary {

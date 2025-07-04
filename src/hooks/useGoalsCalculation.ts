@@ -1,4 +1,4 @@
-// src/hooks/useGoalsCalculation.ts - 최종 완성 버전
+// src/hooks/useGoalsCalculation.ts - 내원 관리 콜백 통합 버전
 import { useEffect, useMemo } from 'react';
 import { useSelector, useDispatch } from 'react-redux';
 import { RootState } from '@/store';
@@ -405,22 +405,37 @@ export const useGoalsCalculation = (): UseGoalsCalculationResult => {
         return p.nextCallbackDate === todayStr;
       }).length;
 
-      // 🔥 오늘 예정된 콜 데이터 생성 - 통일된 todayStr 사용
+      // 🔥 🔥 🔥 오늘 예정된 콜 데이터 생성 - 상담관리 + 내원관리 통합
       const todaysCallsData: Call[] = patients
         .filter(patient => {
-          if (patient.callbackHistory && patient.callbackHistory.length > 0) {
-            return patient.callbackHistory.some(callback => 
-              callback.status === '예정' && callback.date === todayStr
-            );
-          }
-          return patient.nextCallbackDate === todayStr;
+          // 1. 기존 조건: 상담관리 콜백 (callbackHistory 또는 nextCallbackDate)
+          const hasManagementCallback = patient.callbackHistory?.some(callback => 
+            callback.status === '예정' && callback.date === todayStr
+          ) || patient.nextCallbackDate === todayStr;
+
+          // 2. 🔥 새로운 조건: 내원관리 콜백 (visitConfirmed=true이고 postVisitStatus가 '재콜백필요')
+          const hasPostVisitCallback = patient.visitConfirmed === true && 
+                                      patient.postVisitStatus === '재콜백필요' &&
+                                      patient.callbackHistory?.some(callback => 
+                                        callback.status === '예정' && callback.date === todayStr
+                                      );
+
+          return hasManagementCallback || hasPostVisitCallback;
         })
         .map((patient, index) => {
           let todayCallback = null;
+          let callSource = 'management'; // 'management' 또는 'postVisit'
+
+          // 먼저 일반 콜백 히스토리에서 찾기
           if (patient.callbackHistory) {
             todayCallback = patient.callbackHistory.find(cb => 
               cb.status === '예정' && cb.date === todayStr
             );
+          }
+
+          // 내원 관리 콜백인지 확인
+          if (patient.visitConfirmed === true && patient.postVisitStatus === '재콜백필요') {
+            callSource = 'postVisit';
           }
 
           let scheduledTime = '';
@@ -446,25 +461,48 @@ export const useGoalsCalculation = (): UseGoalsCalculationResult => {
                         patient.reminderStatus === '3차' ? 3 : 0,
             notes: todayCallback?.notes || patient.notes || '',
             createdAt: patient.createdAt || new Date().toISOString(),
-            updatedAt: patient.updatedAt || new Date().toISOString()
+            updatedAt: patient.updatedAt || new Date().toISOString(),
+            // 🔥 콜백 출처 정보 추가 - 타입 에러 수정
+            callSource: callSource as 'management' | 'postVisit',
+            // 🔥 내원 관리 콜백인 경우 추가 정보
+            postVisitInfo: callSource === 'postVisit' ? {
+              visitConfirmed: patient.visitConfirmed || false,
+              postVisitStatus: String(patient.postVisitStatus || ''),
+              hasPostVisitConsultation: !!patient.postVisitConsultation
+            } : undefined
           };
         });
 
       // 디버깅 로그
       if (process.env.NODE_ENV === 'development') {
-        console.log('🔥 오늘 예정된 콜 데이터 생성 완료:', {
+        console.log('🔥 오늘 예정된 콜 데이터 생성 완료 (상담관리 + 내원관리 통합):', {
           총환자수: patients.length,
           오늘날짜: todayStr,
-          필터링조건확인: patients.map(patient => ({
-            이름: patient.name,
-            콜백히스토리: patient.callbackHistory || [],
-            다음콜백날짜: patient.nextCallbackDate,
-            오늘콜백있음: patient.callbackHistory?.some(callback => 
+          
+          // 상담관리 콜백 환자
+          상담관리콜백: patients.filter(patient => {
+            const hasManagementCallback = patient.callbackHistory?.some(callback => 
               callback.status === '예정' && callback.date === todayStr
-            ) || false
-          })).filter(p => p.오늘콜백있음 || p.다음콜백날짜 === todayStr),
-          오늘예정된콜수: todaysCallsData.length,
-          실제콜목록: todaysCallsData
+            ) || patient.nextCallbackDate === todayStr;
+            
+            return hasManagementCallback && !(patient.visitConfirmed === true && patient.postVisitStatus === '재콜백필요');
+          }).map(p => ({ 이름: p.name, 출처: '상담관리' })),
+          
+          // 내원관리 콜백 환자
+          내원관리콜백: patients.filter(patient => {
+            return patient.visitConfirmed === true && 
+                   patient.postVisitStatus === '재콜백필요' &&
+                   patient.callbackHistory?.some(callback => 
+                     callback.status === '예정' && callback.date === todayStr
+                   );
+          }).map(p => ({ 이름: p.name, 출처: '내원관리' })),
+          
+          전체통합콜수: todaysCallsData.length,
+          콜목록: todaysCallsData.map(call => ({
+            이름: call.patientName,
+            출처: call.callSource,
+            시간: call.scheduledTime
+          }))
         });
       }
 
