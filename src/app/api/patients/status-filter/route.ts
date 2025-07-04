@@ -1,4 +1,4 @@
-// src/app/api/patients/status-filter/route.ts - "콜백 미등록" 케이스 추가
+// src/app/api/patients/status-filter/route.ts - 내원관리 콜백 통합 버전
 
 import { NextRequest, NextResponse } from 'next/server';
 import { connectToDatabase } from '@/utils/mongodb';
@@ -22,6 +22,9 @@ export async function GET(request: NextRequest) {
     const today = new Date();
     const todayStart = new Date(today.getFullYear(), today.getMonth(), today.getDate());
     const todayEnd = new Date(today.getFullYear(), today.getMonth(), today.getDate() + 1);
+    
+    // 🔥 오늘 날짜 문자열 (YYYY-MM-DD 형식)
+    const todayStr = `${today.getFullYear()}-${String(today.getMonth() + 1).padStart(2, '0')}-${String(today.getDate()).padStart(2, '0')}`;
     
     // 이번 달 시작일 계산
     const thisMonthStart = new Date(today.getFullYear(), today.getMonth(), 1);
@@ -128,7 +131,7 @@ export async function GET(request: NextRequest) {
         break;
         
       case 'todayScheduled': {
-        // 오늘 예정된 콜백이 있는 환자들
+        // 🔥 🔥 🔥 오늘 예정된 콜백이 있는 환자들 - 상담관리 + 내원관리 통합
         const allPatients = await db.collection('patients')
           .find({
             $or: [
@@ -139,20 +142,59 @@ export async function GET(request: NextRequest) {
           .toArray();
         
         patients = allPatients.filter((patient: any) => {
-          if (!patient.callbackHistory || patient.callbackHistory.length === 0) {
-            return false;
-          }
-          
-          // 오늘 예정된 콜백이 있는지 확인
-          const hasTodayCallback = patient.callbackHistory.some((callback: any) => {
-            if (callback.status !== '예정') return false;
+          // 1. 기존 조건: 상담관리 콜백 (callbackHistory 또는 nextCallbackDate)
+          const hasManagementCallback = (() => {
+            // callbackHistory에서 오늘 예정된 콜백 확인
+            if (patient.callbackHistory && patient.callbackHistory.length > 0) {
+              const hasTodayCallback = patient.callbackHistory.some((callback: any) => {
+                return callback.status === '예정' && callback.date === todayStr;
+              });
+              if (hasTodayCallback) return true;
+            }
             
-            const callbackDate = new Date(callback.date);
-            return callbackDate >= todayStart && callbackDate < todayEnd;
-          });
-          
-          return hasTodayCallback;
+            // nextCallbackDate로 오늘 예정된 콜백 확인
+            return patient.nextCallbackDate === todayStr;
+          })();
+
+          // 2. 🔥 새로운 조건: 내원관리 콜백 (visitConfirmed=true이고 postVisitStatus가 '재콜백필요')
+          const hasPostVisitCallback = (() => {
+            if (patient.visitConfirmed !== true || patient.postVisitStatus !== '재콜백필요') {
+              return false;
+            }
+            
+            // 내원관리 환자도 callbackHistory에서 오늘 예정된 콜백이 있어야 함
+            if (patient.callbackHistory && patient.callbackHistory.length > 0) {
+              return patient.callbackHistory.some((callback: any) => {
+                return callback.status === '예정' && callback.date === todayStr;
+              });
+            }
+            
+            return false;
+          })();
+
+          return hasManagementCallback || hasPostVisitCallback;
         });
+
+        // 🔥 디버깅 로그 추가
+        console.log(`[API] 오늘 예정된 콜백 조회 (${todayStr}):`, {
+          전체환자수: allPatients.length,
+          상담관리콜백: allPatients.filter((patient: any) => {
+            const hasManagementCallback = patient.callbackHistory?.some((callback: any) => 
+              callback.status === '예정' && callback.date === todayStr
+            ) || patient.nextCallbackDate === todayStr;
+            
+            return hasManagementCallback && !(patient.visitConfirmed === true && patient.postVisitStatus === '재콜백필요');
+          }).length,
+          내원관리콜백: allPatients.filter((patient: any) => {
+            return patient.visitConfirmed === true && 
+                   patient.postVisitStatus === '재콜백필요' &&
+                   patient.callbackHistory?.some((callback: any) => 
+                     callback.status === '예정' && callback.date === todayStr
+                   );
+          }).length,
+          통합결과: patients.length
+        });
+        
         break;
       }
         
