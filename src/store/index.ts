@@ -13,6 +13,7 @@ import goalsReducer from './slices/goalsSlice';
 import usersReducer from './slices/usersSlice';
 import activityLogsReducer from './slices/activityLogsSlice';
 import reportsReducer from './slices/reportsSlice'; // 🔥 추가
+import memosReducer from './slices/memosSlice';
 
 export const store = configureStore({
   reducer: {
@@ -25,6 +26,7 @@ export const store = configureStore({
     categories: categoriesReducer,
     ui: uiReducer,
     goals: goalsReducer,
+    memos: memosReducer, // 🔥 추가
     // 새로 추가된 reducer들
     users: usersReducer,
     activityLogs: activityLogsReducer,

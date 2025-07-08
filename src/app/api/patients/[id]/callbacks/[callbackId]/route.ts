@@ -3,6 +3,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { connectToDatabase } from '@/utils/mongodb';
 import { ObjectId } from 'mongodb';
+import { format } from 'date-fns';
 
 // 🔥 활동 로깅을 위한 함수
 async function logActivityToDatabase(activityData: any) {
@@ -159,7 +160,13 @@ export async function PUT(
     callbackHistory[callbackIndex] = {
       ...callbackHistory[callbackIndex],
       ...updateData,
-      updatedAt: new Date().toISOString()
+      updatedAt: new Date().toISOString(),
+      // 🔥 완료 처리 시 현재 시간으로 업데이트
+      ...(updateData.status === '완료' && {
+        date: format(new Date(), 'yyyy-MM-dd'),
+        time: format(new Date(), 'HH:mm'),
+        completedAt: new Date().toISOString()
+      })
     };
     
     console.log('🔄 콜백 업데이트 완료:', {

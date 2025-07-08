@@ -1,4 +1,4 @@
-// src/types/activityLog.ts
+// src/types/activityLog.ts - consultation_update 타입 추가
 
 // 활동 유형 정의
 export type ActivityAction = 
@@ -10,6 +10,7 @@ export type ActivityAction =
   | 'patient_complete'
   | 'patient_complete_cancel'
   | 'patient_reset_post_visit'
+  | 'consultation_update'          // 🔥 추가: 상담 정보 업데이트
   // 콜백 관리
   | 'callback_create'
   | 'callback_update'
@@ -84,6 +85,13 @@ export interface ActivityDetails {
   region?: any
   callInDate?: string
   
+  // 🔥 상담 정보 관련 (추가)
+  consultationDate?: string       // 상담 날짜
+  estimatedAmount?: number        // 견적 금액
+  estimateAgreed?: boolean        // 견적 동의 여부
+  treatmentPlan?: string          // 치료 계획/불편한 부분
+  consultationNotes?: string      // 상담 메모
+  
   // 콜백 관련
   callbackId?: string
   callbackType?: string       // 1차, 2차, 3차, 4차, 5차
@@ -92,7 +100,6 @@ export interface ActivityDetails {
   callbackNumber?: string
   result?: string             // 콜백 결과 (완료, 부재중, 예약확정, 종결처리, 이벤트타겟설정)
   nextStep?: string           // 다음 단계 (2차_콜백, 3차_콜백, 예약_확정, 종결_처리 등)
-  consultationNotes?: string  // 상담 내용
   customerResponse?: string   // 고객 반응 (very_positive, positive, neutral, negative, very_negative)
   cancelReason?: string       // 취소 사유
   

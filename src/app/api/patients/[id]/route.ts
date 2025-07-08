@@ -56,7 +56,8 @@ export async function GET(
       original_id: patient._id,
       normalized_id: normalizedPatient.id,
       normalized_objectId: normalizedPatient._id,
-      patientName: normalizedPatient.name
+      patientName: normalizedPatient.name,
+      isPostReservationPatient: normalizedPatient.isPostReservationPatient // 🔥 추가
     });
     
     return NextResponse.json(normalizedPatient, { status: 200 });

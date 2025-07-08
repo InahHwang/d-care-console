@@ -80,11 +80,12 @@ export async function PUT(
     const { db } = await connectToDatabase();
     const patientId = params.id;
     const data = await request.json();
-    const { reservationDate, reservationTime, reason } = data;
+    // 🔥 수정: reason을 consultationContent로 변경하고 필수로 처리
+    const { reservationDate, reservationTime, consultationContent } = data;
     const currentUser = getCurrentUser(request);
 
     console.log(`환자 예약완료 처리 시도 - 환자 ID: ${patientId}`);
-    console.log('예약 정보:', { reservationDate, reservationTime, reason });
+    console.log('예약 정보:', { reservationDate, reservationTime, consultationContent });
 
     // 환자 검색
     let patient;
@@ -140,12 +141,12 @@ export async function PUT(
     let updatedCallbackHistory = [...callbackHistory];
     
     if (!todayCompletedCallback) {
-      // 오늘 완료된 콜백이 없는 경우에만 실제 콜백 완료 기록 추가
       const actualCallbackRecord = {
         id: `callback-${Date.now()}-${generateUUID()}`,
         date: todayKorean,
         status: '완료',
-        notes: `[상담 내용]\n예약완료 상담 - 예약일시: ${reservationDate} ${reservationTime}`,
+        // 🔥 수정: 상담내용을 명확히 구분해서 저장
+        notes: `[${getCallbackTypeBasedOnHistory(callbackHistory)} 상담 완료 - ${todayKorean}]\n예약일정: ${reservationDate} ${reservationTime}${consultationContent ? `\n상담내용: ${consultationContent}` : ''}`,
         type: getCallbackTypeBasedOnHistory(callbackHistory),
         time: undefined,
         customerResponse: 'positive',
@@ -155,20 +156,19 @@ export async function PUT(
       
       updatedCallbackHistory.push(actualCallbackRecord);
       console.log('새로운 콜백 완료 기록 추가:', actualCallbackRecord.type);
-    } else {
-      console.log('오늘 이미 완료된 콜백이 있어서 추가 콜백 기록을 생성하지 않음:', todayCompletedCallback.type);
     }
     
     // 🔥 예약완료 기록 추가 (항상 추가)
     const reservationCompletionRecord = {
       id: `reservation-${Date.now()}-${generateUUID()}`,
-      date: reservationDate, // 예약일로 설정
+      date: reservationDate,
       status: '예약확정',
-      notes: `[예약완료]\n예약일시: ${reservationDate} ${reservationTime}\n처리일: ${todayKorean}`,
+      // 🔥 수정: 상담내용을 포함하여 저장
+      notes: `[예약완료]\n예약일시: ${reservationDate} ${reservationTime}\n처리일: ${todayKorean}${consultationContent ? `\n상담내용: ${consultationContent}` : ''}`,
       type: '예약완료',
       time: reservationTime,
-      isCompletionRecord: false, // 예약완료는 완료 기록이 아님
-      isReservationRecord: true, // 예약 기록임을 표시
+      isCompletionRecord: false,
+      isReservationRecord: true,
       createdAt: new Date().toISOString()
     };
 

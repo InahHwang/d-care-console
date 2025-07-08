@@ -1,4 +1,5 @@
 // src/components/management/ReservationDateModal.tsx
+// 🔥 기존 기능 100% 유지 + 실시간 데이터 동기화만 추가
 
 'use client'
 
@@ -6,6 +7,8 @@ import { useState } from 'react'
 import { HiOutlineX, HiOutlineCalendar } from 'react-icons/hi'
 import { Icon } from '../common/Icon'
 import { Patient } from '@/types/patient'
+// 🔥 데이터 동기화 유틸리티 import 추가 (기존 기능에 영향 없음)
+import { PatientDataSync } from '@/utils/dataSync'
 
 interface ReservationDateModalProps {
   isOpen: boolean
@@ -26,7 +29,7 @@ export default function ReservationDateModal({
   const [reservationTime, setReservationTime] = useState('')
   const [errors, setErrors] = useState<{date?: string, time?: string}>({})
 
-  // 🔥 환자 상태에 따른 모달 타이틀과 메시지 결정
+  // 🔥 환자 상태에 따른 모달 타이틀과 메시지 결정 (기존 로직 그대로 유지)
   const getModalInfo = () => {
     if (!patient) {
       return {
@@ -70,7 +73,7 @@ export default function ReservationDateModal({
 
   const modalInfo = getModalInfo();
 
-  // 모달이 열릴 때마다 상태 초기화
+  // 모달이 열릴 때마다 상태 초기화 (기존 로직 그대로 유지)
   const handleModalOpen = () => {
     if (isOpen) {
       setReservationDate('')
@@ -79,7 +82,7 @@ export default function ReservationDateModal({
     }
   }
 
-  // 모달이 열릴 때 상태 초기화 (useEffect 대신 조건부 실행)
+  // 모달이 열릴 때 상태 초기화 (useEffect 대신 조건부 실행) (기존 로직 그대로 유지)
   if (isOpen && !reservationDate && !reservationTime) {
     // 초기값 설정 (오늘 날짜와 현재 시간 기준)
     const today = new Date()
@@ -93,6 +96,7 @@ export default function ReservationDateModal({
     setReservationTime(defaultTime)
   }
 
+  // 폼 검증 (기존 로직 그대로 유지)
   const validateForm = () => {
     const newErrors: {date?: string, time?: string} = {}
     
@@ -108,12 +112,24 @@ export default function ReservationDateModal({
     return Object.keys(newErrors).length === 0
   }
 
+  // 🔥 확인 버튼 핸들러 - 기존 로직 + 데이터 동기화 트리거만 추가
   const handleConfirm = () => {
     if (validateForm()) {
+      // 🔥 기존 onConfirm 호출 (기존 로직 그대로)
       onConfirm(reservationDate, reservationTime)
+      
+      // 🔥 성공 후 데이터 동기화 트리거 (새로 추가된 부분 - 기존 기능에 영향 없음)
+      if (patient) {
+        PatientDataSync.onUpdate(patient._id || patient.id, 'ReservationDateModal', {
+          reservationDate,
+          reservationTime,
+          action: 'reservation_update'
+        })
+      }
     }
   }
 
+  // 모달 닫기 (기존 로직 그대로 유지)
   const handleClose = () => {
     if (!isLoading) {
       setReservationDate('')
@@ -125,7 +141,7 @@ export default function ReservationDateModal({
 
   if (!isOpen) return null
 
-  // 시간 옵션 생성 (09:00 ~ 18:00, 30분 단위)
+  // 시간 옵션 생성 (09:00 ~ 18:00, 30분 단위) (기존 로직 그대로 유지)
   const timeOptions = []
   for (let hour = 9; hour <= 18; hour++) {
     for (let minute = 0; minute < 60; minute += 30) {
@@ -137,7 +153,7 @@ export default function ReservationDateModal({
   return (
     <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
       <div className="bg-white rounded-lg p-6 w-full max-w-md mx-4 relative">
-        {/* 로딩 오버레이 */}
+        {/* 로딩 오버레이 (기존 UI 그대로 유지) */}
         {isLoading && (
           <div className="absolute inset-0 bg-white bg-opacity-80 flex items-center justify-center rounded-lg">
             <div className="flex items-center space-x-2">
@@ -147,7 +163,7 @@ export default function ReservationDateModal({
           </div>
         )}
 
-        {/* 🔥 헤더 - 동적 타이틀 적용 */}
+        {/* 🔥 헤더 - 동적 타이틀 적용 (기존 UI 그대로 유지) */}
         <div className="flex items-center justify-between mb-6">
           <div className="flex items-center space-x-2">
             <Icon icon={HiOutlineCalendar} size={24} className="text-blue-500" />
@@ -162,7 +178,7 @@ export default function ReservationDateModal({
           </button>
         </div>
 
-        {/* 환자 정보 */}
+        {/* 환자 정보 (기존 UI 그대로 유지) */}
         {patient && (
           <div className="mb-6 p-4 bg-blue-50 rounded-lg">
             <div className="flex items-center justify-between">
@@ -185,7 +201,7 @@ export default function ReservationDateModal({
           </div>
         )}
 
-        {/* 🔥 안내 메시지 - 동적 설명 및 색상 적용 */}
+        {/* 🔥 안내 메시지 - 동적 설명 및 색상 적용 (기존 UI 그대로 유지) */}
         <div className={`mb-6 p-4 ${modalInfo.bgColor} border-l-4 ${modalInfo.borderColor}`}>
           <div className="flex">
             <div className="ml-3">
@@ -204,7 +220,7 @@ export default function ReservationDateModal({
           </div>
         </div>
 
-        {/* 🔥 날짜 입력 - 동적 라벨 적용 */}
+        {/* 🔥 날짜 입력 - 동적 라벨 적용 (기존 UI 그대로 유지) */}
         <div className="mb-4">
           <label className="block text-sm font-medium text-gray-700 mb-2">
             {modalInfo.dateLabel} <span className="text-red-500">*</span>
@@ -227,7 +243,7 @@ export default function ReservationDateModal({
           )}
         </div>
 
-        {/* 🔥 시간 입력 - 동적 라벨 적용 */}
+        {/* 🔥 시간 입력 - 동적 라벨 적용 (기존 UI 그대로 유지) */}
         <div className="mb-6">
           <label className="block text-sm font-medium text-gray-700 mb-2">
             {modalInfo.timeLabel} <span className="text-red-500">*</span>
@@ -255,7 +271,7 @@ export default function ReservationDateModal({
           )}
         </div>
 
-        {/* 버튼 영역 */}
+        {/* 버튼 영역 (기존 UI 그대로 유지) */}
         <div className="flex space-x-3">
           <button
             onClick={handleClose}

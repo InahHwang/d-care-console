@@ -1,4 +1,4 @@
-// src/components/management/PatientManagement.tsx - 날짜 필터링 기능 추가
+// src/components/management/PatientManagement.tsx - 실시간 데이터 동기화 추가
 
 'use client'
 
@@ -10,6 +10,8 @@ import { useQuery, useQueryClient } from '@tanstack/react-query'
 import { RootState, AppDispatch } from '@/store'
 import { fetchPatients, setFilters, setPage, initializeEventTargets, fetchPostVisitPatients } from '@/store/slices/patientsSlice'
 import { setCurrentMenuItem, openPatientForm } from '@/store/slices/uiSlice'
+// 🔥 데이터 동기화 유틸리티 import 추가
+import { setupDataSyncListener, PatientDataSync } from '@/utils/dataSync'
 import PatientList from './PatientList'
 import CallHistory from './CallHistory'
 import ScheduledCalls from './ScheduledCalls'
@@ -22,7 +24,8 @@ import {
   HiOutlineAdjustments, 
   HiOutlineUserAdd,
   HiOutlineDocumentText,
-  HiOutlineCalendar // 🔥 추가
+  HiOutlineCalendar,
+  HiOutlineRefresh // 🔥 새로고침 아이콘 추가
 } from 'react-icons/hi'
 import { FiPhone, FiPhoneCall } from 'react-icons/fi'
 import { Icon } from '../common/Icon'
@@ -126,7 +129,7 @@ export default function PatientManagement() {
     return { startDate, endDate };
   }, [selectedYear, selectedMonth]);
 
-  // React Query로 환자 데이터 관리 (기존 코드 유지)
+  // React Query로 환자 데이터 관리 + 실시간 동기화
   const {
     data: queryResult,
     isLoading: queryLoading,
@@ -159,16 +162,35 @@ export default function PatientManagement() {
       
       return result;
     },
-    staleTime: 2 * 60 * 1000,
-    gcTime: 10 * 60 * 1000,
-    refetchOnWindowFocus: false,
-    refetchOnMount: false,
-    refetchInterval: false,
+    staleTime: 30 * 1000, // 🔥 30초로 단축 (기존 2분에서)
+    gcTime: 5 * 60 * 1000, // 🔥 5분으로 단축
+    refetchOnWindowFocus: true, // 🔥 포커스시 새로고침 활성화
+    refetchOnMount: true, // 🔥 마운트시 새로고침 활성화
+    refetchInterval: isOptimisticEnabled ? 60 * 1000 : false, // 🔥 1분마다 자동 새로고침 (최적화 모드에서만)
     refetchIntervalInBackground: false,
     enabled: true,
     retry: 1,
     retryDelay: 1000,
   });
+
+  // 🔥 데이터 동기화 리스너 설정
+  useEffect(() => {
+    console.log('📡 PatientManagement: 데이터 동기화 리스너 설정 시작');
+    
+    const cleanup = setupDataSyncListener(queryClient);
+    
+    return () => {
+      console.log('📡 PatientManagement: 데이터 동기화 리스너 정리');
+      cleanup();
+    };
+  }, [queryClient]);
+
+  // 🔥 수동 데이터 새로고침 함수 추가
+  const handleManualRefresh = useCallback(() => {
+    console.log('🔄 수동 데이터 새로고침 시작');
+    PatientDataSync.refreshAll('PatientManagement_manual');
+    refetchPatients();
+  }, [refetchPatients]);
 
   const queryPatients = queryResult?.patients || [];
 
@@ -446,14 +468,27 @@ export default function PatientManagement() {
           </div>
         </div>
         
-        {process.env.NODE_ENV === 'development' && (
-          <div className="text-xs text-gray-500 bg-gray-100 px-2 py-1 rounded">
-            {isOptimisticEnabled ? '🚀 최적화 모드' : '🐌 일반 모드'} | 
-            환자 수: {queryPatients?.length || 0} | 
-            필터링: {totalCount} | 
-            로딩: {queryLoading ? 'Y' : 'N'}
-          </div>
-        )}
+        <div className="flex items-center space-x-3">
+          {/* 🔥 수동 새로고침 버튼 추가 */}
+          <button
+            onClick={handleManualRefresh}
+            className="flex items-center space-x-2 px-3 py-2 rounded-lg text-sm font-medium text-gray-600 bg-gray-100 hover:bg-gray-200 transition-colors"
+            title="데이터 새로고침"
+          >
+            <Icon icon={HiOutlineRefresh} size={16} />
+            <span>새로고침</span>
+          </button>
+          
+          {process.env.NODE_ENV === 'development' && (
+            <div className="text-xs text-gray-500 bg-gray-100 px-2 py-1 rounded">
+              {isOptimisticEnabled ? '🚀 최적화 모드 + 실시간 동기화' : '🐌 일반 모드'} | 
+              환자 수: {queryPatients?.length || 0} | 
+              필터링: {totalCount} | 
+              로딩: {queryLoading ? 'Y' : 'N'} |
+              마지막 업데이트: {new Date().toLocaleTimeString()}
+            </div>
+          )}
+        </div>
       </div>
 
       {/* 탭 메뉴 (기존 코드 유지) */}

@@ -1,9 +1,9 @@
-// src/hooks/useActivityLogger.ts (수정된 버전)
+// src/hooks/useActivityLogger.ts (기존 구조 유지하면서 consultation_update 추가)
 import { useCallback } from 'react';
 import { useAppSelector } from './reduxHooks';
 import { logActivity } from '@/utils/activityLogger';
 import { ActivityAction, ActivityTarget } from '@/types/activityLog';
-import { shouldSkipLogging } from '@/utils/adminActivityFilter'; // 🔥 새로 추가
+import { shouldSkipLogging } from '@/utils/adminActivityFilter';
 
 interface ActivityLoggerOptions {
   action: ActivityAction;
@@ -39,9 +39,9 @@ export const useActivityLogger = () => {
     }
   }, [user]);
 
-  // 환자 관련 액션 로깅
+  // 🔥 환자 관련 액션 로깅 - consultation_update 추가
   const logPatientAction = useCallback((
-    action: 'patient_create' | 'patient_update' | 'patient_delete' | 'patient_view',
+    action: 'patient_create' | 'patient_update' | 'patient_delete' | 'patient_view' | 'consultation_update',
     patientId: string,
     patientName: string,
     details?: any
@@ -76,7 +76,7 @@ export const useActivityLogger = () => {
     });
   }, [logUserActivity]);
 
-  // 🔥 콜백 관련 액션 로깅 - 수정됨
+  // 콜백 관련 액션 로깅
   const logCallbackAction = useCallback((
     action: 'callback_create' | 'callback_update' | 'callback_complete' | 'callback_cancel' | 'callback_delete' | 'callback_reschedule',
     patientId: string,
@@ -97,7 +97,7 @@ export const useActivityLogger = () => {
       details: {
         patientName,
         callbackNumber: '', // 기본값 추가
-        // 🔥 callbackDetails를 직접 스프레드하여 중첩 제거
+        // callbackDetails를 직접 스프레드하여 중첩 제거
         ...callbackDetails
       }
     });
@@ -125,7 +125,7 @@ export const useActivityLogger = () => {
     });
   }, [logUserActivity]);
 
-  // 🔥 메시지 전송 로깅 - 수정됨
+  // 메시지 전송 로깅
   const logMessageAction = useCallback((
     action: 'message_send' | 'message_template_used',
     patientId: string,
@@ -146,7 +146,7 @@ export const useActivityLogger = () => {
       details: {
         patientName,
         callbackNumber: '', // 기본값 추가
-        // 🔥 messageDetails를 직접 스프레드하여 중첩 제거
+        // messageDetails를 직접 스프레드하여 중첩 제거
         ...messageDetails
       }
     });

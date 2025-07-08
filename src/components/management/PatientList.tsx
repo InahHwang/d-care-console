@@ -1,14 +1,13 @@
-// src/components/management/PatientList.tsx - 내원확정 즉시 반영 수정 버전
+// src/components/management/PatientList.tsx - 미처리 콜백 강조표시 추가
 
 'use client'
-
 import { useSelector, useDispatch } from 'react-redux'
 import { RootState, AppDispatch } from '@/store'
 import { Patient } from '@/types/patient'
 import { setPage, selectPatient, toggleVisitConfirmation, fetchPatients } from '@/store/slices/patientsSlice'
 import { openDeleteConfirm, toggleHideCompletedVisits } from '@/store/slices/uiSlice'
 import { IconType } from 'react-icons'
-import { HiOutlineChevronLeft, HiOutlineChevronRight, HiOutlineArrowUp, HiOutlineTrash, HiOutlineCheck, HiOutlineEyeOff, HiOutlineEye } from 'react-icons/hi'
+import { HiOutlineChevronLeft, HiOutlineChevronRight, HiOutlineArrowUp, HiOutlineTrash, HiOutlineCheck, HiOutlineEyeOff, HiOutlineEye, HiOutlineUser, HiOutlineRefresh  } from 'react-icons/hi'
 import { FiPhone, FiPhoneCall } from 'react-icons/fi'
 import { Icon } from '../common/Icon'
 import { useState, useEffect, useMemo } from 'react'
@@ -16,27 +15,126 @@ import PatientDetailModal from './PatientDetailModal'
 import PatientTooltip from './PatientTooltip'
 import ReservationDateModal from './ReservationDateModal'
 import CancelVisitConfirmationModal from './CancelVisitConfirmationModal'
-// 🔥 useQueryClient 추가 import
 import { useQueryClient } from '@tanstack/react-query'
 
 interface PatientListProps {
   isLoading?: boolean;
-  filteredPatients?: Patient[]; // 🔥 필터링된 환자 데이터 추가
+  filteredPatients?: Patient[];
 }
 
-const PatientStatusBadge = ({ status }: { status: string }) => {
+// 🔥 환자 상태 배지 - 콜백 날짜/시간 표시 추가
+const PatientStatusBadge = ({ status, patient }: { 
+  status: string, 
+  patient?: Patient
+}) => {
   const colorMap: Record<string, string> = {
     '잠재고객': 'bg-blue-100 text-blue-800',
     '콜백필요': 'bg-yellow-100 text-yellow-800',
     '부재중': 'bg-red-100 text-red-800',
     '예약확정': 'bg-indigo-100 text-indigo-800',
+    '재예약확정': 'bg-orange-100 text-orange-800', // 🔥 재예약확정 스타일 추가
     '종결': 'bg-gray-100 text-gray-800',
+    '내원완료': 'bg-gray-100 text-gray-800',
   }
 
+  // 🔥 가장 가까운 예정된 콜백 찾기 함수
+  const getNextScheduledCallback = (patient: Patient) => {
+    if (!patient.callbackHistory || patient.callbackHistory.length === 0) return null;
+    
+    const scheduledCallbacks = patient.callbackHistory
+      .filter(cb => cb.status === '예정')
+      .sort((a, b) => new Date(a.date).getTime() - new Date(b.date).getTime());
+    
+    return scheduledCallbacks.length > 0 ? scheduledCallbacks[0] : null;
+  };
+
+  // 🔥 재예약확정 상태 우선 처리 (내원완료보다 먼저)
+  if (status === '재예약확정') {
+    return (
+      <div className="flex flex-col gap-1">
+        <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-indigo-100 text-indigo-800">
+          재예약확정
+        </span>
+        {/* 재예약 날짜/시간 표시 - 예약확정과 동일한 색상 */}
+        {patient && (patient.reservationDate || patient.reservationTime) && (
+          <div className="text-xs text-indigo-600 font-medium">
+            {patient.reservationDate && <div>{patient.reservationDate}</div>}
+            {patient.reservationTime && <div>{patient.reservationTime}</div>}
+          </div>
+        )}
+      </div>
+    );
+  }
+
+  // 🔥 내원완료가 최우선, 그 다음 특별 상태
+  if (patient?.visitConfirmed) {
+    return (
+      <div className="flex flex-col gap-1">
+        <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-gray-100 text-gray-800">
+          내원완료
+        </span>
+        {/* 내원완료 시에도 예약일시 표시 (참고용) */}
+        {patient && (patient.reservationDate || patient.reservationTime) && (
+          <div className="text-xs text-gray-500 font-medium">
+            {patient.reservationDate && <div>{patient.reservationDate}</div>}
+            {patient.reservationTime && <div>{patient.reservationTime}</div>}
+          </div>
+        )}
+      </div>
+    );
+  }
+
+  // 🔥 오늘 예약이나 예약 후 미내원인 경우 특별 처리
+  const showSpecialStatus = (patient?.isTodayReservationPatient || patient?.hasBeenPostReservationPatient);
+
   return (
-    <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${colorMap[status] || 'bg-gray-100 text-gray-800'}`}>
-      {status}
-    </span>
+    <div className="flex flex-col gap-1">
+      <div className="flex flex-col gap-0.5">
+        
+        {/* 🔥 특별 상태가 있으면 그것만 표시, 없으면 기본 상태 표시 */}
+        {showSpecialStatus ? (
+          <>
+            {/* 오늘 예약 */}
+            {patient?.isTodayReservationPatient && (
+              <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-green-100 text-green-800">
+                오늘 예약
+              </span>
+            )}
+            
+            {/* 예약 후 미내원 (오늘 예약이 아닌 경우만) */}
+            {patient?.hasBeenPostReservationPatient && !patient?.isTodayReservationPatient && (
+              <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-orange-100 text-orange-800">
+                예약 후 미내원
+              </span>
+            )}
+          </>
+        ) : (
+          /* 기본 상태 배지 */
+          <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${colorMap[status] || 'bg-gray-100 text-gray-800'}`}>
+            {status}
+          </span>
+        )}
+        
+        {/* 🔥 콜백필요 상태일 때 다음 예정된 콜백 날짜/시간 표시 */}
+        {status === '콜백필요' && patient && (() => {
+          const nextCallback = getNextScheduledCallback(patient);
+          return nextCallback && (
+            <div className="text-xs text-yellow-600 font-medium">
+              {nextCallback.date && <div>{nextCallback.date}</div>}
+              {nextCallback.time && <div>{nextCallback.time}</div>}
+            </div>
+          );
+        })()}
+        
+        {/* 예약일시 표시 - 예약확정일 때만 */}
+        {status === '예약확정' && patient && (patient.reservationDate || patient.reservationTime) && (
+          <div className="text-xs text-indigo-600 font-medium">
+            {patient.reservationDate && <div>{patient.reservationDate}</div>}
+            {patient.reservationTime && <div>{patient.reservationTime}</div>}
+          </div>
+        )}
+      </div>
+    </div>
   )
 }
 
@@ -70,7 +168,7 @@ const getLastConsultationDate = (patient: Patient): string => {
 };
 
 // 상담 타입 배지 컴포넌트
-const ConsultationTypeBadge = ({ type, inboundPhoneNumber }: { type: 'inbound' | 'outbound' | 'returning', inboundPhoneNumber?: string }) => {
+const ConsultationTypeBadge = ({ type, inboundPhoneNumber }: { type: 'inbound' | 'outbound' | 'returning' | 'walkin', inboundPhoneNumber?: string }) => {
   if (type === 'inbound') {
     return (
       <div className="flex items-center space-x-1">
@@ -86,12 +184,20 @@ const ConsultationTypeBadge = ({ type, inboundPhoneNumber }: { type: 'inbound' |
     );
   }
 
-  // 🔥 구신환 타입 추가
   if (type === 'returning') {
     return (
       <span className="inline-flex items-center px-2 py-1 rounded-full text-xs font-medium bg-purple-100 text-purple-800">
-        <FiPhoneCall className="w-3 h-3 mr-1" />
+        <HiOutlineRefresh className="w-3 h-3 mr-1" />
         구신환
+      </span>
+    );
+  }
+
+  if (type === 'walkin') {
+    return (
+      <span className="inline-flex items-center px-2 py-1 rounded-full text-xs font-medium bg-orange-100 text-orange-800">
+        <HiOutlineUser className="w-3 h-3 mr-1" />
+        워크인
       </span>
     );
   }
@@ -104,7 +210,7 @@ const ConsultationTypeBadge = ({ type, inboundPhoneNumber }: { type: 'inbound' |
   );
 };
 
-// 견적동의 상태 표시 컴포넌트
+// 견적동의 상태 표시 컴포넌트 - 배지 제거하고 금액만 표시
 const EstimateAgreementBadge = ({ patient }: { patient: Patient }) => {
   const hasConsultation = patient.consultation && 
     (patient.consultation.estimatedAmount > 0 || patient.consultation.treatmentPlan);
@@ -113,7 +219,6 @@ const EstimateAgreementBadge = ({ patient }: { patient: Patient }) => {
     return <span className="text-sm text-gray-400">-</span>;
   }
   
-  const estimateAgreed = patient.consultation?.estimateAgreed;
   const estimatedAmount = patient.consultation?.estimatedAmount;
   
   const formatAmount = (amount?: number) => {
@@ -121,46 +226,16 @@ const EstimateAgreementBadge = ({ patient }: { patient: Patient }) => {
     return amount.toLocaleString('ko-KR');
   };
   
-  if (estimateAgreed === true) {
+  // 🔥 금액만 표시 (배지 제거)
+  if (estimatedAmount && estimatedAmount > 0) {
     return (
-      <div className="flex flex-col items-start space-y-1">
-        <span className="inline-flex items-center px-2 py-1 rounded-full text-xs font-medium bg-green-100 text-green-800">
-          동의
-        </span>
-        {estimatedAmount && estimatedAmount > 0 && (
-          <span className="text-xs text-gray-600 font-medium">
-            {formatAmount(estimatedAmount)}원
-          </span>
-        )}
-      </div>
-    );
-  } else if (estimateAgreed === false) {
-    return (
-      <div className="flex flex-col items-start space-y-1">
-        <span className="inline-flex items-center px-2 py-1 rounded-full text-xs font-medium bg-red-100 text-red-800">
-          거부
-        </span>
-        {estimatedAmount && estimatedAmount > 0 && (
-          <span className="text-xs text-gray-600 font-medium">
-            {formatAmount(estimatedAmount)}원
-          </span>
-        )}
-      </div>
-    );
-  } else {
-    return (
-      <div className="flex flex-col items-start space-y-1">
-        <span className="inline-flex items-center px-2 py-1 rounded-full text-xs font-medium bg-gray-100 text-gray-800">
-          미결정
-        </span>
-        {estimatedAmount && estimatedAmount > 0 && (
-          <span className="text-xs text-gray-600 font-medium">
-            {formatAmount(estimatedAmount)}원
-          </span>
-        )}
-      </div>
+      <span className="text-sm text-gray-900 font-medium">
+        {formatAmount(estimatedAmount)}원
+      </span>
     );
   }
+  
+  return <span className="text-sm text-gray-400">-</span>;
 };
 
 // 내원일 표시 컴포넌트
@@ -208,9 +283,17 @@ const CallbackCountBadge = ({ patient }: { patient: Patient }) => {
   );
 };
 
+// 🔥 미처리 콜백 체크 헬퍼 함수 추가
+const hasOverdueCallbacks = (patient: Patient): boolean => {
+  const today = new Date().toISOString().split('T')[0];
+  return (patient.callbackHistory || []).some(callback => 
+    callback.status === '예정' && 
+    callback.date < today
+  );
+};
+
 export default function PatientList({ isLoading = false, filteredPatients }: PatientListProps) {
   const dispatch = useDispatch<AppDispatch>()
-  // 🔥 useQueryClient 훅 추가
   const queryClient = useQueryClient()
   
   const [isMounted, setIsMounted] = useState(false)
@@ -221,7 +304,7 @@ export default function PatientList({ isLoading = false, filteredPatients }: Pat
   const [isCancelModalOpen, setIsCancelModalOpen] = useState(false)
   const [selectedPatientForCancel, setSelectedPatientForCancel] = useState<Patient | null>(null)
   
-  // 🔥 Redux 상태에서 기본 데이터 가져오기
+  // Redux 상태에서 기본 데이터 가져오기
   const { 
     filteredPatients: reduxFilteredPatients, 
     pagination: { currentPage, totalPages, itemsPerPage, totalItems },
@@ -232,7 +315,7 @@ export default function PatientList({ isLoading = false, filteredPatients }: Pat
 
   const { hideCompletedVisits } = useSelector((state: RootState) => state.ui.visitManagement)
   
-  // 🔥 props로 받은 filteredPatients가 있으면 그것을 사용, 없으면 Redux 데이터 사용
+  // props로 받은 filteredPatients가 있으면 그것을 사용, 없으면 Redux 데이터 사용
   const displayPatientsSource = filteredPatients || reduxFilteredPatients;
   
   // 내원확정 환자 필터링 로직
@@ -244,16 +327,27 @@ export default function PatientList({ isLoading = false, filteredPatients }: Pat
     return displayPatientsSource.filter(patient => !patient.visitConfirmed);
   }, [displayPatientsSource, hideCompletedVisits]);
 
-  // 통계 계산
+  // 🔥 통계 계산 - 미처리 콜백 환자 추가
   const stats = useMemo(() => {
     const total = displayPatientsSource.length;
     const visitConfirmed = displayPatientsSource.filter(p => p.visitConfirmed).length;
     const needsPostVisitFollow = displayPatientsSource.filter(p => 
       p.visitConfirmed && p.postVisitStatus === '재콜백필요'
     ).length;
+    // 🔥 예약 후 미내원 환자 수 추가
+    const postReservationPatients = displayPatientsSource.filter(p => 
+      p.hasBeenPostReservationPatient === true  // 🔥 영구 기록 기준
+    ).length;
+    const todayReservations = displayPatientsSource.filter(p => 
+      p.isTodayReservationPatient === true
+    ).length;
+    // 🔥 미처리 콜백 환자 수 추가
+    const overdueCallbacks = displayPatientsSource.filter(p => 
+      hasOverdueCallbacks(p)
+    ).length;
     
-    return { total, visitConfirmed, needsPostVisitFollow };
-  }, [displayPatientsSource]);
+    return { total, visitConfirmed, needsPostVisitFollow, postReservationPatients, todayReservations, overdueCallbacks };
+}, [displayPatientsSource]);
   
   useEffect(() => {
     console.log('PatientList 컴포넌트 마운트됨');
@@ -270,7 +364,7 @@ export default function PatientList({ isLoading = false, filteredPatients }: Pat
   console.log('PatientList 렌더링 - isMounted:', isMounted);
   console.log('displayPatients 수:', displayPatients.length);
   
-  // 🔥 페이지네이션 계산 - displayPatients 기준으로 수정
+  // 페이지네이션 계산
   const startIndex = (currentPage - 1) * itemsPerPage
   const endIndex = Math.min(startIndex + itemsPerPage, displayPatients.length)
   const paginatedPatients = displayPatients.slice(startIndex, endIndex)
@@ -292,7 +386,7 @@ export default function PatientList({ isLoading = false, filteredPatients }: Pat
     dispatch(selectPatient(patientId));
   }
 
-  // 🔥 내원 확정 핸들러 - Redux 액션 사용으로 완전 변경
+  // 내원 완료 핸들러
   const handleToggleVisitConfirmation = async (patient: Patient, e: React.MouseEvent) => {
     e.stopPropagation();
     
@@ -303,9 +397,9 @@ export default function PatientList({ isLoading = false, filteredPatients }: Pat
       return;
     }
     
-    console.log('🔥 내원 확정 버튼 클릭:', patientId, '현재 내원확정 상태:', patient.visitConfirmed);
+    console.log('🔥 내원 완료 버튼 클릭:', patientId, '현재 내원확정 상태:', patient.visitConfirmed);
     
-    // 🔥 내원확정 취소 로직 (기존과 동일)
+    // 내원확정 취소 로직
     if (patient.visitConfirmed) {
       console.log('내원확정 취소 확인 모달 띄우기');
       setSelectedPatientForCancel(patient);
@@ -313,18 +407,16 @@ export default function PatientList({ isLoading = false, filteredPatients }: Pat
       return;
     }
     
-    // 🔥 예약확정 환자의 내원확정 처리 - Redux 액션 사용
+    // 예약확정 환자의 내원확정 처리
     if (patient.status === '예약확정' && !patient.visitConfirmed) {
       try {
         console.log('🔥 예약확정 환자의 내원확정 처리 - Redux 액션 사용');
         
-        // Redux 액션 호출로 변경
         const result = await dispatch(toggleVisitConfirmation(patientId));
         
         if (toggleVisitConfirmation.fulfilled.match(result)) {
           console.log('✅ Redux 내원확정 처리 성공');
           
-          // 🔥 React Query 캐시 무효화로 즉시 UI 반영
           queryClient.invalidateQueries({ queryKey: ['patients'] });
           setTooltipRefreshTrigger(prev => prev + 1);
         } else {
@@ -339,7 +431,7 @@ export default function PatientList({ isLoading = false, filteredPatients }: Pat
       return;
     }
     
-    // 🔥 일반 환자의 내원확정 처리 - 예약일자 모달 (기존과 동일)
+    // 일반 환자의 내원확정 처리 - 예약일자 모달
     if (!patient.visitConfirmed && patient.status !== '예약확정') {
       console.log('예약일자 입력 모달 띄우기 - 갑작스러운 내원 케이스');
       setSelectedPatientForReservation(patient);
@@ -348,7 +440,7 @@ export default function PatientList({ isLoading = false, filteredPatients }: Pat
     }
   };
 
-  // 🔥 예약일자 모달 확인 핸들러 - Redux 액션 사용으로 개선
+  // 예약일자 모달 확인 핸들러
   const handleReservationConfirm = async (reservationDate: string, reservationTime: string) => {
     if (!selectedPatientForReservation) {
       console.error('선택된 환자가 없습니다.');
@@ -366,7 +458,7 @@ export default function PatientList({ isLoading = false, filteredPatients }: Pat
         reservationTime
       });
 
-      // 🔥 1단계: 예약완료 처리 (기존 API 호출 유지)
+      // 1단계: 예약완료 처리
       const reservationResponse = await fetch(`/api/patients/${patientId}/reservation-complete`, {
         method: 'PUT',
         headers: {
@@ -386,13 +478,12 @@ export default function PatientList({ isLoading = false, filteredPatients }: Pat
 
       console.log('✅ 1단계: 예약완료 처리 성공');
 
-      // 🔥 2단계: 내원확정 처리 - Redux 액션 사용
+      // 2단계: 내원확정 처리
       const result = await dispatch(toggleVisitConfirmation(patientId));
       
       if (toggleVisitConfirmation.fulfilled.match(result)) {
         console.log('✅ 2단계: Redux 내원확정 처리 성공');
         
-        // 🔥 React Query 캐시 무효화로 즉시 UI 반영
         queryClient.invalidateQueries({ queryKey: ['patients'] });
         setTooltipRefreshTrigger(prev => prev + 1);
 
@@ -420,7 +511,7 @@ export default function PatientList({ isLoading = false, filteredPatients }: Pat
     }
   };
 
-  // 🔥 내원확정 취소 확인 핸들러 - Redux 액션 사용으로 개선
+  // 내원확정 취소 확인 핸들러
   const handleConfirmCancelVisit = async (reason: string) => {
     if (!selectedPatientForCancel) {
       console.error('취소할 환자가 선택되지 않았습니다.');
@@ -434,7 +525,6 @@ export default function PatientList({ isLoading = false, filteredPatients }: Pat
       
       console.log('🔥 내원확정 취소 처리 시작 (Redux 액션 사용):', patientId);
 
-      // 🔥 취소 API 호출 후 Redux 액션으로 상태 업데이트
       const cancelResponse = await fetch(`/api/patients/${patientId}/cancel-visit-confirmation`, {
         method: 'PUT',
         headers: {
@@ -452,10 +542,8 @@ export default function PatientList({ isLoading = false, filteredPatients }: Pat
 
       console.log('✅ 내원확정 취소 API 호출 성공');
 
-      // 🔥 Redux 액션으로 상태 동기화 (toggleVisitConfirmation 대신 fetchPatients 사용)
       await dispatch(fetchPatients()).unwrap();
       
-      // 🔥 React Query 캐시 무효화로 즉시 UI 반영
       queryClient.invalidateQueries({ queryKey: ['patients'] });
       setTooltipRefreshTrigger(prev => prev + 1);
 
@@ -480,7 +568,7 @@ export default function PatientList({ isLoading = false, filteredPatients }: Pat
   
   return (
     <>
-      {/* 내원 관리 통계 및 토글 버튼 */}
+      {/* 🔥 내원 관리 통계 및 토글 버튼 - 미처리 콜백 환자 수 추가 */}
       <div className="card mb-4">
         <div className="flex items-center justify-between">
           <div className="flex items-center space-x-6">
@@ -492,6 +580,17 @@ export default function PatientList({ isLoading = false, filteredPatients }: Pat
             </div>
             <div className="text-sm text-yellow-600">
               <span className="font-medium">추가 콜백 필요: {stats.needsPostVisitFollow}명</span>
+            </div>
+            <div className="text-sm text-green-600">
+              <span className="font-medium">오늘 예약: {stats.todayReservations}명</span>
+            </div>
+            {/* 🔥 예약 후 미내원 환자 수 표시 */}
+            <div className="text-sm text-orange-600">
+              <span className="font-medium">예약 후 미내원: {stats.postReservationPatients}명</span>
+            </div>
+            {/* 🔥 미처리 콜백 환자 수 추가 */}
+            <div className="text-sm text-red-600">
+              <span className="font-medium">미처리 콜백: {stats.overdueCallbacks}명</span>
             </div>
           </div>
           
@@ -526,8 +625,8 @@ export default function PatientList({ isLoading = false, filteredPatients }: Pat
                 <th className="px-4 py-3 text-left text-xs font-semibold text-text-secondary">최근 상담</th>
                 <th className="px-4 py-3 text-left text-xs font-semibold text-text-secondary">상태</th>
                 <th className="px-4 py-3 text-left text-xs font-semibold text-text-secondary">총 콜백 횟수</th>
-                <th className="px-4 py-3 text-left text-xs font-semibold text-text-secondary">견적동의</th>
-                <th className="px-4 py-3 text-center text-xs font-semibold text-text-secondary">내원 확정</th>
+                <th className="px-4 py-3 text-left text-xs font-semibold text-text-secondary">견적금액</th>
+                <th className="px-4 py-3 text-center text-xs font-semibold text-text-secondary">내원 완료</th>
                 <th className="px-4 py-3 text-center text-xs font-semibold text-text-secondary">액션</th>
               </tr>
             </thead>
@@ -552,18 +651,21 @@ export default function PatientList({ isLoading = false, filteredPatients }: Pat
                 </tr>
               ) : (
                 paginatedPatients.map((patient) => {
-                  if (patient.callbackHistory && patient.callbackHistory.length > 0) {
-                    const absentCallbacks = patient.callbackHistory.filter(cb => cb.status === '부재중');
-                    if (absentCallbacks.length > 0) {
-                      console.log('부재중 콜백이 있는 환자:', patient._id, patient.name, '- 상태:', patient.status);
-                    }
-                  }
+                  // 🔥 미처리 콜백 체크 추가
+                  const hasOverdueCallback = hasOverdueCallbacks(patient);
                   
+                  // 🔥 행 색상 우선순위: 내원완료 > 미처리 콜백 > 오늘 예약 > 예약 후 미내원
                   const rowColor = patient.visitConfirmed 
-                    ? 'bg-gray-50/70'
-                    : patient.consultationType === 'inbound' 
+                    ? 'bg-gray-50/70'  // 🔥 내원 완료가 최우선 (음영/실선 효과 없음)
+                    : hasOverdueCallback
+                    ? 'bg-red-50 border-l-4 border-l-red-500'  // 🔥 미처리 콜백 - 빨간색 (2순위)
+                    : patient.isTodayReservationPatient  
+                    ? 'bg-green-50 border-l-4 border-l-green-400'  // 오늘 예약 (3순위)
+                    : patient.hasBeenPostReservationPatient  
+                    ? 'bg-orange-50 border-l-4 border-l-orange-400'  // 예약 후 미내원 (4순위)
+                    : patient.consultationType === 'inbound'  
                     ? 'bg-green-50/30'
-                    : patient.consultationType === 'returning' // 🔥 구신환 배경색 추가
+                    : patient.consultationType === 'returning'
                     ? 'bg-purple-50/30'
                     : patient.status === 'VIP' 
                     ? 'bg-purple-50/30' 
@@ -579,7 +681,7 @@ export default function PatientList({ isLoading = false, filteredPatients }: Pat
                   return (
                     <tr 
                       key={patient._id} 
-                      className={`border-b border-border last:border-0 ${rowColor} hover:bg-light-bg/50 transition-colors duration-150 ${
+                      className={`border-b border-border last:border-0 ${rowColor} transition-colors duration-150 ${
                         patient.visitConfirmed ? 'opacity-75' : ''
                       }`}
                     >
@@ -636,7 +738,11 @@ export default function PatientList({ isLoading = false, filteredPatients }: Pat
                         {getLastConsultationDate(patient)}
                       </td>
                       <td className="px-4 py-4">
-                        <PatientStatusBadge status={patient.status} />
+                        {/* 🔥 PatientStatusBadge 올바른 위치에 배치 */}
+                        <PatientStatusBadge 
+                          status={patient.status} 
+                          patient={patient}
+                        />
                       </td>
                       <td className="px-4 py-4">
                         <CallbackCountBadge patient={patient} />
@@ -652,7 +758,7 @@ export default function PatientList({ isLoading = false, filteredPatients }: Pat
                               : 'bg-gray-200 text-gray-500 hover:bg-gray-300'
                           }`}
                           onClick={(e) => handleToggleVisitConfirmation(patient, e)}
-                          title={patient.visitConfirmed ? "내원확정 취소" : "내원 확정"}
+                          title={patient.visitConfirmed ? "내원완료 취소" : "내원 완료"}
                           disabled={isProcessingReservation}
                         >
                           <Icon 
@@ -694,12 +800,20 @@ export default function PatientList({ isLoading = false, filteredPatients }: Pat
           </table>
         </div>
         
-        {/* 🔥 페이지네이션 - displayPatients 기준으로 수정 */}
+        {/* 페이지네이션 */}
         <div className="flex flex-col sm:flex-row items-center justify-between p-4 border-t border-border">
           <div className="text-sm text-text-secondary mb-4 sm:mb-0">
             총 {displayPatients.length}개 항목 중 {Math.min(startIndex + 1, displayPatients.length)}-{Math.min(endIndex, displayPatients.length)} 표시
             {hideCompletedVisits && (
               <span className="ml-2 text-gray-500">(내원완료 {stats.visitConfirmed}명 숨김)</span>
+            )}
+            {/* 🔥 미처리 콜백 환자 수 표시 */}
+            {stats.overdueCallbacks > 0 && (
+              <span className="ml-2 text-red-600">(미처리 콜백 {stats.overdueCallbacks}명)</span>
+            )}
+            {/* 🔥 예약 후 미내원 환자 수 표시 */}
+            {stats.postReservationPatients > 0 && (
+              <span className="ml-2 text-orange-600">(예약 후 미내원 {stats.postReservationPatients}명)</span>
             )}
           </div>
           
@@ -716,49 +830,52 @@ export default function PatientList({ isLoading = false, filteredPatients }: Pat
               />
             </button>
             
-            {Math.ceil(displayPatients.length / itemsPerPage) <= 5 ? (
-              Array.from({ length: Math.ceil(displayPatients.length / itemsPerPage) }, (_, i) => (
-                <button
-                  key={i + 1}
-                  className={`w-6 h-6 flex items-center justify-center rounded-md text-sm ${
-                    currentPage === i + 1 ? 'bg-primary text-white' : 'text-text-secondary hover:bg-gray-200'
-                  }`}
-                  onClick={() => handlePageChange(i + 1)}
-                >
-                  {i + 1}
-                </button>
-              ))
-            ) : (
-              <>
-                {[1, 2, 3].map((page) => (
+            {(() => {
+              const totalPages = Math.ceil(displayPatients.length / itemsPerPage);
+              const pagesPerGroup = 10; // 한 번에 보여줄 페이지 수
+              const currentGroup = Math.ceil(currentPage / pagesPerGroup);
+              const startPage = (currentGroup - 1) * pagesPerGroup + 1;
+              const endPage = Math.min(startPage + pagesPerGroup - 1, totalPages);
+              
+              const pages = [];
+              
+              // 현재 그룹의 페이지 번호들을 생성
+              for (let i = startPage; i <= endPage; i++) {
+                pages.push(
                   <button
-                    key={page}
+                    key={i}
                     className={`w-6 h-6 flex items-center justify-center rounded-md text-sm ${
-                      currentPage === page ? 'bg-primary text-white' : 'text-text-secondary hover:bg-gray-200'
+                      currentPage === i ? 'bg-primary text-white' : 'text-text-secondary hover:bg-gray-200'
                     }`}
-                    onClick={() => handlePageChange(page)}
+                    onClick={() => handlePageChange(i)}
                   >
-                    {page}
+                    {i}
                   </button>
-                ))}
-                
-                <span className="text-text-secondary">...</span>
-                
-                <button
-                  className={`w-6 h-6 flex items-center justify-center rounded-md text-sm ${
-                    currentPage === Math.ceil(displayPatients.length / itemsPerPage) ? 'bg-primary text-white' : 'text-text-secondary hover:bg-gray-200'
-                  }`}
-                  onClick={() => handlePageChange(Math.ceil(displayPatients.length / itemsPerPage))}
-                >
-                  {Math.ceil(displayPatients.length / itemsPerPage)}
-                </button>
-              </>
-            )}
+                );
+              }
+              
+              return pages;
+            })()}
             
             <button
               className="p-1 text-text-secondary disabled:text-text-muted disabled:cursor-not-allowed"
-              onClick={() => handlePageChange(currentPage + 1)}
-              disabled={currentPage === Math.ceil(displayPatients.length / itemsPerPage)}
+              onClick={() => {
+                const totalPages = Math.ceil(displayPatients.length / itemsPerPage);
+                const pagesPerGroup = 10;
+                const currentGroup = Math.ceil(currentPage / pagesPerGroup);
+                const nextGroupStartPage = currentGroup * pagesPerGroup + 1;
+                
+                if (nextGroupStartPage <= totalPages) {
+                  handlePageChange(nextGroupStartPage);
+                }
+              }}
+              disabled={(() => {
+                const totalPages = Math.ceil(displayPatients.length / itemsPerPage);
+                const pagesPerGroup = 10;
+                const currentGroup = Math.ceil(currentPage / pagesPerGroup);
+                const nextGroupStartPage = currentGroup * pagesPerGroup + 1;
+                return nextGroupStartPage > totalPages;
+              })()}
             >
               <Icon 
                 icon={HiOutlineChevronRight} 

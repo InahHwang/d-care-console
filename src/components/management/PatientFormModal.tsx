@@ -13,6 +13,8 @@ import { FiPhoneCall } from 'react-icons/fi'
 import { Icon } from '../common/Icon'
 import { provinces, getCitiesByProvince } from '@/constants/regionData'
 import { useActivityLogger } from '@/hooks/useActivityLogger'
+// 🔥 데이터 동기화 유틸리티 import 추가
+import { PatientDataSync } from '@/utils/dataSync'
 
 // 관심 분야 옵션
 const interestAreaOptions = [
@@ -256,6 +258,9 @@ export default function PatientFormModal() {
         return oldData
       })
       
+      // 🔥 즉시 데이터 동기화 트리거
+      PatientDataSync.onCreate(realPatient.id, 'PatientFormModal');
+      
       // 🚀 7. 활동 로그 기록
       try {
         await logPatientAction(
@@ -385,25 +390,40 @@ export default function PatientFormModal() {
     if (name === 'age') {
       let ageValue: number | undefined;
       
-      if (value === '' || value.trim() === '') {
+      // 🔥 더 엄격한 검증 추가
+      const trimmedValue = value.trim();
+      
+      if (trimmedValue === '') {
         // 빈 값인 경우 undefined로 설정 (DB에 저장하지 않음)
         ageValue = undefined;
         console.log('🔥 나이 필드: 빈 값으로 undefined 설정');
       } else {
-        // 숫자 값인 경우 파싱
-        const parsedAge = parseInt(value, 10);
-        ageValue = isNaN(parsedAge) ? undefined : parsedAge;
-        console.log('🔥 나이 필드: 숫자 값 설정', { input: value, parsed: ageValue });
+        // 🔥 숫자만 포함되어 있는지 먼저 검증
+        const isNumericOnly = /^\d+$/.test(trimmedValue);
+        
+        if (!isNumericOnly) {
+          // 숫자가 아닌 문자가 포함된 경우 undefined로 설정
+          ageValue = undefined;
+          console.log('🔥 나이 필드: 유효하지 않은 입력으로 undefined 설정', { input: value });
+        } else {
+          // 순수 숫자인 경우에만 파싱
+          const parsedAge = parseInt(trimmedValue, 10);
+          
+          // 🔥 추가 범위 검증
+          if (parsedAge >= 1 && parsedAge <= 120) {
+            ageValue = parsedAge;
+            console.log('🔥 나이 필드: 유효한 숫자 값 설정', { input: value, parsed: ageValue });
+          } else {
+            // 범위를 벗어난 경우 undefined로 설정
+            ageValue = undefined;
+            console.log('🔥 나이 필드: 범위 초과로 undefined 설정', { input: value, parsed: parsedAge });
+          }
+        }
       }
       
       setFormValues(prev => ({
         ...prev,
         age: ageValue
-      }))
-    } else {
-      setFormValues(prev => ({
-        ...prev,
-        [name]: value
       }))
     }
     
@@ -505,7 +525,7 @@ export default function PatientFormModal() {
       // Redux 액션 디스패치
       const result = await dispatch(createPatient(preparedData)).unwrap()
       
-      // 🔥 환자 등록 성공 시 활동 로그 기록
+      // 🔥 환자 등록 성공 시 활동 로그 기록 + 데이터 동기화
       try {
         await logPatientAction(
           'patient_create',
@@ -530,6 +550,9 @@ export default function PatientFormModal() {
       } catch (logError) {
         console.warn('⚠️ 활동 로그 기록 실패:', logError);
       }
+      
+      // 🔥 즉시 데이터 동기화 트리거
+      PatientDataSync.onCreate(result.id, 'PatientFormModal_traditional');
       
       // 성공 처리
       alert(`신규 환자가 등록되었습니다!\n등록자: ${currentUser.name}`)
@@ -680,7 +703,7 @@ export default function PatientFormModal() {
             {/* 🚀 개발 모드에서 현재 방식 표시 */}
             {process.env.NODE_ENV === 'development' && (
               <p className="text-xs text-gray-500 mt-1">
-                {isOptimisticEnabled ? '🚀 Optimistic Update 활성화' : '🐌 기존 방식'}
+                {isOptimisticEnabled ? '🚀 Optimistic Update + 실시간 동기화' : '🐌 기존 방식'}
               </p>
             )}
           </div>
@@ -711,7 +734,8 @@ export default function PatientFormModal() {
                 >
                   <option value="outbound">아웃바운드</option>
                   <option value="inbound">인바운드</option>
-                  <option value="returning">구신환</option> 
+                  <option value="returning">구신환</option>
+                  <option value="walkin">워크인</option>
                 </select>
                 <span className="absolute left-3 top-1/2 transform -translate-y-1/2 text-text-muted">
                   <Icon icon={FiPhoneCall} size={18} />

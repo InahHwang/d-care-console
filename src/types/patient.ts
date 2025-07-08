@@ -1,9 +1,9 @@
-// src/types/patient.ts - 내원 후 상태 타입 수정
+// src/types/patient.ts - 첫 상담 후 환자 상태 관리 로직 추가
 
 import { EventCategory } from '@/types/messageLog';
 
 // 🔥 상담 타입 추가
-export type ConsultationType = 'inbound' | 'outbound' | 'returning';
+export type ConsultationType = 'inbound' | 'outbound' | 'returning' | 'walkin';
 
 // 🔥 내원관리 전용 콜백 타입 추가
 export type VisitManagementCallbackType = '내원1차' | '내원2차' | '내원3차';
@@ -16,6 +16,30 @@ export type ReferralSource =
   | '소개환자'
   | '제휴'
   | '기타'
+  | '';
+
+// 🔥 첫 상담 후 환자 상태 타입 (새로 추가)
+export type FirstConsultationStatus = 
+  | '예약완료'
+  | '상담진행중'
+  | '부재중'
+  | '종결'
+  | '';
+
+// 🔥 예약 후 미내원 환자 상태 타입 수정 - "재콜백등록" → "다음 콜백필요"
+export type PostReservationStatus = 
+  | '재예약 완료'    // 🔥 새로 추가 - 맨 앞에 위치
+  | '다음 콜백필요'  // 🔥 "재콜백등록"에서 변경
+  | '부재중'        
+  | '종결'
+  | '';
+
+// 🔥 N차 콜백 후 환자 상태 타입 (새로 추가)
+export type CallbackFollowupStatus = 
+  | '예약완료'
+  | '상담진행중'
+  | '부재중'
+  | '종결'
   | '';
 
 // 🔥 내원 후 상태 타입 수정 - 순서와 옵션 변경
@@ -42,6 +66,66 @@ export interface EstimateInfo {
   patientReaction: PatientReaction;  // 🔥 환자 반응 (최종 할인가 기준으로)
 }
 
+// 🔥 첫 상담 후 상태별 정보 타입들 (새로 추가)
+export interface FirstConsultationResult {
+  status: FirstConsultationStatus;
+  
+  // 예약완료일 때 필요한 정보
+  reservationDate?: string;        // 예약 날짜
+  reservationTime?: string;        // 예약 시간
+  consultationContent?: string;    // 상담 내용
+  
+  // 상담진행중/부재중일 때 필요한 정보
+  callbackDate?: string;          // 콜백 날짜
+  consultationPlan?: string;      // 상담 계획
+  
+  // 종결일 때 필요한 정보
+  terminationReason?: string;     // 종결 사유 (기타 선택 시 주관식 내용 포함)
+  
+  createdAt: string;
+  updatedAt: string;
+}
+
+// 🔥 예약 후 미내원 상태 정보 타입 수정
+export interface PostReservationResult {
+  status: PostReservationStatus;
+  
+  // 재예약 완료일 때 필요한 정보
+  reReservationDate?: string;     // 🔥 새로 추가: 재예약 날짜
+  reReservationTime?: string;     // 🔥 새로 추가: 재예약 시간
+  
+  // 다음 콜백필요/부재중일 때 필요한 정보
+  callbackDate?: string;          
+  reason?: string;               
+  
+  // 종결일 때 필요한 정보  
+  terminationReason?: string;     // 종결 사유 (기타 선택 시 주관식 내용 포함)
+  
+  createdAt: string;
+  updatedAt: string;
+}
+
+// 🔥 콜백 후속 상태 정보 타입 (새로 추가)
+export interface CallbackFollowupResult {
+  status: CallbackFollowupStatus;
+  callbackType: '1차' | '2차' | '3차' | '4차' | '5차'; // 몇 차 콜백인지
+  
+  // 예약완료일 때 (첫 상담 후와 동일한 로직)
+  reservationDate?: string;
+  reservationTime?: string;
+  consultationContent?: string;
+  
+  // 부재중/상담중일 때
+  nextCallbackDate?: string;     // 다음 콜백 날짜
+  reason?: string;              // 사유
+
+  // 🔥 종결일 때 추가
+  terminationReason?: string;
+  
+  createdAt: string;
+  updatedAt: string;
+}
+
 // 🔥 납부 방식 타입 추가
 export interface PaymentInfo {
   paymentType: 'installment' | 'lump_sum';  // 분할납 | 일시납
@@ -58,15 +142,16 @@ export interface TreatmentConsentInfo {
 
 // 🔥 내원 후 상담 정보 타입 추가 - 치료 동의 정보 포함
 export interface PostVisitConsultationInfo {
-  consultationContent: string;   // 상담 내용
-  estimateInfo: EstimateInfo;    // 견적 정보
-  nextCallbackDate?: string;     // 다음 콜백 예정일 (재콜백필요일 때)
-  nextConsultationPlan?: string; // 다음 상담 계획 (재콜백필요일 때)
-  paymentInfo?: PaymentInfo;     // 납부 방식 (치료시작일 때)
-  nextVisitDate?: string;        // 다음 내원 예정일 (치료시작일 때)
-  completionNotes?: string;      // 완료 메모 (종결일 때)
-  treatmentContent?: string;     // 🔥 치료 내용
-  treatmentConsentInfo?: TreatmentConsentInfo; // 🔥 치료 동의 정보 (치료동의일 때)
+  consultationContent: string;          // 기존 상담 내용
+  firstVisitConsultationContent?: string; // 🔥 새로 추가: 내원 후 첫 상담 내용
+  estimateInfo: EstimateInfo;           // 견적 정보
+  nextCallbackDate?: string;            // 다음 콜백 예정일 (재콜백필요일 때)
+  nextConsultationPlan?: string;        // 다음 상담 계획 (재콜백필요일 때)
+  paymentInfo?: PaymentInfo;            // 납부 방식 (치료시작일 때)
+  nextVisitDate?: string;               // 다음 내원 예정일 (치료시작일 때)
+  completionNotes?: string;             // 완료 메모 (종결일 때)
+  treatmentContent?: string;            // 치료 내용
+  treatmentConsentInfo?: TreatmentConsentInfo; // 치료 동의 정보 (치료동의일 때)
 }
 
 // 🔥 상담/결제 정보 타입 정의 (대폭 단순화) - 호환성 유지
@@ -111,6 +196,7 @@ export type PatientStatus =
   | '부재중'
   | 'VIP'
   | '예약확정'  // 예약 확정된 환자
+  | '재예약확정' // 🔥 재예약한 환자 (한번 미내원 후 재예약)
   | '종결';     // 일반 종결된 환자
 
 // 리마인드 콜 상태 타입 정의
@@ -132,9 +218,9 @@ export type CallbackStatus =
   | '부재중'  
   | '예약확정';  // 이 부분을 추가
 
-// 🔥 콜백 아이템 타입 정의 - 담당자 정보 추가
+// 🔥 콜백 아이템 타입 정의 - 재예약 기록 필드 추가
 export interface CallbackItem {
-  completedAt?: string;  // 선택적 필드로 변경 (물음표 추가)
+  completedAt?: string;
   time: string | undefined; 
   id: string;
   date: string;
@@ -142,28 +228,31 @@ export interface CallbackItem {
   notes?: string;
   resultNotes?: string;
   customerResponse?: 'very_positive' | 'positive' | 'neutral' | 'negative' | 'very_negative';
-  type: '1차' | '2차' | '3차' | '4차' | '5차' | VisitManagementCallbackType; 
+  type: '1차' | '2차' | '3차' | '4차' | '5차' | '재예약완료' | VisitManagementCallbackType; // 🔥 '재예약완료' 타입 추가
   cancelReason?: string;
   cancelDate?: string;
   isCompletionRecord?: boolean;
-  // 🔥 이벤트 타겟 설정 단계 추가
-   nextStep?: '2차_콜백' | '3차_콜백' | '4차_콜백' | '5차_콜백' | '예약_확정' | '종결_처리' | '이벤트_타겟_설정' | '내원2차_콜백' | '내원3차_콜백' | ''; // 🔥 내원관리 단계 추가
   
-  // 🔥 담당자 정보 추가
-  handledBy?: string;          // 처리한 담당자 ID
-  handledByName?: string;      // 처리한 담당자 이름
-  createdBy?: string;          // 콜백을 생성한 담당자 ID
-  createdByName?: string;      // 콜백을 생성한 담당자 이름
-
-  // 🔥 새로 추가할 필드들
-  originalScheduledDate?: string;  // 원래 예정일 보존
-  actualCompletedDate?: string;    // 실제 처리일
-  isDelayed?: boolean;             // 지연 처리 여부
-  delayReason?: string;            // 지연 사유
-
-  // 🔥 내원관리 전용 필드들
-  isVisitManagementCallback?: boolean; // 내원관리 콜백 구분용
-  visitManagementReason?: string; // 내원 후 콜백 사유
+  // 🔥 새로운 첫 상담 후 상태 관리 필드들
+  firstConsultationResult?: FirstConsultationResult;
+  postReservationResult?: PostReservationResult;
+  callbackFollowupResult?: CallbackFollowupResult;
+  
+  // 🔥 재예약 기록 구분 필드 추가
+  isReReservationRecord?: boolean;  // 재예약 처리 기록인지 구분
+  
+  // 기존 필드들...
+  nextStep?: '2차_콜백' | '3차_콜백' | '4차_콜백' | '5차_콜백' | '예약_확정' | '종결_처리' | '이벤트_타겟_설정' | '내원2차_콜백' | '내원3차_콜백' | '';
+  handledBy?: string;
+  handledByName?: string;
+  createdBy?: string;
+  createdByName?: string;
+  originalScheduledDate?: string;
+  actualCompletedDate?: string;
+  isDelayed?: boolean;
+  delayReason?: string;
+  isVisitManagementCallback?: boolean;
+  visitManagementReason?: string;
 }
 
 // 🔥 내원관리 콜백 생성을 위한 타입
@@ -189,8 +278,9 @@ export interface QuickInboundPatient {
   consultationType: 'inbound';
 }
 
-// 🔥 환자 타입 정의 (MongoDB ID 추가) - consultationType, referralSource, 담당자 필드, 결제 정보 추가
+// 🔥 환자 타입 정의 (MongoDB ID 추가) - 새로운 첫 상담 후 상태 필드들 추가
 export interface Patient {
+  isTodayReservationPatient: any;
   paymentAmount: any;
   treatmentCost: any;
   memo: any;
@@ -244,6 +334,14 @@ export interface Patient {
   reservationTime?: string;                 // 🔥 예약시간
   postVisitConsultation?: PostVisitConsultationInfo; // 🔥 내원 후 상담 정보
   
+  // 🔥 새로운 첫 상담 후 상태 관리 필드들 추가
+  currentConsultationStage?: 'first' | 'callback' | 'post_reservation' | 'completed'; // 현재 상담 단계
+  lastFirstConsultationResult?: FirstConsultationResult;   // 마지막 첫 상담 후 결과
+  lastPostReservationResult?: PostReservationResult;       // 마지막 예약 후 미내원 결과
+  pendingCallbackCount?: number;                           // 대기 중인 콜백 수
+  isPostReservationPatient?: boolean;                      // 예약 후 미내원 환자 여부
+  hasBeenPostReservationPatient?: boolean;                 // 🔥 한번이라도 예약 후 미내원이었던 기록 추가
+  
   // 기존 필드들 유지
   postVisitNotes?: string;           // 내원 후 메모 (호환성 유지)
   treatmentStartDate?: string;       // 치료 시작일
@@ -273,7 +371,7 @@ export interface CreatePatientData {
   // (API에서 현재 로그인한 사용자 정보를 자동으로 설정)
 }
 
-// 🔥 환자 수정을 위한 타입 - referralSource, 담당자 정보, 결제 정보 추가
+// 🔥 환자 수정을 위한 타입 - referralSource, 담당자 정보, 결제 정보, 새로운 상태 관리 필드 추가
 export interface UpdatePatientData {
   name?: string;
   phoneNumber?: string;
@@ -300,4 +398,24 @@ export interface UpdatePatientData {
   lastModifiedBy?: string;
   lastModifiedByName?: string;
   lastModifiedAt?: string;
+  
+  // 🔥 새로운 첫 상담 후 상태 관리 필드들 추가
+  reservationDate?: string;                 // 🔥 예약일 (상담관리에서 표기용)
+  reservationTime?: string;                 // 🔥 예약시간
+  currentConsultationStage?: 'first' | 'callback' | 'post_reservation' | 'completed'; // 현재 상담 단계
+  lastFirstConsultationResult?: FirstConsultationResult;   // 마지막 첫 상담 후 결과
+  lastPostReservationResult?: PostReservationResult;       // 마지막 예약 후 미내원 결과
+  pendingCallbackCount?: number;                           // 대기 중인 콜백 수
+  isPostReservationPatient?: boolean;                      // 예약 후 미내원 환자 여부
+  hasBeenPostReservationPatient?: boolean;                 // 🔥 한번이라도 예약 후 미내원이었던 기록 추가
+  nextCallbackDate?: string;                               // 다음 콜백 날짜
+  
+  // 🔥 내원 관리를 위한 필드들
+  visitConfirmed?: boolean; // 내원 확정 필드
+  visitDate?: string;       // 실제 내원 날짜 (YYYY-MM-DD)
+  postVisitStatus?: PostVisitStatus;        // 내원 후 상태
+  postVisitConsultation?: PostVisitConsultationInfo; // 🔥 내원 후 상담 정보
+  postVisitNotes?: string;           // 내원 후 메모 (호환성 유지)
+  treatmentStartDate?: string;       // 치료 시작일
+  nextVisitDate?: string;           // 다음 내원 예정일
 }

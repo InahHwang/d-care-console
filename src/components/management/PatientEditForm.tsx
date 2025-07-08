@@ -1,47 +1,19 @@
-//src/components/management/PatientEditForm.tsx
+// src/components/management/PatientEditForm.tsx - 실시간 데이터 동기화 추가
 
 'use client'
 
 import { useState, useEffect } from 'react'
-import { useAppDispatch } from '@/hooks/reduxHooks'
+import { useAppDispatch, useAppSelector } from '@/hooks/reduxHooks'
 import { useMutation, useQueryClient } from '@tanstack/react-query'
-import { 
-  Patient, 
-  updatePatient, 
-  PatientStatus, 
-  UpdatePatientData 
-} from '@/store/slices/patientsSlice'
-import { 
-  HiOutlineX, 
-  HiOutlineUser, 
-  HiOutlinePhone, 
-  HiOutlineCalendar, 
-  HiOutlineClipboardList, 
-  HiOutlineStar, 
-  HiOutlineLocationMarker, 
-  HiOutlineCake,
-  HiOutlineGlobeAlt 
-} from 'react-icons/hi'
-import { FiPhone, FiPhoneCall } from 'react-icons/fi'
+import { RootState } from '@/store'
+import { updatePatient, PatientStatus, Patient } from '@/store/slices/patientsSlice'
+import { HiOutlineX, HiOutlineUser, HiOutlinePhone, HiOutlineCalendar, HiOutlineLocationMarker, HiOutlineCake, HiOutlineGlobeAlt } from 'react-icons/hi'
+import { FiPhoneCall } from 'react-icons/fi'
 import { Icon } from '../common/Icon'
 import { provinces, getCitiesByProvince } from '@/constants/regionData'
-
-interface PatientEditFormProps {
-  patient: Patient;
-  onClose: () => void;
-  onSuccess?: () => void;
-}
-
-// 환자 상태 옵션
-const patientStatusOptions = [
-  { value: '잠재고객', label: '잠재고객' },
-  { value: '콜백필요', label: '콜백필요' },
-  { value: '부재중', label: '부재중' },
-  { value: '활성고객', label: '활성고객' },
-  { value: 'VIP', label: 'VIP' },
-  { value: '예약확정', label: '예약 확정' },
-  { value: '종결', label: '종결' },
-]
+import { useActivityLogger } from '@/hooks/useActivityLogger'
+// 🔥 데이터 동기화 유틸리티 import 추가
+import { PatientDataSync } from '@/utils/dataSync'
 
 // 관심 분야 옵션
 const interestAreaOptions = [
@@ -54,7 +26,19 @@ const interestAreaOptions = [
   { value: '기타', label: '기타' },
 ]
 
-// 🔥 유입경로 옵션 추가
+// 환자 상태 옵션
+const statusOptions = [
+  { value: '잠재고객', label: '잠재고객' },
+  { value: '콜백필요', label: '콜백필요' },
+  { value: '부재중', label: '부재중' },
+  { value: '활성고객', label: '활성고객' },
+  { value: 'VIP', label: 'VIP' },
+  { value: '예약확정', label: '예약확정' },
+  { value: '재예약확정', label: '재예약확정' },
+  { value: '종결', label: '종결' },
+]
+
+// 🔥 유입경로 옵션
 const referralSourceOptions = [
   { value: '', label: '선택 안함' },
   { value: '유튜브', label: '유튜브' },
@@ -65,32 +49,55 @@ const referralSourceOptions = [
   { value: '기타', label: '기타' },
 ]
 
-export default function PatientEditForm({ patient, onClose, onSuccess }: PatientEditFormProps) {
+interface PatientEditFormProps {
+  patient: Patient
+  isOpen: boolean
+  onClose: () => void
+}
+
+export default function PatientEditForm({ patient, isOpen, onClose }: PatientEditFormProps) {
   const dispatch = useAppDispatch()
   const queryClient = useQueryClient()
+  const currentUser = useAppSelector((state: RootState) => state.auth.user)
+  const isLoading = useAppSelector((state: RootState) => state.patients.isLoading)
   
-  // 🚀 환경변수로 Optimistic Update 기능 켜기/끄기
-  const isOptimisticEnabled = true // Vercel 배포용 임시 설정
+  // 🔥 활동 로깅 훅 추가
+  const { logPatientAction } = useActivityLogger()
   
-  // 🔥 폼 상태 관리 - consultationType, referralSource 기본값 설정 개선
-  const [formValues, setFormValues] = useState<UpdatePatientData>({
-    name: patient.name,
-    phoneNumber: patient.phoneNumber,
-    status: patient.status,
-    interestedServices: [...patient.interestedServices],
-    notes: patient.notes || '',
-    callInDate: patient.callInDate,
-    firstConsultDate: patient.firstConsultDate,
-    age: patient.age, // 🔥 undefined도 그대로 유지
-    region: patient.region ? { ...patient.region } : undefined,
-    consultationType: patient.consultationType || 'outbound', // 🔥 기본값 명시적 설정
-    referralSource: patient.referralSource || '', // 🔥 유입경로 기본값 설정
+  // 🚀 Optimistic Update 활성화
+  const isOptimisticEnabled = true
+  
+  // 🔥 폼 상태 관리 - 기존 patient 데이터로 초기화
+  const [formValues, setFormValues] = useState({
+    name: patient.name || '',
+    phoneNumber: patient.phoneNumber || '',
+    status: (patient.status || '잠재고객') as PatientStatus,
+    interestedServices: patient.interestedServices || [],
+    memo: patient.memo || '',
+    callInDate: patient.callInDate || '',
+    age: patient.age,
+    region: patient.region,
+    consultationType: patient.consultationType || 'outbound',
+    referralSource: patient.referralSource || '',
   })
   
   // 지역 선택 상태
   const [selectedProvince, setSelectedProvince] = useState(patient.region?.province || '')
   const [availableCities, setAvailableCities] = useState<string[]>([])
   const [selectedCity, setSelectedCity] = useState(patient.region?.city || '')
+  
+  // 🔥 전화번호 중복 체크 상태 (기존 환자 제외)
+  const [phoneCheckStatus, setPhoneCheckStatus] = useState<{
+    isChecking: boolean;
+    isDuplicate: boolean;
+    existingPatient: any | null;
+    message: string;
+  }>({
+    isChecking: false,
+    isDuplicate: false,
+    existingPatient: null,
+    message: ''
+  })
   
   // 유효성 검사 상태
   const [errors, setErrors] = useState({
@@ -99,53 +106,127 @@ export default function PatientEditForm({ patient, onClose, onSuccess }: Patient
     age: '',
     callInDate: '',
   })
+
+  // 🔥 수정 전 데이터 정리 함수
+  const prepareUpdateDataForSubmit = (formData: any): any => {
+    const preparedData = { ...formData };
+    
+    // 🔥 나이가 undefined인 경우 필드 제거
+    if (preparedData.age === undefined) {
+      delete preparedData.age;
+      console.log('🔥 환자 수정: 나이 필드 제거 (undefined)');
+    }
+    
+    // 🔥 지역이 비어있는 경우 필드 제거
+    if (!preparedData.region || !preparedData.region.province) {
+      delete preparedData.region;
+      console.log('🔥 환자 수정: 지역 필드 제거 (미선택)');
+    }
+    
+    return preparedData;
+  };
   
-  // 🚀 기존 Redux 방식 (fallback용)
-  const [isLoading, setIsLoading] = useState(false)
-  const [isChanged, setIsChanged] = useState(false)
+  // 🔥 전화번호 중복 체크 함수 (현재 환자 제외)
+  const checkPhoneNumber = async (phoneNumber: string) => {
+    if (!phoneNumber || phoneNumber.length < 13 || phoneNumber === patient.phoneNumber) {
+      setPhoneCheckStatus({
+        isChecking: false,
+        isDuplicate: false,
+        existingPatient: null,
+        message: ''
+      })
+      return
+    }
+
+    setPhoneCheckStatus(prev => ({ ...prev, isChecking: true, message: '' }))
+
+    try {
+      const response = await fetch('/api/patients/check-phone', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ 
+          phoneNumber,
+          excludePatientId: patient._id || patient.id // 현재 환자 제외
+        }),
+      })
+
+      const data = await response.json()
+
+      if (data.exists) {
+        setPhoneCheckStatus({
+          isChecking: false,
+          isDuplicate: true,
+          existingPatient: data.patient,
+          message: `이미 등록된 전화번호입니다. (${data.patient.name}님, ${data.patient.patientId})`
+        })
+      } else {
+        setPhoneCheckStatus({
+          isChecking: false,
+          isDuplicate: false,
+          existingPatient: null,
+          message: '사용 가능한 전화번호입니다.'
+        })
+      }
+    } catch (error) {
+      console.error('전화번호 체크 오류:', error)
+      setPhoneCheckStatus({
+        isChecking: false,
+        isDuplicate: false,
+        existingPatient: null,
+        message: '전화번호 확인 중 오류가 발생했습니다.'
+      })
+    }
+  }
+
+  // 🔥 전화번호 입력 시 실시간 체크 (디바운싱 적용)
+  useEffect(() => {
+    const timeoutId = setTimeout(() => {
+      if (formValues.phoneNumber && formValues.phoneNumber !== patient.phoneNumber) {
+        checkPhoneNumber(formValues.phoneNumber)
+      }
+    }, 500)
+
+    return () => clearTimeout(timeoutId)
+  }, [formValues.phoneNumber, patient.phoneNumber])
   
   // 🚀 Optimistic Update를 위한 React Query Mutation
   const optimisticUpdateMutation = useMutation({
-    mutationFn: async (data: UpdatePatientData) => {
-      const patientId = patient._id || patient.id;
-      if (!patientId) {
-        throw new Error('환자 ID를 찾을 수 없습니다.');
-      }
-      
+    mutationFn: async (updateData: any) => {
       // Redux 액션을 Promise로 감싸기
       return dispatch(updatePatient({
-        patientId: patientId,
-        patientData: data
+        patientId: patient._id || patient.id,
+        patientData: updateData
       })).unwrap()
     },
-    onMutate: async (newData) => {
+    onMutate: async (updateData) => {
       // 🚀 1. 기존 쿼리 취소 (충돌 방지)
       await queryClient.cancelQueries({ queryKey: ['patients'] })
       
       // 🚀 2. 현재 데이터 백업
       const previousPatients = queryClient.getQueryData(['patients'])
       
-      // 🚀 3. UI 즉시 업데이트 (서버 응답 기다리지 않음)
+      // 🚀 3. UI에 즉시 반영
       queryClient.setQueryData(['patients'], (oldData: any) => {
         if (!oldData) return oldData
         
-        // 🚨 데이터 구조 수정: { patients: [...] } 형태 처리
+        // 🚨 데이터 구조 처리
         if (oldData.patients && Array.isArray(oldData.patients)) {
           return {
             ...oldData,
-            patients: oldData.patients.map((p: Patient) => 
-              (p._id || p.id) === (patient._id || patient.id) 
-                ? { ...p, ...newData, updatedAt: new Date().toISOString() }
+            patients: oldData.patients.map((p: any) => 
+              (p._id === patient._id || p.id === patient.id) 
+                ? { ...p, ...updateData, updatedAt: new Date().toISOString() }
                 : p
             )
           }
         }
         
-        // 배열 형태인 경우
         if (Array.isArray(oldData)) {
-          return oldData.map((p: Patient) => 
-            (p._id || p.id) === (patient._id || patient.id) 
-              ? { ...p, ...newData, updatedAt: new Date().toISOString() }
+          return oldData.map((p: any) => 
+            (p._id === patient._id || p.id === patient.id) 
+              ? { ...p, ...updateData, updatedAt: new Date().toISOString() }
               : p
           )
         }
@@ -153,24 +234,86 @@ export default function PatientEditForm({ patient, onClose, onSuccess }: Patient
         return oldData
       })
       
-      // 🚀 4. 즉시 성공 메시지 표시
-      alert('환자 정보가 성공적으로 수정되었습니다!')
-      if (onSuccess) onSuccess()
-      onClose()
+      // 🚀 4. 즉시 성공 메시지 표시 및 모달 닫기
+      alert(`환자 정보가 수정되었습니다!\n수정자: ${currentUser?.name}`)
+      handleClose()
       
-      return { previousPatients }
+      return { previousPatients, updateData }
     },
-    onError: (error, variables, context) => {
-      // 🚀 5. 실패시에만 롤백
+    onSuccess: async (updatedPatient, variables, context) => {
+      // 🚀 5. 서버에서 실제 데이터 받아서 업데이트
+      queryClient.setQueryData(['patients'], (oldData: any) => {
+        if (!oldData) return { patients: [updatedPatient] }
+        
+        if (oldData.patients && Array.isArray(oldData.patients)) {
+          return {
+            ...oldData,
+            patients: oldData.patients.map((p: any) => 
+              (p._id === patient._id || p.id === patient.id) ? updatedPatient : p
+            )
+          }
+        }
+        
+        if (Array.isArray(oldData)) {
+          return oldData.map((p: any) => 
+            (p._id === patient._id || p.id === patient.id) ? updatedPatient : p
+          )
+        }
+        
+        return oldData
+      })
+      
+      // 🔥 즉시 데이터 동기화 트리거
+      PatientDataSync.onUpdate(patient._id || patient.id, 'PatientEditForm', variables);
+      
+      // 🚀 6. 활동 로그 기록
+      try {
+        await logPatientAction(
+          'patient_update',
+          patient._id || patient.id,
+          updatedPatient.name,
+          {
+            patientId: patient._id || patient.id,
+            patientName: updatedPatient.name,
+            changes: context?.updateData,
+            handledBy: currentUser?.name,
+            notes: `환자 정보 수정 완료`
+          }
+        );
+        console.log('✅ 환자 수정 활동 로그 기록 성공');
+      } catch (logError) {
+        console.warn('⚠️ 활동 로그 기록 실패:', logError);
+      }
+    },
+    onError: async (error, variables, context) => {
+      // 🚀 7. 실패시 롤백
       if (context?.previousPatients) {
         queryClient.setQueryData(['patients'], context.previousPatients)
       }
       
-      console.error('환자 정보 수정 오류:', error)
-      alert(`환자 정보 수정 중 오류가 발생했습니다: ${error}`)
+      console.error('환자 수정 오류:', error)
+      alert('환자 정보 수정 중 오류가 발생했습니다.')
+      
+      // 실패 로그 기록
+      try {
+        await logPatientAction(
+          'patient_update',
+          patient._id || patient.id,
+          formValues.name,
+          {
+            patientId: patient._id || patient.id,
+            patientName: formValues.name,
+            error: error instanceof Error ? error.message : '알 수 없는 오류',
+            attemptedBy: currentUser?.name,
+            notes: '환자 정보 수정 실패'
+          }
+        );
+      } catch (logError) {
+        console.warn('활동 로그 기록 실패:', logError);
+      }
     },
     onSettled: () => {
-      // 🚀 6. 최종적으로 서버 데이터로 동기화
+      // 🚀 8. 최종적으로 서버 데이터로 동기화
       queryClient.invalidateQueries({ queryKey: ['patients'] })
     }
   })
@@ -206,110 +349,56 @@ export default function PatientEditForm({ patient, onClose, onSuccess }: Patient
     }
   }, [selectedProvince, selectedCity])
   
-  // 🔥 폼 변경 감지 개선 - referralSource 포함, age의 undefined 처리 개선
+  // 🔥 patient 데이터가 변경될 때 폼 초기화
   useEffect(() => {
-    // 원본 환자 데이터 정규화
-    const originalPatient = {
-      name: patient.name || '',
-      phoneNumber: patient.phoneNumber || '',
-      status: patient.status,
-      age: patient.age, // 🔥 undefined 그대로 비교
-      callInDate: patient.callInDate || '',
-      notes: patient.notes || '',
-      consultationType: patient.consultationType || 'outbound',
-      referralSource: patient.referralSource || '', // 🔥 유입경로 포함
-      interestedServices: patient.interestedServices || [],
-      region: patient.region || undefined
-    };
-
-    // 현재 폼 데이터 정규화
-    const currentForm = {
-      name: formValues.name || '',
-      phoneNumber: formValues.phoneNumber || '',
-      status: formValues.status,
-      age: formValues.age, // 🔥 undefined 그대로 비교
-      callInDate: formValues.callInDate || '',
-      notes: formValues.notes || '',
-      consultationType: formValues.consultationType || 'outbound',
-      referralSource: formValues.referralSource || '', // 🔥 유입경로 포함
-      interestedServices: formValues.interestedServices || [],
-      region: formValues.region || undefined
-    };
-
-    // 각 필드별 변경 여부 확인
-    const isNameChanged = currentForm.name !== originalPatient.name;
-    const isPhoneChanged = currentForm.phoneNumber !== originalPatient.phoneNumber;
-    const isStatusChanged = currentForm.status !== originalPatient.status;
-    
-    // 🔥 나이 비교 개선 - undefined와 숫자를 정확히 비교
-    const isAgeChanged = currentForm.age !== originalPatient.age;
-    
-    const isCallInDateChanged = currentForm.callInDate !== originalPatient.callInDate;
-    const isNotesChanged = currentForm.notes !== originalPatient.notes;
-    const isConsultationTypeChanged = currentForm.consultationType !== originalPatient.consultationType;
-    const isReferralSourceChanged = currentForm.referralSource !== originalPatient.referralSource; // 🔥 유입경로 변경 감지
-    
-    // 관심 분야 비교 개선
-    const isInterestChanged = 
-      currentForm.interestedServices.length !== originalPatient.interestedServices.length ||
-      !currentForm.interestedServices.every(service => originalPatient.interestedServices.includes(service)) ||
-      !originalPatient.interestedServices.every(service => currentForm.interestedServices.includes(service));
-    
-    // 지역 비교 개선
-    let isRegionChanged = false;
-    if (currentForm.region && originalPatient.region) {
-      isRegionChanged = 
-        currentForm.region.province !== originalPatient.region.province ||
-        currentForm.region.city !== originalPatient.region.city;
-    } else if (currentForm.region !== originalPatient.region) {
-      isRegionChanged = true;
+    if (patient) {
+      setFormValues({
+        name: patient.name || '',
+        phoneNumber: patient.phoneNumber || '',
+        status: (patient.status || '잠재고객') as PatientStatus,
+        interestedServices: patient.interestedServices || [],
+        memo: patient.memo || '',
+        callInDate: patient.callInDate || '',
+        age: patient.age,
+        region: patient.region,
+        consultationType: patient.consultationType || 'outbound',
+        referralSource: patient.referralSource || '',
+      })
+      setSelectedProvince(patient.region?.province || '')
+      setSelectedCity(patient.region?.city || '')
     }
-    
-    const newIsChanged = 
-      isNameChanged || 
-      isPhoneChanged || 
-      isStatusChanged || 
-      isAgeChanged || 
-      isCallInDateChanged || 
-      isNotesChanged || 
-      isInterestChanged || 
-      isRegionChanged ||
-      isConsultationTypeChanged ||
-      isReferralSourceChanged; // 🔥 유입경로 변경 포함
-    
-    console.log('=== 폼 변경 감지 (나이 undefined 처리 개선) ===');
-    console.log('변경 사항:', {
-      name: isNameChanged,
-      phone: isPhoneChanged,
-      status: isStatusChanged,
-      age: isAgeChanged,
-      ageValues: { original: originalPatient.age, current: currentForm.age }, // 🔥 나이 값 비교 로그
-      callInDate: isCallInDateChanged,
-      notes: isNotesChanged,
-      consultationType: isConsultationTypeChanged,
-      referralSource: isReferralSourceChanged, // 🔥 유입경로 변경 로그
-      interest: isInterestChanged,
-      region: isRegionChanged
-    });
-    console.log('최종 isChanged:', newIsChanged);
-    
-    setIsChanged(newIsChanged);
-  }, [formValues, patient]);
+  }, [patient])
   
-  // 🔥 입력값 변경 처리 - 나이 필드 undefined 처리 개선
+  // 모달 닫기
+  const handleClose = () => {
+    onClose()
+    setErrors({
+      name: '',
+      phoneNumber: '',
+      age: '',
+      callInDate: '',
+    })
+    // 🔥 전화번호 체크 상태도 초기화
+    setPhoneCheckStatus({
+      isChecking: false,
+      isDuplicate: false,
+      existingPatient: null,
+      message: ''
+    })
+  }
+  
+  // 🔥 입력값 변경 처리
   const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement | HTMLTextAreaElement>) => {
     const { name, value } = e.target
     
-    // 🔥 나이 필드 처리 개선 - 빈 값을 명확하게 undefined로 설정
+    // 🔥 나이 필드 처리 개선
     if (name === 'age') {
       let ageValue: number | undefined;
       
       if (value === '' || value.trim() === '') {
-        // 빈 값인 경우 undefined로 설정
         ageValue = undefined;
         console.log('🔥 나이 필드: 빈 값으로 undefined 설정');
       } else {
-        // 숫자 값인 경우 파싱
         const parsedAge = parseInt(value, 10);
         ageValue = isNaN(parsedAge) ? undefined : parsedAge;
         console.log('🔥 나이 필드: 숫자 값 설정', { input: value, parsed: ageValue });
@@ -317,7 +406,7 @@ export default function PatientEditForm({ patient, onClose, onSuccess }: Patient
       
       setFormValues(prev => ({
         ...prev,
-        age: ageValue  // 🔥 타입 안전성을 위해 명시적으로 age 필드 지정
+        age: ageValue
       }))
     } else {
       setFormValues(prev => ({
@@ -348,20 +437,190 @@ export default function PatientEditForm({ patient, onClose, onSuccess }: Patient
   // 관심 분야 체크박스 처리
   const handleInterestChange = (service: string) => {
     setFormValues(prev => {
-      const updatedServices = prev.interestedServices ? [...prev.interestedServices] : []
+      const updatedServices = prev.interestedServices.includes(service)
+        ? prev.interestedServices.filter(s => s !== service)
+        : [...prev.interestedServices, service]
       
-      if (updatedServices.includes(service)) {
-        return {
-          ...prev,
-          interestedServices: updatedServices.filter(s => s !== service)
-        }
-      } else {
-        return {
-          ...prev,
-          interestedServices: [...updatedServices, service]
-        }
+      return {
+        ...prev,
+        interestedServices: updatedServices
       }
     })
+  }
+  
+  // 🚀 기존 방식 폼 제출 (fallback)
+  const handleTraditionalSubmit = async (e: React.FormEvent) => {
+    e.preventDefault()
+    
+    // 🔥 로그인 사용자 확인
+    if (!currentUser) {
+      alert('로그인이 필요합니다.');
+      return;
+    }
+
+    // 🔥 전화번호 중복 체크
+    if (phoneCheckStatus.isDuplicate) {
+      alert('이미 등록된 전화번호입니다. 다른 번호를 입력해주세요.');
+      return;
+    }
+    
+    // 유효성 검사
+    let isValid = true
+    const newErrors = { 
+      name: '', 
+      phoneNumber: '', 
+      age: '',
+      callInDate: '',
+    }
+    
+    if (!formValues.name.trim()) {
+      newErrors.name = '이름을 입력해주세요'
+      isValid = false
+    }
+    
+    if (!formValues.phoneNumber.trim()) {
+      newErrors.phoneNumber = '연락처를 입력해주세요'
+      isValid = false
+    } else if (!/^[0-9]{3}-[0-9]{3,4}-[0-9]{4}$/.test(formValues.phoneNumber)) {
+      newErrors.phoneNumber = '올바른 연락처 형식이 아닙니다. (예: 010-1234-5678)'
+      isValid = false
+    }
+    
+    if (formValues.age !== undefined && (formValues.age < 1 || formValues.age > 120)) {
+      newErrors.age = '유효한 나이를 입력해주세요 (1-120)'
+      isValid = false
+    }
+    
+    if (!formValues.callInDate) {
+      newErrors.callInDate = 'DB 유입 날짜를 입력해주세요'
+      isValid = false
+    }
+    
+    setErrors(newErrors)
+    
+    if (!isValid) return
+    
+    try {
+      // 🔥 제출 데이터 정리
+      const preparedData = prepareUpdateDataForSubmit(formValues);
+      
+      console.log('환자 정보 수정 데이터:', preparedData);
+      
+      // Redux 액션 디스패치
+      const result = await dispatch(updatePatient({
+        patientId: patient._id || patient.id,
+        patientData: preparedData
+      })).unwrap()
+      
+      // 🔥 환자 수정 성공 시 활동 로그 기록 + 데이터 동기화
+      try {
+        await logPatientAction(
+          'patient_update',
+          patient._id || patient.id,
+          result.name,
+          {
+            patientId: patient._id || patient.id,
+            patientName: result.name,
+            changes: preparedData,
+            handledBy: currentUser.name,
+            notes: `환자 정보 수정 완료`
+          }
+        );
+        console.log('✅ 환자 수정 활동 로그 기록 성공');
+      } catch (logError) {
+        console.warn('⚠️ 활동 로그 기록 실패:', logError);
+      }
+      
+      // 🔥 즉시 데이터 동기화 트리거
+      PatientDataSync.onUpdate(patient._id || patient.id, 'PatientEditForm_traditional', preparedData);
+      
+      // 성공 처리
+      alert(`환자 정보가 수정되었습니다!\n수정자: ${currentUser.name}`)
+      handleClose()
+    } catch (error) {
+      console.error('환자 수정 오류:', error)
+      
+      // 🔥 환자 수정 실패 시에도 로그 기록
+      try {
+        await logPatientAction(
+          'patient_update',
+          patient._id || patient.id,
+          formValues.name,
+          {
+            patientId: patient._id || patient.id,
+            patientName: formValues.name,
+            error: error instanceof Error ? error.message : '알 수 없는 오류',
+            attemptedBy: currentUser.name,
+            notes: '환자 정보 수정 실패'
+          }
+        );
+      } catch (logError) {
+        console.warn('활동 로그 기록 실패:', logError);
+      }
+      
+      alert('환자 정보 수정 중 오류가 발생했습니다.')
+    }
+  }
+  
+  // 🚀 Optimistic 방식 폼 제출
+  const handleOptimisticSubmit = async (e: React.FormEvent) => {
+    e.preventDefault()
+    
+    // 로그인 사용자 확인
+    if (!currentUser) {
+      alert('로그인이 필요합니다.');
+      return;
+    }
+
+    // 🔥 전화번호 중복 체크
+    if (phoneCheckStatus.isDuplicate) {
+      alert('이미 등록된 전화번호입니다. 다른 번호를 입력해주세요.');
+      return;
+    }
+    
+    // 유효성 검사 (동일)
+    let isValid = true
+    const newErrors = { 
+      name: '', 
+      phoneNumber: '', 
+      age: '',
+      callInDate: '',
+    }
+    
+    if (!formValues.name.trim()) {
+      newErrors.name = '이름을 입력해주세요'
+      isValid = false
+    }
+    
+    if (!formValues.phoneNumber.trim()) {
+      newErrors.phoneNumber = '연락처를 입력해주세요'
+      isValid = false
+    } else if (!/^[0-9]{3}-[0-9]{3,4}-[0-9]{4}$/.test(formValues.phoneNumber)) {
+      newErrors.phoneNumber = '올바른 연락처 형식이 아닙니다. (예: 010-1234-5678)'
+      isValid = false
+    }
+    
+    if (formValues.age !== undefined && (formValues.age < 1 || formValues.age > 120)) {
+      newErrors.age = '유효한 나이를 입력해주세요 (1-120)'
+      isValid = false
+    }
+    
+    if (!formValues.callInDate) {
+      newErrors.callInDate = 'DB 유입 날짜를 입력해주세요'
+      isValid = false
+    }
+    
+    setErrors(newErrors)
+    
+    if (!isValid) return
+    
+    // 🔥 환자 데이터 준비 및 정리
+    const preparedData = prepareUpdateDataForSubmit(formValues);
+    
+    console.log('🚀 Optimistic: 정리된 환자 수정 데이터:', preparedData);
+    
+    // 🚀 Optimistic Update 실행
+    optimisticUpdateMutation.mutate(preparedData)
   }
   
   // 전화번호 자동 포맷팅
@@ -397,180 +656,12 @@ export default function PatientEditForm({ patient, onClose, onSuccess }: Patient
     }
   }
   
-  // 🔥 폼 제출 시 나이 필드 최종 검증 및 정리
-  const prepareFormDataForSubmit = (formData: UpdatePatientData): UpdatePatientData => {
-    const preparedData = { ...formData };
-    
-    // 🔥 나이 필드 처리 개선 - undefined인 경우 요청에서 완전히 제외
-    if (preparedData.age === null || 
-        preparedData.age === undefined || 
-        (typeof preparedData.age === 'number' && isNaN(preparedData.age))) {
-      delete preparedData.age; // 🔥 undefined 대신 필드 자체를 제거
-      console.log('🔥 제출 전 나이 필드 제거: 기존 DB 값 유지');
-    }
-
-    // 🔥 지역 필드 처리 개선 - undefined인 경우 요청에서 완전히 제외
-    if (!preparedData.region || 
-        !preparedData.region.province || 
-        preparedData.region.province === '') {
-      delete preparedData.region; // 🔥 undefined 대신 필드 자체를 제거
-      console.log('🔥 제출 전 지역 필드 제거: 기존 DB 값 유지');
-    }
-    
-    // 🔥 빈 문자열 필드들도 정리 (선택적)
-    Object.keys(preparedData).forEach(key => {
-      if (preparedData[key as keyof UpdatePatientData] === '') {
-        // 빈 문자열은 그대로 유지 (의도적으로 비운 것일 수 있음)
-        // delete preparedData[key]; // 필요시 주석 해제
-      }
-    });
-    
-    console.log('🔥 제출할 데이터:', {
-    age: preparedData.age,
-    ageType: typeof preparedData.age,
-    hasAge: 'age' in preparedData,
-    region: preparedData.region,
-    hasRegion: 'region' in preparedData,
-    excludedFields: Object.keys(formData).filter(key => !(key in preparedData))
-  });
-  
-  return preparedData;
-}; 
-  
-  // 🚀 기존 방식 폼 제출 (fallback)
-  const handleTraditionalSubmit = async (e: React.FormEvent) => {
-    e.preventDefault()
-    
-    console.log('=== 기존 방식으로 폼 제출 시작 ===');
-    console.log('isChanged:', isChanged);
-    console.log('isLoading:', isLoading);
-    console.log('formValues:', formValues);
-    
-    // 유효성 검사
-    let isValid = true
-    const newErrors = { 
-      name: '', 
-      phoneNumber: '', 
-      age: '',
-      callInDate: '',
-    }
-    
-    if (!formValues.name || !formValues.name.trim()) {
-      newErrors.name = '이름을 입력해주세요'
-      isValid = false
-    }
-    
-    if (!formValues.phoneNumber || !formValues.phoneNumber.trim()) {
-      newErrors.phoneNumber = '연락처를 입력해주세요'
-      isValid = false
-    } else if (!/^[0-9]{3}-[0-9]{3,4}-[0-9]{4}$/.test(formValues.phoneNumber)) {
-      newErrors.phoneNumber = '올바른 연락처 형식이 아닙니다. (예: 010-1234-5678)'
-      isValid = false
-    }
-    
-    // 🔥 나이 유효성 검사 개선 - undefined는 허용
-    if (formValues.age !== undefined && (formValues.age < 1 || formValues.age > 120)) {
-      newErrors.age = '유효한 나이를 입력해주세요 (1-120)'
-      isValid = false
-    }
-    
-    if (!formValues.callInDate) {
-      newErrors.callInDate = 'DB 유입 날짜를 입력해주세요'
-      isValid = false
-    }
-    
-    setErrors(newErrors)
-    
-    if (!isValid) return
-    
-    try {
-      setIsLoading(true)
-      
-      // 🔥 환자 ID 확인 개선 - _id 우선 사용
-      const patientId = patient._id || patient.id;
-      if (!patientId) {
-        throw new Error('환자 ID를 찾을 수 없습니다.');
-      }
-      
-      // 🔥 제출 데이터 최종 정리
-      const preparedData = prepareFormDataForSubmit(formValues);
-      
-      console.log('환자 정보 수정 시도:', {
-        patientId,
-        preparedData
-      });
-      
-      // Redux 액션 디스패치
-      const result = await dispatch(updatePatient({
-        patientId: patientId,
-        patientData: preparedData
-      })).unwrap()
-      
-      console.log('수정 성공 결과:', result);
-      
-      // 성공 처리
-      alert('환자 정보가 성공적으로 수정되었습니다!')
-      if (onSuccess) onSuccess()
-      onClose()
-    } catch (error) {
-      console.error('환자 정보 수정 오류:', error)
-      alert(`환자 정보 수정 중 오류가 발생했습니다: ${error}`)
-    } finally {
-      setIsLoading(false)
-    }
-  }
-  
-  // 🚀 Optimistic 방식 폼 제출
-  const handleOptimisticSubmit = async (e: React.FormEvent) => {
-    e.preventDefault()
-    
-    // 유효성 검사 (동일)
-    let isValid = true
-    const newErrors = { 
-      name: '', 
-      phoneNumber: '', 
-      age: '',
-      callInDate: '',
-    }
-    
-    if (!formValues.name || !formValues.name.trim()) {
-      newErrors.name = '이름을 입력해주세요'
-      isValid = false
-    }
-    
-    if (!formValues.phoneNumber || !formValues.phoneNumber.trim()) {
-      newErrors.phoneNumber = '연락처를 입력해주세요'
-      isValid = false
-    } else if (!/^[0-9]{3}-[0-9]{3,4}-[0-9]{4}$/.test(formValues.phoneNumber)) {
-      newErrors.phoneNumber = '올바른 연락처 형식이 아닙니다. (예: 010-1234-5678)'
-      isValid = false
-    }
-    
-    // 🔥 나이 유효성 검사 개선 - undefined는 허용
-    if (formValues.age !== undefined && (formValues.age < 1 || formValues.age > 120)) {
-      newErrors.age = '유효한 나이를 입력해주세요 (1-120)'
-      isValid = false
-    }
-    
-    if (!formValues.callInDate) {
-      newErrors.callInDate = 'DB 유입 날짜를 입력해주세요'
-      isValid = false
-    }
-    
-    setErrors(newErrors)
-    
-    if (!isValid) return
-    
-    // 🔥 제출 데이터 최종 정리
-    const preparedData = prepareFormDataForSubmit(formValues);
-    
-    // 🚀 Optimistic Update 실행
-    optimisticUpdateMutation.mutate(preparedData)
-  }
-  
   // 🚀 환경변수에 따라 제출 방식 선택
   const handleSubmit = isOptimisticEnabled ? handleOptimisticSubmit : handleTraditionalSubmit
   const currentIsLoading = isOptimisticEnabled ? optimisticUpdateMutation.isPending : isLoading
+  
+  // 모달이 닫혀 있을 때는 렌더링하지 않음
+  if (!isOpen) return null
   
   return (
     <div className="fixed inset-0 bg-black/30 flex items-center justify-center z-50 p-4">
@@ -579,16 +670,25 @@ export default function PatientEditForm({ patient, onClose, onSuccess }: Patient
         <div className="px-6 py-4 border-b border-border flex items-center justify-between">
           <div>
             <h2 className="text-lg font-semibold text-text-primary">환자 정보 수정</h2>
+            <p className="text-sm text-text-secondary mt-1">
+              환자번호: {patient.patientId}
+            </p>
+            {/* 🔥 수정자 정보 표시 */}
+            {currentUser && (
+              <p className="text-sm text-text-secondary mt-1">
+                수정자: {currentUser.name} ({currentUser.role === 'master' ? '마스터' : '직원'})
+              </p>
+            )}
             {/* 🚀 개발 모드에서 현재 방식 표시 */}
             {process.env.NODE_ENV === 'development' && (
               <p className="text-xs text-gray-500 mt-1">
-                {isOptimisticEnabled ? '🚀 Optimistic Update 활성화' : '🐌 기존 방식'}
+                {isOptimisticEnabled ? '🚀 Optimistic Update + 실시간 동기화' : '🐌 기존 방식'}
               </p>
             )}
           </div>
           <button 
             className="text-text-secondary hover:text-text-primary" 
-            onClick={onClose}
+            onClick={handleClose}
             disabled={currentIsLoading}
           >
             <Icon icon={HiOutlineX} size={20} />
@@ -598,17 +698,7 @@ export default function PatientEditForm({ patient, onClose, onSuccess }: Patient
         {/* 모달 바디 */}
         <form onSubmit={handleSubmit} className="p-6">
           <div className="space-y-5">
-            {/* 환자 ID (수정 불가) */}
-            <div>
-              <label className="block text-sm font-medium text-text-primary mb-1">
-                환자 ID
-              </label>
-              <div className="form-input bg-gray-50 text-text-secondary cursor-not-allowed">
-                {patient.patientId}
-              </div>
-            </div>
-            
-            {/* 🔥 상담 타입 선택 (수정 가능) */}
+            {/* 🔥 상담 타입 선택 필드 */}
             <div>
               <label htmlFor="consultationType" className="block text-sm font-medium text-text-primary mb-1">
                 상담 타입
@@ -624,6 +714,7 @@ export default function PatientEditForm({ patient, onClose, onSuccess }: Patient
                   <option value="outbound">아웃바운드</option>
                   <option value="inbound">인바운드</option>
                   <option value="returning">구신환</option>
+                  <option value="walkin">워크인</option>
                 </select>
                 <span className="absolute left-3 top-1/2 transform -translate-y-1/2 text-text-muted">
                   <Icon icon={FiPhoneCall} size={18} />
@@ -632,12 +723,6 @@ export default function PatientEditForm({ patient, onClose, onSuccess }: Patient
                   ▼
                 </span>
               </div>
-              {/* 인바운드일 때 입력번호 표시 (참고용) */}
-              {patient.consultationType === 'inbound' && patient.inboundPhoneNumber && (
-                <p className="text-sm text-gray-500 mt-1">
-                  기존 입력번호: {patient.inboundPhoneNumber}
-                </p>
-              )}
             </div>
             
             {/* 이름 */}
@@ -650,7 +735,7 @@ export default function PatientEditForm({ patient, onClose, onSuccess }: Patient
                   type="text"
                   id="name"
                   name="name"
-                  value={formValues.name || ''}
+                  value={formValues.name}
                   onChange={handleChange}
                   className={`form-input pl-10 ${errors.name ? 'border-error' : ''}`}
                   placeholder="홍길동"
@@ -664,7 +749,7 @@ export default function PatientEditForm({ patient, onClose, onSuccess }: Patient
               )}
             </div>
             
-            {/* 연락처 */}
+            {/* 🔥 연락처 - 중복 체크 기능 (현재 환자 제외) */}
             <div>
               <label htmlFor="phoneNumber" className="block text-sm font-medium text-text-primary mb-1">
                 연락처 <span className="text-error">*</span>
@@ -674,24 +759,52 @@ export default function PatientEditForm({ patient, onClose, onSuccess }: Patient
                   type="tel"
                   id="phoneNumber"
                   name="phoneNumber"
-                  value={formValues.phoneNumber || ''}
+                  value={formValues.phoneNumber}
                   onChange={handlePhoneChange}
-                  className={`form-input pl-10 ${errors.phoneNumber ? 'border-error' : ''}`}
+                  className={`form-input pl-10 pr-10 ${
+                    errors.phoneNumber ? 'border-error' : 
+                    phoneCheckStatus.isDuplicate ? 'border-red-500' :
+                    phoneCheckStatus.message && !phoneCheckStatus.isDuplicate ? 'border-green-500' : ''
+                  }`}
                   placeholder="010-1234-5678"
                 />
                 <span className="absolute left-3 top-1/2 transform -translate-y-1/2 text-text-muted">
                   <Icon icon={HiOutlinePhone} size={18} />
                 </span>
+                {/* 🔥 중복 체크 상태 표시 */}
+                {phoneCheckStatus.isChecking && (
+                  <span className="absolute right-3 top-1/2 transform -translate-y-1/2">
+                    <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-blue-600"></div>
+                  </span>
+                )}
+                {!phoneCheckStatus.isChecking && phoneCheckStatus.message && (
+                  <span className={`absolute right-3 top-1/2 transform -translate-y-1/2 ${
+                    phoneCheckStatus.isDuplicate ? 'text-red-500' : 'text-green-500'
+                  }`}>
+                    {phoneCheckStatus.isDuplicate ? '❌' : '✅'}
+                  </span>
+                )}
               </div>
               {errors.phoneNumber && (
                 <p className="mt-1 text-sm text-error">{errors.phoneNumber}</p>
               )}
+              {/* 🔥 전화번호 중복 체크 메시지 */}
+              {phoneCheckStatus.message && (
+                <div className={`mt-2 p-2 rounded-md flex items-center gap-2 text-sm ${
+                  phoneCheckStatus.isDuplicate 
+                    ? 'bg-red-50 text-red-700 border border-red-200'
+                    : 'bg-green-50 text-green-700 border border-green-200'
+                }`}>
+                  <Icon icon={HiOutlinePhone} size={16} />
+                  <span>{phoneCheckStatus.message}</span>
+                </div>
+              )}
             </div>
             
-            {/* 🔥 나이 필드 - placeholder와 도움말 개선 */}
+            {/* 나이 */}
             <div>
               <label htmlFor="age" className="block text-sm font-medium text-text-primary mb-1">
-                나이 
+                나이
               </label>
               <div className="relative">
                 <input
@@ -703,7 +816,7 @@ export default function PatientEditForm({ patient, onClose, onSuccess }: Patient
                   value={formValues.age !== undefined ? formValues.age : ''}
                   onChange={handleChange}
                   className={`form-input pl-10 ${errors.age ? 'border-error' : ''}`}
-                  placeholder="나이를 입력하세요"
+                  placeholder="30"
                 />
                 <span className="absolute left-3 top-1/2 transform -translate-y-1/2 text-text-muted">
                   <Icon icon={HiOutlineCake} size={18} />
@@ -712,9 +825,6 @@ export default function PatientEditForm({ patient, onClose, onSuccess }: Patient
               {errors.age && (
                 <p className="mt-1 text-sm text-error">{errors.age}</p>
               )}
-              <p className="mt-1 text-xs text-gray-500">
-                💡 나이를 모르는 경우 빈 값으로 처리해주세요.
-              </p>
             </div>
             
             {/* 거주지역 - 시/도 및 시/군/구 */}
@@ -770,7 +880,7 @@ export default function PatientEditForm({ patient, onClose, onSuccess }: Patient
               </div>
             </div>
             
-            {/* 🔥 유입경로 필드 추가 */}
+            {/* 🔥 유입경로 필드 */}
             <div>
               <label htmlFor="referralSource" className="block text-sm font-medium text-text-primary mb-1">
                 유입경로
@@ -779,7 +889,7 @@ export default function PatientEditForm({ patient, onClose, onSuccess }: Patient
                 <select
                   id="referralSource"
                   name="referralSource"
-                  value={formValues.referralSource || ''}
+                  value={formValues.referralSource}
                   onChange={handleChange}
                   className="form-input pl-10 appearance-none"
                 >
@@ -808,7 +918,7 @@ export default function PatientEditForm({ patient, onClose, onSuccess }: Patient
                   type="date"
                   id="callInDate"
                   name="callInDate"
-                  value={formValues.callInDate || ''}
+                  value={formValues.callInDate}
                   onChange={handleChange}
                   className={`form-input pl-10 ${errors.callInDate ? 'border-error' : ''}`}
                 />
@@ -834,33 +944,13 @@ export default function PatientEditForm({ patient, onClose, onSuccess }: Patient
                   >
                     <input
                       type="checkbox"
-                      checked={formValues.interestedServices?.includes(option.value) || false}
+                      checked={formValues.interestedServices.includes(option.value)}
                       onChange={() => handleInterestChange(option.value)}
                       className="w-4 h-4 accent-primary"
                     />
                     <span className="text-sm text-text-secondary">{option.label}</span>
                   </label>
                 ))}
-              </div>
-            </div>
-            
-            {/* 메모 */}
-            <div>
-              <label htmlFor="notes" className="block text-sm font-medium text-text-primary mb-1">
-                메모
-              </label>
-              <div className="relative">
-                <textarea
-                  id="notes"
-                  name="notes"
-                  value={formValues.notes || ''}
-                  onChange={handleChange}
-                  className="form-input pl-10 min-h-[100px]"
-                  placeholder="환자 메모를 입력하세요..."
-                />
-                <span className="absolute left-3 top-6 text-text-muted">
-                  <Icon icon={HiOutlineStar} size={18} />
-                </span>
               </div>
             </div>
           </div>
@@ -870,19 +960,35 @@ export default function PatientEditForm({ patient, onClose, onSuccess }: Patient
             <button 
               type="button" 
               className="btn btn-outline"
-              onClick={onClose}
+              onClick={handleClose}
               disabled={currentIsLoading}
             >
               취소
             </button>
             <button 
               type="submit" 
-              className={`btn btn-primary ${(!isChanged || currentIsLoading) ? 'opacity-50 cursor-not-allowed' : ''}`}
-              disabled={currentIsLoading || !isChanged}
+              className={`btn btn-primary ${
+                phoneCheckStatus.isDuplicate || phoneCheckStatus.isChecking ? 'opacity-50 cursor-not-allowed' : ''
+              }`}
+              disabled={
+                currentIsLoading || 
+                !currentUser || 
+                phoneCheckStatus.isDuplicate || 
+                phoneCheckStatus.isChecking
+              }
             >
-              {currentIsLoading ? '처리 중...' : '저장하기'}
+              {currentIsLoading ? '처리 중...' : '수정하기'}
             </button>
           </div>
+          
+          {/* 🔥 로그인 안된 경우 안내 메시지 */}
+          {!currentUser && (
+            <div className="mt-4 p-3 bg-yellow-50 border border-yellow-200 rounded-md">
+              <p className="text-sm text-yellow-700">
+                환자 정보 수정을 위해서는 로그인이 필요합니다.
+              </p>
+            </div>
+          )}
         </form>
       </div>
     </div>

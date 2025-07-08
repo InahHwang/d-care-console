@@ -1,4 +1,4 @@
-// src/app/api/patients/[id]/callbacks/route.ts
+// src/app/api/patients/[id]/callbacks/route.ts - 새로운 첫 상담 후 상태 관리 지원 (완전한 코드)
 
 import { NextRequest, NextResponse } from 'next/server';
 import { connectToDatabase } from '@/utils/mongodb';
@@ -86,9 +86,6 @@ export async function POST(
       return NextResponse.json({ error: '환자를 찾을 수 없습니다.' }, { status: 404 });
     }
     
-    // 🔥 자동 연동 로직 제거 - 프론트엔드에서 처리
-    // 콜백 데이터를 그대로 사용
-    
     // 콜백 ID 생성
     const callbackId = `cb-${Date.now()}`;
     const newCallback = {
@@ -97,26 +94,123 @@ export async function POST(
       time: typeof callbackData.time === 'string' ? callbackData.time : undefined
     };
     
-    // 환자 정보 업데이트 준비
+    // 🔥 새로운 상태별 환자 정보 업데이트 로직
     const updateData: any = {
       updatedAt: new Date().toISOString(),
     };
     
-    // 콜백 상태에 따른 환자 정보 업데이트
-    if (callbackData.status === '부재중') {
-      updateData.status = '부재중';
-    } else if (callbackData.status === '예정') {
-      updateData.status = '콜백필요';
-    } else if (callbackData.status === '완료') {
-      updateData.status = '콜백필요';
-      updateData.reminderStatus = callbackData.type;
+    // 🔥 첫 상담 후 상태에 따른 환자 정보 업데이트
+    if (callbackData.firstConsultationResult) {
+      const result = callbackData.firstConsultationResult;
       
-      // 첫 상담 날짜가 없는 경우만 설정
-      if (!patient.firstConsultDate || patient.firstConsultDate === '') {
-        updateData.firstConsultDate = callbackData.date;
+      switch (result.status) {
+        case '예약완료':
+          updateData.status = '예약확정';
+          updateData.reservationDate = result.reservationDate;
+          updateData.reservationTime = result.reservationTime;
+          updateData.currentConsultationStage = 'completed';
+          updateData.lastFirstConsultationResult = result;
+          break;
+          
+        case '상담진행중':
+        case '부재중':
+          updateData.status = result.status === '부재중' ? '부재중' : '콜백필요';
+          updateData.nextCallbackDate = result.callbackDate;
+          updateData.currentConsultationStage = 'callback';
+          updateData.lastFirstConsultationResult = result;
+          break;
+          
+        case '종결':
+          updateData.status = '종결';
+          updateData.isCompleted = true;
+          updateData.completedAt = new Date().toISOString();
+          updateData.completedReason = result.terminationReason;
+          updateData.currentConsultationStage = 'completed';
+          updateData.lastFirstConsultationResult = result;
+          break;
       }
+    }
+    
+    // 🔥 예약 후 미내원 상태에 따른 업데이트 - "재예약 완료" 케이스 추가
+    if (callbackData.postReservationResult) {
+      const result = callbackData.postReservationResult;
       
-      updateData.lastConsultation = callbackData.date;
+      switch (result.status) {
+        case '재예약 완료':  // 🔥 새로 추가
+          updateData.status = '재예약확정'; // 🔥 "예약확정"에서 "재예약확정"으로 변경
+          updateData.reservationDate = result.reReservationDate;
+          updateData.reservationTime = result.reReservationTime;
+          updateData.isPostReservationPatient = false; // 현재 미내원 상태는 해제
+          updateData.hasBeenPostReservationPatient = true; // 🔥 한번 미내원했던 기록은 유지
+          updateData.lastPostReservationResult = result;
+          console.log(`재예약 완료 처리: ${result.reReservationDate} ${result.reReservationTime}`);
+          break;
+          
+        case '다음 콜백필요':  // 🔥 "재콜백등록"에서 변경
+          updateData.status = '콜백필요';
+          updateData.nextCallbackDate = result.callbackDate;
+          updateData.isPostReservationPatient = true;
+          updateData.hasBeenPostReservationPatient = true; // 🔥 미내원 기록 유지
+          updateData.lastPostReservationResult = result;
+          break;
+          
+        case '부재중':        // 🔥 부재중은 단순 상태 변경만
+          updateData.status = '부재중';
+          updateData.isPostReservationPatient = true;
+          updateData.hasBeenPostReservationPatient = true; // 🔥 미내원 기록 유지
+          updateData.lastPostReservationResult = result;
+          break;
+          
+        case '종결':
+          updateData.status = '종결';
+          updateData.isCompleted = true;
+          updateData.completedAt = new Date().toISOString();
+          updateData.completedReason = result.terminationReason;
+          updateData.isPostReservationPatient = false;
+          updateData.hasBeenPostReservationPatient = true; // 🔥 종결되어도 미내원 기록은 유지
+          updateData.lastPostReservationResult = result;
+          break;
+      }
+    }
+    
+    // 🔥 콜백 후속 상태에 따른 업데이트
+    if (callbackData.callbackFollowupResult) {
+      const result = callbackData.callbackFollowupResult;
+      
+      switch (result.status) {
+        case '예약완료':
+          updateData.status = '예약확정';
+          updateData.reservationDate = result.reservationDate;
+          updateData.reservationTime = result.reservationTime;
+          updateData.currentConsultationStage = 'completed';
+          break;
+          
+        case '부재중':
+        case '상담중':
+          updateData.status = result.status === '부재중' ? '부재중' : '콜백필요';
+          updateData.nextCallbackDate = result.nextCallbackDate;
+          updateData.currentConsultationStage = 'callback';
+          break;
+      }
+    }
+    
+    // 기본 콜백 상태에 따른 업데이트 (기존 로직)
+    if (!callbackData.firstConsultationResult && !callbackData.postReservationResult && !callbackData.callbackFollowupResult) {
+      if (callbackData.status === '부재중') {
+        updateData.status = '부재중';
+      } else if (callbackData.status === '예정') {
+        updateData.status = '콜백필요';
+      } else if (callbackData.status === '완료') {
+        updateData.status = '콜백필요';
+        updateData.reminderStatus = callbackData.type;
+        
+        // 첫 상담 날짜가 없는 경우만 설정
+        if (!patient.firstConsultDate || patient.firstConsultDate === '') {
+          updateData.firstConsultDate = callbackData.date;
+        }
+        
+        updateData.lastConsultation = callbackData.date;
+      }
     }
     
     // 기존 콜백 이력 가져오기
@@ -205,6 +299,9 @@ export async function POST(
           callbackStatus: callbackData.status,
           previousStatus: patient.status,
           newStatus: updateData.status,
+          firstConsultationResult: callbackData.firstConsultationResult,
+          postReservationResult: callbackData.postReservationResult,
+          callbackFollowupResult: callbackData.callbackFollowupResult,
           apiEndpoint: '/api/patients/[id]/callbacks',
           userAgent: request.headers.get('user-agent')?.substring(0, 100) // 길이 제한
         }
@@ -237,5 +334,316 @@ export async function POST(
     }
     
     return NextResponse.json({ error: '환자 정보 업데이트에 실패했습니다.' }, { status: 500 });
+  }
+}
+
+// 🔥 콜백 업데이트를 위한 PUT 메서드 추가
+export async function PUT(
+  request: NextRequest,
+  { params }: { params: { id: string } }
+) {
+  try {
+    const { db } = await connectToDatabase();
+    const patientId = params.id;
+    const url = new URL(request.url);
+    const callbackId = url.searchParams.get('callbackId');
+    const updateData = await request.json();
+    const currentUser = getCurrentUser(request);
+    
+    if (!callbackId) {
+      return NextResponse.json({ error: '콜백 ID가 필요합니다.' }, { status: 400 });
+    }
+    
+    console.log(`콜백 업데이트 시도 - 환자 ID: ${patientId}, 콜백 ID: ${callbackId}`, updateData);
+    
+    // 환자 찾기
+    let patient;
+    if (ObjectId.isValid(patientId)) {
+      patient = await db.collection('patients').findOne({ _id: new ObjectId(patientId) });
+    } else {
+      patient = await db.collection('patients').findOne({ 
+        $or: [{ id: patientId }, { patientId: patientId }]
+      });
+    }
+    
+    if (!patient) {
+      return NextResponse.json({ error: '환자를 찾을 수 없습니다.' }, { status: 404 });
+    }
+    
+    // 콜백 이력에서 해당 콜백 찾기
+    const callbackHistory = patient.callbackHistory || [];
+    const callbackIndex = callbackHistory.findIndex((cb: any) => cb.id === callbackId);
+    
+    if (callbackIndex === -1) {
+      return NextResponse.json({ error: '콜백을 찾을 수 없습니다.' }, { status: 404 });
+    }
+    
+    // 콜백 정보 업데이트
+    const updatedCallback = {
+      ...callbackHistory[callbackIndex],
+      ...updateData,
+      updatedAt: new Date().toISOString()
+    };
+    
+    callbackHistory[callbackIndex] = updatedCallback;
+    
+    // 🔥 상태별 환자 정보 업데이트 (POST와 동일한 로직 적용)
+    const patientUpdateData: any = {
+      updatedAt: new Date().toISOString(),
+      callbackHistory
+    };
+    
+    // 첫 상담 결과가 있는 경우
+    if (updateData.firstConsultationResult) {
+      const result = updateData.firstConsultationResult;
+      
+      switch (result.status) {
+        case '예약완료':
+          patientUpdateData.status = '예약확정';
+          patientUpdateData.reservationDate = result.reservationDate;
+          patientUpdateData.reservationTime = result.reservationTime;
+          patientUpdateData.currentConsultationStage = 'completed';
+          patientUpdateData.lastFirstConsultationResult = result;
+          break;
+          
+        case '상담진행중':
+        case '부재중':
+          patientUpdateData.status = result.status === '부재중' ? '부재중' : '콜백필요';
+          patientUpdateData.nextCallbackDate = result.callbackDate;
+          patientUpdateData.currentConsultationStage = 'callback';
+          patientUpdateData.lastFirstConsultationResult = result;
+          break;
+          
+        case '종결':
+          patientUpdateData.status = '종결';
+          patientUpdateData.isCompleted = true;
+          patientUpdateData.completedAt = new Date().toISOString();
+          patientUpdateData.completedReason = result.terminationReason;
+          patientUpdateData.currentConsultationStage = 'completed';
+          patientUpdateData.lastFirstConsultationResult = result;
+          break;
+      }
+    }
+    
+    // 🔥 예약 후 미내원 결과가 있는 경우 - "재예약 완료" 케이스 추가
+    if (updateData.postReservationResult) {
+      const result = updateData.postReservationResult;
+      
+      switch (result.status) {
+        case '재예약 완료':  // 🔥 새로 추가
+          patientUpdateData.status = '예약확정';
+          patientUpdateData.reservationDate = result.reReservationDate;
+          patientUpdateData.reservationTime = result.reReservationTime;
+          patientUpdateData.isPostReservationPatient = false; // 현재 미내원 상태는 해제
+          patientUpdateData.hasBeenPostReservationPatient = true; // 🔥 한번 미내원했던 기록은 유지
+          patientUpdateData.lastPostReservationResult = result;
+          console.log(`재예약 완료 업데이트: ${result.reReservationDate} ${result.reReservationTime}`);
+          break;
+          
+        case '다음 콜백필요':  // 🔥 "재콜백등록"에서 변경
+          patientUpdateData.status = '콜백필요';
+          patientUpdateData.nextCallbackDate = result.callbackDate;
+          patientUpdateData.isPostReservationPatient = true;
+          patientUpdateData.hasBeenPostReservationPatient = true; // 🔥 미내원 기록 유지
+          patientUpdateData.lastPostReservationResult = result;
+          break;
+          
+        case '부재중':        // 🔥 부재중은 단순 상태 변경만
+          patientUpdateData.status = '부재중';
+          patientUpdateData.isPostReservationPatient = true;
+          patientUpdateData.hasBeenPostReservationPatient = true; // 🔥 미내원 기록 유지
+          patientUpdateData.lastPostReservationResult = result;
+          break;
+          
+        case '종결':
+          patientUpdateData.status = '종결';
+          patientUpdateData.isCompleted = true;
+          patientUpdateData.completedAt = new Date().toISOString();
+          patientUpdateData.completedReason = result.terminationReason;
+          patientUpdateData.isPostReservationPatient = false;
+          patientUpdateData.hasBeenPostReservationPatient = true; // 🔥 종결되어도 미내원 기록은 유지
+          patientUpdateData.lastPostReservationResult = result;
+          break;
+      }
+    }
+    
+    // 콜백 후속 결과가 있는 경우
+    if (updateData.callbackFollowupResult) {
+      const result = updateData.callbackFollowupResult;
+      
+      switch (result.status) {
+        case '예약완료':
+          patientUpdateData.status = '예약확정';
+          patientUpdateData.reservationDate = result.reservationDate;
+          patientUpdateData.reservationTime = result.reservationTime;
+          patientUpdateData.currentConsultationStage = 'completed';
+          break;
+          
+        case '부재중':
+        case '상담중':
+          patientUpdateData.status = result.status === '부재중' ? '부재중' : '콜백필요';
+          patientUpdateData.nextCallbackDate = result.nextCallbackDate;
+          patientUpdateData.currentConsultationStage = 'callback';
+          break;
+      }
+    }
+    
+    // 환자 정보 업데이트
+    let result;
+    if (ObjectId.isValid(patientId)) {
+      result = await db.collection('patients').findOneAndUpdate(
+        { _id: new ObjectId(patientId) },
+        { $set: patientUpdateData },
+        { returnDocument: 'after' }
+      );
+    } else {
+      result = await db.collection('patients').findOneAndUpdate(
+        { $or: [{ id: patientId }, { patientId: patientId }] },
+        { $set: patientUpdateData },
+        { returnDocument: 'after' }
+      );
+    }
+    
+    if (!result) {
+      return NextResponse.json({ error: '콜백 업데이트에 실패했습니다.' }, { status: 500 });
+    }
+    
+    // ObjectId 문자열 변환
+    if (result._id && typeof result._id !== 'string') {
+      (result as any)._id = result._id.toString();
+    }
+    
+    if (!result.id && result._id) {
+      result.id = result._id;
+    }
+    
+    // 활동 로그
+    await logActivityToDatabase({
+      action: 'callback_update_api',
+      targetId: patient.id || patient._id,
+      targetName: patient.name,
+      userId: currentUser.id,
+      userName: currentUser.name,
+      details: {
+        callbackId,
+        updateData,
+        apiEndpoint: '/api/patients/[id]/callbacks'
+      }
+    });
+    
+    console.log(`콜백 업데이트 성공 - 환자 ID: ${patientId}, 콜백 ID: ${callbackId}`);
+    
+    return NextResponse.json(result, { status: 200 });
+  } catch (error) {
+    console.error('콜백 업데이트 실패:', error);
+    return NextResponse.json({ error: '콜백 업데이트에 실패했습니다.' }, { status: 500 });
+  }
+}
+
+// 🔥 콜백 삭제를 위한 DELETE 메서드 추가
+export async function DELETE(
+  request: NextRequest,
+  { params }: { params: { id: string } }
+) {
+  try {
+    const { db } = await connectToDatabase();
+    const patientId = params.id;
+    const url = new URL(request.url);
+    const callbackId = url.searchParams.get('callbackId');
+    const currentUser = getCurrentUser(request);
+    
+    if (!callbackId) {
+      return NextResponse.json({ error: '콜백 ID가 필요합니다.' }, { status: 400 });
+    }
+    
+    console.log(`콜백 삭제 시도 - 환자 ID: ${patientId}, 콜백 ID: ${callbackId}`);
+    
+    // 환자 찾기
+    let patient;
+    if (ObjectId.isValid(patientId)) {
+      patient = await db.collection('patients').findOne({ _id: new ObjectId(patientId) });
+    } else {
+      patient = await db.collection('patients').findOne({ 
+        $or: [{ id: patientId }, { patientId: patientId }]
+      });
+    }
+    
+    if (!patient) {
+      return NextResponse.json({ error: '환자를 찾을 수 없습니다.' }, { status: 404 });
+    }
+    
+    // 콜백 이력에서 해당 콜백 찾기 및 삭제
+    const callbackHistory = patient.callbackHistory || [];
+    const callbackIndex = callbackHistory.findIndex((cb: any) => cb.id === callbackId);
+    
+    if (callbackIndex === -1) {
+      return NextResponse.json({ error: '콜백을 찾을 수 없습니다.' }, { status: 404 });
+    }
+    
+    // 삭제할 콜백 정보 저장 (로그용)
+    const deletedCallback = callbackHistory[callbackIndex];
+    
+    // 콜백 삭제
+    callbackHistory.splice(callbackIndex, 1);
+    
+    // 환자 정보 업데이트
+    let result;
+    if (ObjectId.isValid(patientId)) {
+      result = await db.collection('patients').findOneAndUpdate(
+        { _id: new ObjectId(patientId) },
+        { 
+          $set: { 
+            callbackHistory,
+            updatedAt: new Date().toISOString()
+          }
+        },
+        { returnDocument: 'after' }
+      );
+    } else {
+      result = await db.collection('patients').findOneAndUpdate(
+        { $or: [{ id: patientId }, { patientId: patientId }] },
+        { 
+          $set: { 
+            callbackHistory,
+            updatedAt: new Date().toISOString()
+          }
+        },
+        { returnDocument: 'after' }
+      );
+    }
+    
+    if (!result) {
+      return NextResponse.json({ error: '콜백 삭제에 실패했습니다.' }, { status: 500 });
+    }
+    
+    // ObjectId 문자열 변환
+    if (result._id && typeof result._id !== 'string') {
+      (result as any)._id = result._id.toString();
+    }
+    
+    if (!result.id && result._id) {
+      result.id = result._id;
+    }
+    
+    // 활동 로그
+    await logActivityToDatabase({
+      action: 'callback_delete_api',
+      targetId: patient.id || patient._id,
+      targetName: patient.name,
+      userId: currentUser.id,
+      userName: currentUser.name,
+      details: {
+        callbackId,
+        deletedCallback,
+        apiEndpoint: '/api/patients/[id]/callbacks'
+      }
+    });
+    
+    console.log(`콜백 삭제 성공 - 환자 ID: ${patientId}, 콜백 ID: ${callbackId}`);
+    
+    return NextResponse.json(result, { status: 200 });
+  } catch (error) {
+    console.error('콜백 삭제 실패:', error);
+    return NextResponse.json({ error: '콜백 삭제에 실패했습니다.' }, { status: 500 });
   }
 }

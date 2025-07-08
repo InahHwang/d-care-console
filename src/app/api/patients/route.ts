@@ -19,21 +19,50 @@ interface PatientFromDB {
 }
 
 /**
- * 환자 객체의 ID 필드들을 정규화하는 헬퍼 함수
+ * 🔥 예약 후 미내원 환자 판별 헬퍼 함수
  */
+function calculatePostReservationStatus(patient: any): boolean {
+  // 예약확정 상태이고, 내원확정이 안 되었으며, 예약일이 지난 경우
+  if (patient.status === '예약확정' && 
+      !patient.visitConfirmed && 
+      patient.reservationDate) {
+    
+    const today = new Date();
+    const todayString = today.toISOString().split('T')[0];
+    const reservationDate = patient.reservationDate;
+    
+    return reservationDate < todayString;
+  }
+  
+  return false;
+}
+
 function normalizePatientResponse(patient: any) {
   if (!patient) return patient;
   
-  // ObjectId를 문자열로 변환
   const stringId = typeof patient._id === 'string' ? patient._id : patient._id.toString();
+  const isCurrentlyPostReservation = calculatePostReservationStatus(patient);
+
+  // 🔥 여기에 오늘 예약 계산 로직 추가
+  const today = new Date();
+  const todayString = today.toISOString().split('T')[0]; // YYYY-MM-DD 형태
+  
+  const isTodayReservationPatient = patient.status === '예약확정' && 
+                                   !patient.visitConfirmed && 
+                                   patient.reservationDate === todayString;
+  
+  // 🔥 한번이라도 예약 후 미내원이었다면 영구 표시
+  const hasBeenPostReservation = patient.hasBeenPostReservationPatient || isCurrentlyPostReservation;
   
   return {
     ...patient,
-    _id: stringId,                    // MongoDB ObjectId (문자열)
-    id: patient.id || stringId,       // 프론트엔드용 ID (id가 없으면 _id 사용)
-    // patientId는 별도 필드로 유지 (환자 번호 등)
-    consultationType: patient.consultationType || 'outbound', // 🔥 기본값 보장
-    referralSource: patient.referralSource || '' // 🔥 유입경로 기본값 설정
+    _id: stringId,
+    id: patient.id || stringId,
+    consultationType: patient.consultationType || 'outbound',
+    referralSource: patient.referralSource || '',
+    isPostReservationPatient: isCurrentlyPostReservation,
+    hasBeenPostReservationPatient: hasBeenPostReservation, // 🔥 영구 기록
+    isTodayReservationPatient: isTodayReservationPatient // 🔥 새로 추가
   };
 }
 
@@ -52,25 +81,33 @@ export async function GET(request: NextRequest) {
     
     console.log('🔍 API: 조회된 환자 수:', patients.length);
     
-    // 🔥 ID 필드 정규화 - 모든 환자 객체에 id와 _id 모두 보장
+    // 🔥 ID 필드 정규화 및 예약 후 미내원 계산 - 모든 환자 객체에 id와 _id 모두 보장
     const normalizedPatients = patients.map((patient, index) => {
       const normalized = normalizePatientResponse(patient);
       
       // 처음 몇 개만 디버깅 로그
       if (index < 3) {
-        console.log(`🔍 API: 환자 ${index + 1} ID 정규화:`, {
+        console.log(`🔍 API: 환자 ${index + 1} ID 정규화 및 상태 계산:`, {
           original_id: patient._id,
           original_idType: typeof patient._id,
           normalized_id: normalized.id,
           normalized_objectId: normalized._id,
-          patientName: normalized.name
+          patientName: normalized.name,
+          status: normalized.status,
+          visitConfirmed: normalized.visitConfirmed,
+          reservationDate: normalized.reservationDate,
+          isPostReservationPatient: normalized.isPostReservationPatient // 🔥 예약 후 미내원 로그
         });
       }
       
       return normalized;
     });
     
-    console.log('🔍 API: ID 정규화 완료');
+    // 🔥 예약 후 미내원 환자 수 로그
+    const postReservationCount = normalizedPatients.filter(p => p.isPostReservationPatient).length;
+    console.log('🔍 API: 예약 후 미내원 환자 수:', postReservationCount);
+    
+    console.log('🔍 API: ID 정규화 및 상태 계산 완료');
     
     return NextResponse.json({ 
       patients: normalizedPatients,
@@ -107,6 +144,19 @@ export async function POST(request: NextRequest) {
     // 입력 데이터 검증
     if (!data.name || !data.phoneNumber) {
       return NextResponse.json({ error: '필수 입력값이 누락되었습니다.' }, { status: 400 });
+    }
+
+    // 🔥 여기에 나이 검증 로직 추가 ⬇️
+    if (data.age !== undefined) {
+      // 나이가 제공된 경우에만 검증
+      if (typeof data.age !== 'number' || data.age < 1 || data.age > 120) {
+        console.warn('🚨 유효하지 않은 나이 값 제거:', data.age);
+        delete data.age; // 유효하지 않은 나이 값 제거
+      } else {
+        console.log('✅ 유효한 나이 값:', data.age);
+      }
+    } else {
+      console.log('ℹ️ 나이 필드 없음 (정상)');
     }
 
     // 중복 번호 확인
@@ -174,14 +224,15 @@ export async function POST(request: NextRequest) {
       id: insertedId  // 🔥 id 필드도 명시적으로 설정
     };
     
-    // 🔥 응답 데이터 정규화
+    // 🔥 응답 데이터 정규화 (예약 후 미내원 계산 포함)
     const normalizedPatient = normalizePatientResponse(createdPatient);
     
     console.log('🔍 API: 환자 등록 성공 및 ID 정규화:', {
       patientId: normalizedPatient.patientId,
       _id: normalizedPatient._id,
       id: normalizedPatient.id,
-      name: normalizedPatient.name
+      name: normalizedPatient.name,
+      isPostReservationPatient: normalizedPatient.isPostReservationPatient // 🔥 예약 후 미내원 로그
     });
 
     return NextResponse.json(normalizedPatient, { status: 201 });
