@@ -1437,10 +1437,18 @@ const PatientConsultationSection: React.FC<{
               </div>
               <div className="text-center">
                 <div className="text-2xl font-bold text-orange-600">
-                  {Math.round(consultations.reduce((sum, c) => sum + c.estimatedAmount, 0) / 10000)}만원
+                  {/* 🔥 견적금액 합계에서 데이터 없음 제외 */}
+                  {Math.round(
+                    consultations
+                      .filter(c => c.estimatedAmount && c.estimatedAmount > 0)
+                      .reduce((sum, c) => sum + c.estimatedAmount, 0) / 10000
+                  )}만원
                 </div>
-                <div className="text-gray-600">견적 합계</div>
+                <div className="text-gray-600">견적 합계 (데이터 있는 환자만)</div>
               </div>
+            </div>
+            <div className="mt-2 text-xs text-gray-500 text-center">
+              견적금액이 기록된 환자: {consultations.filter(c => c.estimatedAmount && c.estimatedAmount > 0).length}명 / 전체 {consultations.length}명
             </div>
           </div>
         )}
@@ -1520,7 +1528,11 @@ const PatientConsultationSection: React.FC<{
                       </td>
                       <td className="px-4 py-4 whitespace-nowrap">
                         <div className="text-sm font-medium text-gray-900">
-                          {patient.estimatedAmount.toLocaleString()}원
+                          {/* 🔥 견적금액이 0이거나 없는 경우 "데이터 없음" 표시 */}
+                          {patient.estimatedAmount && patient.estimatedAmount > 0 ? 
+                            `${patient.estimatedAmount.toLocaleString()}원` : 
+                            <span className="text-gray-400 italic">데이터 없음</span>
+                          }
                         </div>
                       </td>
                       <td className="px-4 py-4 whitespace-nowrap">
@@ -1576,7 +1588,13 @@ const PatientConsultationDetailModal: React.FC<{
             <div className="grid grid-cols-2 gap-4 text-sm">
               <div>
                 <span className="text-gray-600">견적 금액:</span>
-                <span className="ml-2 font-medium">{patient.estimatedAmount.toLocaleString()}원</span>
+                <span className="ml-2 font-medium">
+                  {/* 🔥 견적금액이 없는 경우 처리 */}
+                  {patient.estimatedAmount && patient.estimatedAmount > 0 ? 
+                    `${patient.estimatedAmount.toLocaleString()}원` : 
+                    <span className="text-gray-400 italic">데이터 없음</span>
+                  }
+                </span>
               </div>
               <div>
                 <span className="text-gray-600">동의 여부:</span>

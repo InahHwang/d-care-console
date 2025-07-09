@@ -156,7 +156,7 @@ export interface PostVisitConsultationInfo {
 
 // 🔥 상담/결제 정보 타입 정의 (대폭 단순화) - 호환성 유지
 export interface ConsultationInfo {
-  estimatedAmount: number;           // 견적 금액
+  estimatedAmount?: number;           // 견적 금액
   consultationDate: string;         // 상담 날짜 (YYYY-MM-DD)
   consultationNotes?: string;       // 상담 메모
   treatmentPlan?: string;           // 치료 계획

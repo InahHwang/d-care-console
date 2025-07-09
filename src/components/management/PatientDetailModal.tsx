@@ -384,10 +384,10 @@ export default function PatientDetailModal() {
           patientId: selectedPatient._id || selectedPatient.id,
           callbackData: {
             type: '1차',
-            date: additionalData.callbackDate,
-            time: additionalData.callbackTime,
+            date: additionalData.callbackDate,      // ✅ 수정됨
+            time: additionalData.callbackTime,      // ✅ 수정됨
             status: '예정',
-            notes: additionalData.callbackNotes || '1차 콜백 - 견적 재검토',
+            notes: additionalData.callbackNotes || '1차 콜백 - 견적 재검토',  // ✅ 수정됨
             isVisitManagementCallback: false
           }
         })).unwrap();

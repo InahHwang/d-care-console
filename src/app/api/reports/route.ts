@@ -249,7 +249,7 @@ async function generateMonthlyStats(month: number, year: number, token: string) 
   }
 }
 
-// 월별 통계 계산 함수 - monthly API와 동일한 로직
+// 🔥 월별 통계 계산 함수 - 견적금액 처리 수정
 function calculateMonthlyStats(patients: any[]) {
   const totalInquiries = patients.length;
   
@@ -275,7 +275,7 @@ function calculateMonthlyStats(patients: any[]) {
   
   console.log(`🏥 내원 환자: ${visitedPatients}명, 내원전환율: ${visitRate.toFixed(1)}%`);
   
-  // 결제 정보 계산
+  // 🔥 결제 정보 계산 - 견적금액 처리 수정
   const treatmentStartedPatients = patients.filter(p => {
     const isTreatmentStarted = p.visitConfirmed === true && p.postVisitStatus === '치료시작';
     
@@ -288,7 +288,7 @@ function calculateMonthlyStats(patients: any[]) {
   
   const paymentPatients = treatmentStartedPatients.length;
   
-  // 총 치료금액 계산
+  // 🔥 총 치료금액 계산 - null/undefined/0 처리 추가
   const totalPayment = treatmentStartedPatients.reduce((sum, p) => {
     let finalAmount = 0;
     
@@ -378,6 +378,31 @@ function calculateMonthlyStats(patients: any[]) {
     }))
     .sort((a, b) => b.count - a.count);
 
+  // 🔥 환자별 상담 내용 요약 생성 - 견적금액 처리 수정
+  const patientConsultations = patients
+    .filter(p => p.consultation && (p.consultation.treatmentPlan || p.consultation.consultationNotes))
+    .map(p => {
+      const consultation = p.consultation;
+      return {
+        _id: p._id,
+        name: p.name,
+        age: p.age,
+        // 🔥 견적금액이 없는 경우 0으로 표시하되 "데이터 없음" 처리
+        estimatedAmount: consultation.estimatedAmount || 0,
+        hasValidEstimate: !!(consultation.estimatedAmount && consultation.estimatedAmount > 0), // 🔥 유효한 견적 여부
+        estimateAgreed: consultation.estimateAgreed || false,
+        discomfort: consultation.treatmentPlan ? 
+          consultation.treatmentPlan.substring(0, 50) + (consultation.treatmentPlan.length > 50 ? '...' : '') : '',
+        fullDiscomfort: consultation.treatmentPlan || '',
+        consultationSummary: consultation.consultationNotes ? 
+          consultation.consultationNotes.substring(0, 80) + (consultation.consultationNotes.length > 80 ? '...' : '') : '',
+        fullConsultation: consultation.consultationNotes || ''
+      };
+    });
+
+  // 🔥 손실 분석 계산
+  const lossAnalysis = calculateLossAnalysis(patients);
+
   const finalStats = {
     totalInquiries,
     inboundCalls,
@@ -391,12 +416,78 @@ function calculateMonthlyStats(patients: any[]) {
     paymentRate: Math.round(paymentRate * 10) / 10,
     averageAge: Math.round(averageAge * 10) / 10,
     regionStats,
-    channelStats
+    channelStats,
+    patientConsultations, // 🔥 환자별 상담 요약 추가
+    lossAnalysis // 🔥 손실 분석 추가
   };
 
   console.log('🎯 통계 계산 결과:', finalStats);
   
   return finalStats;
+}
+
+// 🔥 손실 분석 계산 함수 - 견적금액 "데이터 없음" 처리
+function calculateLossAnalysis(patients: any[]) {
+  // 상담 관리 손실군 (예약확정 외 환자들)
+  const consultationLossPatients = patients.filter(p => p.status !== '예약확정');
+  const consultationLoss = {
+    totalCount: consultationLossPatients.length,
+    terminated: consultationLossPatients.filter(p => p.status === '종결').length,
+    missed: consultationLossPatients.filter(p => p.status === '부재중').length,
+    potential: consultationLossPatients.filter(p => p.status === '잠재고객').length,
+    callback: consultationLossPatients.filter(p => p.status === '콜백필요').length,
+    // 🔥 견적금액 합계 - 데이터 없음 제외
+    estimatedAmount: consultationLossPatients.reduce((sum, p) => {
+      const amount = p.consultation?.estimatedAmount;
+      // null, undefined, 0은 데이터 없음으로 처리하여 합계에서 제외
+      if (amount && amount > 0) {
+        return sum + amount;
+      }
+      return sum;
+    }, 0)
+  };
+
+  // 내원 관리 손실군 (내원했지만 치료시작 못한 환자들)
+  const visitLossPatients = patients.filter(p => 
+    p.visitConfirmed === true && p.postVisitStatus !== '치료시작'
+  );
+  
+  const visitLoss = {
+    totalCount: visitLossPatients.length,
+    terminated: visitLossPatients.filter(p => p.postVisitStatus === '종결').length,
+    callbackNeeded: visitLossPatients.filter(p => p.postVisitStatus === '재콜백필요').length,
+    agreedButNotStarted: visitLossPatients.filter(p => p.postVisitStatus === '치료동의').length,
+    // 🔥 견적금액 합계 - 데이터 없음 제외
+    estimatedAmount: visitLossPatients.reduce((sum, p) => {
+      let amount = 0;
+      
+      // 내원 후 상담 정보에서 견적 추출
+      if (p.postVisitConsultation?.estimateInfo) {
+        const estimate = p.postVisitConsultation.estimateInfo;
+        amount = estimate.discountPrice || estimate.regularPrice || 0;
+      } else if (p.consultation?.estimatedAmount) {
+        // 초기 상담 견적 정보 사용
+        amount = p.consultation.estimatedAmount;
+      }
+      
+      // null, undefined, 0은 데이터 없음으로 처리하여 합계에서 제외
+      if (amount && amount > 0) {
+        return sum + amount;
+      }
+      return sum;
+    }, 0)
+  };
+  
+  return {
+    consultationLoss,
+    visitLoss,
+    totalLoss: {
+      totalPatients: consultationLoss.totalCount + visitLoss.totalCount,
+      totalAmount: consultationLoss.estimatedAmount + visitLoss.estimatedAmount,
+      lossRate: patients.length > 0 ? 
+        Math.round(((consultationLoss.totalCount + visitLoss.totalCount) / patients.length) * 100) : 0
+    }
+  };
 }
 
 // 전화번호로 지역 추정 함수

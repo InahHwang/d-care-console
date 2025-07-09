@@ -241,7 +241,7 @@ export default function ConsultationFormModal({
               
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-1">
-                  견적 금액 *
+                  견적 금액
                 </label>
                 <div className="relative">
                   <input
@@ -425,13 +425,13 @@ export default function ConsultationFormModal({
           </div>
           
           {/* 상태 미리보기 (기존 UI 그대로 유지) */}
-          {formData.estimatedAmount && formData.estimatedAmount > 0 && (
+          {!formData.estimatedAmount && (formData.treatmentPlan || formData.consultationNotes) && (
             <div className="bg-gray-50 p-4 rounded-lg">
               <h4 className="text-sm font-medium text-gray-700 mb-3">상담 결과 미리보기</h4>
               <div className="grid grid-cols-2 gap-4 text-sm">
                 <div>
                   <span className="text-gray-600">견적 금액:</span>
-                  <span className="ml-2 font-medium">{formatAmount(formData.estimatedAmount)}원</span>
+                  <span className="ml-2 font-medium text-gray-500">데이터 없음</span>
                 </div>
                 <div>
                   <span className="text-gray-600">동의 여부:</span>

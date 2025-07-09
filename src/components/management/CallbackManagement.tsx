@@ -142,6 +142,66 @@ const handleEditCallback = (callback: CallbackItem) => {
   });
 };
 
+// 현재 콜백의 상담내용/계획 추출 함수 추가
+const getCurrentCallbackPlan = (currentCallback: CallbackItem): string => {
+  if (!currentCallback?.notes) return '';
+  
+  // 1. "상담내용/계획:" 패턴으로 추출
+  let match = currentCallback.notes.match(/상담내용\/계획:\s*(.+?)(?:\n|$)/);
+  if (match && match[1] && match[1].trim() !== '') {
+    const content = match[1].trim();
+    // 자동 생성 텍스트는 제외
+    if (!content.includes('부재중으로 인한') && !content.includes('추가 상담 및')) {
+      console.log(`🔄 현재 콜백(${currentCallback.type}) 상담내용/계획 추출:`, content);
+      return content;
+    }
+  }
+  
+  // 2. [차수 콜백 - 설명] 패턴 이후의 텍스트 추출
+  const lines = currentCallback.notes.split('\n');
+  for (let i = 0; i < lines.length; i++) {
+    const line = lines[i].trim();
+    
+    // 헤더 라인들 건너뛰기
+    if (line.startsWith('[') && line.includes('콜백')) continue;
+    if (line.startsWith('상담내용/계획:')) continue;
+    if (line === '') continue;
+    
+    // 자동 생성 텍스트가 아닌 의미있는 내용
+    if (!line.includes('부재중으로 인한') && !line.includes('추가 상담 및')) {
+      console.log(`🔄 현재 콜백(${currentCallback.type}) 순수 내용 추출:`, line);
+      return line;
+    }
+  }
+  
+  return '';
+};
+
+// 1. 이전 차수 콜백의 상담내용/계획 추출 함수 추가 (파일 상단에 추가)
+const getPreviousCallbackPlan = (currentCallbackType: string): string => {
+  const callbackOrder = ['1차', '2차', '3차', '4차', '5차'];
+  const currentIndex = callbackOrder.indexOf(currentCallbackType);
+  
+  if (currentIndex <= 0) return '';
+  
+  // 역순으로 이전 차수들 확인
+  for (let i = currentIndex - 1; i >= 0; i--) {
+    const prevType = callbackOrder[i];
+    const prevCallback = callbackHistory.find(cb => cb.type === prevType && cb.status === '완료');
+    
+    if (prevCallback) {
+      // 🔥 수정: getCurrentCallbackPlan 함수 사용
+      const plan = getCurrentCallbackPlan(prevCallback);
+      if (plan) {
+        console.log(`🔄 ${currentCallbackType}에서 ${prevType} 상담내용 연동:`, plan);
+        return plan;
+      }
+    }
+  }
+  
+  return '';
+};
+
 // 🔥 콜백 수정 저장 핸들러
 const handleSaveCallbackEdit = async () => {
   if (!editingCallback) return;
@@ -318,81 +378,100 @@ const handleCancelCallbackEdit = () => {
   };
 
   // 🔥 첫 상담 후 상태 처리
-  const handleFirstConsultationComplete = async (callback: CallbackItem) => {
-    if (!firstConsultationStatus) {
-      alert('1차 상담 후 환자 상태를 선택해주세요.');
-      return;
-    }
+  // 🔥 handleFirstConsultationComplete 함수 수정 - 변수 스코프 문제 해결
 
-    setIsLoading(true);
-    try {
-      let firstConsultationResult: FirstConsultationResult;
-      let finalTerminationReason = '';
+const handleFirstConsultationComplete = async (callback: CallbackItem) => {
+  if (!firstConsultationStatus) {
+    alert('1차 상담 후 환자 상태를 선택해주세요.');
+    return;
+  }
 
-      switch (firstConsultationStatus) {
-        case '예약완료':
-          if (!reservationDate || !reservationTime || !consultationContent) {
-            alert('예약 완료 시 예약날짜, 시간, 상담내용을 모두 입력해주세요.');
-            return;
-          }
-          firstConsultationResult = {
-            status: '예약완료',
-            reservationDate,
-            reservationTime,
-            consultationContent,
-            createdAt: new Date().toISOString(),
-            updatedAt: new Date().toISOString()
-          };
-          break;
+  setIsLoading(true);
+  try {
+    let firstConsultationResult: FirstConsultationResult;
+    let finalTerminationReason = '';
+    // 🔥 변수를 switch문 밖에서 미리 선언
+    let finalConsultationPlan = consultationPlan;
 
-        case '상담진행중':
-        case '부재중':
-          if (!callbackDate || !consultationPlan) {
-            alert('다음 콜백날짜와 상담계획을 입력해주세요.');
-            return;
-          }
-          firstConsultationResult = {
-            status: firstConsultationStatus,
-            callbackDate,
-            consultationPlan,
-            createdAt: new Date().toISOString(),
-            updatedAt: new Date().toISOString()
-          };
-          break;
-
-        case '종결':
-          if (!terminationReason) {
-            alert('종결 사유를 입력해주세요.');
-            return;
-          }
-          
-          if (terminationReason === '기타' && !customTerminationReason.trim()) {
-            alert('기타 사유를 입력해주세요.');
-            return;
-          }
-          
-          finalTerminationReason = terminationReason === '기타' 
-            ? customTerminationReason.trim() 
-            : terminationReason;
-          
-          firstConsultationResult = {
-            status: '종결',
-            terminationReason: finalTerminationReason,
-            createdAt: new Date().toISOString(),
-            updatedAt: new Date().toISOString()
-          };
-          break;
-
-        default:
-          alert('올바른 상태를 선택해주세요.');
+    switch (firstConsultationStatus) {
+      case '예약완료':
+        if (!reservationDate || !reservationTime || !consultationContent) {
+          alert('예약 완료 시 예약날짜, 시간, 상담내용을 모두 입력해주세요.');
           return;
-      }
+        }
+        firstConsultationResult = {
+          status: '예약완료',
+          reservationDate,
+          reservationTime,
+          consultationContent,
+          createdAt: new Date().toISOString(),
+          updatedAt: new Date().toISOString()
+        };
+        break;
+
+        // 🔥 handleFirstConsultationComplete 함수 내 수정 필요 부분
+
+      case '상담진행중':
+      case '부재중':
+        if (!callbackDate) {
+          alert('다음 콜백날짜를 입력해주세요.');
+          return;
+        }
+        
+        // 🔥 1차 콜백 상담내용/계획 처리 개선
+        if (!finalConsultationPlan || finalConsultationPlan.trim() === '') {
+          // 1차 콜백의 경우 의미있는 기본 메시지 설정
+          if (firstConsultationStatus === '부재중') {
+            finalConsultationPlan = '부재중으로 인한 재콜백 필요';
+          } else if (firstConsultationStatus === '상담진행중') {
+            finalConsultationPlan = '추가 상담 및 검토 필요';
+          } else {
+            finalConsultationPlan = '후속 상담 예정';
+          }
+          console.log(`🔄 1차 콜백 - 기본 상담계획 설정:`, finalConsultationPlan);
+        }
+        
+        firstConsultationResult = {
+          status: firstConsultationStatus,
+          callbackDate,
+          consultationPlan: finalConsultationPlan,
+          createdAt: new Date().toISOString(),
+          updatedAt: new Date().toISOString()
+        };
+        break;
+
+      case '종결':
+        if (!terminationReason) {
+          alert('종결 사유를 입력해주세요.');
+          return;
+        }
+        
+        if (terminationReason === '기타' && !customTerminationReason.trim()) {
+          alert('기타 사유를 입력해주세요.');
+          return;
+        }
+        
+        finalTerminationReason = terminationReason === '기타' 
+          ? customTerminationReason.trim() 
+          : terminationReason;
+        
+        firstConsultationResult = {
+          status: '종결',
+          terminationReason: finalTerminationReason,
+          createdAt: new Date().toISOString(),
+          updatedAt: new Date().toISOString()
+        };
+        break;
+
+      default:
+        alert('올바른 상태를 선택해주세요.');
+        return;
+    }
 
       // 콜백 완료 처리 + 첫 상담 결과 저장
       const updateData = {
         status: '완료' as CallbackStatus,
-        firstConsultationResult, // ✅ 올바른 변수 사용
-        // 🔥 수정: firstConsultationStatus 사용
+        firstConsultationResult,
         notes: callback.notes + (
           firstConsultationStatus === '예약완료' && reservationDate && reservationTime 
             ? `\n예약일정: ${reservationDate} ${reservationTime}${consultationContent ? `\n상담내용: ${consultationContent}` : ''}` 
@@ -436,7 +515,17 @@ const handleCancelCallbackEdit = () => {
           date: callbackDate,
           status: '예정' as CallbackStatus,
           time: undefined,
-          notes: `[2차 콜백 - 1차 상담 후속]\n상담내용/계획: ${consultationPlan}`,
+          // 🔥 수정: 1차 콜백의 순수 내용을 2차로 연동
+          notes: (() => {
+            const currentContent = getCurrentCallbackPlan(callback);
+            if (currentContent) {
+              return `[2차 콜백 - 1차 상담 후속]\n${currentContent}`;
+            } else if (finalConsultationPlan) {
+              return `[2차 콜백 - 1차 상담 후속]\n${finalConsultationPlan}`;
+            } else {
+              return `[2차 콜백 - 1차 상담 후속]`;
+            }
+          })(),
           isVisitManagementCallback: false,
           isReReservationRecord: false
         };
@@ -669,40 +758,66 @@ const handleCancelCallbackEdit = () => {
           })).unwrap();
           break;
 
-        case '상담진행중':  // 🔥 "상담중"에서 "상담진행중"으로 변경
-        case '부재중':
-          if (!followupCallbackDate) {
-            alert('다음 콜백 날짜를 선택해주세요.');
-            return;
-          }
-          callbackFollowupResult = {
-            status: callbackFollowupStatus,
-            callbackType: callback.type as any,
-            nextCallbackDate: followupCallbackDate,
-            reason: followupReason || callbackFollowupStatus,
-            createdAt: new Date().toISOString(),
-            updatedAt: new Date().toISOString()
-          };
+      case '상담진행중':
+      case '부재중':
+        if (!followupCallbackDate) {
+          alert('다음 콜백 날짜를 선택해주세요.');
+          return;
+        }
+        
+        // 🔥 수정: 상담내용 연동 우선순위 변경
+        let finalFollowupReason = followupReason;
+        if (!finalFollowupReason || finalFollowupReason.trim() === '') {
+          // 🔥 1단계: 현재 콜백(n차)의 순수 상담내용 추출
+          const currentCallbackPlan = getCurrentCallbackPlan(callback);
           
-          // 다음 콜백 등록
-         const nextType = getNextCallbackTypeForCompletion(callback.type);
+          if (currentCallbackPlan) {
+            finalFollowupReason = currentCallbackPlan;
+            console.log(`🔄 ${callback.type} 콜백 - 현재 차수 상담내용 연동:`, finalFollowupReason);
+          } else {
+            // 🔥 2단계: 현재 콜백에 없으면 이전 차수에서 찾기
+            const previousPlan = getPreviousCallbackPlan(callback.type);
+            if (previousPlan) {
+              finalFollowupReason = previousPlan;
+              console.log(`🔄 ${callback.type} 콜백 - 이전 차수 상담내용 연동:`, finalFollowupReason);
+            } else {
+              // 🔥 3단계: 빈 문자열로 설정 (기본 텍스트 생성 안 함)
+              finalFollowupReason = '';
+              console.log(`🔄 ${callback.type} 콜백 - 상담내용 없음`);
+            }
+          }
+        }
+        
+        callbackFollowupResult = {
+          status: callbackFollowupStatus,
+          callbackType: callback.type as any,
+          nextCallbackDate: followupCallbackDate,
+          reason: finalFollowupReason,
+          createdAt: new Date().toISOString(),
+          updatedAt: new Date().toISOString()
+        };
+        
+        // 다음 콜백 등록
+        const nextType = getNextCallbackTypeForCompletion(callback.type);
         const nextCallbackData: Omit<CallbackItem, 'id'> = {
           type: nextType,
           date: followupCallbackDate,
           status: '예정' as CallbackStatus,
           time: undefined,
-          // 🔥 수정: "사유"를 "상담내용/계획"으로 통일
-          notes: `[${nextType} 콜백 - ${callback.type} 후속]\n상담내용/계획: ${followupReason || callbackFollowupStatus}`,
+          // 🔥 수정: 순수 상담내용만 저장 (접두사 제거)
+          notes: finalFollowupReason 
+            ? `[${nextType} 콜백 - ${callback.type} 후속]\n${finalFollowupReason}`
+            : `[${nextType} 콜백 - ${callback.type} 후속]`,
           callbackFollowupResult,
           isVisitManagementCallback: false,
           isReReservationRecord: false
         };
 
-          await dispatch(addCallback({
-            patientId: patient._id || patient.id,
-            callbackData: nextCallbackData
-          })).unwrap();
-          break;
+        await dispatch(addCallback({
+          patientId: patient._id || patient.id,
+          callbackData: nextCallbackData
+        })).unwrap();
+        break;
 
         default:
           alert('올바른 상태를 선택해주세요.');

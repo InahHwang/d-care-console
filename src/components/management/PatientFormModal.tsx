@@ -383,47 +383,56 @@ export default function PatientFormModal() {
   }
   
   // 🔥 입력값 변경 처리 - prepareCreateDataForSubmit 함수 제거됨
-  const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement | HTMLTextAreaElement>) => {
-    const { name, value } = e.target
+  // 수정이 필요한 부분만 발췌
+
+// 1. handleChange 함수 수정 (라인 약 268)
+const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement | HTMLTextAreaElement>) => {
+  const { name, value } = e.target
+  
+  // 🔥 나이 필드 처리 개선 - 빈 값을 명확하게 undefined로 설정
+  if (name === 'age') {
+    let ageValue: number | undefined;
     
-    // 🔥 나이 필드 처리 개선 - 빈 값을 명확하게 undefined로 설정
-    if (name === 'age') {
-      let ageValue: number | undefined;
+    // 🔥 더 엄격한 검증 추가
+    const trimmedValue = value.trim();
+    
+    if (trimmedValue === '') {
+      // 빈 값인 경우 undefined로 설정 (DB에 저장하지 않음)
+      ageValue = undefined;
+      console.log('🔥 나이 필드: 빈 값으로 undefined 설정');
+    } else {
+      // 🔥 숫자만 포함되어 있는지 먼저 검증
+      const isNumericOnly = /^\d+$/.test(trimmedValue);
       
-      // 🔥 더 엄격한 검증 추가
-      const trimmedValue = value.trim();
-      
-      if (trimmedValue === '') {
-        // 빈 값인 경우 undefined로 설정 (DB에 저장하지 않음)
+      if (!isNumericOnly) {
+        // 숫자가 아닌 문자가 포함된 경우 undefined로 설정
         ageValue = undefined;
-        console.log('🔥 나이 필드: 빈 값으로 undefined 설정');
+        console.log('🔥 나이 필드: 유효하지 않은 입력으로 undefined 설정', { input: value });
       } else {
-        // 🔥 숫자만 포함되어 있는지 먼저 검증
-        const isNumericOnly = /^\d+$/.test(trimmedValue);
+        // 순수 숫자인 경우에만 파싱
+        const parsedAge = parseInt(trimmedValue, 10);
         
-        if (!isNumericOnly) {
-          // 숫자가 아닌 문자가 포함된 경우 undefined로 설정
-          ageValue = undefined;
-          console.log('🔥 나이 필드: 유효하지 않은 입력으로 undefined 설정', { input: value });
+        // 🔥 추가 범위 검증
+        if (parsedAge >= 1 && parsedAge <= 120) {
+          ageValue = parsedAge;
+          console.log('🔥 나이 필드: 유효한 숫자 값 설정', { input: value, parsed: ageValue });
         } else {
-          // 순수 숫자인 경우에만 파싱
-          const parsedAge = parseInt(trimmedValue, 10);
-          
-          // 🔥 추가 범위 검증
-          if (parsedAge >= 1 && parsedAge <= 120) {
-            ageValue = parsedAge;
-            console.log('🔥 나이 필드: 유효한 숫자 값 설정', { input: value, parsed: ageValue });
-          } else {
-            // 범위를 벗어난 경우 undefined로 설정
-            ageValue = undefined;
-            console.log('🔥 나이 필드: 범위 초과로 undefined 설정', { input: value, parsed: parsedAge });
-          }
+          // 범위를 벗어난 경우 undefined로 설정
+          ageValue = undefined;
+          console.log('🔥 나이 필드: 범위 초과로 undefined 설정', { input: value, parsed: parsedAge });
         }
       }
+    }
       
       setFormValues(prev => ({
         ...prev,
         age: ageValue
+      }))
+    } else {
+      // 🔥 일반 필드 처리 (callInDate 포함)
+      setFormValues(prev => ({
+        ...prev,
+        [name]: value
       }))
     }
     
@@ -757,9 +766,24 @@ export default function PatientFormModal() {
                   id="name"
                   name="name"
                   value={formValues.name}
-                  onChange={handleChange}
+                  onChange={(e) => {
+                    // 🔥 console.log 제거
+                    setFormValues(prev => ({
+                      ...prev,
+                      name: e.target.value
+                    }));
+                    // 기존 에러 클리어
+                    if (errors.name) {
+                      setErrors(prev => ({
+                        ...prev,
+                        name: ''
+                      }));
+                    }
+                  }}
+                  // 🔥 onInput 이벤트도 제거
                   className={`form-input pl-10 ${errors.name ? 'border-error' : ''}`}
                   placeholder="홍길동"
+                  autoComplete="name"
                 />
                 <span className="absolute left-3 top-1/2 transform -translate-y-1/2 text-text-muted">
                   <Icon icon={HiOutlineUser} size={18} />
@@ -953,7 +977,7 @@ export default function PatientFormModal() {
                   id="callInDate"
                   name="callInDate"
                   value={formValues.callInDate}
-                  onChange={handleChange}
+                  onChange={handleChange}  // 🔥 수정된 handleChange 사용
                   className={`form-input pl-10 ${errors.callInDate ? 'border-error' : ''}`}
                 />
                 <span className="absolute left-3 top-1/2 transform -translate-y-1/2 text-text-muted">
