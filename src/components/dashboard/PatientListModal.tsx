@@ -55,16 +55,17 @@ const PatientListModal: React.FC<PatientListModalProps> = ({
   const getPatientStatusBadge = (patient: Patient) => {
     const { status } = patient
     
-    const statusConfig = {
+    const statusConfig: Record<string, { color: string; icon: any }> = {
       '잠재고객': { color: 'bg-blue-100 text-blue-800', icon: HiOutlineUser },
       '콜백필요': { color: 'bg-yellow-100 text-yellow-800', icon: HiOutlinePhone },
       '예약확정': { color: 'bg-green-100 text-green-800', icon: HiOutlineCheckCircle },
+      '재예약확정': { color: 'bg-green-100 text-green-800', icon: HiOutlineCheckCircle },
       '부재중': { color: 'bg-gray-100 text-gray-800', icon: HiOutlinePhone },
       'VIP': { color: 'bg-purple-100 text-purple-800', icon: HiOutlineUser },
       '종결': { color: 'bg-red-100 text-red-800', icon: HiOutlineX }
     }
 
-    const config = statusConfig[status] || statusConfig['잠재고객']
+    const config = statusConfig[status] || statusConfig['예약확정'] || statusConfig['잠재고객']
     
     return (
       <span className={`inline-flex items-center px-2 py-1 rounded-full text-xs font-medium ${config.color}`}>
