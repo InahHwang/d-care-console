@@ -222,8 +222,8 @@ export default function PatientManagement() {
   // 🔥 미처리 콜백 체크 헬퍼 함수
   const hasOverdueCallbacks = useCallback((patient: any): boolean => {
     const today = new Date().toISOString().split('T')[0];
-    return (patient.callbackHistory || []).some(callback => 
-      callback.status === '예정' && 
+    return (patient.callbackHistory || []).some((callback: any) => 
+      callback.status === '예정' &&
       callback.date < today
     );
   }, []);
