@@ -29,15 +29,26 @@ import { format, addDays } from 'date-fns'
 type SimpleDateFilterType = 'all' | 'daily' | 'monthly';
 
 interface PostVisitStatusModalProps {
- isOpen: boolean;
- onClose: () => void;
- onConfirm: (statusData: PostVisitConsultationInfo & { visitCallbackData?: any }) => void;
- patient: Patient | null;
- isLoading: boolean;
+  isOpen: boolean;
+  onClose: () => void;
+  onConfirm: (statusData: PostVisitConsultationInfo & { visitCallbackData?: any }) => void;
+  patient: Patient | null;
+  isLoading: boolean;
+  // 🔥 새로 추가된 props
+  onRefreshData?: () => Promise<void>; // 데이터 새로고침 함수
+  onPatientUpdate?: (updatedPatient: Patient) => void; // 환자 정보 업데이트 함수
 }
 
 // 내원 후 상태 업데이트 모달 컴포넌트 - 수정된 버전
-const PostVisitStatusModal = ({ isOpen, onClose, onConfirm, patient, isLoading }: PostVisitStatusModalProps) => {
+const PostVisitStatusModal = ({ 
+  isOpen, 
+  onClose, 
+  onConfirm, 
+  patient, 
+  isLoading,
+  onRefreshData, // 🔥 추가된 prop
+  onPatientUpdate // 🔥 추가된 prop
+}: PostVisitStatusModalProps) => {
  const [selectedStatus, setSelectedStatus] = useState<PostVisitStatus>('');
  const [consultationContent, setConsultationContent] = useState('');
  
@@ -81,23 +92,32 @@ const PostVisitStatusModal = ({ isOpen, onClose, onConfirm, patient, isLoading }
  // 종결 사유 상태 추가
  const [completionReason, setCompletionReason] = useState('');
 
+ // 🔥 콜백 이력 새로고침을 위한 상태 추가
+ const [refreshKey, setRefreshKey] = useState(0);
+
  // 🔥 내원 콜백 이력 필터링 함수
  const getVisitCallbacks = useCallback(() => {
    return patient?.callbackHistory?.filter(cb => 
      cb.isVisitManagementCallback === true
    ) || [];
- }, [patient?.callbackHistory]);
+ }, [patient?.callbackHistory]); // refreshKey 의존성 제거
 
  // 🔥 다음 콜백 타입 자동 결정 함수
  const getNextVisitCallbackType = useCallback(() => {
-   const visitCallbacks = getVisitCallbacks();
-   const completedCallbacks = visitCallbacks.filter(cb => cb.status === '완료');
-   
-   if (!completedCallbacks.some(cb => cb.type === '내원1차')) return '내원1차';
-   if (!completedCallbacks.some(cb => cb.type === '내원2차')) return '내원2차';
-   if (!completedCallbacks.some(cb => cb.type === '내원3차')) return '내원3차';
-   return '내원3차'; // 최대 3차까지
- }, [getVisitCallbacks]);
+  const currentVisitCallbacks = getVisitCallbacks(); // 변수명 변경
+  
+  // 완료된 콜백들의 차수 확인
+  const completedCallbacks = currentVisitCallbacks.filter(cb => cb.status === '완료');
+  const completedTypes = completedCallbacks.map(cb => cb.type);
+  
+  // 1차부터 순차적으로 확인
+  if (!completedTypes.includes('내원1차')) return '내원1차';
+  if (!completedTypes.includes('내원2차')) return '내원2차';
+  if (!completedTypes.includes('내원3차')) return '내원3차';
+  
+  // 모든 차수가 완료된 경우 3차로 고정
+  return '내원3차';
+}, [getVisitCallbacks]);
 
  // 🔥 내원 콜백 수정 핸들러
  const handleEditVisitCallback = (callback: any) => {
@@ -147,8 +167,13 @@ const PostVisitStatusModal = ({ isOpen, onClose, onConfirm, patient, isLoading }
 
      alert(`${callback.type} 내원 콜백이 삭제되었습니다.`);
      
-     // 모달 닫기 (부모 컴포넌트에서 데이터 새로고침됨)
-     onClose();
+     // 🔥 모달을 닫지 않고 데이터 새로고침
+     if (onRefreshData) {
+       await onRefreshData();
+     }
+     
+     // 🔥 UI 강제 새로고침
+     setRefreshKey(prev => prev + 1);
      
    } catch (error) {
      console.error('내원 콜백 삭제 실패:', error);
@@ -198,8 +223,13 @@ const PostVisitStatusModal = ({ isOpen, onClose, onConfirm, patient, isLoading }
      setIsEditingVisitCallback(false);
      setEditingCallbackId('');
      
-     // 모달 닫기
-     onClose();
+     // 🔥 모달을 닫지 않고 데이터 새로고침
+     if (onRefreshData) {
+       await onRefreshData();
+     }
+     
+     // 🔥 UI 강제 새로고침
+     setRefreshKey(prev => prev + 1);
      
    } catch (error) {
      console.error('내원 콜백 수정 실패:', error);
@@ -219,6 +249,80 @@ const PostVisitStatusModal = ({ isOpen, onClose, onConfirm, patient, isLoading }
    setVisitCallbackReason('');
    setVisitCallbackNotes('');
  };
+
+// 🔥 콜백 완료 처리 함수 - 개선된 버전
+const handleCompleteVisitCallback = async (callback: any) => {
+  if (!confirm(`${callback.type} 내원 콜백을 완료 처리하시겠습니까?`)) {
+    return;
+  }
+
+  try {
+    if (!patient) return;
+    
+    const patientId = patient._id || patient.id;
+    
+    // 콜백 완료 처리 API 호출
+    const response = await fetch(`/api/patients/${patientId}/callbacks/${callback.id}`, {
+      method: 'PUT',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({
+        status: '완료',
+        completedAt: new Date().toISOString(),
+        completedDate: format(new Date(), 'yyyy-MM-dd'),
+        completedTime: format(new Date(), 'HH:mm')
+      }),
+    });
+
+    if (!response.ok) {
+      const errorData = await response.json();
+      throw new Error(errorData.error || '콜백 완료 처리에 실패했습니다.');
+    }
+
+    console.log('내원 콜백 완료 처리 성공:', {
+      callbackId: callback.id,
+      type: callback.type
+    });
+
+    alert(`${callback.type} 내원 콜백이 완료 처리되었습니다.`);    
+    
+    // 🔥 즉시 부모 데이터 새로고침
+    if (onRefreshData) {
+      await onRefreshData();
+    }
+    
+    // 🔥 환자 정보 다시 가져오기
+    try {
+      const patientResponse = await fetch(`/api/patients/${patientId}`);
+      if (patientResponse.ok) {
+        const updatedPatientData = await patientResponse.json();
+        if (onPatientUpdate) {
+          onPatientUpdate(updatedPatientData);
+        }
+      }
+    } catch (refreshError) {
+      console.warn('환자 데이터 새로고침 실패:', refreshError);
+    }
+
+    // 🔥 UI 강제 새로고침
+    setRefreshKey(prev => prev + 1);
+    
+    // 🔥 다음 콜백 타입 자동 설정 및 폼 초기화
+    setTimeout(() => {
+      const nextType = getNextVisitCallbackType();
+      setVisitCallbackType(nextType);
+      setVisitCallbackDate(format(new Date(), 'yyyy-MM-dd'));
+      setVisitCallbackReason('');
+      setVisitCallbackNotes('');
+      console.log('🔥 다음 콜백 타입 자동 설정:', nextType);
+    }, 100);
+    
+  } catch (error) {
+    console.error('내원 콜백 완료 처리 실패:', error);
+    alert('내원 콜백 완료 처리에 실패했습니다.');
+  }
+};
 
  // 상담 정보 표시용 함수들 추가
  const getConsultationDisplayInfo = () => {
@@ -448,8 +552,13 @@ const PostVisitStatusModal = ({ isOpen, onClose, onConfirm, patient, isLoading }
  // 상담 정보 가져오기
  const consultationInfo = getConsultationDisplayInfo();
 
- // 🔥 내원 콜백 이력 가져오기
- const visitCallbacks = getVisitCallbacks();
+ // 🔥 내원 콜백 이력 가져오기 - 단순한 계산으로 변경
+ const currentVisitCallbacks = patient?.callbackHistory?.filter(cb => 
+   cb.isVisitManagementCallback === true
+ ) || [];
+
+ {/* 🔥 완료되지 않은 내원 콜백이 있는지 확인 */}
+const hasPendingVisitCallbacks = currentVisitCallbacks.some(cb => cb.status === '예정');
 
  return (
    <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
@@ -518,30 +627,6 @@ const PostVisitStatusModal = ({ isOpen, onClose, onConfirm, patient, isLoading }
        )}
 
        <div className="space-y-6">
-         {/* 상태 선택 */}
-         <div>
-           <label className="block text-sm font-medium text-gray-700 mb-2">
-             내원 후 상태 <span className="text-red-500">*</span>
-           </label>
-           <div className="grid grid-cols-2 gap-2">
-             {statusOptions.map((option) => (
-               <button
-                 key={option.value}
-                 type="button"
-                 onClick={() => setSelectedStatus(option.value as PostVisitStatus)}
-                 className={`p-3 text-sm font-medium rounded-lg border-2 transition-colors ${
-                   selectedStatus === option.value
-                     ? 'border-blue-500 bg-blue-50'
-                     : 'border-gray-200 hover:border-gray-300'
-                 }`}
-               >
-                 <span className={`inline-block px-2 py-1 rounded-full text-xs ${option.color} mb-1`}>
-                   {option.label}
-                 </span>
-               </button>
-             ))}
-           </div>
-         </div>          
 
          {/* 치료 내용 섹션 */}
          <div>
@@ -640,6 +725,31 @@ const PostVisitStatusModal = ({ isOpen, onClose, onConfirm, patient, isLoading }
            />
          </div>
 
+         {/* 상태 선택 */}
+         <div>
+           <label className="block text-sm font-medium text-gray-700 mb-2">
+             내원 후 상태 <span className="text-red-500">*</span>
+           </label>
+           <div className="grid grid-cols-2 gap-2">
+             {statusOptions.map((option) => (
+               <button
+                 key={option.value}
+                 type="button"
+                 onClick={() => setSelectedStatus(option.value as PostVisitStatus)}
+                 className={`p-3 text-sm font-medium rounded-lg border-2 transition-colors ${
+                   selectedStatus === option.value
+                     ? 'border-blue-500 bg-blue-50'
+                     : 'border-gray-200 hover:border-gray-300'
+                 }`}
+               >
+                 <span className={`inline-block px-2 py-1 rounded-full text-xs ${option.color} mb-1`}>
+                   {option.label}
+                 </span>
+               </button>
+             ))}
+           </div>
+         </div>          
+
          {/* 🔥 재콜백 필요 시 추가 필드 - 내원 콜백 관리 통합 */}
          {selectedStatus === '재콜백필요' && (
            <div className="border border-yellow-200 rounded-lg p-4 bg-yellow-50">
@@ -648,188 +758,187 @@ const PostVisitStatusModal = ({ isOpen, onClose, onConfirm, patient, isLoading }
              {/* 🔥 기존 내원 콜백 이력 표시 - 수정/삭제 버튼 추가 */}
              <div className="mb-4">
                <h5 className="text-sm font-medium text-gray-600 mb-2">내원 콜백 이력</h5>
-               {visitCallbacks.length === 0 ? (
-                 <div className="text-center py-2 text-gray-500 bg-gray-50 rounded text-xs">
-                   등록된 내원 콜백이 없습니다.
-                 </div>
-               ) : (
-                 <div className="space-y-2 max-h-32 overflow-y-auto">
-                   {visitCallbacks.map((callback) => (
-                     <div 
-                       key={callback.id}
-                       className={`p-2 border rounded text-xs ${
-                         callback.status === '완료' 
-                           ? 'border-green-200 bg-green-50' 
-                           : 'border-blue-200 bg-blue-50'
-                       }`}
-                     >
-                       <div className="flex items-center justify-between mb-1">
-                         <div className="flex items-center gap-2">
-                           <span className={`px-2 py-1 rounded text-xs font-medium ${
-                             callback.type === '내원1차' ? 'bg-orange-100 text-orange-800' :
-                             callback.type === '내원2차' ? 'bg-yellow-100 text-yellow-800' :
-                             'bg-red-100 text-red-800'
-                           }`}>
-                             {callback.type}
-                           </span>
-                           <span className="text-gray-600">{callback.date}</span>
-                           <span className={`text-xs px-2 py-0.5 rounded ${
-                             callback.status === '완료' ? 'bg-green-100 text-green-800' :
-                             'bg-blue-100 text-blue-800'
-                           }`}>
-                             {callback.status}
-                           </span>
-                         </div>
-                         
-                         {/* 🔥 수정/삭제 버튼 추가 */}
-                         {callback.status === '예정' && (
-                           <div className="flex items-center gap-1">
-                             <button
-                               onClick={() => handleEditVisitCallback(callback)}
-                               className="p-1 text-blue-600 hover:bg-blue-100 rounded"
-                               title="수정"
-                             >
-                               <Icon icon={HiOutlinePencil} size={12} />
-                             </button>
-                             <button
-                               onClick={() => handleDeleteVisitCallback(callback)}
-                               className="p-1 text-red-600 hover:bg-red-100 rounded"
-                               title="삭제"
-                             >
-                               <Icon icon={HiOutlineTrash} size={12} />
-                             </button>
-                           </div>
-                         )}
-                       </div>
-                       <div className="text-gray-700 text-xs truncate">
-                         {callback.notes}
-                       </div>
-                     </div>
-                   ))}
-                 </div>
-               )}
+                {currentVisitCallbacks.length === 0 ? (
+                  <div className="text-center py-2 text-gray-500 bg-gray-50 rounded text-xs">
+                    등록된 내원 콜백이 없습니다.
+                  </div>
+                ) : (
+                  <div className="space-y-2 max-h-32 overflow-y-auto">
+                    {currentVisitCallbacks.map((callback) => (
+                      <div 
+                        key={callback.id}
+                        className={`p-2 border rounded text-xs ${
+                          callback.status === '완료' 
+                            ? 'border-green-200 bg-green-50' 
+                            : 'border-blue-200 bg-blue-50'
+                        }`}
+                      >
+                        <div className="flex items-center justify-between mb-1">
+                          <div className="flex items-center gap-2">
+                            <span className={`px-2 py-1 rounded text-xs font-medium ${
+                              callback.type === '내원1차' ? 'bg-orange-100 text-orange-800' :
+                              callback.type === '내원2차' ? 'bg-yellow-100 text-yellow-800' :
+                              'bg-red-100 text-red-800'
+                            }`}>
+                              {callback.type}
+                            </span>
+                            <span className="text-gray-600">{callback.date}</span>
+                            <span className={`text-xs px-2 py-0.5 rounded ${
+                              callback.status === '완료' ? 'bg-green-100 text-green-800' :
+                              'bg-blue-100 text-blue-800'
+                            }`}>
+                              {callback.status}
+                            </span>
+                          </div>
+                          
+                          {/* 🔥 완료 처리 버튼 추가 */}
+                          {callback.status === '예정' && (
+                            <div className="flex items-center gap-1">
+                              <button
+                                onClick={() => handleCompleteVisitCallback(callback)}
+                                className="px-2 py-1 text-xs text-white bg-green-600 rounded hover:bg-green-700"
+                                title="완료 처리"
+                              >
+                                완료
+                              </button>
+                              <button
+                                onClick={() => handleEditVisitCallback(callback)}
+                                className="p-1 text-blue-600 hover:bg-blue-100 rounded"
+                                title="수정"
+                              >
+                                <Icon icon={HiOutlinePencil} size={12} />
+                              </button>
+                              <button
+                                onClick={() => handleDeleteVisitCallback(callback)}
+                                className="p-1 text-red-600 hover:bg-red-100 rounded"
+                                title="삭제"
+                              >
+                                <Icon icon={HiOutlineTrash} size={12} />
+                              </button>
+                            </div>
+                          )}
+                        </div>
+                        
+                        {/* 🔥 내용 표시 방식 개선 - 줄바꿈 처리 */}
+                        <div className="text-gray-700 text-xs">
+                          {callback.visitManagementReason && (
+                            <div className="mb-1">
+                              <span className="font-medium text-gray-800">
+                                [내원 후 {callback.type.replace('내원', '')} 콜백]
+                              </span>
+                              <br />
+                              <span className="text-gray-600">사유: {callback.visitManagementReason}</span>
+                            </div>
+                          )}
+                          {callback.notes && (
+                            <div>
+                              <span className="text-gray-600">상담 계획:</span>
+                              <br />
+                              <span className="text-gray-700">{callback.notes.replace(/\[내원 후.*?\]/g, '').replace(/사유:.*?\n/g, '').replace(/상담 계획:\n/g, '').trim()}</span>
+                            </div>
+                          )}
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                )}
              </div>
 
              {/* 🔥 콜백 등록/수정 UI 조건부 렌더링 */}
-             {visitCallbacks.length === 0 || isEditingVisitCallback ? (
-               // 처음 등록하거나 수정 중인 경우
-               <div className="border-t pt-3">
-                 <div className="flex items-center justify-between mb-2">
-                   <h5 className="text-sm font-medium text-gray-600">
-                     {isEditingVisitCallback ? '내원 콜백 수정' : '새 내원 콜백 등록'}
-                   </h5>
-                   {isEditingVisitCallback && (
-                     <button
-                       onClick={handleCancelVisitCallbackEdit}
-                       className="text-xs text-gray-500 hover:text-gray-700 underline"
-                     >
-                       취소
-                     </button>
-                   )}
-                 </div>
-                 
-                 <div className="space-y-3">
-                   <div className="grid grid-cols-2 gap-3">
-                     <div>
-                       <label className="block text-xs text-gray-600 mb-1">콜백 타입</label>
-                       <select
-                         value={visitCallbackType}
-                         onChange={(e) => setVisitCallbackType(e.target.value as any)}
-                         className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
-                         disabled={isEditingVisitCallback} // 수정 중일 때는 타입 변경 불가
-                       >
-                         <option value="내원1차">내원1차</option>
-                         <option value="내원2차">내원2차</option>
-                         <option value="내원3차">내원3차</option>
-                       </select>
-                     </div>
-                     <div>
-                       <label className="block text-xs text-gray-600 mb-1">콜백 날짜</label>
-                       <input
-                         type="date"
-                         value={visitCallbackDate}
-                         onChange={(e) => setVisitCallbackDate(e.target.value)}
-                         className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
-                       />
-                     </div>
-                   </div>
-                   
-                   <div>
-                     <label className="block text-xs text-gray-600 mb-1">콜백 사유</label>
-                     <select
-                       value={visitCallbackReason}
-                       onChange={(e) => setVisitCallbackReason(e.target.value)}
-                       className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
-                     >
-                       <option value="">사유를 선택해주세요</option>
-                       <option value="추가 상담 필요">추가 상담 필요</option>
-                       <option value="치료 계획 재검토">치료 계획 재검토</option>
-                       <option value="비용 문의">비용 문의</option>
-                       <option value="예약 일정 조율">예약 일정 조율</option>
-                       <option value="치료 진행 상황 확인">치료 진행 상황 확인</option>
-                       <option value="사후 관리 상담">사후 관리 상담</option>
-                       <option value="기타">기타</option>
-                     </select>
-                   </div>
-                   
-                   <div>
-                     <label className="block text-xs text-gray-600 mb-1">상담 계획</label>
-                     <textarea
-                       value={visitCallbackNotes}
-                       onChange={(e) => setVisitCallbackNotes(e.target.value)}
-                       className="w-full px-3 py-2 border border-gray-300 rounded-lg resize-none text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
-                       rows={2}
-                       placeholder="콜백 시 진행할 상담 내용을 입력하세요..."
-                     />
-                   </div>
-                   
-                   {/* 🔥 수정 모드일 때는 별도 저장 버튼 표시 */}
-                   {isEditingVisitCallback && (
-                     <div className="flex justify-end gap-2 pt-2">
-                       <button
-                         onClick={handleCancelVisitCallbackEdit}
-                         className="px-3 py-1 text-sm text-gray-600 bg-gray-100 rounded hover:bg-gray-200"
-                       >
-                         취소
-                       </button>
-                       <button
-                         onClick={handleSaveVisitCallbackEdit}
-                         className="px-3 py-1 text-sm text-white bg-blue-600 rounded hover:bg-blue-700"
-                         disabled={!visitCallbackReason || !visitCallbackNotes.trim()}
-                       >
-                         수정 저장
-                       </button>
-                     </div>
-                   )}
-                 </div>
-               </div>
-             ) : (
-               // 🔥 이미 콜백이 있고 수정 중이 아닌 경우: "일반 재콜백 정보"만 표시
-               <div className="border-t pt-3">
-                 <h5 className="text-sm font-medium text-gray-600 mb-2">일반 재콜백 정보</h5>
-                 <div className="space-y-3">
-                   <div>
-                     <label className="block text-xs text-gray-600 mb-1">다음 콜백 예정일</label>
-                     <input
-                       type="date"
-                       value={nextCallbackDate}
-                       onChange={(e) => setNextCallbackDate(e.target.value)}
-                       className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
-                     />
-                   </div>
-                   <div>
-                     <label className="block text-xs text-gray-600 mb-1">다음 상담 계획</label>
-                     <textarea
-                       value={nextConsultationPlan}
-                       onChange={(e) => setNextConsultationPlan(e.target.value)}
-                       className="w-full px-3 py-2 border border-gray-300 rounded-lg resize-none text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
-                       rows={2}
-                       placeholder="다음 상담 시 진행할 내용을 기록하세요"
-                     />
-                   </div>
-                 </div>
-               </div>
-             )}
+            {(currentVisitCallbacks.length === 0 || isEditingVisitCallback || !hasPendingVisitCallbacks) ? (
+              // 처음 등록하거나 수정 중인 경우, 또는 완료되지 않은 콜백이 없는 경우
+              <div className="border-t pt-3">
+                <div className="flex items-center justify-between mb-2">
+                  <h5 className="text-sm font-medium text-gray-600">
+                    {isEditingVisitCallback ? '내원 콜백 수정' : '새 내원 콜백 등록'}
+                  </h5>
+                  {isEditingVisitCallback && (
+                    <button
+                      onClick={handleCancelVisitCallbackEdit}
+                      className="text-xs text-gray-500 hover:text-gray-700 underline"
+                    >
+                      취소
+                    </button>
+                  )}
+                </div>
+                
+                {/* 콜백 등록 폼 */}
+                <div className="space-y-3">
+                  <div className="grid grid-cols-2 gap-3">
+                    <div>
+                      <label className="block text-xs text-gray-600 mb-1">콜백 차수</label>
+                      <select
+                        value={visitCallbackType}
+                        onChange={(e) => setVisitCallbackType(e.target.value as any)}
+                        className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+                        disabled={isEditingVisitCallback}
+                      >
+                        <option value="내원1차">내원1차</option>
+                        <option value="내원2차">내원2차</option>
+                        <option value="내원3차">내원3차</option>
+                      </select>
+                    </div>
+                    <div>
+                      <label className="block text-xs text-gray-600 mb-1">콜백 날짜</label>
+                      <input
+                        type="date"
+                        value={visitCallbackDate}
+                        onChange={(e) => setVisitCallbackDate(e.target.value)}
+                        className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+                      />
+                    </div>
+                  </div>
+                  
+                  <div>
+                    <label className="block text-xs text-gray-600 mb-1">콜백 사유</label>
+                    <select
+                      value={visitCallbackReason}
+                      onChange={(e) => setVisitCallbackReason(e.target.value)}
+                      className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+                    >
+                      <option value="">사유를 선택해주세요</option>
+                      <option value="추가 상담 필요">추가 상담 필요</option>
+                      <option value="치료 계획 재검토">치료 계획 재검토</option>
+                      <option value="비용 문의">비용 문의</option>
+                      <option value="예약 일정 조율">예약 일정 조율</option>
+                      <option value="치료 진행 상황 확인">치료 진행 상황 확인</option>
+                      <option value="사후 관리 상담">사후 관리 상담</option>
+                      <option value="기타">기타</option>
+                    </select>
+                  </div>
+                  
+                  <div>
+                    <label className="block text-xs text-gray-600 mb-1">상담 계획</label>
+                    <textarea
+                      value={visitCallbackNotes}
+                      onChange={(e) => setVisitCallbackNotes(e.target.value)}
+                      className="w-full px-3 py-2 border border-gray-300 rounded-lg resize-none text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+                      rows={2}
+                      placeholder="콜백 시 진행할 상담 내용을 입력하세요..."
+                    />
+                  </div>
+                  
+                  {/* 🔥 수정 모드일 때는 별도 저장 버튼 표시 */}
+                  {isEditingVisitCallback && (
+                    <div className="flex justify-end gap-2 pt-2">
+                      <button
+                        onClick={handleCancelVisitCallbackEdit}
+                        className="px-3 py-1 text-sm text-gray-600 bg-gray-100 rounded hover:bg-gray-200"
+                      >
+                        취소
+                      </button>
+                      <button
+                        onClick={handleSaveVisitCallbackEdit}
+                        className="px-3 py-1 text-sm text-white bg-blue-600 rounded hover:bg-blue-700"
+                        disabled={!visitCallbackReason || !visitCallbackNotes.trim()}
+                      >
+                        수정 저장
+                      </button>
+                    </div>
+                  )}
+                </div>
+              </div>            
+            ) : null}
            </div>
          )}
 
@@ -1353,6 +1462,29 @@ export default function VisitManagement() {
  const [selectedPatientForUpdate, setSelectedPatientForUpdate] = useState<Patient | null>(null)
  const [isUpdating, setIsUpdating] = useState(false)
  const [isResetting, setIsResetting] = useState(false)
+
+ // 🔥 데이터 새로고침 함수
+const handleRefreshData = useCallback(async () => {
+  try {
+    console.log('🔄 내원 관리 데이터 새로고침 시작');
+    
+    // Redux를 통한 데이터 새로고침
+    await Promise.all([
+      dispatch(fetchPostVisitPatients()),
+      dispatch(fetchPatients())
+    ]);
+    
+    console.log('✅ 내원 관리 데이터 새로고침 완료');
+  } catch (error) {
+    console.error('❌ 데이터 새로고침 실패:', error);
+  }
+}, [dispatch]);
+
+// 🔥 선택된 환자 정보 업데이트 함수
+const handlePatientUpdate = useCallback((updatedPatient: Patient) => {
+  setSelectedPatientForUpdate(updatedPatient);
+  console.log('🔄 선택된 환자 정보 업데이트:', updatedPatient.name);
+}, []);
 
  // 🔥 consultationType을 안전하게 변환하는 헬퍼 함수
  const getConsultationTypeForBadge = (type?: string): 'inbound' | 'outbound' | 'returning' | 'walkin' => {
@@ -2003,8 +2135,8 @@ const handleStatsCardClick = useCallback((filterType: 'all' | 'needs_callback' |
               <th className="px-4 py-3 text-left text-xs font-semibold text-gray-600">상담 타입</th>
               <th className="px-4 py-3 text-left text-xs font-semibold text-gray-600">이름</th>
               <th className="px-4 py-3 text-left text-xs font-semibold text-gray-600">나이</th>
-              <th className="px-4 py-3 text-left text-xs font-semibold text-gray-600">연락처</th> {/* 🔥 내원일자가 먼저 */}
-              <th className="px-4 py-3 text-left text-xs font-semibold text-gray-600">내원일자</th> {/* 🔥 연락처가 나중 */}
+              <th className="px-4 py-3 text-left text-xs font-semibold text-gray-600">연락처</th>
+              <th className="px-4 py-3 text-left text-xs font-semibold text-gray-600">내원일자</th>
               <th className="px-4 py-3 text-left text-xs font-semibold text-gray-600">내원 후 상태</th>
               <th className="px-4 py-3 text-left text-xs font-semibold text-gray-600">환자 반응</th>
               <th className="px-4 py-3 text-left text-xs font-semibold text-gray-600">치료 내용</th>
@@ -2056,7 +2188,7 @@ const handleStatsCardClick = useCallback((filterType: 'all' | 'needs_callback' |
                      <td className="px-4 py-4 text-sm text-gray-600">
                        {patient.phoneNumber}
                      </td>
-                     <td className="px-4 py-4"> {/* 🔥 기존 지역 셀을 내원일자 셀로 교체 */}
+                     <td className="px-4 py-4">
                        <VisitDateBadge patient={patient} />
                      </td>                   
                      <td className="px-4 py-4">
@@ -2113,15 +2245,17 @@ const handleStatsCardClick = useCallback((filterType: 'all' | 'needs_callback' |
 
      {/* 내원 후 상태 업데이트 모달 */}
      <PostVisitStatusModal
-       isOpen={isStatusModalOpen}
-       onClose={() => {
-         setIsStatusModalOpen(false);
-         setSelectedPatientForUpdate(null);
-       }}
-       onConfirm={handleStatusUpdateConfirm}
-       patient={selectedPatientForUpdate}
-       isLoading={isUpdating}
-     />
+      isOpen={isStatusModalOpen}
+      onClose={() => {
+        setIsStatusModalOpen(false);
+        setSelectedPatientForUpdate(null);
+      }}
+      onConfirm={handleStatusUpdateConfirm}
+      patient={selectedPatientForUpdate}
+      isLoading={isUpdating}
+      onRefreshData={handleRefreshData} // 🔥 새로 추가
+      onPatientUpdate={handlePatientUpdate} // 🔥 새로 추가
+    />
 
      {/* 환자 상세 모달 */}
      {selectedPatient && <PatientDetailModal />}

@@ -136,8 +136,8 @@ export default function Sidebar() {
         */}
         <SidebarItem 
           icon={HiOutlineDocumentReport} 
-          text="월별보고서" 
-          isActive={getIsActive('월별보고서')} 
+          text="보고서" 
+          isActive={getIsActive('보고서')} 
           href="/reports"
         />
         {/* 임시 비활성화

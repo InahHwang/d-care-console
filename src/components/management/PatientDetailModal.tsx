@@ -1,7 +1,7 @@
 // src/components/management/PatientDetailModal.tsx - 실시간 데이터 동기화 추가
 
 'use client'
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useMemo } from 'react'
 import { useAppDispatch, useAppSelector } from '@/hooks/reduxHooks'
 import { useMutation, useQueryClient } from '@tanstack/react-query'
 import { RootState } from '@/store'
@@ -11,7 +11,8 @@ import {
   updateConsultationInfo,
   updatePatient,
   addCallback,
-  fetchPatients
+  fetchPatients,
+  selectPatient
 } from '@/store/slices/patientsSlice'
 import { HiOutlineX, HiOutlinePhone, HiOutlineCalendar, HiOutlineUser, HiOutlineLocationMarker, HiOutlineCake, HiOutlineClipboardList, HiOutlinePencil, HiOutlineCheck, HiOutlineStop, HiOutlineRefresh, HiOutlineGlobeAlt, HiOutlineUserGroup, HiOutlineCreditCard, HiOutlineCurrencyDollar, HiOutlineClipboardCheck } from 'react-icons/hi'
 import { FiPhone, FiPhoneCall } from 'react-icons/fi'
@@ -71,23 +72,74 @@ export default function PatientDetailModal() {
     
     const cleanup = setupDataSyncListener(queryClient);
     
-    return () => {
-      console.log('📡 PatientDetailModal: 데이터 동기화 리스너 정리');
-      cleanup();
+    // 🔥 추가: 환자 데이터 변경 이벤트 직접 리스너
+    const handlePatientDataChange = (event: Event) => {
+      const customEvent = event as CustomEvent;
+      const { patientId, type } = customEvent.detail;
+      
+      if (selectedPatient && (selectedPatient._id === patientId || selectedPatient.id === patientId)) {
+        console.log('🔄 환자 상세 모달 - 실시간 데이터 변경 감지:', type);
+        
+        // 🔥 특정 이벤트 타입에 대해 강제 새로고침
+        if (['patient_complete', 'callback_update', 'callback_delete'].includes(type)) {
+          setTimeout(() => {
+            refreshPatientData();
+            setForceUpdate(prev => prev + 1);
+          }, 100);
+        }
+      }
     };
-  }, [queryClient]);
+    
+    if (typeof window !== 'undefined') {
+      // 🔥 수정: EventListener 타입으로 변경
+      window.addEventListener('patientDataChanged', handlePatientDataChange);
+      
+      return () => {
+        cleanup();
+        // 🔥 수정: 동일한 타입으로 제거
+        window.removeEventListener('patientDataChanged', handlePatientDataChange);
+        console.log('📡 PatientDetailModal: 모든 리스너 해제');
+      };
+    }
+    
+    return cleanup;
+  }, [queryClient, selectedPatient]);
 
   // 🔥 환자 데이터 새로고침 함수 추가
   const refreshPatientData = async () => {
     try {
       if (selectedPatient && (selectedPatient._id || selectedPatient.id)) {
-        // 1. 환자 목록 새로고침
-        await dispatch(fetchPatients()).unwrap();
+        console.log('🔄 환자 상세 모달 - 환자 데이터 새로고침 시작');
         
-        // 2. 강제 리렌더링 트리거
+        // 1. 환자 목록 새로고침
+        const result = await dispatch(fetchPatients()).unwrap();
+        
+        // 2. 🔥 새로고침된 데이터에서 현재 선택된 환자 찾아서 업데이트
+        if (result?.patients) {
+          const updatedPatient = result.patients.find((p: Patient) => 
+            p._id === selectedPatient._id || p.id === selectedPatient.id
+          );
+          
+          if (updatedPatient) {
+            // 🔥 Redux store의 selectedPatient도 업데이트
+            dispatch(selectPatient(updatedPatient));
+            console.log('✅ 선택된 환자 정보 업데이트 완료:', {
+              name: updatedPatient.name,
+              status: updatedPatient.status,
+              isCompleted: updatedPatient.isCompleted
+            });
+          }
+        }
+        
+        // 3. 강제 리렌더링 트리거
         setForceUpdate(prev => prev + 1);
         
-        console.log('🔥 환자 상세 모달 - 환자 데이터 새로고침 완료');
+        // 🔥 4. 추가: PatientList 테이블 즉시 업데이트를 위한 전역 이벤트 트리거
+        setTimeout(() => {
+          PatientDataSync.refreshAll('PatientDetailModal_refresh');
+        }, 500);
+        
+        console.log('✅ 환자 상세 모달 - 환자 데이터 새로고침 완료');
       }
     } catch (error) {
       console.error('환자 데이터 새로고침 실패:', error);
@@ -282,10 +334,18 @@ export default function PatientDetailModal() {
     console.log('탭 변경:', newTab);
   }
   
-  // 모달 닫기
+  // 🔥 모달 닫기 함수 수정 - 닫을 때 추가 동기화 트리거
   const handleClose = () => {
-    dispatch(clearSelectedPatient())
-  }
+    // 🔥 추가: 모달 닫을 때 PatientList 강제 새로고침
+    PatientDataSync.refreshAll('PatientDetailModal_close');
+    
+    // 약간의 지연 후 한 번 더 (확실한 동기화)
+    setTimeout(() => {
+      PatientDataSync.refreshAll('PatientDetailModal_close_delayed');
+    }, 200);
+    
+    dispatch(clearSelectedPatient());
+  };
   
   // 환자 수정 모달 열기
   const handleOpenEditModal = () => {
@@ -508,8 +568,18 @@ export default function PatientDetailModal() {
     return '';
   };
 
-  // 🔥 종결 상태 여부 확인 - 실시간으로 확인하도록 수정
-  const isCompleted = selectedPatient.isCompleted === true || selectedPatient.status === '종결';
+  // 3. 🔥 종결 상태 확인 함수 수정 - 실시간 반영
+  const isCompleted = useMemo(() => {
+    const completed = selectedPatient.isCompleted === true || selectedPatient.status === '종결';
+    console.log('🔍 종결 상태 확인:', {
+      patientName: selectedPatient.name,
+      isCompleted: selectedPatient.isCompleted,
+      status: selectedPatient.status,
+      finalResult: completed,
+      forceUpdateTrigger: forceUpdate
+    });
+    return completed;
+  }, [selectedPatient.isCompleted, selectedPatient.status, forceUpdate]);
   
   // 🔥 예약완료 상태 확인 함수 추가
   const isReservationConfirmed = () => {

@@ -568,48 +568,6 @@ export default function PatientList({ isLoading = false, filteredPatients }: Pat
   
   return (
     <>
-      {/* 🔥 내원 관리 통계 및 토글 버튼 - 미처리 콜백 환자 수 추가 */}
-      <div className="card mb-4">
-        <div className="flex items-center justify-between">
-          <div className="flex items-center space-x-6">
-            <div className="text-sm text-gray-600">
-              <span className="font-medium">전체: {stats.total}명</span>
-            </div>
-            <div className="text-sm text-indigo-600">
-              <span className="font-medium">내원확정: {stats.visitConfirmed}명</span>
-            </div>
-            <div className="text-sm text-yellow-600">
-              <span className="font-medium">추가 콜백 필요: {stats.needsPostVisitFollow}명</span>
-            </div>
-            <div className="text-sm text-green-600">
-              <span className="font-medium">오늘 예약: {stats.todayReservations}명</span>
-            </div>
-            {/* 🔥 예약 후 미내원 환자 수 표시 */}
-            <div className="text-sm text-orange-600">
-              <span className="font-medium">예약 후 미내원: {stats.postReservationPatients}명</span>
-            </div>
-            {/* 🔥 미처리 콜백 환자 수 추가 */}
-            <div className="text-sm text-red-600">
-              <span className="font-medium">미처리 콜백: {stats.overdueCallbacks}명</span>
-            </div>
-          </div>
-          
-          <button
-            onClick={() => dispatch(toggleHideCompletedVisits())}
-            className={`flex items-center space-x-2 px-3 py-2 rounded-lg text-sm font-medium transition-colors ${
-              hideCompletedVisits 
-                ? 'bg-gray-600 text-white hover:bg-gray-700' 
-                : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
-            }`}
-          >
-            <Icon 
-              icon={hideCompletedVisits ? HiOutlineEyeOff : HiOutlineEye} 
-              size={16} 
-            />
-            <span>{hideCompletedVisits ? '내원확정 환자 숨김' : '내원확정 환자 표시'}</span>
-          </button>
-        </div>
-      </div>
 
       <div className="card p-0 w-full">
         <div className="overflow-x-auto">

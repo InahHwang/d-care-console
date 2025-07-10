@@ -1,4 +1,4 @@
-// src/components/management/PatientManagement.tsx - 실시간 데이터 동기화 추가
+// src/components/management/PatientManagement.tsx - 박스 형태 필터 적용
 
 'use client'
 
@@ -25,7 +25,7 @@ import {
   HiOutlineUserAdd,
   HiOutlineDocumentText,
   HiOutlineCalendar,
-  HiOutlineRefresh // 🔥 새로고침 아이콘 추가
+  HiOutlineRefresh
 } from 'react-icons/hi'
 import { FiPhone, FiPhoneCall } from 'react-icons/fi'
 import { Icon } from '../common/Icon'
@@ -34,6 +34,9 @@ import DeleteConfirmModal from './DeleteConfirmModal'
 
 // 🔥 간소화된 날짜 필터 타입
 type SimpleDateFilterType = 'all' | 'daily' | 'monthly';
+
+// 🔥 박스 필터 타입 추가
+type BoxFilterType = 'all' | 'unprocessed_callback' | 'post_reservation_unvisited' | 'visit_confirmed' | 'additional_callback_needed' | 'today_reservation';
 
 export default function PatientManagement() {
   const dispatch = useDispatch<AppDispatch>()
@@ -75,10 +78,11 @@ export default function PatientManagement() {
   const [activeTab, setActiveTab] = useState('환자 목록')
   
   const [searchTerm, setSearchTerm] = useState('')
-  const [statusFilter, setStatusFilter] = useState('all')
   const [interestFilter, setInterestFilter] = useState('all')
   const [consultationTypeFilter, setConsultationTypeFilter] = useState<'all' | 'inbound' | 'outbound'>('all')
-  const [visitStatusFilter, setVisitStatusFilter] = useState<'all' | 'visit_confirmed' | 'post_visit_needed'>('all')
+  
+  // 🔥 기존 statusFilter, visitStatusFilter 제거하고 박스 필터 추가
+  const [selectedBoxFilter, setSelectedBoxFilter] = useState<BoxFilterType>('all')
   
   // 🔥 간소화된 날짜 필터 상태
   const [dateFilterType, setDateFilterType] = useState<SimpleDateFilterType>('all')
@@ -162,11 +166,11 @@ export default function PatientManagement() {
       
       return result;
     },
-    staleTime: 30 * 1000, // 🔥 30초로 단축 (기존 2분에서)
-    gcTime: 5 * 60 * 1000, // 🔥 5분으로 단축
-    refetchOnWindowFocus: true, // 🔥 포커스시 새로고침 활성화
-    refetchOnMount: true, // 🔥 마운트시 새로고침 활성화
-    refetchInterval: isOptimisticEnabled ? 60 * 1000 : false, // 🔥 1분마다 자동 새로고침 (최적화 모드에서만)
+    staleTime: 30 * 1000,
+    gcTime: 5 * 60 * 1000,
+    refetchOnWindowFocus: true,
+    refetchOnMount: true,
+    refetchInterval: isOptimisticEnabled ? 60 * 1000 : false,
     refetchIntervalInBackground: false,
     enabled: true,
     retry: 1,
@@ -215,7 +219,16 @@ export default function PatientManagement() {
     return () => clearInterval(interval);
   }, [backgroundRefresh, isOptimisticEnabled]);
 
-  // 🔥 간소화된 날짜 필터링 로직
+  // 🔥 미처리 콜백 체크 헬퍼 함수
+  const hasOverdueCallbacks = useCallback((patient: any): boolean => {
+    const today = new Date().toISOString().split('T')[0];
+    return (patient.callbackHistory || []).some(callback => 
+      callback.status === '예정' && 
+      callback.date < today
+    );
+  }, []);
+
+  // 🔥 수정된 필터링 로직 - 박스 필터 적용
   const filteredPatients = useMemo(() => {
     if (!queryPatients || !Array.isArray(queryPatients) || queryPatients.length === 0) return [];
     
@@ -228,14 +241,12 @@ export default function PatientManagement() {
         if (!callInDate) return false;
         
         if (dateFilterType === 'daily') {
-          // 일별 선택: 사용자가 직접 선택한 기간
           if (dailyStartDate && dailyEndDate) {
             if (callInDate < dailyStartDate || callInDate > dailyEndDate) {
               return false;
             }
           }
         } else if (dateFilterType === 'monthly') {
-          // 월별 선택: 선택한 연/월의 전체 기간
           const { startDate, endDate } = getMonthlyDateRange();
           if (callInDate < startDate || callInDate > endDate) {
             return false;
@@ -252,9 +263,6 @@ export default function PatientManagement() {
         if (!matchesName && !matchesPhone && !matchesNotes) return false;
       }
       
-      // 상태 필터 (기존)
-      if (statusFilter !== 'all' && patient.status !== statusFilter) return false;
-      
       // 관심분야 필터 (기존)
       if (interestFilter !== 'all') {
         if (!patient.interestedServices?.includes(interestFilter)) return false;
@@ -263,17 +271,89 @@ export default function PatientManagement() {
       // 상담타입 필터 (기존)
       if (consultationTypeFilter !== 'all' && patient.consultationType !== consultationTypeFilter) return false;
       
-      // 내원상태 필터 (기존)
-      if (visitStatusFilter !== 'all') {
-        if (visitStatusFilter === 'visit_confirmed' && !patient.visitConfirmed) return false;
-        if (visitStatusFilter === 'post_visit_needed' && (!patient.visitConfirmed || patient.postVisitStatus !== '재콜백필요')) return false;
+      // 🔥 박스 필터 적용
+      if (selectedBoxFilter !== 'all') {
+        switch (selectedBoxFilter) {
+          case 'unprocessed_callback':
+            return hasOverdueCallbacks(patient);
+          case 'post_reservation_unvisited':
+            return patient.hasBeenPostReservationPatient === true;
+          case 'visit_confirmed':
+            return patient.visitConfirmed === true;
+          case 'additional_callback_needed':
+            return patient.visitConfirmed === true && patient.postVisitStatus === '재콜백필요';
+          case 'today_reservation':
+            return patient.isTodayReservationPatient === true;
+          default:
+            return true;
+        }
       }
       
       return true;
     });
-  }, [queryPatients, searchTerm, statusFilter, interestFilter, consultationTypeFilter, visitStatusFilter, dateFilterType, dailyStartDate, dailyEndDate, getMonthlyDateRange]);
+  }, [queryPatients, searchTerm, interestFilter, consultationTypeFilter, selectedBoxFilter, dateFilterType, dailyStartDate, dailyEndDate, getMonthlyDateRange, hasOverdueCallbacks]);
 
-  // 메모이제이션된 통계 계산 (기존 코드 유지)
+  // 🔥 날짜 필터링 적용된 환자 목록 (박스 통계용)
+  const dateFilteredPatients = useMemo(() => {
+    if (!queryPatients || !Array.isArray(queryPatients)) return [];
+    
+    return queryPatients.filter((patient: any) => {
+      if (!patient) return false;
+      
+      // 🔥 날짜 필터링만 적용
+      if (dateFilterType !== 'all') {
+        const callInDate = patient.callInDate;
+        if (!callInDate) return false;
+        
+        if (dateFilterType === 'daily') {
+          if (dailyStartDate && dailyEndDate) {
+            if (callInDate < dailyStartDate || callInDate > dailyEndDate) {
+              return false;
+            }
+          }
+        } else if (dateFilterType === 'monthly') {
+          const { startDate, endDate } = getMonthlyDateRange();
+          if (callInDate < startDate || callInDate > endDate) {
+            return false;
+          }
+        }
+      }
+      
+      return true;
+    });
+  }, [queryPatients, dateFilterType, dailyStartDate, dailyEndDate, getMonthlyDateRange]);
+
+  // 🔥 수정된 통계 계산 - 날짜 필터링 적용된 환자 기준
+  const boxStats = useMemo(() => {
+    if (!Array.isArray(dateFilteredPatients)) return {
+      total: 0,
+      unprocessedCallbacks: 0,
+      postReservationUnvisited: 0,
+      visitConfirmed: 0,
+      additionalCallbackNeeded: 0,
+      todayReservations: 0
+    };
+    
+    const total = dateFilteredPatients.length;
+    const unprocessedCallbacks = dateFilteredPatients.filter(p => hasOverdueCallbacks(p)).length;
+    const postReservationUnvisited = dateFilteredPatients.filter(p => p.hasBeenPostReservationPatient === true).length;
+    const visitConfirmed = dateFilteredPatients.filter(p => p.visitConfirmed === true).length;
+    const additionalCallbackNeeded = dateFilteredPatients.filter(p => 
+      p.visitConfirmed === true && p.postVisitStatus === '재콜백필요'
+    ).length;
+    const todayReservations = dateFilteredPatients.filter(p => p.isTodayReservationPatient === true).length;
+    
+    return {
+      total,
+      unprocessedCallbacks,
+      postReservationUnvisited,
+      visitConfirmed,
+      additionalCallbackNeeded,
+      todayReservations
+    };
+  }, [dateFilteredPatients, hasOverdueCallbacks]);
+
+  // 🔥 기존 통계 계산 (헤더 표시용)
   const filterStats = useMemo(() => {
     if (!Array.isArray(filteredPatients)) return { inboundCount: 0, outboundCount: 0, totalCount: 0, visitConfirmedCount: 0, postVisitNeededCount: 0 };
     
@@ -340,21 +420,21 @@ export default function PatientManagement() {
     }
   }, [dispatch, filteredPatients.length]);
 
-  // 필터 상태 동기화 (기존 코드 유지)
+  // 🔥 수정된 필터 상태 동기화
   useEffect(() => {
     const debounceTimer = setTimeout(() => {
       dispatch(setFilters({
         searchTerm,
-        status: statusFilter as any,
+        status: 'all', // 기존 상태 필터 제거
         interestArea: interestFilter,
         consultationType: consultationTypeFilter,
-        visitStatus: visitStatusFilter
+        visitStatus: 'all' // 기존 내원상태 필터 제거
       }))
       dispatch(setPage(1))
     }, 1000)
       
     return () => clearTimeout(debounceTimer)
-  }, [searchTerm, statusFilter, interestFilter, consultationTypeFilter, visitStatusFilter, dateFilterType, dailyStartDate, dailyEndDate, selectedYear, selectedMonth, dispatch])
+  }, [searchTerm, interestFilter, consultationTypeFilter, selectedBoxFilter, dateFilterType, dailyStartDate, dailyEndDate, selectedYear, selectedMonth, dispatch])
 
   // 탭 변경 핸들러 최적화 (기존 코드 유지)
   const handleTabChange = useCallback((tab: string) => {
@@ -380,46 +460,48 @@ export default function PatientManagement() {
     setSearchTerm(e.target.value);
   }, []);
 
-  const handleStatusFilterChange = useCallback((e: React.ChangeEvent<HTMLSelectElement>) => {
-    setStatusFilter(e.target.value);
-  }, []);
-
   const handleConsultationTypeFilterChange = useCallback((e: React.ChangeEvent<HTMLSelectElement>) => {
     setConsultationTypeFilter(e.target.value as 'all' | 'inbound' | 'outbound');
-  }, []);
-
-  const handleVisitStatusFilterChange = useCallback((e: React.ChangeEvent<HTMLSelectElement>) => {
-    setVisitStatusFilter(e.target.value as 'all' | 'visit_confirmed' | 'post_visit_needed');
   }, []);
 
   const handleInterestFilterChange = useCallback((e: React.ChangeEvent<HTMLSelectElement>) => {
     setInterestFilter(e.target.value);
   }, []);
 
+  // 🔥 박스 클릭 핸들러 추가
+  const handleBoxClick = useCallback((boxType: BoxFilterType) => {
+    setSelectedBoxFilter(boxType);
+    // 다른 필터들도 초기화할 수 있음
+    if (boxType !== 'all') {
+      setSearchTerm('');
+      setInterestFilter('all');
+      setConsultationTypeFilter('all');
+      setDateFilterType('all');
+      setDailyStartDate('');
+      setDailyEndDate('');
+    }
+  }, []);
+
   // 🔥 날짜 필터 핸들러들
   const handleDateFilterTypeChange = useCallback((filterType: SimpleDateFilterType) => {
     setDateFilterType(filterType);
     
-    // 필터 타입 변경시 날짜 초기화
     if (filterType === 'all') {
       setDailyStartDate('');
       setDailyEndDate('');
     } else if (filterType === 'daily') {
-      // 일별 선택시 오늘 날짜로 초기화
       const today = new Date().toISOString().split('T')[0];
       setDailyStartDate(today);
       setDailyEndDate(today);
     }
-    // 월별은 이미 현재 연/월로 초기화되어 있음
   }, []);
 
   // 🔥 필터 초기화 핸들러
   const handleResetFilters = useCallback(() => {
     setSearchTerm('');
-    setStatusFilter('all');
     setInterestFilter('all');
     setConsultationTypeFilter('all');
-    setVisitStatusFilter('all');
+    setSelectedBoxFilter('all');
     setDateFilterType('all');
     setDailyStartDate('');
     setDailyEndDate('');
@@ -443,6 +525,52 @@ export default function PatientManagement() {
   };
 
   const { inboundCount, outboundCount, totalCount, visitConfirmedCount, postVisitNeededCount } = filterStats;
+
+  // 🔥 박스 데이터 정의
+  const statusBoxes = [
+    { 
+      key: 'all' as BoxFilterType, 
+      label: '전체 보기', 
+      count: boxStats.total, 
+      color: 'bg-white hover:bg-gray-50',
+      textColor: 'text-gray-900'
+    },
+    { 
+      key: 'unprocessed_callback' as BoxFilterType, 
+      label: '미처리 콜백', 
+      count: boxStats.unprocessedCallbacks, 
+      color: 'bg-white hover:bg-red-50',
+      textColor: 'text-red-600'
+    },
+    { 
+      key: 'post_reservation_unvisited' as BoxFilterType, 
+      label: '예약 후 미내원', 
+      count: boxStats.postReservationUnvisited, 
+      color: 'bg-white hover:bg-orange-50',
+      textColor: 'text-orange-600'
+    },
+    { 
+      key: 'visit_confirmed' as BoxFilterType, 
+      label: '내원 확정', 
+      count: boxStats.visitConfirmed, 
+      color: 'bg-white hover:bg-green-50',
+      textColor: 'text-green-600'
+    },
+    { 
+      key: 'additional_callback_needed' as BoxFilterType, 
+      label: '추가 콜백 필요', 
+      count: boxStats.additionalCallbackNeeded, 
+      color: 'bg-white hover:bg-yellow-50',
+      textColor: 'text-yellow-600'
+    },
+    { 
+      key: 'today_reservation' as BoxFilterType, 
+      label: '오늘 예약', 
+      count: boxStats.todayReservations, 
+      color: 'bg-white hover:bg-blue-50',
+      textColor: 'text-blue-600'
+    }
+  ];
 
   return (
     <div>
@@ -469,7 +597,6 @@ export default function PatientManagement() {
         </div>
         
         <div className="flex items-center space-x-3">
-          {/* 🔥 수동 새로고침 버튼 추가 */}
           <button
             onClick={handleManualRefresh}
             className="flex items-center space-x-2 px-3 py-2 rounded-lg text-sm font-medium text-gray-600 bg-gray-100 hover:bg-gray-200 transition-colors"
@@ -536,11 +663,11 @@ export default function PatientManagement() {
         </div>
       </div>
 
-      {/* 🔥 최적화된 필터 영역 (날짜 필터 추가) */}
+      {/* 🔥 수정된 필터 영역 - 상태/내원상태 필터 제거 */}
       {activeTab === '환자 목록' && (
         <div className="card mb-6">
           <div className="flex flex-col gap-4">
-            {/* 첫 번째 줄: 검색, 상담타입, 내원상태, 환자상태, 관심분야 */}
+            {/* 첫 번째 줄: 검색, 상담타입, 관심분야 */}
             <div className="flex flex-col md:flex-row items-start md:items-center gap-4">
               <div className="relative flex-1">
                 <input
@@ -568,31 +695,6 @@ export default function PatientManagement() {
               </select>
 
               <select
-                className="px-4 py-2 bg-light-bg rounded-full text-sm focus:outline-none text-text-secondary md:w-44"
-                value={visitStatusFilter}
-                onChange={handleVisitStatusFilterChange}
-              >
-                <option value="all">내원 상태 ▼</option>
-                <option value="visit_confirmed">📋 내원확정</option>
-                <option value="post_visit_needed">🔄 추가콜백필요</option>
-              </select>
-
-              <select
-                className="px-4 py-2 bg-light-bg rounded-full text-sm focus:outline-none text-text-secondary md:w-36"
-                value={statusFilter}
-                onChange={handleStatusFilterChange}
-              >
-                <option value="all">환자 상태 ▼</option>
-                <option value="잠재고객">잠재고객</option>
-                <option value="콜백필요">콜백필요</option>
-                <option value="부재중">부재중</option>
-                <option value="활성고객">활성고객</option>
-                <option value="VIP">VIP</option>
-                <option value="예약확정">예약 확정</option>
-                <option value="종결">종결</option>
-              </select>
-
-              <select
                 className="px-4 py-2 bg-light-bg rounded-full text-sm focus:outline-none text-text-secondary md:w-36"
                 value={interestFilter}
                 onChange={handleInterestFilterChange}
@@ -606,110 +708,115 @@ export default function PatientManagement() {
                 <option value="충치치료">충치치료</option>
                 <option value="기타">기타</option>
               </select>
-            </div>
 
-          {/* 🔥 두 번째 줄: 간소화된 날짜 필터 */}
-          <div className="flex flex-col md:flex-row items-start md:items-center gap-4">
-            <div className="flex items-center gap-2">
-              <Icon icon={HiOutlineCalendar} size={18} className="text-text-muted" />
-              <span className="text-sm text-text-secondary">콜 유입날짜:</span>
-            </div>
-
-            {/* 날짜 필터 타입 선택 버튼들 */}
-            <div className="flex items-center gap-2">
               <button
-                onClick={() => handleDateFilterTypeChange('all')}
-                className={`px-4 py-2 rounded-full text-sm font-medium transition-colors ${
-                  dateFilterType === 'all'
-                    ? 'bg-blue-500 text-white'
-                    : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
-                }`}
+                className="px-6 py-2 bg-primary rounded-full text-sm font-medium text-white hover:bg-primary/90 transition-colors flex items-center gap-2"
+                onClick={() => dispatch(openPatientForm())}
               >
-                전체
-              </button>
-              <button
-                onClick={() => handleDateFilterTypeChange('daily')}
-                className={`px-4 py-2 rounded-full text-sm font-medium transition-colors ${
-                  dateFilterType === 'daily'
-                    ? 'bg-blue-500 text-white'
-                    : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
-                }`}
-              >
-                일별 선택
-              </button>
-              <button
-                onClick={() => handleDateFilterTypeChange('monthly')}
-                className={`px-4 py-2 rounded-full text-sm font-medium transition-colors ${
-                  dateFilterType === 'monthly'
-                    ? 'bg-blue-500 text-white'
-                    : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
-                }`}
-              >
-                월별 선택
+                <Icon icon={HiOutlineUserAdd} size={16} />
+                <span>+ 신규 환자</span>
               </button>
             </div>
 
-            {/* 🔥 일별 선택시 날짜 입력 필드 */}
-            {dateFilterType === 'daily' && (
-              <>
-                <input
-                  type="date"
-                  value={dailyStartDate}
-                  onChange={(e) => setDailyStartDate(e.target.value)}
-                  className="px-4 py-2 bg-light-bg rounded-full text-sm focus:outline-none text-text-secondary"
-                />
-                <span className="text-text-muted">~</span>
-                <input
-                  type="date"
-                  value={dailyEndDate}
-                  onChange={(e) => setDailyEndDate(e.target.value)}
-                  className="px-4 py-2 bg-light-bg rounded-full text-sm focus:outline-none text-text-secondary"
-                />
-              </>
-            )}
+            {/* 두 번째 줄: 간소화된 날짜 필터 */}
+            <div className="flex flex-col md:flex-row items-start md:items-center gap-4">
+              <div className="flex items-center gap-2">
+                <Icon icon={HiOutlineCalendar} size={18} className="text-text-muted" />
+                <span className="text-sm text-text-secondary">콜 유입날짜:</span>
+              </div>
 
-            {/* 🔥 월별 선택시 연/월 선택 필드 */}
-            {dateFilterType === 'monthly' && (
-              <>
-                <select
-                  value={selectedYear}
-                  onChange={(e) => setSelectedYear(parseInt(e.target.value))}
-                  className="px-4 py-2 bg-light-bg rounded-full text-sm focus:outline-none text-text-secondary"
+              {/* 날짜 필터 타입 선택 버튼들 */}
+              <div className="flex items-center gap-2">
+                <button
+                  onClick={() => handleDateFilterTypeChange('all')}
+                  className={`px-4 py-2 rounded-full text-sm font-medium transition-colors ${
+                    dateFilterType === 'all'
+                      ? 'bg-blue-500 text-white'
+                      : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
+                  }`}
                 >
-                  {availableYears.map(year => (
-                    <option key={year} value={year}>{year}년</option>
-                  ))}
-                </select>
-                <select
-                  value={selectedMonth}
-                  onChange={(e) => setSelectedMonth(parseInt(e.target.value))}
-                  className="px-4 py-2 bg-light-bg rounded-full text-sm focus:outline-none text-text-secondary"
+                  전체
+                </button>
+                <button
+                  onClick={() => handleDateFilterTypeChange('daily')}
+                  className={`px-4 py-2 rounded-full text-sm font-medium transition-colors ${
+                    dateFilterType === 'daily'
+                      ? 'bg-blue-500 text-white'
+                      : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
+                  }`}
                 >
-                  {months.map(month => (
-                    <option key={month.value} value={month.value}>{month.label}</option>
-                  ))}
-                </select>
-              </>
-            )}
+                  일별 선택
+                </button>
+                <button
+                  onClick={() => handleDateFilterTypeChange('monthly')}
+                  className={`px-4 py-2 rounded-full text-sm font-medium transition-colors ${
+                    dateFilterType === 'monthly'
+                      ? 'bg-blue-500 text-white'
+                      : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
+                  }`}
+                >
+                  월별 선택
+                </button>
+              </div>
 
-            <div className="flex-1"></div>
+              {/* 일별 선택시 날짜 입력 필드 */}
+              {dateFilterType === 'daily' && (
+                <>
+                  <input
+                    type="date"
+                    value={dailyStartDate}
+                    onChange={(e) => setDailyStartDate(e.target.value)}
+                    className="px-4 py-2 bg-light-bg rounded-full text-sm focus:outline-none text-text-secondary"
+                  />
+                  <span className="text-text-muted">~</span>
+                  <input
+                    type="date"
+                    value={dailyEndDate}
+                    onChange={(e) => setDailyEndDate(e.target.value)}
+                    className="px-4 py-2 bg-light-bg rounded-full text-sm focus:outline-none text-text-secondary"
+                  />
+                </>
+              )}
 
-            <button
-              className="px-6 py-2 bg-primary rounded-full text-sm font-medium text-white hover:bg-primary/90 transition-colors flex items-center gap-2"
-              onClick={() => dispatch(openPatientForm())}
-            >
-              <Icon icon={HiOutlineUserAdd} size={16} />
-              <span>+ 신규 환자</span>
-            </button>
-          </div>
+              {/* 월별 선택시 연/월 선택 필드 */}
+              {dateFilterType === 'monthly' && (
+                <>
+                  <select
+                    value={selectedYear}
+                    onChange={(e) => setSelectedYear(parseInt(e.target.value))}
+                    className="px-4 py-2 bg-light-bg rounded-full text-sm focus:outline-none text-text-secondary"
+                  >
+                    {availableYears.map(year => (
+                      <option key={year} value={year}>{year}년</option>
+                    ))}
+                  </select>
+                  <select
+                    value={selectedMonth}
+                    onChange={(e) => setSelectedMonth(parseInt(e.target.value))}
+                    className="px-4 py-2 bg-light-bg rounded-full text-sm focus:outline-none text-text-secondary"
+                  >
+                    {months.map(month => (
+                      <option key={month.value} value={month.value}>{month.label}</option>
+                    ))}
+                  </select>
+                </>
+              )}
+            </div>
           </div>
 
-          {/* 🔥 필터 결과 요약 표시 */}
-          {(consultationTypeFilter !== 'all' || statusFilter !== 'all' || interestFilter !== 'all' || visitStatusFilter !== 'all' || dateFilterType !== 'all' || searchTerm) && (
+          {/* 🔥 수정된 필터 결과 요약 표시 */}
+          {(consultationTypeFilter !== 'all' || interestFilter !== 'all' || dateFilterType !== 'all' || searchTerm || selectedBoxFilter !== 'all') && (
             <div className="mt-4 p-3 bg-blue-50 rounded-lg">
               <div className="flex items-center justify-between">
                 <div className="flex items-center space-x-2 text-sm text-blue-800 flex-wrap">
                   <span>🔍 필터링 결과: <strong>{totalCount}명</strong></span>
+                  
+                  {/* 🔥 박스 필터 표시 */}
+                  {selectedBoxFilter !== 'all' && (
+                    <span className="inline-flex items-center px-2 py-1 rounded-full text-xs bg-blue-200 text-blue-800">
+                      {statusBoxes.find(b => b.key === selectedBoxFilter)?.label}
+                    </span>
+                  )}
                   
                   {getDateFilterDisplayText() && (
                     <span className="inline-flex items-center px-2 py-1 rounded-full text-xs bg-blue-200 text-blue-800">
@@ -720,18 +827,6 @@ export default function PatientManagement() {
                   {consultationTypeFilter !== 'all' && (
                     <span className="inline-flex items-center px-2 py-1 rounded-full text-xs bg-blue-200 text-blue-800">
                       {consultationTypeFilter === 'inbound' ? '🟢 인바운드' : '🔵 아웃바운드'}
-                    </span>
-                  )}
-                  
-                  {visitStatusFilter !== 'all' && (
-                    <span className="inline-flex items-center px-2 py-1 rounded-full text-xs bg-blue-200 text-blue-800">
-                      {visitStatusFilter === 'visit_confirmed' ? '📋 내원확정' : '🔄 추가콜백필요'}
-                    </span>
-                  )}
-                  
-                  {statusFilter !== 'all' && (
-                    <span className="inline-flex items-center px-2 py-1 rounded-full text-xs bg-blue-200 text-blue-800">
-                      {statusFilter}
                     </span>
                   )}
                   
@@ -756,6 +851,28 @@ export default function PatientManagement() {
               </div>
             </div>
           )}
+        </div>
+      )}
+
+      {/* 🔥 박스 형태 상태 카드 (검색창 섹션 아래로 이동) */}
+      {activeTab === '환자 목록' && (
+        <div className="grid grid-cols-2 md:grid-cols-6 gap-4 mb-6">
+          {statusBoxes.map((box) => (
+            <div 
+              key={box.key}
+              className={`p-4 rounded-lg border cursor-pointer transition-all duration-200 ${
+                selectedBoxFilter === box.key 
+                  ? 'ring-2 ring-blue-500 shadow-lg' 
+                  : 'hover:shadow-lg'
+              } ${box.color}`}
+              onClick={() => handleBoxClick(box.key)}
+            >
+              <div className={`text-2xl font-bold ${box.textColor}`}>
+                {box.count}
+              </div>
+              <div className="text-sm text-gray-600">{box.label}</div>
+            </div>
+          ))}
         </div>
       )}
 

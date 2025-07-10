@@ -328,6 +328,12 @@ const handleCancelCallbackEdit = () => {
       return;
     }
 
+    // 🔥 추가: 이미 종결된 환자인지 확인
+    if (patient.isCompleted) {
+      alert('이미 종결 처리된 환자입니다.');
+      return;
+    }
+
     setIsLoading(true);
     try {
       const finalTerminationReason = terminationReason === '기타' 
@@ -345,7 +351,6 @@ const handleCancelCallbackEdit = () => {
           updatedAt: new Date().toISOString()
         },
         notes: callback.notes + `\n\n종결사유: ${finalTerminationReason}`,
-        // 🔥 완료 처리 시 현재 날짜와 시간으로 업데이트 (추가 필요)
         date: format(new Date(), 'yyyy-MM-dd'),
         time: format(new Date(), 'HH:mm'),
         completedAt: new Date().toISOString()
@@ -358,16 +363,33 @@ const handleCancelCallbackEdit = () => {
       })).unwrap();
 
       // 환자 종결 처리
+      try {
       await dispatch(completePatient({
         patientId: patient._id || patient.id,
         reason: `[${callback.type} 콜백 후 종결] ${finalTerminationReason}`
       })).unwrap();
+      
+      console.log('✅ 환자 종결 처리 완료');
+    } catch (error) {
+      console.error('❌ 환자 종결 처리 실패:', error);
+      // 종결 처리 실패해도 콜백 완료는 성공했으므로 전체 실패로 처리하지 않음
+    }
 
-      // 🔥 즉시 데이터 동기화 트리거
+    // 🔥 강화된 데이터 동기화 트리거
+    PatientDataSync.onCallbackUpdate(
+      patient._id || patient.id, 
+      callback.id, 
+      'CallbackManagement'
+    );
+
+    // 🔥 추가: 종결 처리 추가 동기화 트리거
+    setTimeout(() => {
       PatientDataSync.onComplete(patient._id || patient.id, finalTerminationReason, 'CallbackManagement');
+    }, 300);
 
-      resetCallbackFollowupForm();
-      alert(`${callback.type} 콜백 후 종결 처리가 완료되었습니다.`);
+    resetCallbackFollowupForm();
+    // 🔥 수정: 성공 메시지 개선
+    alert(`${callback.type} 콜백 후 종결 처리가 완료되었습니다.`);
 
     } catch (error) {
       console.error('콜백 종결 처리 실패:', error);
@@ -386,11 +408,16 @@ const handleFirstConsultationComplete = async (callback: CallbackItem) => {
     return;
   }
 
+  // 🔥 추가: 이미 종결된 환자인지 확인
+  if (patient.isCompleted) {
+    alert('이미 종결 처리된 환자입니다.');
+    return;
+  }
+
   setIsLoading(true);
   try {
     let firstConsultationResult: FirstConsultationResult;
     let finalTerminationReason = '';
-    // 🔥 변수를 switch문 밖에서 미리 선언
     let finalConsultationPlan = consultationPlan;
 
     switch (firstConsultationStatus) {
@@ -418,9 +445,7 @@ const handleFirstConsultationComplete = async (callback: CallbackItem) => {
           return;
         }
         
-        // 🔥 1차 콜백 상담내용/계획 처리 개선
         if (!finalConsultationPlan || finalConsultationPlan.trim() === '') {
-          // 1차 콜백의 경우 의미있는 기본 메시지 설정
           if (firstConsultationStatus === '부재중') {
             finalConsultationPlan = '부재중으로 인한 재콜백 필요';
           } else if (firstConsultationStatus === '상담진행중') {
@@ -428,7 +453,6 @@ const handleFirstConsultationComplete = async (callback: CallbackItem) => {
           } else {
             finalConsultationPlan = '후속 상담 예정';
           }
-          console.log(`🔄 1차 콜백 - 기본 상담계획 설정:`, finalConsultationPlan);
         }
         
         firstConsultationResult = {
@@ -502,10 +526,17 @@ const handleFirstConsultationComplete = async (callback: CallbackItem) => {
 
       // 종결인 경우 종결 처리
       if (firstConsultationStatus === '종결') {
-        await dispatch(completePatient({
-          patientId: patient._id || patient.id,
-          reason: finalTerminationReason
-        })).unwrap();
+        try {
+          await dispatch(completePatient({
+            patientId: patient._id || patient.id,
+            reason: finalTerminationReason
+          })).unwrap();
+          
+          console.log('✅ 환자 종결 처리 완료');
+        } catch (error) {
+          console.error('❌ 환자 종결 처리 실패:', error);
+          // 종결 처리 실패해도 콜백 완료는 성공했으므로 전체 실패로 처리하지 않음
+        }
       }
 
       // 상담진행중/부재중인 경우 다음 콜백 등록
@@ -515,7 +546,6 @@ const handleFirstConsultationComplete = async (callback: CallbackItem) => {
           date: callbackDate,
           status: '예정' as CallbackStatus,
           time: undefined,
-          // 🔥 수정: 1차 콜백의 순수 내용을 2차로 연동
           notes: (() => {
             const currentContent = getCurrentCallbackPlan(callback);
             if (currentContent) {
@@ -539,11 +569,19 @@ const handleFirstConsultationComplete = async (callback: CallbackItem) => {
       PatientDataSync.onCallbackUpdate(
         patient._id || patient.id, 
         callback.id, 
-        'CallbackManagement', 
+        'CallbackManagement'
       );
 
+      // 🔥 추가: 종결인 경우 추가 동기화 트리거
+      if (firstConsultationStatus === '종결') {
+        setTimeout(() => {
+          PatientDataSync.onComplete(patient._id || patient.id, finalTerminationReason, 'CallbackManagement');
+        }, 300);
+      }
+
       resetFirstConsultationForm();
-      alert('1차 상담이 완료 처리되었습니다.');
+      // 🔥 수정: 성공 메시지 개선
+      alert(`1차 상담이 완료 처리되었습니다.${firstConsultationStatus === '종결' ? ' (종결 처리 완료)' : ''}`);
 
     } catch (error) {
       console.error('1차 상담 완료 처리 실패:', error);

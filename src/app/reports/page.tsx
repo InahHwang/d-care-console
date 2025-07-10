@@ -1,5 +1,3 @@
-//src/app/reports/page.tsx
-
 'use client';
 
 import { useEffect, useState } from 'react';
@@ -11,7 +9,7 @@ import {
   fetchReports, 
   fetchReport,
   generateMonthlyReport, 
-  deleteReport,  // 🔥 추가
+  deleteReport,
   clearCurrentReport,
   selectReports,
   selectCurrentReport,
@@ -19,8 +17,10 @@ import {
   selectReportsError
 } from '@/store/slices/reportsSlice';
 import { setCurrentMenuItem } from '@/store/slices/uiSlice';
-import { Calendar, Plus, FileText, Clock, CheckCircle, AlertCircle } from 'lucide-react';
+import { Calendar, Plus, FileText, Clock, CheckCircle, AlertCircle, BarChart3, TrendingUp, Users, DollarSign, Phone } from 'lucide-react';
 import MonthlyReport from '@/components/reports/MonthlyReport';
+import DailyReport from '@/components/reports/DailyReport';
+
 
 export default function ReportsPage() {
   const router = useRouter();
@@ -31,12 +31,13 @@ export default function ReportsPage() {
   const isLoading = useAppSelector(selectReportsLoading);
   const error = useAppSelector(selectReportsError);
   
+  const [activeTab, setActiveTab] = useState<'daily' | 'monthly'>('daily');
   const [showCreateModal, setShowCreateModal] = useState(false);
   const [selectedMonth, setSelectedMonth] = useState(new Date().getMonth() + 1);
   const [selectedYear, setSelectedYear] = useState(new Date().getFullYear());
   
   useEffect(() => {
-    dispatch(setCurrentMenuItem('월별보고서'));
+    dispatch(setCurrentMenuItem('보고서'));
     dispatch(fetchReports());
   }, [dispatch]);
 
@@ -48,11 +49,7 @@ export default function ReportsPage() {
       })).unwrap();
       
       setShowCreateModal(false);
-      
-      // 🔥 보고서 목록 새로고침 추가
       await dispatch(fetchReports());
-      
-      // 생성된 보고서로 이동하지 않고, 현재 페이지에서 보여주기
     } catch (error: any) {
       alert(error || '보고서 생성에 실패했습니다.');
     }
@@ -73,10 +70,7 @@ export default function ReportsPage() {
 
     try {
       await dispatch(deleteReport(reportId)).unwrap();
-      
-      // 🔥 삭제 후 보고서 목록 새로고침 추가 (안전장치)
       await dispatch(fetchReports());
-      
       alert('보고서가 삭제되었습니다.');
     } catch (error) {
       alert('보고서 삭제에 실패했습니다: ' + error);
@@ -120,7 +114,6 @@ export default function ReportsPage() {
             <button
               onClick={async () => {
                 dispatch(clearCurrentReport());
-                // 🔥 보고서 목록 새로고침 추가
                 await dispatch(fetchReports());
               }}
               className="text-blue-600 hover:text-blue-800 text-sm"
@@ -140,82 +133,126 @@ export default function ReportsPage() {
         <div className="space-y-6">
           {/* 헤더 */}
           <div className="flex items-center justify-between">
-            <h1 className="text-2xl font-bold text-gray-900">월별보고서</h1>
-            <button
-              onClick={() => setShowCreateModal(true)}
-              className="flex items-center gap-2 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700"
-            >
-              <Plus className="w-4 h-4" />
-              새 보고서 생성
-            </button>
+            <h1 className="text-2xl font-bold text-gray-900">보고서</h1>
           </div>
 
-          {/* 에러 메시지 */}
-          {error && (
-            <div className="bg-red-50 border border-red-200 rounded-lg p-4">
-              <p className="text-red-800">{error}</p>
-            </div>
-          )}
-
-          {/* 보고서 목록 */}
+          {/* 탭 네비게이션 */}
           <div className="bg-white rounded-lg shadow-sm border">
-            <div className="p-6 border-b">
-              <h2 className="text-lg font-semibold text-gray-900">보고서 목록</h2>
-            </div>
-            
-            {isLoading ? (
-              <div className="p-8 text-center">
-                <div className="w-8 h-8 border-4 border-blue-200 border-t-blue-600 rounded-full animate-spin mx-auto mb-4"></div>
-                <p className="text-gray-600">보고서를 불러오는 중...</p>
-              </div>
-            ) : reports.length === 0 ? (
-              <div className="p-8 text-center text-gray-500">
-                <FileText className="w-12 h-12 mx-auto mb-4 text-gray-300" />
-                <p>생성된 보고서가 없습니다.</p>
-                <p className="text-sm mt-1">새 보고서를 생성해보세요.</p>
-              </div>
-            ) : (
-              <div className="divide-y">
-                {reports.map((report) => (
-                  <div key={report._id} className="p-6 hover:bg-gray-50">
-                    <div className="flex items-center justify-between">
-                      <div className="flex items-center gap-4">
-                        <div className="w-12 h-12 bg-blue-100 rounded-lg flex items-center justify-center">
-                          <Calendar className="w-6 h-6 text-blue-600" />
-                        </div>
-                        <div>
-                          <h3 className="font-medium text-gray-900">
-                            {report.year}년 {report.month}월 보고서
-                          </h3>
-                          <p className="text-sm text-gray-600">
-                            작성자: {report.createdByName} | 
-                            생성일: {new Date(report.createdAt).toLocaleDateString()}
-                          </p>
-                        </div>
-                      </div>
-                      
-                      <div className="flex items-center gap-3">
-                        {getStatusBadge(report.status)}
-                        <div className="flex items-center gap-2">
-                          <button
-                            onClick={() => handleViewReport(report._id)}
-                            className="px-3 py-1 text-sm text-blue-600 hover:bg-blue-50 rounded"
-                          >
-                            보기
-                          </button>
-                          <button
-                            onClick={() => handleDeleteReport(report._id, `${report.year}년 ${report.month}월 보고서`)}
-                            className="px-3 py-1 text-sm text-red-600 hover:bg-red-50 rounded"
-                          >
-                            삭제
-                          </button>
-                        </div>
-                      </div>
-                    </div>
+            <div className="border-b">
+              <nav className="flex space-x-8 px-6">
+                <button
+                  onClick={() => setActiveTab('daily')}
+                  className={`py-4 px-1 border-b-2 font-medium text-sm transition-colors ${
+                    activeTab === 'daily'
+                      ? 'border-blue-500 text-blue-600'
+                      : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
+                  }`}
+                >
+                  <div className="flex items-center gap-2">
+                    <BarChart3 className="w-4 h-4" />
+                    일별마감보고
                   </div>
-                ))}
-              </div>
-            )}
+                </button>
+                <button
+                  onClick={() => setActiveTab('monthly')}
+                  className={`py-4 px-1 border-b-2 font-medium text-sm transition-colors ${
+                    activeTab === 'monthly'
+                      ? 'border-blue-500 text-blue-600'
+                      : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
+                  }`}
+                >
+                  <div className="flex items-center gap-2">
+                    <Calendar className="w-4 h-4" />
+                    월별보고서
+                  </div>
+                </button>
+              </nav>
+            </div>
+
+            {/* 탭 컨텐츠 */}
+            <div className="p-6">
+              {activeTab === 'daily' ? (
+                <DailyReport />
+              ) : (
+                <>
+                  {/* 에러 메시지 */}
+                  {error && (
+                    <div className="bg-red-50 border border-red-200 rounded-lg p-4 mb-6">
+                      <p className="text-red-800">{error}</p>
+                    </div>
+                  )}
+
+                  {/* 월별보고서 헤더 */}
+                  <div className="flex items-center justify-between mb-6">
+                    <h2 className="text-lg font-semibold text-gray-900">월별보고서 목록</h2>
+                    <button
+                      onClick={() => setShowCreateModal(true)}
+                      className="flex items-center gap-2 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700"
+                    >
+                      <Plus className="w-4 h-4" />
+                      새 보고서 생성
+                    </button>
+                  </div>
+
+                  {/* 보고서 목록 */}
+                  <div className="bg-gray-50 rounded-lg border">
+                    {isLoading ? (
+                      <div className="p-8 text-center">
+                        <div className="w-8 h-8 border-4 border-blue-200 border-t-blue-600 rounded-full animate-spin mx-auto mb-4"></div>
+                        <p className="text-gray-600">보고서를 불러오는 중...</p>
+                      </div>
+                    ) : reports.length === 0 ? (
+                      <div className="p-8 text-center text-gray-500">
+                        <FileText className="w-12 h-12 mx-auto mb-4 text-gray-300" />
+                        <p>생성된 보고서가 없습니다.</p>
+                        <p className="text-sm mt-1">새 보고서를 생성해보세요.</p>
+                      </div>
+                    ) : (
+                      <div className="divide-y divide-gray-200">
+                        {reports.map((report) => (
+                          <div key={report._id} className="p-6 hover:bg-white transition-colors">
+                            <div className="flex items-center justify-between">
+                              <div className="flex items-center gap-4">
+                                <div className="w-12 h-12 bg-blue-100 rounded-lg flex items-center justify-center">
+                                  <Calendar className="w-6 h-6 text-blue-600" />
+                                </div>
+                                <div>
+                                  <h3 className="font-medium text-gray-900">
+                                    {report.year}년 {report.month}월 보고서
+                                  </h3>
+                                  <p className="text-sm text-gray-600">
+                                    작성자: {report.createdByName} | 
+                                    생성일: {new Date(report.createdAt).toLocaleDateString()}
+                                  </p>
+                                </div>
+                              </div>
+                              
+                              <div className="flex items-center gap-3">
+                                {getStatusBadge(report.status)}
+                                <div className="flex items-center gap-2">
+                                  <button
+                                    onClick={() => handleViewReport(report._id)}
+                                    className="px-3 py-1 text-sm text-blue-600 hover:bg-blue-50 rounded"
+                                  >
+                                    보기
+                                  </button>
+                                  <button
+                                    onClick={() => handleDeleteReport(report._id, `${report.year}년 ${report.month}월 보고서`)}
+                                    className="px-3 py-1 text-sm text-red-600 hover:bg-red-50 rounded"
+                                  >
+                                    삭제
+                                  </button>
+                                </div>
+                              </div>
+                            </div>
+                          </div>
+                        ))}
+                      </div>
+                    )}
+                  </div>
+                </>
+              )}
+            </div>
           </div>
         </div>
 
@@ -223,7 +260,7 @@ export default function ReportsPage() {
         {showCreateModal && (
           <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
             <div className="bg-white rounded-lg p-6 w-full max-w-md">
-              <h3 className="text-lg font-semibold text-gray-900 mb-4">새 보고서 생성</h3>
+              <h3 className="text-lg font-semibold text-gray-900 mb-4">새 월별보고서 생성</h3>
               
               <div className="space-y-4">
                 <div>
