@@ -18,6 +18,7 @@ function convertToPatient(doc: any): Patient {
     // 필수 필드들
     _id: doc._id?.toString() || '',
     id: doc.id || doc._id?.toString() || '',
+    isTodayReservationPatient: doc.isTodayReservationPatient || false,
     patientId: doc.patientId || '',
     name: doc.name || '',
     phoneNumber: doc.phoneNumber || '',
