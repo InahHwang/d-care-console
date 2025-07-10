@@ -215,55 +215,14 @@ const DailyReport: React.FC = () => {
   // 선택된 날짜의 상담관리 환자 데이터 필터링
   const filterConsultationsByDate = () => {
     if (!patients || patients.length === 0) {
-      console.log('❌ 환자 데이터가 없습니다. patients:', patients);
       setDailyConsultations([]);
       return;
     }
 
-    console.log('=== 상담관리 환자 필터링 디버깅 ===');
-    console.log('선택된 날짜:', selectedDate);
-    console.log('전체 환자 수:', patients.length);
-    
-    // 6월 환자들만 먼저 확인
-    const junePatients = patients.filter(patient => {
-      const callInDate = patient.callInDate || '';
-      return callInDate.startsWith('2025-06'); // 6월 환자들
-    });
-    console.log('6월 환자 수:', junePatients.length);
-    
-    // 6월 환자들의 callInDate 확인
-    if (junePatients.length > 0) {
-      console.log('6월 환자 이름과 callInDate:');
-      junePatients.forEach((patient, index) => {
-        console.log(`${index + 1}. ${patient.name}: ${patient.callInDate}`);
-      });
-    }
-    
-    // 날짜별 분포 확인
-    const dateDistribution: Record<string, number> = {};
-    junePatients.forEach(patient => {
-      const date = patient.callInDate || 'unknown';
-      dateDistribution[date] = (dateDistribution[date] || 0) + 1;
-    });
-    console.log('6월 날짜별 분포:', dateDistribution);
-    
-    // visitConfirmed 상태 분석
-    const visitConfirmedCount = junePatients.filter(p => p.visitConfirmed).length;
-    const notVisitConfirmedCount = junePatients.filter(p => !p.visitConfirmed).length;
-    console.log('6월 환자 중 visitConfirmed: true =', visitConfirmedCount);
-    console.log('6월 환자 중 visitConfirmed: false =', notVisitConfirmedCount);
-
     const filtered = patients
       .filter(patient => {
-        const matchesDate = patient.callInDate === selectedDate;
-        const notVisitConfirmed = !patient.visitConfirmed;
-        
-        // 필터링 조건 로그
-        if (patient.callInDate === selectedDate) {
-          console.log(`환자 ${patient.name}: 날짜 일치, visitConfirmed=${patient.visitConfirmed}, 포함 여부=${matchesDate && notVisitConfirmed}`);
-        }
-        
-        return matchesDate && notVisitConfirmed;
+        // callInDate가 선택된 날짜와 일치하는 모든 환자 포함
+        return patient.callInDate === selectedDate;
       })
       .map(patient => ({
         _id: patient._id,
@@ -276,7 +235,6 @@ const DailyReport: React.FC = () => {
         callInDate: patient.callInDate || ''
       }));
 
-    console.log('필터링 후 환자 수:', filtered.length);
     setDailyConsultations(filtered);
   };
 
