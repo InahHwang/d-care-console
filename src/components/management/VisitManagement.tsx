@@ -4,7 +4,7 @@
 
 import { useSelector, useDispatch } from 'react-redux'
 import { RootState, AppDispatch } from '@/store'
-import { Patient, PostVisitStatus, EstimateInfo, PaymentInfo, PostVisitConsultationInfo, PatientReaction, TreatmentConsentInfo, CallbackItem } from '@/types/patient'
+import { Patient, PostVisitStatus, EstimateInfo, PaymentInfo, PostVisitConsultationInfo, PatientReaction, TreatmentConsentInfo, CallbackItem, VisitManagementCallbackType } from '@/types/patient'
 import { selectPatient, updatePostVisitStatus, fetchPostVisitPatients, fetchPatients, resetPostVisitData } from '@/store/slices/patientsSlice'
 import { useState, useEffect, useMemo, useCallback } from 'react'
 import { 
@@ -69,7 +69,7 @@ const PostVisitStatusModal = ({
  const [nextConsultationPlan, setNextConsultationPlan] = useState('');
  
  // 🔥 내원 콜백 관련 상태 추가
- const [visitCallbackType, setVisitCallbackType] = useState<'내원1차' | '내원2차' | '내원3차'>('내원1차');
+ const [visitCallbackType, setVisitCallbackType] = useState<VisitManagementCallbackType>('내원1차');
  const [visitCallbackDate, setVisitCallbackDate] = useState(format(new Date(), 'yyyy-MM-dd'));
  const [visitCallbackReason, setVisitCallbackReason] = useState('');
  const [visitCallbackNotes, setVisitCallbackNotes] = useState('');
@@ -104,20 +104,26 @@ const PostVisitStatusModal = ({
 
  // 🔥 다음 콜백 타입 자동 결정 함수
  const getNextVisitCallbackType = useCallback(() => {
-  const currentVisitCallbacks = getVisitCallbacks(); // 변수명 변경
+  const currentVisitCallbacks = getVisitCallbacks();
   
-  // 완료된 콜백들의 차수 확인
-  const completedCallbacks = currentVisitCallbacks.filter(cb => cb.status === '완료');
+  // 완료된 콜백들의 차수 확인 - 부재중도 완료된 것으로 간주
+  const completedCallbacks = currentVisitCallbacks.filter(cb => 
+    cb.status === '완료' || cb.status === '부재중'
+  );
   const completedTypes = completedCallbacks.map(cb => cb.type);
   
   // 1차부터 순차적으로 확인
   if (!completedTypes.includes('내원1차')) return '내원1차';
   if (!completedTypes.includes('내원2차')) return '내원2차';
   if (!completedTypes.includes('내원3차')) return '내원3차';
+  if (!completedTypes.includes('내원4차')) return '내원4차';  // 🔥 추가
+  if (!completedTypes.includes('내원5차')) return '내원5차';  // 🔥 추가
+  if (!completedTypes.includes('내원6차')) return '내원6차';  // 🔥 추가
   
-  // 모든 차수가 완료된 경우 3차로 고정
-  return '내원3차';
+  // 모든 차수가 완료된 경우 6차로 고정
+  return '내원6차';  // 🔥 3차 → 6차로 변경
 }, [getVisitCallbacks]);
+
 
  // 🔥 내원 콜백 수정 핸들러
  const handleEditVisitCallback = (callback: any) => {
@@ -249,6 +255,81 @@ const PostVisitStatusModal = ({
    setVisitCallbackReason('');
    setVisitCallbackNotes('');
  };
+
+// 🔥 내원 콜백 부재중 처리 함수 수정
+const handleMissedVisitCallback = async (callback: any) => {
+  if (!confirm(`${callback.type} 내원 콜백을 부재중 처리하시겠습니까?`)) {
+    return;
+  }
+
+  try {
+    if (!patient) return;
+    
+    const patientId = patient._id || patient.id;
+    
+    // 콜백 부재중 처리 API 호출 - 상태를 '부재중'으로 설정
+    const response = await fetch(`/api/patients/${patientId}/callbacks/${callback.id}`, {
+      method: 'PUT',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({
+        status: '부재중', // 🔥 완료가 아닌 부재중 상태로 설정
+        completedAt: new Date().toISOString(),
+        completedDate: format(new Date(), 'yyyy-MM-dd'),
+        completedTime: format(new Date(), 'HH:mm'),
+        notes: `${callback.notes || ''}\n\n[부재중 처리 - ${format(new Date(), 'yyyy-MM-dd HH:mm')}]`
+      }),
+    });
+
+    if (!response.ok) {
+      const errorData = await response.json();
+      throw new Error(errorData.error || '콜백 부재중 처리에 실패했습니다.');
+    }
+
+    console.log('내원 콜백 부재중 처리 성공:', {
+      callbackId: callback.id,
+      type: callback.type
+    });
+
+    alert(`${callback.type} 내원 콜백이 부재중 처리되었습니다.`);    
+    
+    // 🔥 즉시 부모 데이터 새로고침
+    if (onRefreshData) {
+      await onRefreshData();
+    }
+    
+    // 🔥 환자 정보 다시 가져오기
+    try {
+      const patientResponse = await fetch(`/api/patients/${patientId}`);
+      if (patientResponse.ok) {
+        const updatedPatientData = await patientResponse.json();
+        if (onPatientUpdate) {
+          onPatientUpdate(updatedPatientData);
+        }
+      }
+    } catch (refreshError) {
+      console.warn('환자 데이터 새로고침 실패:', refreshError);
+    }
+
+    // 🔥 UI 강제 새로고침
+    setRefreshKey(prev => prev + 1);
+    
+    // 🔥 다음 콜백 타입 자동 설정 및 폼 초기화 (완료 처리와 동일)
+    setTimeout(() => {
+      const nextType = getNextVisitCallbackType();
+      setVisitCallbackType(nextType);
+      setVisitCallbackDate(format(new Date(), 'yyyy-MM-dd'));
+      setVisitCallbackReason('');
+      setVisitCallbackNotes('');
+      console.log('🔥 다음 콜백 타입 자동 설정:', nextType);
+    }, 100);
+    
+  } catch (error) {
+    console.error('내원 콜백 부재중 처리 실패:', error);
+    alert('내원 콜백 부재중 처리에 실패했습니다.');
+  }
+};
 
 // 🔥 콜백 완료 처리 함수 - 개선된 버전
 const handleCompleteVisitCallback = async (callback: any) => {
@@ -496,15 +577,35 @@ const handleCompleteVisitCallback = async (callback: any) => {
      firstVisitConsultationContent // 🔥 첫 상담 내용 추가
    };
 
-   // 🔥 재콜백필요인 경우 내원 콜백 데이터 추가
-   if (selectedStatus === '재콜백필요' && visitCallbackReason && visitCallbackNotes.trim()) {
-     statusData.visitCallbackData = {
-       type: visitCallbackType,
-       date: visitCallbackDate,
-       reason: visitCallbackReason,
-       notes: `[내원 후 ${visitCallbackType} 콜백]\n사유: ${visitCallbackReason}\n\n상담 계획:\n${visitCallbackNotes}`
-     };
-   }
+   // 🔥 모든 상태에서 최종 상태 기록을 내원 콜백 이력에 추가
+  statusData.visitCallbackData = {
+    type: `내원${selectedStatus}` as any, // '내원종결', '내원치료동의', '내원치료시작', '내원재콜백필요'
+    date: format(new Date(), 'yyyy-MM-dd'),
+    status: '완료',
+    reason: selectedStatus,
+    isVisitManagementCallback: true,
+    notes: (() => {
+      switch (selectedStatus) {
+        case '재콜백필요':
+          if (visitCallbackReason && visitCallbackNotes.trim()) {
+            return `[내원 후 ${visitCallbackType} 콜백]\n사유: ${visitCallbackReason}\n\n상담 계획:\n${visitCallbackNotes}`;
+          }
+          return `[내원 후 재콜백 필요]\n재콜백이 필요한 상태로 처리되었습니다.`;
+        
+        case '치료동의':
+          return `[내원 후 치료 동의]\n환자가 치료에 동의하였습니다.\n${statusData.treatmentConsentInfo?.treatmentStartDate ? `치료 시작 예정일: ${statusData.treatmentConsentInfo.treatmentStartDate}` : ''}`;
+        
+        case '치료시작':
+          return `[내원 후 치료 시작]\n치료가 시작되었습니다.\n납부방식: ${statusData.paymentInfo?.paymentType === 'installment' ? '분할납' : '일시납'}\n${statusData.nextVisitDate ? `다음 내원일: ${statusData.nextVisitDate}` : ''}`;
+        
+        case '종결':
+          return `[내원 후 종결]\n${statusData.completionNotes || '치료가 완료되어 종결 처리되었습니다.'}`;
+        
+        default:
+          return `[내원 후 ${selectedStatus}]\n상태가 ${selectedStatus}(으)로 변경되었습니다.`;
+      }
+    })()
+  };
 
    // 상태별 추가 필드
    if (selectedStatus === '재콜백필요') {
@@ -763,7 +864,7 @@ const hasPendingVisitCallbacks = currentVisitCallbacks.some(cb => cb.status === 
                     등록된 내원 콜백이 없습니다.
                   </div>
                 ) : (
-                  <div className="space-y-2 max-h-32 overflow-y-auto">
+                  <div className="space-y-2">
                     {currentVisitCallbacks.map((callback) => (
                       <div 
                         key={callback.id}
@@ -775,16 +876,25 @@ const hasPendingVisitCallbacks = currentVisitCallbacks.some(cb => cb.status === 
                       >
                         <div className="flex items-center justify-between mb-1">
                           <div className="flex items-center gap-2">
-                            <span className={`px-2 py-1 rounded text-xs font-medium ${
+                            <span className={`px-2 py-1 rounded-full text-xs font-medium ${
                               callback.type === '내원1차' ? 'bg-orange-100 text-orange-800' :
                               callback.type === '내원2차' ? 'bg-yellow-100 text-yellow-800' :
-                              'bg-red-100 text-red-800'
+                              callback.type === '내원3차' ? 'bg-red-100 text-red-800' :
+                              callback.type === '내원4차' ? 'bg-purple-100 text-purple-800' :
+                              callback.type === '내원5차' ? 'bg-indigo-100 text-indigo-800' :
+                              callback.type === '내원6차' ? 'bg-pink-100 text-pink-800' :
+                              callback.type === '내원재콜백필요' ? 'bg-yellow-200 text-yellow-900' :      // 🔥 추가
+                              callback.type === '내원치료동의' ? 'bg-blue-200 text-blue-900' :           // 🔥 추가  
+                              callback.type === '내원치료시작' ? 'bg-green-200 text-green-900' :         // 🔥 추가
+                              callback.type === '내원종결' ? 'bg-gray-200 text-gray-900' :              // 🔥 추가
+                              'bg-gray-100 text-gray-800'
                             }`}>
                               {callback.type}
                             </span>
                             <span className="text-gray-600">{callback.date}</span>
                             <span className={`text-xs px-2 py-0.5 rounded ${
                               callback.status === '완료' ? 'bg-green-100 text-green-800' :
+                              callback.status === '부재중' ? 'bg-red-100 text-red-800' :  // 🔥 부재중 상태 추가
                               'bg-blue-100 text-blue-800'
                             }`}>
                               {callback.status}
@@ -794,6 +904,13 @@ const hasPendingVisitCallbacks = currentVisitCallbacks.some(cb => cb.status === 
                           {/* 🔥 완료 처리 버튼 추가 */}
                           {callback.status === '예정' && (
                             <div className="flex items-center gap-1">
+                              <button
+                                onClick={() => handleMissedVisitCallback(callback)}
+                                className="px-2 py-1 text-xs text-white bg-orange-600 rounded hover:bg-orange-700"
+                                title="부재중 처리"
+                              >
+                                부재중
+                              </button>
                               <button
                                 onClick={() => handleCompleteVisitCallback(callback)}
                                 className="px-2 py-1 text-xs text-white bg-green-600 rounded hover:bg-green-700"
@@ -876,6 +993,9 @@ const hasPendingVisitCallbacks = currentVisitCallbacks.some(cb => cb.status === 
                         <option value="내원1차">내원1차</option>
                         <option value="내원2차">내원2차</option>
                         <option value="내원3차">내원3차</option>
+                        <option value="내원4차">내원4차</option>  {/* 🔥 추가 */}
+                        <option value="내원5차">내원5차</option>  {/* 🔥 추가 */}
+                        <option value="내원6차">내원6차</option>  {/* 🔥 추가 */}
                       </select>
                     </div>
                     <div>
@@ -1316,7 +1436,11 @@ const NextAppointmentBadge = ({ patient }: { patient: Patient }) => {
         <span className={`inline-flex items-center px-2 py-1 rounded-full text-xs font-medium ${
           nextVisitCallback.type === '내원1차' ? 'bg-orange-100 text-orange-800' :
           nextVisitCallback.type === '내원2차' ? 'bg-yellow-100 text-yellow-800' :
-          'bg-red-100 text-red-800'
+          nextVisitCallback.type === '내원3차' ? 'bg-red-100 text-red-800' :
+          nextVisitCallback.type === '내원4차' ? 'bg-purple-100 text-purple-800' :  // 🔥 추가
+          nextVisitCallback.type === '내원5차' ? 'bg-indigo-100 text-indigo-800' :  // 🔥 추가
+          nextVisitCallback.type === '내원6차' ? 'bg-pink-100 text-pink-800' :      // 🔥 추가
+          'bg-gray-100 text-gray-800'
         } mr-1`}>
           {nextVisitCallback.type}
         </span>

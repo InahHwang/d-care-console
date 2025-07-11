@@ -80,49 +80,118 @@ export async function PUT(
    
    console.log('환자 찾음:', existingPatient.name);
    
-   // 🔥 내원 콜백 처리 (상태 업데이트보다 먼저 처리)
-   let updatedCallbackHistory = existingPatient.callbackHistory || [];
-   
-   if (visitCallbackData && postVisitStatus === '재콜백필요') {
-     console.log('🔥 내원 콜백 등록 처리:', visitCallbackData);
-     
-     // 콜백 ID 생성
-     const callbackId = `cb-visit-${Date.now()}`;
-     const newVisitCallback = {
-       id: callbackId,
-       type: visitCallbackData.type,
-       date: visitCallbackData.date,
-       status: '예정',
-       time: visitCallbackData.time || undefined,
-       notes: visitCallbackData.notes,
-       isVisitManagementCallback: true,
-       visitManagementReason: visitCallbackData.reason,
-       createdAt: new Date().toISOString(),
-       createdBy: currentUser.id,
-       createdByName: currentUser.name
-     };
-     
-     // 콜백 이력에 추가
-     updatedCallbackHistory = [...updatedCallbackHistory, newVisitCallback];
-     
-     // 활동 로그 기록
-     await logActivityToDatabase({
-       action: 'visit_callback_create',
-       targetId: existingPatient.id || existingPatient._id,
-       targetName: existingPatient.name,
-       userId: currentUser.id,
-       userName: currentUser.name,
-       details: {
-         callbackId,
-         callbackType: visitCallbackData.type,
-         callbackDate: visitCallbackData.date,
-         reason: visitCallbackData.reason,
-         source: 'post_visit_status_modal'
-       }
-     });
-     
-     console.log('✅ 내원 콜백 등록 완료:', callbackId);
-   }
+   // 🔥 내원 콜백 처리 (상태 업데이트보다 먼저 처리) - 모든 상태에 대해 최종 기록 추가
+  let updatedCallbackHistory = existingPatient.callbackHistory || [];
+
+  // 🔥 모든 상태에 대해 최종 상태 기록을 내원 콜백 이력에 추가
+  if (postVisitStatus) {
+    console.log('🔥 최종 상태 내원 콜백 기록 추가:', postVisitStatus);
+    
+    // 최종 상태 기록 생성
+    const finalStatusCallbackId = `cb-final-${Date.now()}`;
+    const finalStatusCallback = {
+      id: finalStatusCallbackId,
+      type: `내원${postVisitStatus}` as any, // '내원종결', '내원치료동의', '내원치료시작', '내원재콜백필요'
+      date: new Date().toISOString().split('T')[0], // YYYY-MM-DD 형식
+      status: '완료',
+      time: new Date().toTimeString().split(' ')[0].substring(0, 5), // HH:mm 형식
+      isVisitManagementCallback: true,
+      visitManagementReason: postVisitStatus,
+      createdAt: new Date().toISOString(),
+      createdBy: currentUser.id,
+      createdByName: currentUser.name,
+      notes: (() => {
+        switch (postVisitStatus) {
+          case '재콜백필요':
+            return `[내원 후 재콜백 필요]\n재콜백이 필요한 상태로 처리되었습니다.`;
+          
+          case '치료동의':
+            const treatmentInfo = postVisitConsultation?.treatmentConsentInfo;
+            return `[내원 후 치료 동의]\n환자가 치료에 동의하였습니다.${
+              treatmentInfo?.treatmentStartDate ? `\n치료 시작 예정일: ${treatmentInfo.treatmentStartDate}` : ''
+            }${
+              treatmentInfo?.estimatedTreatmentPeriod ? `\n예상 치료 기간: ${treatmentInfo.estimatedTreatmentPeriod}` : ''
+            }`;
+          
+          case '치료시작':
+            const paymentInfo = postVisitConsultation?.paymentInfo;
+            return `[내원 후 치료 시작]\n치료가 시작되었습니다.\n납부방식: ${
+              paymentInfo?.paymentType === 'installment' ? '분할납' : '일시납'
+            }${
+              postVisitConsultation?.nextVisitDate ? `\n다음 내원일: ${postVisitConsultation.nextVisitDate}` : ''
+            }`;
+          
+          case '종결':
+            return `[내원 후 종결]\n${postVisitConsultation?.completionNotes || '치료가 완료되어 종결 처리되었습니다.'}`;
+          
+          default:
+            return `[내원 후 ${postVisitStatus}]\n상태가 ${postVisitStatus}(으)로 변경되었습니다.`;
+        }
+      })()
+    };
+    
+    // 최종 상태 콜백을 이력에 추가
+    updatedCallbackHistory = [...updatedCallbackHistory, finalStatusCallback];
+    
+    // 활동 로그 기록
+    await logActivityToDatabase({
+      action: 'visit_final_status_record',
+      targetId: existingPatient.id || existingPatient._id,
+      targetName: existingPatient.name,
+      userId: currentUser.id,
+      userName: currentUser.name,
+      details: {
+        callbackId: finalStatusCallbackId,
+        finalStatus: postVisitStatus,
+        callbackType: `내원${postVisitStatus}`,
+        source: 'post_visit_status_modal'
+      }
+    });
+    
+    console.log('✅ 최종 상태 내원 콜백 기록 완료:', finalStatusCallbackId);
+  }
+
+  // 🔥 재콜백필요인 경우 추가로 다음 콜백도 등록
+  if (visitCallbackData && postVisitStatus === '재콜백필요') {
+    console.log('🔥 재콜백 등록 처리:', visitCallbackData);
+    
+    // 다음 콜백 ID 생성
+    const nextCallbackId = `cb-visit-${Date.now()}`;
+    const nextVisitCallback = {
+      id: nextCallbackId,
+      type: visitCallbackData.type,
+      date: visitCallbackData.date,
+      status: '예정',
+      time: visitCallbackData.time || undefined,
+      notes: visitCallbackData.notes,
+      isVisitManagementCallback: true,
+      visitManagementReason: visitCallbackData.reason,
+      createdAt: new Date().toISOString(),
+      createdBy: currentUser.id,
+      createdByName: currentUser.name
+    };
+    
+    // 다음 콜백을 이력에 추가
+    updatedCallbackHistory = [...updatedCallbackHistory, nextVisitCallback];
+    
+    // 활동 로그 기록
+    await logActivityToDatabase({
+      action: 'visit_callback_create',
+      targetId: existingPatient.id || existingPatient._id,
+      targetName: existingPatient.name,
+      userId: currentUser.id,
+      userName: currentUser.name,
+      details: {
+        callbackId: nextCallbackId,
+        callbackType: visitCallbackData.type,
+        callbackDate: visitCallbackData.date,
+        reason: visitCallbackData.reason,
+        source: 'post_visit_status_modal'
+      }
+    });
+    
+    console.log('✅ 다음 내원 콜백 등록 완료:', nextCallbackId);
+  }
    
    // 업데이트할 데이터 구성
    const updateData: any = {

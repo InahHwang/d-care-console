@@ -126,34 +126,82 @@ const DailyReport: React.FC = () => {
     return `${amount.toLocaleString()}원`;
   };
 
-  // 내원관리 환자 상담내용 조합 함수
+  // 내원관리 환자 상담내용 조합 함수 - 수정된 버전
   const getCombinedConsultationContent = (patient: Patient): string => {
     const contents: string[] = [];
     
-    // 최초 상담내용
+    // 🔥 디버깅 로그 추가
+    console.log(`=== ${patient.name} 내원관리 상담내용 분석 ===`);
+    console.log('postVisitConsultation 데이터:', patient.postVisitConsultation);
+    console.log('callbackHistory 길이:', patient.callbackHistory?.length || 0);
+    
+    // 최초 상담내용 (내원 후 첫 상담)
     if (patient.postVisitConsultation?.firstVisitConsultationContent) {
       contents.push(`[최초 상담] ${patient.postVisitConsultation.firstVisitConsultationContent}`);
     }
 
-    // 콜백 히스토리에서 내원관리 콜백들 추출
+    // 콜백 히스토리에서 내원관리 콜백들 추출 - 수정된 로직
     if (patient.callbackHistory) {
+      console.log('내원관리 콜백 히스토리 상세:', patient.callbackHistory);
+      
       const visitCallbacks = patient.callbackHistory
-        .filter(callback => callback.isVisitManagementCallback && callback.resultNotes)
+        .filter(callback => {
+          console.log(`내원콜백 ${callback.type}: isVisitManagementCallback=${callback.isVisitManagementCallback}, resultNotes="${callback.resultNotes}", notes="${callback.notes}"`);
+          
+          // 내원관리 콜백이면서 유효한 상담내용이 있는지 확인
+          if (!callback.isVisitManagementCallback) return false;
+          
+          // 🔥 수정된 로직: resultNotes가 유효하지 않으면 notes 사용
+          const hasValidResultNotes = callback.resultNotes && 
+                                    callback.resultNotes !== 'undefined' && 
+                                    callback.resultNotes.trim() !== '';
+          const hasValidNotes = callback.notes && 
+                              callback.notes !== 'undefined' && 
+                              callback.notes.trim() !== '';
+          
+          return hasValidResultNotes || hasValidNotes;
+        })
         .sort((a, b) => new Date(a.date).getTime() - new Date(b.date).getTime());
       
-      visitCallbacks.forEach((callback, index) => {
-        if (callback.resultNotes) {
-          contents.push(`[${callback.type}] ${callback.resultNotes}`);
+      console.log('유효한 내원관리 콜백 수:', visitCallbacks.length);
+      
+      visitCallbacks.forEach((callback) => {
+        // 🔥 수정된 로직: resultNotes 우선, 없으면 notes 사용
+        let consultationText = '';
+        
+        if (callback.resultNotes && 
+            callback.resultNotes !== 'undefined' && 
+            callback.resultNotes.trim() !== '') {
+          consultationText = callback.resultNotes;
+        } else if (callback.notes && 
+                  callback.notes !== 'undefined' && 
+                  callback.notes.trim() !== '') {
+          consultationText = callback.notes;
+        }
+        
+        if (consultationText) {
+          // 콜백 타입과 날짜 정보 포함
+          const callbackDate = new Date(callback.date).toLocaleDateString();
+          contents.push(`[${callback.type} - ${callbackDate}]\n${consultationText}`);
         }
       });
     }
 
-    return contents.length > 0 ? contents.join('\n\n') : '-';
+  const finalContent = contents.length > 0 ? contents.join('\n\n') : '-';
+    console.log('내원관리 최종 상담내용:', finalContent);
+    console.log('========================');
+    
+    return finalContent;
   };
 
-  // 상담관리 환자의 상담내용 조합 함수
+  // 상담관리 환자의 상담내용 조합 함수 - 수정된 버전
   const getConsultationContent = (patient: Patient): string => {
     const contents: string[] = [];
+    
+    // 🔥 디버깅 로그 추가
+    console.log(`=== ${patient.name} 상담내용 분석 ===`);
+    console.log('consultation 데이터:', patient.consultation);
+    console.log('callbackHistory 길이:', patient.callbackHistory?.length || 0);
     
     // 최초 상담 - 불편한 부분과 상담메모 조합
     const consultation = patient.consultation;
@@ -171,20 +219,55 @@ const DailyReport: React.FC = () => {
       }
     }
 
-    // 콜백 히스토리의 상담내용들
-    if (patient.callbackHistory) {
+    // 콜백 히스토리의 상담내용들 (상담관리용 - 모든 콜백 포함)
+    if (patient.callbackHistory && patient.callbackHistory.length > 0) {
+      console.log('콜백 히스토리 상세:', patient.callbackHistory);
+      
       const consultationCallbacks = patient.callbackHistory
-        .filter(callback => callback.resultNotes && callback.resultNotes.trim() !== '')
+        .filter(callback => {
+          console.log(`콜백 ${callback.type}: resultNotes="${callback.resultNotes}", notes="${callback.notes}", content="${callback.content}"`);
+          
+          // 🔥 수정된 로직: resultNotes가 유효하지 않으면 notes 사용
+          const hasValidResultNotes = callback.resultNotes && 
+                                    callback.resultNotes !== 'undefined' && 
+                                    callback.resultNotes.trim() !== '';
+          const hasValidNotes = callback.notes && 
+                              callback.notes !== 'undefined' && 
+                              callback.notes.trim() !== '';
+          
+          return hasValidResultNotes || hasValidNotes;
+        })
         .sort((a, b) => new Date(a.date).getTime() - new Date(b.date).getTime());
       
+      console.log('유효한 상담내용이 있는 콜백 수:', consultationCallbacks.length);
+      
       consultationCallbacks.forEach((callback) => {
-        if (callback.resultNotes) {
-          contents.push(`[${callback.type} 콜백] ${callback.resultNotes}`);
+        // 🔥 수정된 로직: resultNotes 우선, 없으면 notes 사용
+        let consultationText = '';
+        
+        if (callback.resultNotes && 
+            callback.resultNotes !== 'undefined' && 
+            callback.resultNotes.trim() !== '') {
+          consultationText = callback.resultNotes;
+        } else if (callback.notes && 
+                  callback.notes !== 'undefined' && 
+                  callback.notes.trim() !== '') {
+          consultationText = callback.notes;
+        }
+        
+        if (consultationText) {
+          // 콜백 타입과 날짜 정보 포함
+          const callbackDate = new Date(callback.date).toLocaleDateString();
+          contents.push(`[${callback.type} 콜백 - ${callbackDate}]\n${consultationText}`);
         }
       });
     }
 
-    return contents.length > 0 ? contents.join('\n\n') : '-';
+    const finalContent = contents.length > 0 ? contents.join('\n\n') : '-';
+    console.log('최종 상담내용:', finalContent);
+    console.log('========================');
+    
+    return finalContent;
   };
 
   // 선택된 날짜의 내원관리 환자 데이터 필터링

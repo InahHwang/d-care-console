@@ -6,7 +6,9 @@ import { EventCategory } from '@/types/messageLog';
 export type ConsultationType = 'inbound' | 'outbound' | 'returning' | 'walkin';
 
 // 🔥 내원관리 전용 콜백 타입 추가
-export type VisitManagementCallbackType = '내원1차' | '내원2차' | '내원3차';
+export type VisitManagementCallbackType = 
+  | '내원1차' | '내원2차' | '내원3차' | '내원4차' | '내원5차' | '내원6차'
+  | '내원재콜백필요' | '내원치료동의' | '내원치료시작' | '내원종결';
 
 // 🔥 유입경로 타입 추가
 export type ReferralSource = 
@@ -220,6 +222,7 @@ export type CallbackStatus =
 
 // 🔥 콜백 아이템 타입 정의 - 재예약 기록 필드 추가
 export interface CallbackItem {
+  content: any;
   completedAt?: string;
   time: string | undefined; 
   id: string;
