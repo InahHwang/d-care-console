@@ -541,7 +541,7 @@ const handleFirstConsultationComplete = async (callback: CallbackItem) => {
 
       // 상담진행중/부재중인 경우 다음 콜백 등록
       if (firstConsultationStatus === '상담진행중' || firstConsultationStatus === '부재중') {
-        const nextCallbackData = {
+        const nextCallbackData: Omit<CallbackItem, 'id'> = {
           type: '2차' as CallbackType,
           date: callbackDate,
           status: '예정' as CallbackStatus,
@@ -558,8 +558,8 @@ const handleFirstConsultationComplete = async (callback: CallbackItem) => {
           })(),
           isVisitManagementCallback: false,
           isReReservationRecord: false,
-          content: ''
-        } as Omit<CallbackItem, 'id'>; // ← 타입 단언 사용
+          content: '' 
+        };
 
         await dispatch(addCallback({
           patientId: patient._id || patient.id,
