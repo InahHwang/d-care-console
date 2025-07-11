@@ -541,7 +541,7 @@ const handleFirstConsultationComplete = async (callback: CallbackItem) => {
 
       // 상담진행중/부재중인 경우 다음 콜백 등록
       if (firstConsultationStatus === '상담진행중' || firstConsultationStatus === '부재중') {
-        const nextCallbackData: Omit<CallbackItem, 'id'> = {
+        const nextCallbackData = {
           type: '2차' as CallbackType,
           date: callbackDate,
           status: '예정' as CallbackStatus,
@@ -557,8 +557,9 @@ const handleFirstConsultationComplete = async (callback: CallbackItem) => {
             }
           })(),
           isVisitManagementCallback: false,
-          isReReservationRecord: false
-        };
+          isReReservationRecord: false,
+          content: ''
+        } as Omit<CallbackItem, 'id'>; // ← 타입 단언 사용
 
         await dispatch(addCallback({
           patientId: patient._id || patient.id,
@@ -624,12 +625,13 @@ const handleFirstConsultationComplete = async (callback: CallbackItem) => {
             status: '완료' as CallbackStatus,
             time: format(new Date(), 'HH:mm'),
             notes: `[재예약 완료 처리 - ${format(new Date(), 'yyyy-MM-dd')}]\n` +
-                  `원래 예약일: ${patient.reservationDate || '정보없음'} ${patient.reservationTime || ''}\n` +
-                  `재예약일: ${reReservationDate} ${reReservationTime}\n` +
-                  `처리사유: 예약 후 미내원으로 인한 재예약 처리`,
+              `원래 예약일: ${patient.reservationDate || '정보없음'} ${patient.reservationTime || ''}\n` +
+              `재예약일: ${reReservationDate} ${reReservationTime}\n` +
+              `처리사유: 예약 후 미내원으로 인한 재예약 처리`,
             postReservationResult,
             isVisitManagementCallback: false,
-            isReReservationRecord: true
+            isReReservationRecord: true,
+            content: undefined
           };
 
           await dispatch(addCallback({
@@ -672,7 +674,8 @@ const handleFirstConsultationComplete = async (callback: CallbackItem) => {
             notes: `[${nextType} 콜백 - 예약 후 미내원 후속]\n사유: ${postReservationReason}`,
             postReservationResult,
             isVisitManagementCallback: false,
-            isReReservationRecord: false
+            isReReservationRecord: false,
+            content: undefined
           };
 
           await dispatch(addCallback({
@@ -846,6 +849,7 @@ const handleFirstConsultationComplete = async (callback: CallbackItem) => {
           notes: finalFollowupReason 
             ? `[${nextType} 콜백 - ${callback.type} 후속]\n${finalFollowupReason}`
             : `[${nextType} 콜백 - ${callback.type} 후속]`,
+          content: '', 
           callbackFollowupResult,
           isVisitManagementCallback: false,
           isReReservationRecord: false
@@ -916,7 +920,8 @@ const handleFirstConsultationComplete = async (callback: CallbackItem) => {
         time: callbackTime || undefined,
         notes: `[${currentCallbackType} 콜백 등록]`,
         isVisitManagementCallback: false,
-        isReReservationRecord: false
+        isReReservationRecord: false,
+        content: undefined
       };
 
       await dispatch(addCallback({

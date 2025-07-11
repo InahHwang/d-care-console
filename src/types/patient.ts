@@ -222,7 +222,7 @@ export type CallbackStatus =
 
 // 🔥 콜백 아이템 타입 정의 - 재예약 기록 필드 추가
 export interface CallbackItem {
-  content: any;
+  content?: any;
   completedAt?: string;
   time: string | undefined; 
   id: string;
