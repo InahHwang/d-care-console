@@ -10,9 +10,46 @@ import {
   AlertCircle,
   FileText,
   DollarSign,
-  Phone
+  Phone,
+  CheckCircle,
+  Clock,
+  Target
 } from 'lucide-react';
 import { Patient } from '@/types/patient';
+import PatientListModal from '../management/PatientListModal';
+
+// 🔥 일별 업무 현황을 위한 인터페이스 수정
+interface DailyWorkSummary {
+  selectedDate: string;
+  callbackSummary: {
+    overdueCallbacks: {
+      total: number;
+      processed: number;
+      processingRate: number;
+    };
+    callbackUnregistered: {
+      total: number;
+      processed: number;
+      processingRate: number;
+    };
+    absent: {
+      total: number;
+      processed: number;
+      processingRate: number;
+    };
+    todayScheduled: {
+      total: number;
+      processed: number;
+      processingRate: number;
+    };
+  };
+  estimateSummary: {
+    totalConsultationEstimate: number;        // 오늘 총 상담 견적
+    visitConsultationEstimate: number;        // 내원 상담 환자 견적
+    phoneConsultationEstimate: number;        // 유선 상담 환자 견적
+    treatmentStartedEstimate: number;         // 치료 시작한 견적
+  };
+}
 
 // 일별 환자 데이터 타입 (내원관리용)
 interface DailyPatientData {
@@ -41,7 +78,18 @@ const DailyReport: React.FC = () => {
   const [selectedDate, setSelectedDate] = useState(new Date().toISOString().split('T')[0]);
   const [dailyPatients, setDailyPatients] = useState<DailyPatientData[]>([]);
   const [dailyConsultations, setDailyConsultations] = useState<DailyConsultationData[]>([]);
+  const [dailyWorkSummary, setDailyWorkSummary] = useState<DailyWorkSummary | null>(null); // 🔥 추가
   const [isLoading, setIsLoading] = useState(false);
+  // 🔥 모달 상태 추가 - PatientFilterType 사용
+  const [modalState, setModalState] = useState<{
+    isOpen: boolean;
+    filterType: 'overdueCallbacks' | 'callbackUnregistered' | 'absent' | 'todayScheduled' | null;
+    title: string;
+  }>({
+    isOpen: false,
+    filterType: null,
+    title: ''
+  });
 
   // Redux에서 환자 데이터 가져오기
   const { patients } = useAppSelector((state) => state.patients);
@@ -112,6 +160,48 @@ const DailyReport: React.FC = () => {
         return 'bg-red-100 text-red-800';
       default:
         return 'bg-gray-100 text-gray-800';
+    }
+  };
+
+  // 🔥 모달 핸들러 수정 - 타입 안전성 확보
+  const handleOpenModal = (filterType: 'overdueCallbacks' | 'callbackUnregistered' | 'absent' | 'todayScheduled', title: string) => {
+    setModalState({
+      isOpen: true,
+      filterType,
+      title
+    });
+  };
+
+  const handleCloseModal = () => {
+    setModalState({
+      isOpen: false,
+      filterType: null,
+      title: ''
+    });
+  };
+
+  // 🔥 일별 업무 현황 데이터 가져오기 함수
+  const fetchDailyWorkSummary = async () => {
+    try {
+      const token = localStorage.getItem('token');
+      const response = await fetch(`/api/statistics/daily?date=${selectedDate}`, {
+        headers: {
+          'Authorization': `Bearer ${token}`,
+        },
+      });
+      
+      if (!response.ok) {
+        console.warn('일별 업무 현황 조회 실패');
+        return;
+      }
+      
+      const result = await response.json();
+      if (result.success) {
+        setDailyWorkSummary(result.data);
+        console.log('일별 업무 현황 로드 완료:', result.data);
+      }
+    } catch (error) {
+      console.error('일별 업무 현황 조회 오류:', error);
     }
   };
 
@@ -187,7 +277,7 @@ const DailyReport: React.FC = () => {
       });
     }
 
-  const finalContent = contents.length > 0 ? contents.join('\n\n') : '-';
+    const finalContent = contents.length > 0 ? contents.join('\n\n') : '-';
     console.log('내원관리 최종 상담내용:', finalContent);
     console.log('========================');
     
@@ -328,6 +418,7 @@ const DailyReport: React.FC = () => {
     setTimeout(() => {
       filterPatientsByDate();
       filterConsultationsByDate();
+      fetchDailyWorkSummary(); // 🔥 일별 업무 현황도 함께 조회
       setIsLoading(false);
     }, 300);
   }, [selectedDate, patients]);
@@ -386,6 +477,7 @@ const DailyReport: React.FC = () => {
             onClick={() => {
               filterPatientsByDate();
               filterConsultationsByDate();
+              fetchDailyWorkSummary(); // 🔥 업무 현황도 함께 새로고침
             }}
             disabled={isLoading}
             className="flex items-center gap-2 px-3 py-2 text-sm bg-blue-50 text-blue-600 border border-blue-200 rounded-lg hover:bg-blue-100 disabled:opacity-50"
@@ -393,67 +485,216 @@ const DailyReport: React.FC = () => {
             <RefreshCw className={`w-4 h-4 ${isLoading ? 'animate-spin' : ''}`} />
             새로고침
           </button>
-          {/* 디버깅 버튼 */}
-          <button
-            onClick={() => {
-              console.log('=== 전체 환자 데이터 분석 ===');
-              console.log('전체 환자 수:', patients?.length || 0);
-              
-              // 6월 환자 분석
-              const junePatients = patients?.filter(p => p.callInDate?.startsWith('2025-06')) || [];
-              console.log('6월 환자 수:', junePatients.length);
-              
-              // 날짜별 분포 확인
-              const dateDistribution: Record<string, number> = {};
-              junePatients.forEach(patient => {
-                const date = patient.callInDate || 'unknown';
-                dateDistribution[date] = (dateDistribution[date] || 0) + 1;
-              });
-              
-              console.log('6월 날짜별 분포:', dateDistribution);
-              
-              // visitConfirmed 상태 분석
-              const visitConfirmedCount = junePatients.filter(p => p.visitConfirmed).length;
-              const notVisitConfirmedCount = junePatients.filter(p => !p.visitConfirmed).length;
-              console.log('6월 환자 중 visitConfirmed: true =', visitConfirmedCount);
-              console.log('6월 환자 중 visitConfirmed: false =', notVisitConfirmedCount);
-              
-              // 데이터 구조 확인
-              if (junePatients.length > 0) {
-                console.log('첫 번째 환자 데이터 구조:', junePatients[0]);
-              }
-            }}
-            className="px-3 py-2 text-sm bg-red-50 text-red-600 border border-red-200 rounded-lg hover:bg-red-100"
-          >
-            6월 전체 분석
-          </button>
-          
-          {/* 선택된 날짜 상세 분석 */}
-          <button
-            onClick={() => {
-              console.log(`=== ${selectedDate} 상세 분석 ===`);
-              const todayPatients = patients?.filter(p => p.callInDate === selectedDate) || [];
-              console.log(`${selectedDate} 전체 환자 수:`, todayPatients.length);
-              
-              todayPatients.forEach((patient, index) => {
-                console.log(`${index + 1}. 환자명: ${patient.name}`);
-                console.log(`   - callInDate: ${patient.callInDate}`);
-                console.log(`   - visitConfirmed: ${patient.visitConfirmed} (타입: ${typeof patient.visitConfirmed})`);
-                console.log(`   - status: ${patient.status}`);
-                console.log(`   - consultation: ${patient.consultation ? '있음' : '없음'}`);
-                console.log('   ---');
-              });
-              
-              const notVisitConfirmedToday = todayPatients.filter(p => !p.visitConfirmed);
-              console.log(`${selectedDate} 중 visitConfirmed: false인 환자:`, notVisitConfirmedToday.length);
-              console.log('해당 환자들:', notVisitConfirmedToday.map(p => p.name));
-            }}
-            className="px-3 py-2 text-sm bg-purple-50 text-purple-600 border border-purple-200 rounded-lg hover:bg-purple-100"
-          >
-            선택날짜 분석
-          </button>
         </div>
       </div>
+
+      {/* 🔥 일별 업무 현황 섹션 추가 */}
+      {dailyWorkSummary && (
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+          {/* 오늘 처리한 업무 - 새로운 디자인 */}
+          <div className="bg-gradient-to-r from-blue-50 to-indigo-50 border border-blue-200 rounded-lg p-6">
+            <div className="flex items-center gap-3 mb-4">
+              <div className="p-2 bg-blue-100 rounded-lg">
+                <CheckCircle className="w-5 h-5 text-blue-600" />
+              </div>
+              <h3 className="text-lg font-semibold text-gray-900">오늘 처리한 업무</h3>
+            </div>
+            
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              {/* 미처리 콜백 */}
+              <div 
+                className="bg-white/70 rounded-lg p-4 border border-red-200 cursor-pointer hover:bg-red-50 transition-colors"
+                onClick={() => handleOpenModal('overdueCallbacks', '🚨 미처리 콜백 - 즉시 대응 필요')}
+              >
+                <div className="flex items-center justify-between mb-2">
+                  <div className="flex items-center gap-2">
+                    <div className="w-6 h-6 bg-red-100 rounded-full flex items-center justify-center">
+                      <AlertCircle className="w-3 h-3 text-red-600" />
+                    </div>
+                    <span className="text-sm font-medium text-red-700">🚨 미처리 콜백</span>
+                  </div>
+                  <span className="text-xs text-blue-600">클릭하여 보기</span>
+                </div>
+                
+                <div className="flex items-center justify-between">
+                  <span className="text-lg font-bold text-red-900">
+                    {dailyWorkSummary.callbackSummary.overdueCallbacks.total}건
+                  </span>
+                  <span className={`text-sm font-medium px-2 py-1 rounded-full ${
+                    dailyWorkSummary.callbackSummary.overdueCallbacks.processingRate === 100 
+                      ? 'bg-green-100 text-green-800' 
+                      : dailyWorkSummary.callbackSummary.overdueCallbacks.processingRate >= 80 
+                        ? 'bg-yellow-100 text-yellow-800' 
+                        : 'bg-red-100 text-red-800'
+                  }`}>
+                    처리율 {dailyWorkSummary.callbackSummary.overdueCallbacks.processingRate}%
+                  </span>
+                </div>
+                
+                <div className="text-xs text-red-600 mt-1">
+                  {dailyWorkSummary.callbackSummary.overdueCallbacks.processed}건 처리완료
+                </div>
+              </div>
+
+              {/* 콜백 미등록 */}
+              <div 
+                className="bg-white/70 rounded-lg p-4 border border-orange-200 cursor-pointer hover:bg-orange-50 transition-colors"
+                onClick={() => handleOpenModal('callbackUnregistered', '📋 콜백 미등록 - 잠재고객 상담 등록 필요')}
+              >
+                <div className="flex items-center justify-between mb-2">
+                  <div className="flex items-center gap-2">
+                    <div className="w-6 h-6 bg-orange-100 rounded-full flex items-center justify-center">
+                      <FileText className="w-3 h-3 text-orange-600" />
+                    </div>
+                    <span className="text-sm font-medium text-orange-700">📋 콜백 미등록</span>
+                  </div>
+                  <span className="text-xs text-blue-600">클릭하여 보기</span>
+                </div>
+                
+                <div className="flex items-center justify-between">
+                  <span className="text-lg font-bold text-orange-900">
+                    {dailyWorkSummary.callbackSummary.callbackUnregistered.total}명
+                  </span>
+                  <span className={`text-sm font-medium px-2 py-1 rounded-full ${
+                    dailyWorkSummary.callbackSummary.callbackUnregistered.processingRate === 100 
+                      ? 'bg-green-100 text-green-800' 
+                      : dailyWorkSummary.callbackSummary.callbackUnregistered.processingRate >= 80 
+                        ? 'bg-yellow-100 text-yellow-800' 
+                        : 'bg-red-100 text-red-800'
+                  }`}>
+                    처리율 {dailyWorkSummary.callbackSummary.callbackUnregistered.processingRate}%
+                  </span>
+                </div>
+                
+                <div className="text-xs text-orange-600 mt-1">
+                  {dailyWorkSummary.callbackSummary.callbackUnregistered.processed}명 처리완료
+                </div>
+              </div>
+
+              {/* 부재중 */}
+              <div 
+                className="bg-white/70 rounded-lg p-4 border border-gray-200 cursor-pointer hover:bg-gray-50 transition-colors"
+                onClick={() => handleOpenModal('absent', '부재중 환자')}
+              >
+                <div className="flex items-center justify-between mb-2">
+                  <div className="flex items-center gap-2">
+                    <div className="w-6 h-6 bg-gray-100 rounded-full flex items-center justify-center">
+                      <Phone className="w-3 h-3 text-gray-600" />
+                    </div>
+                    <span className="text-sm font-medium text-gray-700">부재중</span>
+                  </div>
+                  <span className="text-xs text-blue-600">클릭하여 보기</span>
+                </div>
+                
+                <div className="flex items-center justify-between">
+                  <span className="text-lg font-bold text-gray-900">
+                    {dailyWorkSummary.callbackSummary.absent.total}명
+                  </span>
+                  <span className={`text-sm font-medium px-2 py-1 rounded-full ${
+                    dailyWorkSummary.callbackSummary.absent.processingRate === 100 
+                      ? 'bg-green-100 text-green-800' 
+                      : dailyWorkSummary.callbackSummary.absent.processingRate >= 80 
+                        ? 'bg-yellow-100 text-yellow-800' 
+                        : 'bg-red-100 text-red-800'
+                  }`}>
+                    처리율 {dailyWorkSummary.callbackSummary.absent.processingRate}%
+                  </span>
+                </div>
+                
+                <div className="text-xs text-gray-600 mt-1">
+                  {dailyWorkSummary.callbackSummary.absent.processed}명 처리완료
+                </div>
+              </div>
+
+              {/* 오늘 예정된 콜백 */}
+              <div 
+                className="bg-white/70 rounded-lg p-4 border border-blue-200 cursor-pointer hover:bg-blue-50 transition-colors"
+                onClick={() => handleOpenModal('todayScheduled', '오늘 예정된 콜백')}
+              >
+                <div className="flex items-center justify-between mb-2">
+                  <div className="flex items-center gap-2">
+                    <div className="w-6 h-6 bg-blue-100 rounded-full flex items-center justify-center">
+                      <Calendar className="w-3 h-3 text-blue-600" />
+                    </div>
+                    <span className="text-sm font-medium text-blue-700">오늘 예정된 콜</span>
+                  </div>
+                  <span className="text-xs text-blue-600">클릭하여 보기</span>
+                </div>
+                
+                <div className="flex items-center justify-between">
+                  <span className="text-lg font-bold text-blue-900">
+                    {dailyWorkSummary.callbackSummary.todayScheduled.total}건
+                  </span>
+                  <span className={`text-sm font-medium px-2 py-1 rounded-full ${
+                    dailyWorkSummary.callbackSummary.todayScheduled.processingRate === 100 
+                      ? 'bg-green-100 text-green-800' 
+                      : dailyWorkSummary.callbackSummary.todayScheduled.processingRate >= 80 
+                        ? 'bg-yellow-100 text-yellow-800' 
+                        : 'bg-red-100 text-red-800'
+                  }`}>
+                    처리율 {dailyWorkSummary.callbackSummary.todayScheduled.processingRate}%
+                  </span>
+                </div>
+                
+                <div className="text-xs text-blue-600 mt-1">
+                  {dailyWorkSummary.callbackSummary.todayScheduled.processed}건 처리완료
+                </div>
+              </div>
+            </div>
+          </div>
+
+          {/* 견적금액 정보 - 새로운 디자인 */}
+          <div className="bg-gradient-to-r from-green-50 to-emerald-50 border border-green-200 rounded-lg p-6">
+            <div className="flex items-center gap-3 mb-4">
+              <div className="p-2 bg-green-100 rounded-lg">
+                <DollarSign className="w-5 h-5 text-green-600" />
+              </div>
+              <h3 className="text-lg font-semibold text-gray-900">견적금액 정보</h3>
+            </div>
+            
+            {/* 상담 견적 섹션 */}
+            <div className="space-y-3 mb-4">
+              <div className="bg-white/50 rounded-lg p-4 border border-green-100">
+                <div className="text-sm font-medium text-green-800 mb-3">📋 오늘 상담 견적</div>
+                
+                <div className="space-y-2">
+                  <div className="flex justify-between items-center text-sm">
+                    <span className="text-gray-600">• 내원 상담 환자 견적</span>
+                    <span className="font-medium text-blue-900">
+                      {formatAmount(dailyWorkSummary.estimateSummary.visitConsultationEstimate)}
+                    </span>
+                  </div>
+                  <div className="flex justify-between items-center text-sm">
+                    <span className="text-gray-600">• 유선 상담 환자 견적</span>
+                    <span className="font-medium text-purple-900">
+                      {formatAmount(dailyWorkSummary.estimateSummary.phoneConsultationEstimate)}
+                    </span>
+                  </div>
+                </div>
+                
+                <div className="border-t border-green-200 mt-3 pt-3">
+                  <div className="flex justify-between items-center">
+                    <span className="font-semibold text-gray-800">📊 총 상담 견적</span>
+                    <span className="text-xl font-bold text-green-900">
+                      {formatAmount(dailyWorkSummary.estimateSummary.totalConsultationEstimate)}
+                    </span>
+                  </div>
+                </div>
+              </div>
+            </div>
+            
+            {/* 치료 시작 견적 섹션 (별도 구분) */}
+            <div className="bg-amber-50/50 rounded-lg p-4 border border-amber-200">
+              <div className="flex justify-between items-center">
+                <span className="text-gray-700">🚀 치료 시작한 견적 (처리일 기준)</span>
+                <span className="text-lg font-bold text-amber-800">
+                  {formatAmount(dailyWorkSummary.estimateSummary.treatmentStartedEstimate)}
+                </span>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* 통계 카드 */}
       <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-6 gap-4">
@@ -717,6 +958,16 @@ const DailyReport: React.FC = () => {
             </div>
           </div>
         </div>
+      )}
+
+      {/* 🔥 환자 목록 모달 추가 */}
+      {modalState.isOpen && modalState.filterType && (
+        <PatientListModal
+          isOpen={modalState.isOpen}
+          onClose={handleCloseModal}
+          filterType={modalState.filterType}
+          title={modalState.title}
+        />
       )}
     </div>
   );

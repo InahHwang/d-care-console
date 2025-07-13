@@ -222,27 +222,39 @@ export type CallbackStatus =
 
 // 🔥 콜백 아이템 타입 정의 - 재예약 기록 필드 추가
 export interface CallbackItem {
-  content?: any;
-  completedAt?: string;
-  time: string | undefined; 
   id: string;
-  date: string;
+  date: string;                    // 원래 예정된 날짜 (변경되지 않음)
+  time: string | undefined;        // 원래 예정된 시간 (변경되지 않음)
   status: CallbackStatus;
   notes?: string;
   resultNotes?: string;
   customerResponse?: 'very_positive' | 'positive' | 'neutral' | 'negative' | 'very_negative';
-  type: '1차' | '2차' | '3차' | '4차' | '5차' | '재예약완료' | VisitManagementCallbackType; // 🔥 '재예약완료' 타입 추가
+  type: '1차' | '2차' | '3차' | '4차' | '5차' | '재예약완료' | VisitManagementCallbackType;
+  
+  // 🔥 새로 추가: 실제 처리 날짜/시간 필드들
+  actualCompletedDate?: string;    // 실제 완료 처리한 날짜 (YYYY-MM-DD)
+  actualCompletedTime?: string;    // 실제 완료 처리한 시간 (HH:mm)
+  
+  // 🔥 기존 completedAt은 ISO 문자열로 유지 (기존 로직 호환성)
+  completedAt?: string;            // ISO 형식의 완료 시간 (기존 필드 유지)
+  completedDate?: string;          // 🔥 DEPRECATED: actualCompletedDate 사용 권장
+  completedTime?: boolean;         // 🔥 DEPRECATED: 타입 수정 필요한 기존 필드
+  
+  // 기존 필드들...
+  createdAt: string;
+  updatedAt?: string;              // 🔥 추가: 수정 일시
   cancelReason?: string;
   cancelDate?: string;
   isCompletionRecord?: boolean;
+  content?: any;
   
   // 🔥 새로운 첫 상담 후 상태 관리 필드들
   firstConsultationResult?: FirstConsultationResult;
   postReservationResult?: PostReservationResult;
   callbackFollowupResult?: CallbackFollowupResult;
   
-  // 🔥 재예약 기록 구분 필드 추가
-  isReReservationRecord?: boolean;  // 재예약 처리 기록인지 구분
+  // 🔥 재예약 기록 구분 필드
+  isReReservationRecord?: boolean;
   
   // 기존 필드들...
   nextStep?: '2차_콜백' | '3차_콜백' | '4차_콜백' | '5차_콜백' | '예약_확정' | '종결_처리' | '이벤트_타겟_설정' | '내원2차_콜백' | '내원3차_콜백' | '';
@@ -251,12 +263,63 @@ export interface CallbackItem {
   createdBy?: string;
   createdByName?: string;
   originalScheduledDate?: string;
-  actualCompletedDate?: string;
   isDelayed?: boolean;
   delayReason?: string;
   isVisitManagementCallback?: boolean;
   visitManagementReason?: string;
 }
+
+// 🔥 콜백 완료 처리를 위한 헬퍼 함수들도 추가
+export const createCompletedCallback = (
+  originalCallback: CallbackItem, 
+  completionData: {
+    actualCompletedDate: string;
+    actualCompletedTime: string;
+    status?: CallbackStatus;
+    notes?: string;
+    firstConsultationResult?: FirstConsultationResult;
+    postReservationResult?: PostReservationResult;
+    callbackFollowupResult?: CallbackFollowupResult;
+  }
+): CallbackItem => {
+  return {
+    ...originalCallback,
+    status: completionData.status || '완료',
+    actualCompletedDate: completionData.actualCompletedDate,
+    actualCompletedTime: completionData.actualCompletedTime,
+    completedAt: new Date().toISOString(),
+    notes: completionData.notes || originalCallback.notes,
+    firstConsultationResult: completionData.firstConsultationResult,
+    postReservationResult: completionData.postReservationResult,
+    callbackFollowupResult: completionData.callbackFollowupResult,
+    updatedAt: new Date().toISOString()
+  };
+};
+
+// 🔥 콜백 표시용 날짜/시간 추출 헬퍼 함수
+export const getCallbackDisplayInfo = (callback: CallbackItem) => {
+  return {
+    // 원래 예정된 날짜/시간
+    scheduledDate: callback.date,
+    scheduledTime: callback.time,
+    
+    // 실제 처리된 날짜/시간 (완료된 경우에만)
+    actualCompletedDate: callback.actualCompletedDate,
+    actualCompletedTime: callback.actualCompletedTime,
+    
+    // 표시용 정보
+    isCompleted: callback.status === '완료',
+    hasActualCompletionTime: !!(callback.actualCompletedDate && callback.actualCompletedTime),
+    
+    // 표시용 문자열
+    scheduledDateTime: callback.time 
+      ? `${callback.date} ${callback.time}` 
+      : callback.date,
+    actualCompletedDateTime: (callback.actualCompletedDate && callback.actualCompletedTime)
+      ? `${callback.actualCompletedDate} ${callback.actualCompletedTime}`
+      : undefined
+  };
+};
 
 // 🔥 내원관리 콜백 생성을 위한 타입
 export interface CreateVisitCallbackData {
@@ -422,3 +485,5 @@ export interface UpdatePatientData {
   treatmentStartDate?: string;       // 치료 시작일
   nextVisitDate?: string;           // 다음 내원 예정일
 }
+
+export type { EventCategory };

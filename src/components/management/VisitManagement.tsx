@@ -24,6 +24,7 @@ import { FiPhone, FiPhoneCall } from 'react-icons/fi'
 import { Icon } from '../common/Icon'
 import PatientDetailModal from './PatientDetailModal'
 import { format, addDays } from 'date-fns'
+import { selectPatientWithContext } from '@/store/slices/patientsSlice' 
 
 // 날짜 필터 타입 추가
 type SimpleDateFilterType = 'all' | 'daily' | 'monthly';
@@ -2002,16 +2003,18 @@ const handleStatsCardClick = useCallback((filterType: 'all' | 'needs_callback' |
  };
 
  // 환자 상세 정보 보기
- const handleViewDetails = (patient: Patient) => {
-   const patientId = patient._id || patient.id;
-   
-   if (!patientId) {
-     console.error('환자 ID가 없습니다:', patient);
-     return;
-   }
-   
-   dispatch(selectPatient(patientId));
- };
+ // 🔧 환자 상세 정보 보기 함수 수정
+    const handleViewDetails = (patient: Patient) => {
+      const patientId = patient._id || patient.id;
+      
+      if (!patientId) {
+        console.error('환자 ID가 없습니다:', patient);
+        return;
+      }
+      
+      // 🔧 visit-management 컨텍스트와 함께 환자 선택
+      dispatch(selectPatientWithContext(patientId, 'visit-management'));
+    };
 
  // 데이터 새로고침
  const handleRefresh = () => {
@@ -2253,7 +2256,7 @@ const handleStatsCardClick = useCallback((filterType: 'all' | 'needs_callback' |
      {/* 환자 목록 테이블 */}
      <div className="card p-0">
        <div className="overflow-x-auto">
-         <table className="w-full min-w-[1400px] table-auto">
+         <table className="w-full min-w-[1200px] table-auto">
            <thead>
              <tr className="bg-gray-50">
               <th className="px-4 py-3 text-left text-xs font-semibold text-gray-600">상담 타입</th>
@@ -2266,20 +2269,19 @@ const handleStatsCardClick = useCallback((filterType: 'all' | 'needs_callback' |
               <th className="px-4 py-3 text-left text-xs font-semibold text-gray-600">치료 내용</th>
               <th className="px-4 py-3 text-left text-xs font-semibold text-gray-600">내원 콜백</th>
               <th className="px-4 py-3 text-left text-xs font-semibold text-gray-600">다음 예약/재콜백</th>
-              <th className="px-4 py-3 text-center text-xs font-semibold text-gray-600">액션</th>
             </tr>
            </thead>
            
            <tbody>
              {isLoading ? (
                <tr>
-                 <td colSpan={11} className="px-4 py-8 text-center text-gray-500">
+                 <td colSpan={10} className="px-4 py-8 text-center text-gray-500">
                    불러오는 중...
                  </td>
                </tr>
              ) : filteredPatients.length === 0 ? (
                <tr>
-                 <td colSpan={11} className="px-4 py-8 text-center text-gray-500">
+                 <td colSpan={10} className="px-4 py-8 text-center text-gray-500">
                    조건에 맞는 환자가 없습니다.
                  </td>
                </tr>
@@ -2329,34 +2331,6 @@ const handleStatsCardClick = useCallback((filterType: 'all' | 'needs_callback' |
                      </td>
                      <td className="px-4 py-4">
                        <NextAppointmentBadge patient={patient} />
-                     </td>
-                     <td className="px-4 py-4 text-center">
-                       <div className="flex items-center justify-center space-x-2">
-                         <button
-                           onClick={() => handleUpdateStatus(patient)}
-                           className="inline-flex items-center justify-center w-8 h-8 rounded-full bg-blue-100 text-blue-600 hover:bg-blue-200 transition-colors"
-                           title="상태 업데이트 및 콜백 관리"
-                         >
-                           <Icon icon={HiOutlineClipboardList} size={16} />
-                         </button>
-                         {patient.postVisitConsultation && (
-                           <button
-                             onClick={() => handleResetPatientData(patient)}
-                             disabled={isResetting}
-                             className="inline-flex items-center justify-center w-8 h-8 rounded-full bg-orange-100 text-orange-600 hover:bg-orange-200 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
-                             title="데이터 초기화"
-                           >
-                             <Icon icon={HiOutlineRefresh} size={16} />
-                           </button>
-                         )}
-                         <button
-                           onClick={() => handleViewDetails(patient)}
-                           className="inline-flex items-center justify-center w-8 h-8 rounded-full bg-gray-100 text-gray-600 hover:bg-gray-200 transition-colors"
-                           title="상세 정보"
-                         >
-                           <Icon icon={HiOutlinePhone} size={16} />
-                         </button>
-                       </div>
                      </td>
                    </tr>
                  )

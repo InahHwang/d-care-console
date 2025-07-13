@@ -4,7 +4,7 @@
 import { useSelector, useDispatch } from 'react-redux'
 import { RootState, AppDispatch } from '@/store'
 import { Patient } from '@/types/patient'
-import { setPage, selectPatient, toggleVisitConfirmation, fetchPatients } from '@/store/slices/patientsSlice'
+import { setPage, selectPatient, toggleVisitConfirmation, fetchPatients, selectPatientWithContext } from '@/store/slices/patientsSlice'
 import { openDeleteConfirm, toggleHideCompletedVisits } from '@/store/slices/uiSlice'
 import { IconType } from 'react-icons'
 import { HiOutlineChevronLeft, HiOutlineChevronRight, HiOutlineArrowUp, HiOutlineTrash, HiOutlineCheck, HiOutlineEyeOff, HiOutlineEye, HiOutlineUser, HiOutlineRefresh  } from 'react-icons/hi'
@@ -17,9 +17,11 @@ import ReservationDateModal from './ReservationDateModal'
 import CancelVisitConfirmationModal from './CancelVisitConfirmationModal'
 import { useQueryClient } from '@tanstack/react-query'
 
+
 interface PatientListProps {
-  isLoading?: boolean;
-  filteredPatients?: Patient[];
+  isLoading: boolean;
+  filteredPatients: Patient[];
+  onSelectPatient?: (patientId: string) => void;
 }
 
 // 🔥 환자 상태 배지 - 콜백 날짜/시간 표시 추가
@@ -292,7 +294,7 @@ const hasOverdueCallbacks = (patient: Patient): boolean => {
   );
 };
 
-export default function PatientList({ isLoading = false, filteredPatients }: PatientListProps) {
+export default function PatientList({ isLoading = false, filteredPatients, onSelectPatient }: PatientListProps) {
   const dispatch = useDispatch<AppDispatch>()
   const queryClient = useQueryClient()
   
@@ -374,6 +376,20 @@ export default function PatientList({ isLoading = false, filteredPatients }: Pat
     window.scrollTo({ top: 0, behavior: 'smooth' })
   }
   
+  // 🆕 환자 클릭 핸들러 추가
+  const handlePatientClick = (patientId: string) => {
+    console.log('🔥 PatientList - 환자 클릭:', patientId, 'onSelectPatient 존재:', !!onSelectPatient);
+    
+    if (onSelectPatient) {
+      // 부모 컴포넌트에서 전달된 핸들러 사용 (상담관리 페이지)
+      onSelectPatient(patientId);
+    } else {
+      // 기본 동작 (다른 곳에서 사용될 때)
+      dispatch(selectPatient(patientId));
+    }
+  };
+
+  // 🔧 기존 handleViewDetails 함수 수정
   const handleViewDetails = (patient: Patient) => {
     const patientId = patient._id || patient.id;
     
@@ -383,7 +399,8 @@ export default function PatientList({ isLoading = false, filteredPatients }: Pat
     }
     
     console.log('상세 보기 선택:', patientId);
-    dispatch(selectPatient(patientId));
+    // 🔧 handlePatientClick 사용으로 변경
+    handlePatientClick(patientId);
   }
 
   // 내원 완료 핸들러
@@ -567,301 +584,300 @@ export default function PatientList({ isLoading = false, filteredPatients }: Pat
   };
   
   return (
-    <>
-
-      <div className="card p-0 w-full">
-        <div className="overflow-x-auto">
-          <table className="w-full min-w-[1000px] table-auto">
-            <thead>
-              <tr className="bg-light-bg">
-                <th className="px-4 py-3 text-left text-xs font-semibold text-text-secondary">상담 타입</th>
-                <th className="px-4 py-3 text-left text-xs font-semibold text-text-secondary">이름</th>
-                <th className="px-4 py-3 text-left text-xs font-semibold text-text-secondary">나이</th>
-                <th className="px-4 py-3 text-left text-xs font-semibold text-text-secondary">지역</th>
-                <th className="px-4 py-3 text-left text-xs font-semibold text-text-secondary">연락처</th>
-                <th className="px-4 py-3 text-left text-xs font-semibold text-text-secondary">관심 분야</th>
-                <th className="px-4 py-3 text-left text-xs font-semibold text-text-secondary">최근 상담</th>
-                <th className="px-4 py-3 text-left text-xs font-semibold text-text-secondary">상태</th>
-                <th className="px-4 py-3 text-left text-xs font-semibold text-text-secondary">총 콜백 횟수</th>
-                <th className="px-4 py-3 text-left text-xs font-semibold text-text-secondary">견적금액</th>
-                <th className="px-4 py-3 text-center text-xs font-semibold text-text-secondary">내원 완료</th>
-                <th className="px-4 py-3 text-center text-xs font-semibold text-text-secondary">액션</th>
+  <>
+    <div className="card p-0 w-full">
+      <div className="overflow-x-auto">
+        <table className="w-full min-w-[1000px] table-auto">
+          <thead>
+            <tr className="bg-light-bg">
+              <th className="px-4 py-3 text-left text-xs font-semibold text-text-secondary">상담 타입</th>
+              <th className="px-4 py-3 text-left text-xs font-semibold text-text-secondary">이름</th>
+              <th className="px-4 py-3 text-left text-xs font-semibold text-text-secondary">나이</th>
+              <th className="px-4 py-3 text-left text-xs font-semibold text-text-secondary">지역</th>
+              <th className="px-4 py-3 text-left text-xs font-semibold text-text-secondary">연락처</th>
+              <th className="px-4 py-3 text-left text-xs font-semibold text-text-secondary">관심 분야</th>
+              <th className="px-4 py-3 text-left text-xs font-semibold text-text-secondary">최근 상담</th>
+              <th className="px-4 py-3 text-left text-xs font-semibold text-text-secondary">상태</th>
+              <th className="px-4 py-3 text-left text-xs font-semibold text-text-secondary">총 콜백 횟수</th>
+              <th className="px-4 py-3 text-left text-xs font-semibold text-text-secondary">견적금액</th>
+              <th className="px-4 py-3 text-center text-xs font-semibold text-text-secondary">내원 완료</th>
+              <th className="px-4 py-3 text-center text-xs font-semibold text-text-secondary">액션</th>
+            </tr>
+          </thead>
+          
+          <tbody>
+            {isLoading ? (
+              <tr>
+                <td colSpan={12} className="px-4 py-8 text-center text-text-secondary">
+                  불러오는 중...
+                </td>
               </tr>
-            </thead>
-            
-            <tbody>
-              {isLoading ? (
-                <tr>
-                  <td colSpan={12} className="px-4 py-8 text-center text-text-secondary">
-                    불러오는 중...
-                  </td>
-                </tr>
-              ) : paginatedPatients.length === 0 ? (
-                <tr>
-                  <td colSpan={12} className="px-4 py-8 text-center text-text-secondary">
-                    {hideCompletedVisits ? '내원완료 환자를 제외한 결과가 없습니다.' : 
-                     filters.searchTerm ? (
-                      <>검색 결과가 없습니다: <strong>{filters.searchTerm}</strong></>
-                    ) : (
-                      '등록된 환자가 없습니다.'
-                    )}
-                  </td>
-                </tr>
-              ) : (
-                paginatedPatients.map((patient) => {
-                  // 🔥 미처리 콜백 체크 추가
-                  const hasOverdueCallback = hasOverdueCallbacks(patient);
-                  
-                  // 🔥 행 색상 우선순위: 내원완료 > 미처리 콜백 > 오늘 예약 > 예약 후 미내원
-                  const rowColor = patient.visitConfirmed 
-                    ? 'bg-gray-50/70'  // 🔥 내원 완료가 최우선 (음영/실선 효과 없음)
-                    : hasOverdueCallback
-                    ? 'bg-red-50 border-l-4 border-l-red-500'  // 🔥 미처리 콜백 - 빨간색 (2순위)
-                    : patient.isTodayReservationPatient  
-                    ? 'bg-green-50 border-l-4 border-l-green-400'  // 오늘 예약 (3순위)
-                    : patient.hasBeenPostReservationPatient  
-                    ? 'bg-orange-50 border-l-4 border-l-orange-400'  // 예약 후 미내원 (4순위)
-                    : patient.consultationType === 'inbound'  
-                    ? 'bg-green-50/30'
-                    : patient.consultationType === 'returning'
-                    ? 'bg-purple-50/30'
-                    : patient.status === 'VIP' 
-                    ? 'bg-purple-50/30' 
-                    : patient.status === '부재중' 
-                    ? 'bg-red-50/30' 
-                    : patient.status === '콜백필요' 
-                    ? 'bg-yellow-50/30' 
-                    : '';
-                  
-                  const isVip = patient.name === '홍길동' || patient.status === 'VIP';
-                  const patientId = patient._id || patient.id || '';
-                  
-                  return (
-                    <tr 
-                      key={patient._id} 
-                      className={`border-b border-border last:border-0 ${rowColor} transition-colors duration-150 ${
-                        patient.visitConfirmed ? 'opacity-75' : ''
-                      }`}
-                    >
-                      <td className="px-4 py-4">
-                        <ConsultationTypeBadge 
-                          type={patient.consultationType || 'outbound'} 
-                          inboundPhoneNumber={patient.inboundPhoneNumber}
-                        />
-                      </td>
-                      <td className={`px-4 py-4 text-sm font-medium ${isVip ? 'text-purple-800' : 'text-text-primary'}`}>
-                        <PatientTooltip
-                          patientId={patientId}
-                          patientName={patient.name}
-                          refreshTrigger={tooltipRefreshTrigger}
+            ) : paginatedPatients.length === 0 ? (
+              <tr>
+                <td colSpan={12} className="px-4 py-8 text-center text-text-secondary">
+                  {hideCompletedVisits ? '내원완료 환자를 제외한 결과가 없습니다.' : 
+                   filters.searchTerm ? (
+                    <>검색 결과가 없습니다: <strong>{filters.searchTerm}</strong></>
+                  ) : (
+                    '등록된 환자가 없습니다.'
+                  )}
+                </td>
+              </tr>
+            ) : (
+              paginatedPatients.map((patient) => {
+                // 🔥 미처리 콜백 체크 추가
+                const hasOverdueCallback = hasOverdueCallbacks(patient);
+                
+                // 🔥 행 색상 우선순위: 내원완료 > 미처리 콜백 > 오늘 예약 > 예약 후 미내원
+                const rowColor = patient.visitConfirmed 
+                  ? 'bg-gray-50/70'  // 🔥 내원 완료가 최우선 (음영/실선 효과 없음)
+                  : hasOverdueCallback
+                  ? 'bg-red-50 border-l-4 border-l-red-500'  // 🔥 미처리 콜백 - 빨간색 (2순위)
+                  : patient.isTodayReservationPatient  
+                  ? 'bg-green-50 border-l-4 border-l-green-400'  // 오늘 예약 (3순위)
+                  : patient.hasBeenPostReservationPatient  
+                  ? 'bg-orange-50 border-l-4 border-l-orange-400'  // 예약 후 미내원 (4순위)
+                  : patient.consultationType === 'inbound'  
+                  ? 'bg-green-50/30'
+                  : patient.consultationType === 'returning'
+                  ? 'bg-purple-50/30'
+                  : patient.status === 'VIP' 
+                  ? 'bg-purple-50/30' 
+                  : patient.status === '부재중' 
+                  ? 'bg-red-50/30' 
+                  : patient.status === '콜백필요' 
+                  ? 'bg-yellow-50/30' 
+                  : '';
+                
+                const isVip = patient.name === '홍길동' || patient.status === 'VIP';
+                const patientId = patient._id || patient.id || '';
+                
+                return (
+                  <tr 
+                    key={patient._id} 
+                    className={`border-b border-border last:border-0 ${rowColor} transition-colors duration-150 ${
+                      patient.visitConfirmed ? 'opacity-75' : ''
+                    }`}
+                  >
+                    <td className="px-4 py-4">
+                      <ConsultationTypeBadge 
+                        type={patient.consultationType || 'outbound'} 
+                        inboundPhoneNumber={patient.inboundPhoneNumber}
+                      />
+                    </td>
+                    <td className={`px-4 py-4 text-sm font-medium ${isVip ? 'text-purple-800' : 'text-text-primary'}`}>
+                      <PatientTooltip
+                        patientId={patientId}
+                        patientName={patient.name}
+                        refreshTrigger={tooltipRefreshTrigger}
+                      >
+                        <button 
+                          onClick={() => handlePatientClick(patientId)} // 🔧 handlePatientClick 사용
+                          className="hover:underline"
                         >
-                          <button 
-                            onClick={() => handleViewDetails(patient)}
-                            className="hover:underline"
+                          {patient.name}
+                        </button>
+                      </PatientTooltip>
+                    </td>
+                    <td className="px-4 py-4 text-sm text-text-secondary">
+                      {patient.age || '-'}
+                    </td>
+                    <td className="px-4 py-4 text-sm text-text-secondary">
+                      {patient.region ? (
+                        <>
+                          {patient.region.province}
+                          {patient.region.city && ` ${patient.region.city}`}
+                        </>
+                      ) : '-'}
+                    </td>
+                    <td className="px-4 py-4 text-sm text-text-secondary">
+                      {patient.phoneNumber || '-'}
+                    </td>
+                    <td className="px-4 py-4">
+                      <div className="flex flex-wrap gap-1">
+                        {(patient.interestedServices || []).map((service, idx) => (
+                          <span 
+                            key={idx}
+                            className="inline-block px-2 py-1 rounded-full text-xs bg-light-bg text-text-primary"
                           >
-                            {patient.name}
-                          </button>
-                        </PatientTooltip>
-                      </td>
-                      <td className="px-4 py-4 text-sm text-text-secondary">
-                        {patient.age || '-'}
-                      </td>
-                      <td className="px-4 py-4 text-sm text-text-secondary">
-                        {patient.region ? (
-                          <>
-                            {patient.region.province}
-                            {patient.region.city && ` ${patient.region.city}`}
-                          </>
-                        ) : '-'}
-                      </td>
-                      <td className="px-4 py-4 text-sm text-text-secondary">
-                        {patient.phoneNumber || '-'}
-                      </td>
-                      <td className="px-4 py-4">
-                        <div className="flex flex-wrap gap-1">
-                          {(patient.interestedServices || []).map((service, idx) => (
-                            <span 
-                              key={idx}
-                              className="inline-block px-2 py-1 rounded-full text-xs bg-light-bg text-text-primary"
-                            >
-                              {service}
-                            </span>
-                          ))}
-                          {(!patient.interestedServices || patient.interestedServices.length === 0) && (
-                            <span className="text-sm text-gray-400">-</span>
-                          )}
-                        </div>
-                      </td>
-                      <td className="px-4 py-4 text-sm text-gray-900">
-                        {getLastConsultationDate(patient)}
-                      </td>
-                      <td className="px-4 py-4">
-                        {/* 🔥 PatientStatusBadge 올바른 위치에 배치 */}
-                        <PatientStatusBadge 
-                          status={patient.status} 
-                          patient={patient}
+                            {service}
+                          </span>
+                        ))}
+                        {(!patient.interestedServices || patient.interestedServices.length === 0) && (
+                          <span className="text-sm text-gray-400">-</span>
+                        )}
+                      </div>
+                    </td>
+                    <td className="px-4 py-4 text-sm text-gray-900">
+                      {getLastConsultationDate(patient)}
+                    </td>
+                    <td className="px-4 py-4">
+                      {/* 🔥 PatientStatusBadge 올바른 위치에 배치 */}
+                      <PatientStatusBadge 
+                        status={patient.status} 
+                        patient={patient}
+                      />
+                    </td>
+                    <td className="px-4 py-4">
+                      <CallbackCountBadge patient={patient} />
+                    </td>
+                    <td className="px-4 py-4">
+                      <EstimateAgreementBadge patient={patient} />
+                    </td>
+                    <td className="px-4 py-4 text-center">
+                      <button
+                        className={`inline-flex items-center justify-center w-8 h-8 rounded-full transition-colors duration-150 ${
+                          patient.visitConfirmed 
+                            ? 'bg-green-500 text-white hover:bg-green-600' 
+                            : 'bg-gray-200 text-gray-500 hover:bg-gray-300'
+                        }`}
+                        onClick={(e) => handleToggleVisitConfirmation(patient, e)}
+                        title={patient.visitConfirmed ? "내원완료 취소" : "내원 완료"}
+                        disabled={isProcessingReservation}
+                      >
+                        <Icon 
+                          icon={HiOutlineCheck} 
+                          size={16} 
                         />
-                      </td>
-                      <td className="px-4 py-4">
-                        <CallbackCountBadge patient={patient} />
-                      </td>
-                      <td className="px-4 py-4">
-                        <EstimateAgreementBadge patient={patient} />
-                      </td>
-                      <td className="px-4 py-4 text-center">
+                      </button>
+                    </td>
+                    <td className="px-4 py-4 text-center">
+                      <div className="flex items-center justify-center gap-2">
                         <button
-                          className={`inline-flex items-center justify-center w-8 h-8 rounded-full transition-colors duration-150 ${
-                            patient.visitConfirmed 
-                              ? 'bg-green-500 text-white hover:bg-green-600' 
-                              : 'bg-gray-200 text-gray-500 hover:bg-gray-300'
-                          }`}
-                          onClick={(e) => handleToggleVisitConfirmation(patient, e)}
-                          title={patient.visitConfirmed ? "내원완료 취소" : "내원 완료"}
-                          disabled={isProcessingReservation}
+                          className="inline-flex items-center justify-center w-8 h-8 rounded-full bg-primary text-white hover:bg-primary/90 transition-colors duration-150"
+                          onClick={() => handlePatientClick(patientId)} // 🔧 handlePatientClick 사용
+                          title="상세 정보"
                         >
                           <Icon 
-                            icon={HiOutlineCheck} 
+                            icon={HiOutlineArrowUp} 
+                            size={16} 
+                            className="transform rotate-45" 
+                          />
+                        </button>
+                        <button
+                          className="inline-flex items-center justify-center w-8 h-8 rounded-full bg-error text-white hover:bg-error/90 transition-colors duration-150"
+                          onClick={() => patientId && dispatch(openDeleteConfirm(patientId))}
+                          title="환자 삭제"
+                        >
+                          <Icon 
+                            icon={HiOutlineTrash} 
                             size={16} 
                           />
                         </button>
-                      </td>
-                      <td className="px-4 py-4 text-center">
-                        <div className="flex items-center justify-center gap-2">
-                          <button
-                            className="inline-flex items-center justify-center w-8 h-8 rounded-full bg-primary text-white hover:bg-primary/90 transition-colors duration-150"
-                            onClick={() => handleViewDetails(patient)}
-                            title="상세 정보"
-                          >
-                            <Icon 
-                              icon={HiOutlineArrowUp} 
-                              size={16} 
-                              className="transform rotate-45" 
-                            />
-                          </button>
-                          <button
-                            className="inline-flex items-center justify-center w-8 h-8 rounded-full bg-error text-white hover:bg-error/90 transition-colors duration-150"
-                            onClick={() => patientId && dispatch(openDeleteConfirm(patientId))}
-                            title="환자 삭제"
-                          >
-                            <Icon 
-                              icon={HiOutlineTrash} 
-                              size={16} 
-                            />
-                          </button>
-                        </div>
-                      </td>
-                    </tr>
-                  )
-                })
-              )}
-            </tbody>
-          </table>
-        </div>
-        
-        {/* 페이지네이션 */}
-        <div className="flex flex-col sm:flex-row items-center justify-between p-4 border-t border-border">
-          <div className="text-sm text-text-secondary mb-4 sm:mb-0">
-            총 {displayPatients.length}개 항목 중 {Math.min(startIndex + 1, displayPatients.length)}-{Math.min(endIndex, displayPatients.length)} 표시
-            {hideCompletedVisits && (
-              <span className="ml-2 text-gray-500">(내원완료 {stats.visitConfirmed}명 숨김)</span>
+                      </div>
+                    </td>
+                  </tr>
+                )
+              })
             )}
-            {/* 🔥 미처리 콜백 환자 수 표시 */}
-            {stats.overdueCallbacks > 0 && (
-              <span className="ml-2 text-red-600">(미처리 콜백 {stats.overdueCallbacks}명)</span>
-            )}
-            {/* 🔥 예약 후 미내원 환자 수 표시 */}
-            {stats.postReservationPatients > 0 && (
-              <span className="ml-2 text-orange-600">(예약 후 미내원 {stats.postReservationPatients}명)</span>
-            )}
-          </div>
-          
-          <div className="flex items-center gap-2 bg-light-bg px-4 py-1.5 rounded-full">
-            <button
-              className="p-1 text-text-secondary disabled:text-text-muted disabled:cursor-not-allowed"
-              onClick={() => handlePageChange(currentPage - 1)}
-              disabled={currentPage === 1}
-            >
-              <Icon 
-                icon={HiOutlineChevronLeft} 
-                size={20} 
-                className="text-current" 
-              />
-            </button>
-            
-            {(() => {
-              const totalPages = Math.ceil(displayPatients.length / itemsPerPage);
-              const pagesPerGroup = 10; // 한 번에 보여줄 페이지 수
-              const currentGroup = Math.ceil(currentPage / pagesPerGroup);
-              const startPage = (currentGroup - 1) * pagesPerGroup + 1;
-              const endPage = Math.min(startPage + pagesPerGroup - 1, totalPages);
-              
-              const pages = [];
-              
-              // 현재 그룹의 페이지 번호들을 생성
-              for (let i = startPage; i <= endPage; i++) {
-                pages.push(
-                  <button
-                    key={i}
-                    className={`w-6 h-6 flex items-center justify-center rounded-md text-sm ${
-                      currentPage === i ? 'bg-primary text-white' : 'text-text-secondary hover:bg-gray-200'
-                    }`}
-                    onClick={() => handlePageChange(i)}
-                  >
-                    {i}
-                  </button>
-                );
-              }
-              
-              return pages;
-            })()}
-            
-            <button
-              className="p-1 text-text-secondary disabled:text-text-muted disabled:cursor-not-allowed"
-              onClick={() => {
-                const totalPages = Math.ceil(displayPatients.length / itemsPerPage);
-                const pagesPerGroup = 10;
-                const currentGroup = Math.ceil(currentPage / pagesPerGroup);
-                const nextGroupStartPage = currentGroup * pagesPerGroup + 1;
-                
-                if (nextGroupStartPage <= totalPages) {
-                  handlePageChange(nextGroupStartPage);
-                }
-              }}
-              disabled={(() => {
-                const totalPages = Math.ceil(displayPatients.length / itemsPerPage);
-                const pagesPerGroup = 10;
-                const currentGroup = Math.ceil(currentPage / pagesPerGroup);
-                const nextGroupStartPage = currentGroup * pagesPerGroup + 1;
-                return nextGroupStartPage > totalPages;
-              })()}
-            >
-              <Icon 
-                icon={HiOutlineChevronRight} 
-                size={20} 
-                className="text-current" 
-              />
-            </button>
-          </div>
-        </div>
+          </tbody>
+        </table>
       </div>
       
-      {selectedPatient && <PatientDetailModal />}
+      {/* 페이지네이션 */}
+      <div className="flex flex-col sm:flex-row items-center justify-between p-4 border-t border-border">
+        <div className="text-sm text-text-secondary mb-4 sm:mb-0">
+          총 {displayPatients.length}개 항목 중 {Math.min(startIndex + 1, displayPatients.length)}-{Math.min(endIndex, displayPatients.length)} 표시
+          {hideCompletedVisits && (
+            <span className="ml-2 text-gray-500">(내원완료 {stats.visitConfirmed}명 숨김)</span>
+          )}
+          {/* 🔥 미처리 콜백 환자 수 표시 */}
+          {stats.overdueCallbacks > 0 && (
+            <span className="ml-2 text-red-600">(미처리 콜백 {stats.overdueCallbacks}명)</span>
+          )}
+          {/* 🔥 예약 후 미내원 환자 수 표시 */}
+          {stats.postReservationPatients > 0 && (
+            <span className="ml-2 text-orange-600">(예약 후 미내원 {stats.postReservationPatients}명)</span>
+          )}
+        </div>
+        
+        <div className="flex items-center gap-2 bg-light-bg px-4 py-1.5 rounded-full">
+          <button
+            className="p-1 text-text-secondary disabled:text-text-muted disabled:cursor-not-allowed"
+            onClick={() => handlePageChange(currentPage - 1)}
+            disabled={currentPage === 1}
+          >
+            <Icon 
+              icon={HiOutlineChevronLeft} 
+              size={20} 
+              className="text-current" 
+            />
+          </button>
+          
+          {(() => {
+            const totalPages = Math.ceil(displayPatients.length / itemsPerPage);
+            const pagesPerGroup = 10; // 한 번에 보여줄 페이지 수
+            const currentGroup = Math.ceil(currentPage / pagesPerGroup);
+            const startPage = (currentGroup - 1) * pagesPerGroup + 1;
+            const endPage = Math.min(startPage + pagesPerGroup - 1, totalPages);
+            
+            const pages = [];
+            
+            // 현재 그룹의 페이지 번호들을 생성
+            for (let i = startPage; i <= endPage; i++) {
+              pages.push(
+                <button
+                  key={i}
+                  className={`w-6 h-6 flex items-center justify-center rounded-md text-sm ${
+                    currentPage === i ? 'bg-primary text-white' : 'text-text-secondary hover:bg-gray-200'
+                  }`}
+                  onClick={() => handlePageChange(i)}
+                >
+                  {i}
+                </button>
+              );
+            }
+            
+            return pages;
+          })()}
+          
+          <button
+            className="p-1 text-text-secondary disabled:text-text-muted disabled:cursor-not-allowed"
+            onClick={() => {
+              const totalPages = Math.ceil(displayPatients.length / itemsPerPage);
+              const pagesPerGroup = 10;
+              const currentGroup = Math.ceil(currentPage / pagesPerGroup);
+              const nextGroupStartPage = currentGroup * pagesPerGroup + 1;
+              
+              if (nextGroupStartPage <= totalPages) {
+                handlePageChange(nextGroupStartPage);
+              }
+            }}
+            disabled={(() => {
+              const totalPages = Math.ceil(displayPatients.length / itemsPerPage);
+              const pagesPerGroup = 10;
+              const currentGroup = Math.ceil(currentPage / pagesPerGroup);
+              const nextGroupStartPage = currentGroup * pagesPerGroup + 1;
+              return nextGroupStartPage > totalPages;
+            })()}
+          >
+            <Icon 
+              icon={HiOutlineChevronRight} 
+              size={20} 
+              className="text-current" 
+            />
+          </button>
+        </div>
+      </div>
+    </div>
+    
+    {selectedPatient && <PatientDetailModal />}
 
-      <ReservationDateModal
-        isOpen={isReservationModalOpen}
-        onClose={handleReservationModalClose}
-        onConfirm={handleReservationConfirm}
-        patient={selectedPatientForReservation}
-        isLoading={isProcessingReservation}
-      />
+    <ReservationDateModal
+      isOpen={isReservationModalOpen}
+      onClose={handleReservationModalClose}
+      onConfirm={handleReservationConfirm}
+      patient={selectedPatientForReservation}
+      isLoading={isProcessingReservation}
+    />
 
-      <CancelVisitConfirmationModal
-        isOpen={isCancelModalOpen}
-        onClose={handleCancelModalClose}
-        onConfirm={handleConfirmCancelVisit}
-        patient={selectedPatientForCancel}
-        isLoading={isProcessingReservation}
-      />
-    </>
-  )
+    <CancelVisitConfirmationModal
+      isOpen={isCancelModalOpen}
+      onClose={handleCancelModalClose}
+      onConfirm={handleConfirmCancelVisit}
+      patient={selectedPatientForCancel}
+      isLoading={isProcessingReservation}
+    />
+  </>
+)
 }

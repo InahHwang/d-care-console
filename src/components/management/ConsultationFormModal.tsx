@@ -1,12 +1,12 @@
 // src/components/management/ConsultationFormModal.tsx
-// 🔥 기존 기능 100% 유지 + 실시간 데이터 동기화만 추가
+// 🔥 기존 상담 정보 수정 시 콜백 중복 추가 문제 해결
 
 'use client'
 
 import { useState, useEffect } from 'react'
 import { HiOutlineX, HiOutlineCreditCard, HiOutlineCalendar, HiOutlineCurrencyDollar, HiOutlinePhone, HiOutlineClock } from 'react-icons/hi'
 import { Icon } from '../common/Icon'
-import { ConsultationInfo } from '@/types/patient'
+import { ConsultationInfo, CallbackItem } from '@/types/patient'
 import { 
   validateConsultationInfo,
   formatAmount,
@@ -22,12 +22,17 @@ interface ConsultationFormModalProps {
   patientId: string
   patientName: string
   existingConsultation?: ConsultationInfo
+  // 🔥 환자 콜백 히스토리 추가 (기존 콜백 확인용)
+  patientCallbackHistory?: CallbackItem[]
   onSave: (consultationData: Partial<ConsultationInfo>, additionalData?: {
     reservationDate?: string
     reservationTime?: string
     callbackDate?: string
     callbackTime?: string
     callbackNotes?: string
+    // 🔥 수정 모드 플래그 추가
+    isEditMode?: boolean
+    existingCallbackId?: string
   }) => Promise<void>
 }
 
@@ -37,6 +42,7 @@ export default function ConsultationFormModal({
   patientId,
   patientName,
   existingConsultation,
+  patientCallbackHistory = [], // 🔥 기본값 추가
   onSave
 }: ConsultationFormModalProps) {
   const [formData, setFormData] = useState<Partial<ConsultationInfo>>({
@@ -59,9 +65,23 @@ export default function ConsultationFormModal({
   const [errors, setErrors] = useState<string[]>([])
   const [isLoading, setIsLoading] = useState(false)
   
-  // 기존 데이터로 폼 초기화 (기존 로직 그대로 유지)
+  // 🔥 수정 모드인지 확인하는 함수
+  const isEditMode = !!existingConsultation
+
+  // 🔥 기존 1차 콜백 찾기 함수
+  const findExistingFirstCallback = () => {
+    return patientCallbackHistory?.find(callback => 
+      callback.type === '1차' && 
+      callback.status !== '취소' && 
+      !callback.isVisitManagementCallback
+    )
+  }
+
+  // 🔥 기존 데이터로 폼 초기화 - 예약/콜백 정보도 함께 복원
   useEffect(() => {
     if (existingConsultation) {
+      console.log('🔥 기존 상담 정보로 폼 초기화:', existingConsultation)
+      
       setFormData({
         estimatedAmount: existingConsultation.estimatedAmount || 0,
         consultationDate: existingConsultation.consultationDate || new Date().toISOString().split('T')[0],
@@ -69,12 +89,39 @@ export default function ConsultationFormModal({
         treatmentPlan: existingConsultation.treatmentPlan || '',
         estimateAgreed: existingConsultation.estimateAgreed || false
       })
+
+      // 🔥 동의한 경우 - 환자의 예약 정보에서 복원
+      if (existingConsultation.estimateAgreed === true) {
+        // PatientDetailModal에서 전달받은 환자 정보 필요 - 임시로 기본값 설정
+        const tomorrow = new Date()
+        tomorrow.setDate(tomorrow.getDate() + 1)
+        setReservationDate(tomorrow.toISOString().split('T')[0])
+        setReservationTime('10:00')
+      }
+
+      // 🔥 거부한 경우 - 기존 1차 콜백 정보에서 복원
+      if (existingConsultation.estimateAgreed === false) {
+        const existingCallback = findExistingFirstCallback()
+        if (existingCallback) {
+          console.log('🔥 기존 1차 콜백 정보 복원:', existingCallback)
+          setCallbackDate(existingCallback.date || '')
+          setCallbackTime(existingCallback.time || '')
+          setCallbackNotes(existingCallback.notes || '')
+        } else {
+          // 기본값 설정
+          const tomorrow = new Date()
+          tomorrow.setDate(tomorrow.getDate() + 1)
+          setCallbackDate(tomorrow.toISOString().split('T')[0])
+          setCallbackTime('10:00')
+          setCallbackNotes('1차 콜백 - 견적 재검토 및 상담')
+        }
+      }
     }
-  }, [existingConsultation])
+  }, [existingConsultation, patientCallbackHistory])
   
-  // 🔥 기본 날짜/시간 설정 (기존 로직 그대로 유지)
+  // 🔥 기본 날짜/시간 설정 (신규 생성 시에만)
   useEffect(() => {
-    if (isOpen) {
+    if (isOpen && !existingConsultation) {
       const today = new Date().toISOString().split('T')[0]
       const tomorrow = new Date()
       tomorrow.setDate(tomorrow.getDate() + 1)
@@ -89,7 +136,7 @@ export default function ConsultationFormModal({
       setCallbackTime('10:00')
       setCallbackNotes('1차 콜백 - 견적 재검토 및 상담')
     }
-  }, [isOpen])
+  }, [isOpen, existingConsultation])
   
   // 폼 데이터 변경 핸들러 (기존 로직 그대로 유지)
   const handleInputChange = (field: keyof ConsultationInfo, value: any) => {
@@ -132,7 +179,7 @@ export default function ConsultationFormModal({
     return additionalErrors
   }
   
-  // 🔥 저장 핸들러 - 기존 로직 + 데이터 동기화 트리거만 추가
+  // 🔥 저장 핸들러 - 수정 모드 감지 및 기존 콜백 ID 전달
   const handleSave = async () => {
     // 기본 유효성 검사 (기존 로직 그대로)
     const validationErrors = validateConsultationInfo(formData)
@@ -147,14 +194,18 @@ export default function ConsultationFormModal({
     setIsLoading(true)
     
     try {
-      // 🔥 추가 데이터 구성 (기존 로직 그대로)
+      // 🔥 추가 데이터 구성 - 수정 모드 정보 포함
       const additionalData: {
         reservationDate?: string
         reservationTime?: string
         callbackDate?: string
         callbackTime?: string
         callbackNotes?: string
-      } = {}
+        isEditMode?: boolean
+        existingCallbackId?: string
+      } = {
+        isEditMode // 🔥 수정 모드 플래그 추가
+      }
       
       if (formData.estimateAgreed === true) {
         // 동의 시 예약정보 추가
@@ -165,7 +216,23 @@ export default function ConsultationFormModal({
         additionalData.callbackDate = callbackDate
         additionalData.callbackTime = callbackTime
         additionalData.callbackNotes = callbackNotes
+        
+        // 🔥 수정 모드인 경우 기존 콜백 ID 찾아서 전달
+        if (isEditMode) {
+          const existingCallback = findExistingFirstCallback()
+          if (existingCallback) {
+            additionalData.existingCallbackId = existingCallback.id
+            console.log('🔥 기존 1차 콜백 ID 전달:', existingCallback.id)
+          }
+        }
       }
+      
+      console.log('🔥 저장 데이터:', {
+        formData,
+        additionalData,
+        isEditMode,
+        patientId
+      })
       
       // 🔥 기존 onSave 호출 (기존 로직 그대로)
       await onSave(formData, additionalData)
@@ -196,6 +263,12 @@ export default function ConsultationFormModal({
                 {existingConsultation ? '최초 상담 기록 수정' : '최초 상담 기록 입력'}
               </h2>
               <p className="text-sm text-gray-500">환자: {patientName}</p>
+              {/* 🔥 수정 모드 알림 추가 */}
+              {isEditMode && (
+                <p className="text-xs text-blue-600">
+                  💡 수정 모드: 기존 콜백이 업데이트됩니다 (중복 추가되지 않음)
+                </p>
+              )}
             </div>
           </div>
           <button 
@@ -373,7 +446,7 @@ export default function ConsultationFormModal({
               <div className="bg-orange-50 p-4 rounded-lg border border-orange-200">
                 <h4 className="text-sm font-semibold text-orange-800 mb-3 flex items-center gap-2">
                   <Icon icon={HiOutlinePhone} size={16} />
-                  1차 콜백 등록
+                  1차 콜백 {isEditMode ? '수정' : '등록'}
                 </h4>
                 
                 <div className="space-y-3">
@@ -418,7 +491,7 @@ export default function ConsultationFormModal({
                 </div>
                 
                 <div className="mt-3 p-2 bg-orange-100 rounded text-sm text-orange-800">
-                  💡 저장 시 콜백 관리에 1차 콜백이 자동 등록됩니다.
+                  💡 저장 시 {isEditMode ? '기존 1차 콜백이 수정됩니다' : '콜백 관리에 1차 콜백이 자동 등록됩니다'}.
                 </div>
               </div>
             )}

@@ -1,4 +1,4 @@
-// src/components/management/PatientDetailModal.tsx - 실시간 데이터 동기화 추가
+// src/components/management/PatientDetailModal.tsx - 콜백 중복 추가 문제 해결
 
 'use client'
 import { useState, useEffect, useMemo } from 'react'
@@ -11,6 +11,7 @@ import {
   updateConsultationInfo,
   updatePatient,
   addCallback,
+  updateCallback, // 🔥 콜백 업데이트 액션 추가
   fetchPatients,
   selectPatient
 } from '@/store/slices/patientsSlice'
@@ -34,14 +35,30 @@ import { ConsultationInfo } from '@/types/patient'
 import { useActivityLogger } from '@/hooks/useActivityLogger'
 // 🔥 데이터 동기화 유틸리티 import 추가
 import { PatientDataSync, setupDataSyncListener } from '@/utils/dataSync'
+import VisitManagementTab from './VisitManagementTab'
 
 export default function PatientDetailModal() {
   const dispatch = useAppDispatch()
   const queryClient = useQueryClient()
   const selectedPatient = useAppSelector((state: RootState) => state.patients.selectedPatient)
+  const modalContext = useAppSelector((state: RootState) => state.patients.modalContext)
   const currentUser = useAppSelector((state: RootState) => state.auth.user)
   const isLoading = useAppSelector((state: RootState) => state.patients.isLoading)
   
+  // 🆕 내원 확정 여부 확인 함수
+  const isVisitConfirmed = useMemo(() => {
+    return selectedPatient?.visitConfirmed === true;
+  }, [selectedPatient?.visitConfirmed]);
+
+  // 🆕 내원관리 탭 클릭 핸들러
+  const handleVisitManagementTabClick = () => {
+    if (!isVisitConfirmed) {
+      alert('내원관리 탭을 사용하려면 먼저 상담관리 메뉴에서 "내원 확정"을 완료해주세요.');
+      return;
+    }
+    setActiveTab('내원관리');
+  };
+
   // 🔥 활동 로깅 훅 추가
   const { logPatientAction } = useActivityLogger()
   
@@ -65,6 +82,22 @@ export default function PatientDetailModal() {
   
   // 🚀 Optimistic Update 활성화
   const isOptimisticEnabled = true
+
+  // 🆕 컨텍스트에 따른 기본 탭 설정
+  useEffect(() => {
+    if (selectedPatient && modalContext) {
+      if (modalContext === 'visit-management') {
+        setActiveTab('내원관리');
+        console.log('내원관리 페이지에서 열림 - 내원관리 탭으로 설정');
+      } else if (modalContext === 'management') {
+        setActiveTab('환자정보');
+        console.log('상담관리 페이지에서 열림 - 환자정보 탭으로 설정');
+      }
+    } else {
+      // 컨텍스트가 없으면 기본 탭 유지
+      setActiveTab('환자정보');
+    }
+  }, [selectedPatient, modalContext]);
   
   // 🔥 데이터 동기화 리스너 설정
   useEffect(() => {
@@ -156,9 +189,17 @@ export default function PatientDetailModal() {
         callbackDate?: string
         callbackTime?: string
         callbackNotes?: string
+        isEditMode?: boolean // 🔥 수정 모드 플래그 추가
+        existingCallbackId?: string // 🔥 기존 콜백 ID 추가
       }
     }) => {
       if (!selectedPatient) throw new Error('환자 정보가 없습니다.');
+
+      console.log('🔥 상담 정보 업데이트 시작:', {
+        consultationData,
+        additionalData,
+        isEditMode: additionalData?.isEditMode
+      });
 
       // 1. 상담정보 저장
       const consultationResult = await dispatch(updateConsultationInfo({
@@ -178,19 +219,39 @@ export default function PatientDetailModal() {
         })).unwrap();
       }
 
-      // 3. 거부 시 1차 콜백 등록
+      // 3. 🔥 거부 시 콜백 처리 - 수정 모드 vs 신규 생성 구분
       if (consultationData.estimateAgreed === false && additionalData?.callbackDate) {
-        await dispatch(addCallback({
-          patientId: selectedPatient._id || selectedPatient.id,
-          callbackData: {
-            type: '1차',
-            date: additionalData.callbackDate,
-            time: additionalData.callbackTime,
-            status: '예정',
-            notes: additionalData.callbackNotes || '1차 콜백 - 견적 재검토',
-            isVisitManagementCallback: false
-          }
-        })).unwrap();
+        if (additionalData.isEditMode && additionalData.existingCallbackId) {
+          // 🔥 수정 모드: 기존 콜백 업데이트
+          console.log('🔥 기존 1차 콜백 업데이트:', additionalData.existingCallbackId);
+          await dispatch(updateCallback({
+            patientId: selectedPatient._id || selectedPatient.id,
+            callbackId: additionalData.existingCallbackId,
+            updateData: {
+              date: additionalData.callbackDate,
+              time: additionalData.callbackTime,
+              notes: additionalData.callbackNotes || '1차 콜백 - 견적 재검토',
+              status: '예정' // 상태도 예정으로 리셋
+            }
+          })).unwrap();
+        } else {
+          // 🔥 신규 생성 모드: 새 콜백 추가
+          console.log('🔥 새로운 1차 콜백 생성');
+          await dispatch(addCallback({
+            patientId: selectedPatient._id || selectedPatient.id,
+            callbackData: {
+              type: '1차',
+              date: additionalData.callbackDate,
+              time: additionalData.callbackTime,
+              status: '예정',
+              notes: additionalData.callbackNotes || '1차 콜백 - 견적 재검토',
+              isVisitManagementCallback: false,
+              completedTime: false,
+              createdAt: '',
+              completedDate: ''
+            }
+          })).unwrap();
+        }
       }
 
       return { consultationResult, consultationData, additionalData };
@@ -257,7 +318,7 @@ export default function PatientDetailModal() {
             consultationData: variables.consultationData,
             additionalData: variables.additionalData,
             handledBy: currentUser?.name,
-            notes: `상담 정보 업데이트 완료`
+            notes: `상담 정보 업데이트 완료 (${variables.additionalData?.isEditMode ? '수정' : '신규'})`
           }
         );
         console.log('✅ 상담 정보 업데이트 활동 로그 기록 성공');
@@ -395,6 +456,8 @@ export default function PatientDetailModal() {
       callbackDate?: string
       callbackTime?: string
       callbackNotes?: string
+      isEditMode?: boolean
+      existingCallbackId?: string
     }
   ) => {
     try {
@@ -432,27 +495,54 @@ export default function PatientDetailModal() {
         console.log('✅ 예약완료 처리 성공');
       }
       
-      // 3. 거부 시 1차 콜백 등록
+      // 3. 🔥 거부 시 콜백 처리 - 수정 vs 신규 구분
       if (consultationData.estimateAgreed === false && additionalData?.callbackDate) {
-        console.log('🔥 1차 콜백 등록 시작:', {
-          callbackDate: additionalData.callbackDate,
-          callbackTime: additionalData.callbackTime,
-          callbackNotes: additionalData.callbackNotes
-        });
-        
-        await dispatch(addCallback({
-          patientId: selectedPatient._id || selectedPatient.id,
-          callbackData: {
-            type: '1차',
-            date: additionalData.callbackDate,      // ✅ 수정됨
-            time: additionalData.callbackTime,      // ✅ 수정됨
-            status: '예정',
-            notes: additionalData.callbackNotes || '1차 콜백 - 견적 재검토',  // ✅ 수정됨
-            isVisitManagementCallback: false
-          }
-        })).unwrap();
-        
-        console.log('✅ 1차 콜백 등록 성공');
+        if (additionalData.isEditMode && additionalData.existingCallbackId) {
+          // 🔥 수정 모드: 기존 콜백 업데이트
+          console.log('🔥 기존 1차 콜백 업데이트:', {
+            callbackId: additionalData.existingCallbackId,
+            callbackDate: additionalData.callbackDate,
+            callbackTime: additionalData.callbackTime,
+            callbackNotes: additionalData.callbackNotes
+          });
+          
+          await dispatch(updateCallback({
+            patientId: selectedPatient._id || selectedPatient.id,
+            callbackId: additionalData.existingCallbackId,
+            updateData: {
+              date: additionalData.callbackDate,
+              time: additionalData.callbackTime,
+              notes: additionalData.callbackNotes || '1차 콜백 - 견적 재검토',
+              status: '예정' // 상태도 예정으로 리셋
+            }
+          })).unwrap();
+          
+          console.log('✅ 기존 1차 콜백 업데이트 성공');
+        } else {
+          // 🔥 신규 생성 모드: 새 콜백 추가
+          console.log('🔥 새로운 1차 콜백 등록 시작:', {
+            callbackDate: additionalData.callbackDate,
+            callbackTime: additionalData.callbackTime,
+            callbackNotes: additionalData.callbackNotes
+          });
+          
+          await dispatch(addCallback({
+            patientId: selectedPatient._id || selectedPatient.id,
+            callbackData: {
+              type: '1차',
+              date: additionalData.callbackDate,
+              time: additionalData.callbackTime,
+              status: '예정',
+              notes: additionalData.callbackNotes || '1차 콜백 - 견적 재검토',
+              isVisitManagementCallback: false,
+              completedTime: false,
+              createdAt: '',
+              completedDate: ''
+            }
+          })).unwrap();
+          
+          console.log('✅ 새로운 1차 콜백 등록 성공');
+        }
       }
       
       // 🔥 즉시 데이터 동기화 트리거
@@ -482,6 +572,8 @@ export default function PatientDetailModal() {
       callbackDate?: string
       callbackTime?: string
       callbackNotes?: string
+      isEditMode?: boolean
+      existingCallbackId?: string
     }
   ) => {
     // 🚀 Optimistic Update 실행
@@ -768,7 +860,7 @@ export default function PatientDetailModal() {
           </div>
         </div>
         
-        {/* 탭 메뉴 - 문자내역 탭 추가 */}
+        {/* 탭 메뉴 - 내원관리 탭 추가, 콜백관리 → 상담관리로 변경 */}
         <div className="px-6 pt-4 border-b border-border flex items-center">
           <button
             className={`px-4 py-2 text-sm font-medium transition-colors relative ${
@@ -785,14 +877,35 @@ export default function PatientDetailModal() {
           </button>
           <button
             className={`px-4 py-2 text-sm font-medium transition-colors relative ${
-              activeTab === '콜백관리'
+              activeTab === '상담관리'
                 ? 'text-primary'
                 : 'text-text-secondary hover:text-text-primary'
             }`}
-            onClick={() => handleTabChange('콜백관리')}
+            onClick={() => handleTabChange('상담관리')}
           >
-            콜백 관리
-            {activeTab === '콜백관리' && (
+            상담관리
+            {activeTab === '상담관리' && (
+              <div className="absolute bottom-0 left-0 right-0 h-0.5 bg-primary"></div>
+            )}
+          </button>
+          {/* 🔧 내원관리 탭 - 비활성화 상태 추가 */}
+          <button
+            className={`px-4 py-2 text-sm font-medium transition-colors relative ${
+              !isVisitConfirmed 
+                ? 'text-gray-400 cursor-not-allowed'
+                : activeTab === '내원관리'
+                ? 'text-primary'
+                : 'text-text-secondary hover:text-text-primary'
+            }`}
+            onClick={() => handleTabChange('내원관리')}
+            disabled={!isVisitConfirmed}
+            title={!isVisitConfirmed ? '내원 확정 후 이용 가능합니다' : ''}
+          >
+            내원관리
+            {!isVisitConfirmed && (
+              <span className="ml-1 text-xs">🔒</span>
+            )}
+            {activeTab === '내원관리' && isVisitConfirmed && (
               <div className="absolute bottom-0 left-0 right-0 h-0.5 bg-primary"></div>
             )}
           </button>
@@ -1259,9 +1372,14 @@ export default function PatientDetailModal() {
             </div>
           )}
           
-          {/* 콜백 관리 탭 */}
-          {activeTab === '콜백관리' && (
+          {/* 상담관리 탭 (기존 콜백관리에서 이름만 변경) */}
+          {activeTab === '상담관리' && (
             <CallbackManagement patient={selectedPatient} />
+          )}
+          
+          {/* 내원관리 탭 - 새로 추가 */}
+          {activeTab === '내원관리' && (
+            <VisitManagementTab patient={selectedPatient} />
           )}
           
           {/* 문자내역 탭 */}
@@ -1291,7 +1409,7 @@ export default function PatientDetailModal() {
         />
       )}
       
-      {/* 🔥 상담 정보 모달 */}
+      {/* 🔥 상담 정보 모달 - 환자 콜백 히스토리 전달 */}
       {isConsultationFormOpen && (
         <ConsultationFormModal
           isOpen={isConsultationFormOpen}
@@ -1299,6 +1417,7 @@ export default function PatientDetailModal() {
           patientId={selectedPatient._id}
           patientName={selectedPatient.name}
           existingConsultation={selectedPatient.consultation}
+          patientCallbackHistory={selectedPatient.callbackHistory} // 🔥 콜백 히스토리 전달
           onSave={handleConsultationUpdate}
         />
       )}

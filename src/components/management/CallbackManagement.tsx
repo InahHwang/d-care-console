@@ -1,4 +1,4 @@
-// src/components/management/CallbackManagement.tsx - 실시간 데이터 동기화 추가
+// src/components/management/CallbackManagement.tsx - 원래 날짜 보존 및 실제 처리 시간 표시
 
 'use client'
 import { format, addDays } from 'date-fns';
@@ -29,8 +29,10 @@ import {
   FirstConsultationResult,
   PostReservationResult,
   CallbackFollowupResult,
-  updatePatient  
+  updatePatient
 } from '@/store/slices/patientsSlice'
+// 🔥 헬퍼 함수는 타입 파일에서 import
+import { getCallbackDisplayInfo } from '@/types/patient'
 import { EventCategory } from '@/types/messageLog'
 import {
   HiOutlinePlus,
@@ -340,7 +342,12 @@ const handleCancelCallbackEdit = () => {
         ? customTerminationReason.trim() 
         : terminationReason;
 
-      // 콜백 완료 처리
+      // 🔥 현재 날짜/시간 가져오기
+      const now = new Date();
+      const currentDate = format(now, 'yyyy-MM-dd');
+      const currentTime = format(now, 'HH:mm');
+
+      // 콜백 완료 처리 - 🔥 원래 날짜는 보존하고 실제 처리 시간만 추가
       const updateData = {
         status: '완료' as CallbackStatus,
         callbackFollowupResult: {
@@ -351,8 +358,9 @@ const handleCancelCallbackEdit = () => {
           updatedAt: new Date().toISOString()
         },
         notes: callback.notes + `\n\n종결사유: ${finalTerminationReason}`,
-        date: format(new Date(), 'yyyy-MM-dd'),
-        time: format(new Date(), 'HH:mm'),
+        // 🔥 원래 date, time은 그대로 두고 실제 처리 시간만 별도 저장
+        actualCompletedDate: currentDate,
+        actualCompletedTime: currentTime,
         completedAt: new Date().toISOString()
       };
 
@@ -400,7 +408,7 @@ const handleCancelCallbackEdit = () => {
   };
 
   // 🔥 첫 상담 후 상태 처리
-  // 🔥 handleFirstConsultationComplete 함수 수정 - 변수 스코프 문제 해결
+  // 🔥 handleFirstConsultationComplete 함수 수정 - 원래 날짜 보존
 
 const handleFirstConsultationComplete = async (callback: CallbackItem) => {
   if (!firstConsultationStatus) {
@@ -420,6 +428,11 @@ const handleFirstConsultationComplete = async (callback: CallbackItem) => {
     let finalTerminationReason = '';
     let finalConsultationPlan = consultationPlan;
 
+    // 🔥 현재 날짜/시간 가져오기
+    const now = new Date();
+    const currentDate = format(now, 'yyyy-MM-dd');
+    const currentTime = format(now, 'HH:mm');
+
     switch (firstConsultationStatus) {
       case '예약완료':
         if (!reservationDate || !reservationTime || !consultationContent) {
@@ -435,8 +448,6 @@ const handleFirstConsultationComplete = async (callback: CallbackItem) => {
           updatedAt: new Date().toISOString()
         };
         break;
-
-        // 🔥 handleFirstConsultationComplete 함수 내 수정 필요 부분
 
       case '상담진행중':
       case '부재중':
@@ -492,7 +503,7 @@ const handleFirstConsultationComplete = async (callback: CallbackItem) => {
         return;
     }
 
-      // 콜백 완료 처리 + 첫 상담 결과 저장
+      // 콜백 완료 처리 + 첫 상담 결과 저장 - 🔥 원래 날짜는 보존
       const updateData = {
         status: '완료' as CallbackStatus,
         firstConsultationResult,
@@ -501,8 +512,9 @@ const handleFirstConsultationComplete = async (callback: CallbackItem) => {
             ? `\n예약일정: ${reservationDate} ${reservationTime}${consultationContent ? `\n상담내용: ${consultationContent}` : ''}` 
             : ''
         ),
-        date: format(new Date(), 'yyyy-MM-dd'),
-        time: format(new Date(), 'HH:mm'),
+        // 🔥 원래 date, time은 그대로 두고 실제 처리 시간만 별도 저장
+        actualCompletedDate: currentDate,
+        actualCompletedTime: currentTime,
         completedAt: new Date().toISOString()
       };
 
@@ -558,7 +570,8 @@ const handleFirstConsultationComplete = async (callback: CallbackItem) => {
           })(),
           isVisitManagementCallback: false,
           isReReservationRecord: false,
-          content: '' 
+          content: '',
+          createdAt: new Date().toISOString()
         };
 
         await dispatch(addCallback({
@@ -592,7 +605,7 @@ const handleFirstConsultationComplete = async (callback: CallbackItem) => {
     }
   };
 
-  // 🔥 예약 후 미내원 상태 처리
+  // 🔥 예약 후 미내원 상태 처리 - 원래 날짜 보존 로직은 여기서는 적용하지 않음 (새로운 콜백 생성이므로)
   const handlePostReservationStatusUpdate = async () => {
     if (!postReservationStatus) {
       alert('예약 후 미내원 환자 상태를 선택해주세요.');
@@ -631,7 +644,8 @@ const handleFirstConsultationComplete = async (callback: CallbackItem) => {
             postReservationResult,
             isVisitManagementCallback: false,
             isReReservationRecord: true,
-            content: undefined
+            content: undefined,
+            createdAt: new Date().toISOString()
           };
 
           await dispatch(addCallback({
@@ -675,7 +689,8 @@ const handleFirstConsultationComplete = async (callback: CallbackItem) => {
             postReservationResult,
             isVisitManagementCallback: false,
             isReReservationRecord: false,
-            content: undefined
+            content: undefined,
+            createdAt: new Date().toISOString()
           };
 
           await dispatch(addCallback({
@@ -760,7 +775,7 @@ const handleFirstConsultationComplete = async (callback: CallbackItem) => {
     }
   };
 
-  // 🔥 콜백 후속 상태 처리
+  // 🔥 콜백 후속 상태 처리 - 원래 날짜 보존
   const handleCallbackFollowupComplete = async (callback: CallbackItem) => {
     if (!callbackFollowupStatus) {
       alert(`${callback.type} 상담 후 환자 상태를 선택해주세요.`);
@@ -771,6 +786,11 @@ const handleFirstConsultationComplete = async (callback: CallbackItem) => {
     try {
       // 🔥 추가: callbackFollowupResult 변수 정의
       let callbackFollowupResult: CallbackFollowupResult;
+
+      // 🔥 현재 날짜/시간 가져오기
+      const now = new Date();
+      const currentDate = format(now, 'yyyy-MM-dd');
+      const currentTime = format(now, 'HH:mm');
 
       switch (callbackFollowupStatus) {
         case '예약완료':
@@ -852,7 +872,8 @@ const handleFirstConsultationComplete = async (callback: CallbackItem) => {
           content: '', 
           callbackFollowupResult,
           isVisitManagementCallback: false,
-          isReReservationRecord: false
+          isReReservationRecord: false,
+          createdAt: new Date().toISOString()
         };
 
         await dispatch(addCallback({
@@ -866,7 +887,7 @@ const handleFirstConsultationComplete = async (callback: CallbackItem) => {
           return;
       }
 
-      // 현재 콜백 완료 처리
+      // 현재 콜백 완료 처리 - 🔥 원래 날짜는 보존하고 실제 처리 시간만 추가
       const updateData = {
         status: '완료' as CallbackStatus,
         callbackFollowupResult,
@@ -876,9 +897,9 @@ const handleFirstConsultationComplete = async (callback: CallbackItem) => {
             ? `\n예약일정: ${reservationDate} ${reservationTime}${consultationContent ? `\n상담내용: ${consultationContent}` : ''}` 
             : '' // 🔥 부재중/상담진행중일 때는 추가 텍스트 없음 (이미 뱃지로 표시됨)
         ),
-        // 완료 처리 시 현재 날짜와 시간으로 업데이트  
-        date: format(new Date(), 'yyyy-MM-dd'),
-        time: format(new Date(), 'HH:mm'),
+        // 🔥 원래 date, time은 그대로 두고 실제 처리 시간만 별도 저장
+        actualCompletedDate: currentDate,
+        actualCompletedTime: currentTime,
         completedAt: new Date().toISOString()
       };
 
@@ -921,7 +942,8 @@ const handleFirstConsultationComplete = async (callback: CallbackItem) => {
         notes: `[${currentCallbackType} 콜백 등록]`,
         isVisitManagementCallback: false,
         isReReservationRecord: false,
-        content: undefined
+        content: undefined,
+        createdAt: new Date().toISOString()
       };
 
       await dispatch(addCallback({
@@ -1033,7 +1055,7 @@ const handleFirstConsultationComplete = async (callback: CallbackItem) => {
         </div>
       </div>
 
-      {/* 🔥 예약 후 미내원 환자 처리 섹션 */}
+      {/* 🔥 예약 후 미내원 환자 처리 섹션 - 기존과 동일 */}
       {currentStage === 'post_reservation' && (
         <div className="card border-orange-200 bg-orange-50">
           <h3 className="text-md font-semibold text-orange-800 mb-4">예약 후 미내원 환자상태</h3>
@@ -1155,7 +1177,7 @@ const handleFirstConsultationComplete = async (callback: CallbackItem) => {
         </div>
       )}
 
-      {/* 🔥 콜백 이력 및 상태별 처리 */}
+      {/* 🔥 콜백 이력 및 상태별 처리 - 날짜/시간 표시 로직 수정 */}
       <div className="card">
         <h3 className="text-md font-semibold text-text-primary mb-4">콜백 이력 및 처리</h3>
         
@@ -1173,7 +1195,11 @@ const handleFirstConsultationComplete = async (callback: CallbackItem) => {
           </div>
         ) : (
           <div className="space-y-4">
-            {callbackHistory.map((callback) => (
+            {callbackHistory.map((callback) => {
+              // 🔥 콜백 표시 정보 추출
+              const displayInfo = getCallbackDisplayInfo(callback);
+              
+              return (
               <div 
                 key={callback.id}
                 className={`p-4 border rounded-lg ${
@@ -1196,8 +1222,10 @@ const handleFirstConsultationComplete = async (callback: CallbackItem) => {
                     }`}>
                       {callback.isReReservationRecord ? '재예약완료' : callback.type}
                     </span>
-                    <span className="text-sm text-gray-600">{callback.date}</span>
-                    {callback.time && <span className="text-sm text-gray-600">{callback.time}</span>}
+                    
+                    {/* 🔥 예정 날짜/시간만 표시 */}
+                    <span className="text-sm text-gray-600">{displayInfo.scheduledDateTime}</span>
+                    
                     <div className="flex items-center gap-2">
                       <span className={`text-sm px-2 py-1 rounded ${
                         callback.status === '완료' ? 'bg-green-100 text-green-800' :
@@ -1258,25 +1286,34 @@ const handleFirstConsultationComplete = async (callback: CallbackItem) => {
                     </div>
                   </div>
                   
-                  {/* 🔥 수정/삭제 버튼 추가 - 예정 상태이고 재예약완료가 아닌 경우에만 표시 */}
-                  {!patient.isCompleted && callback.status === '예정' && !callback.isReReservationRecord && (
-                    <div className="flex items-center gap-1">
-                      <button
-                        onClick={() => handleEditCallback(callback)}
-                        className="p-1 text-blue-600 hover:bg-blue-100 rounded"
-                        title="수정"
-                      >
-                        <Icon icon={HiOutlinePencil} size={16} />
-                      </button>
-                      <button
-                        onClick={() => handleDeleteCallback(callback)}
-                        className="p-1 text-red-600 hover:bg-red-100 rounded"
-                        title="삭제"
-                      >
-                        <Icon icon={HiOutlineTrash} size={16} />
-                      </button>
-                    </div>
-                  )}
+                  {/* 🔥 우상단에 처리 날짜/시간 표시 (완료 상태일 때만) */}
+                  <div className="flex items-center gap-4">
+                    {displayInfo.hasActualCompletionTime && (
+                      <div className="text-xs text-gray-500">
+                        처리: {displayInfo.actualCompletedDateTime}
+                      </div>
+                    )}
+                    
+                    {/* 🔥 수정/삭제 버튼 - 예정 상태이고 재예약완료가 아닌 경우에만 표시 */}
+                    {!patient.isCompleted && callback.status === '예정' && !callback.isReReservationRecord && (
+                      <div className="flex items-center gap-1">
+                        <button
+                          onClick={() => handleEditCallback(callback)}
+                          className="p-1 text-blue-600 hover:bg-blue-100 rounded"
+                          title="수정"
+                        >
+                          <Icon icon={HiOutlinePencil} size={16} />
+                        </button>
+                        <button
+                          onClick={() => handleDeleteCallback(callback)}
+                          className="p-1 text-red-600 hover:bg-red-100 rounded"
+                          title="삭제"
+                        >
+                          <Icon icon={HiOutlineTrash} size={16} />
+                        </button>
+                      </div>
+                    )}
+                  </div>
                 </div>
                 
                 {callback.notes && (
@@ -1633,7 +1670,7 @@ const handleFirstConsultationComplete = async (callback: CallbackItem) => {
                   </div>
                 )}
               </div>
-            ))}
+            );})}
           </div>
         )}
       </div>      

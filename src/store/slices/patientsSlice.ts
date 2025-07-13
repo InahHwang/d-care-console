@@ -189,6 +189,7 @@ export interface PatientsState {
   patients: Patient[];            // import한 Patient 사용
   filteredPatients: Patient[];    
   selectedPatient: Patient | null; 
+  modalContext: 'management' | 'visit-management' | null; // 🆕 추가
   pagination: {
     currentPage: number;
     totalPages: number;
@@ -213,11 +214,12 @@ export interface PatientsState {
 
 // 초기 상태 정의
 const initialState: PatientsState = {
-  filteredPatientsForModal: [], 
-  modalFilterType: null,   
+  filteredPatientsForModal: [],
+  modalFilterType: null,
   patients: [],
   filteredPatients: [],
   selectedPatient: null,
+  modalContext: null, 
   pagination: {
     currentPage: 1,
     totalPages: 0,
@@ -235,7 +237,7 @@ const initialState: PatientsState = {
   isLoading: true,
   error: null,
   eventTargetPatients: [],
-  postVisitPatients: []
+  postVisitPatients: [],
 };
 
 // 🔥 새로운 비동기 액션 추가
@@ -1042,6 +1044,17 @@ export const updateCallback = createAsyncThunk(
       // 🔥 기존 콜백 데이터 가져오기 (activityLogger에 필요)
       const existingCallback = patient?.callbackHistory?.find(cb => cb.id === callbackId);
       
+      console.log('🔥 Redux: 콜백 업데이트 시작:', {
+        patientId,
+        callbackId,
+        updateData,
+        existingCallback: existingCallback ? {
+          type: existingCallback.type,
+          date: existingCallback.date,
+          status: existingCallback.status
+        } : null
+      });
+      
       // 🔥 PUT 요청에 callbackId를 쿼리 파라미터로 전달
       const response = await fetch(`/api/patients/${patientId}/callbacks?callbackId=${callbackId}`, {
         method: 'PUT',
@@ -1053,24 +1066,37 @@ export const updateCallback = createAsyncThunk(
       
       if (!response.ok) {
         const errorData = await response.json();
+        console.error('콜백 업데이트 API 에러:', errorData);
         return rejectWithValue(errorData.error || '콜백 업데이트에 실패했습니다.');
       }
       
       const updatedPatient = await response.json();
       
+      console.log('🔥 Redux: 콜백 업데이트 성공:', {
+        patientName: updatedPatient.name,
+        callbackId,
+        updateType: updateData.status ? '상태 변경' : '정보 수정'
+      });
+      
       // 🔥 활동 로그 기록 - 5개 인자 모두 전달
       if (patient && existingCallback) {
-        await CallbackActivityLogger.update(
-          patient.id,
-          patient.name,
-          callbackId,
-          existingCallback,
-          updateData
-        );
+        try {
+          await CallbackActivityLogger.update(
+            patient.id,
+            patient.name,
+            callbackId,
+            existingCallback,
+            updateData
+          );
+          console.log('✅ 콜백 업데이트 활동 로그 기록 성공');
+        } catch (logError) {
+          console.warn('⚠️ 콜백 업데이트 활동 로그 기록 실패:', logError);
+        }
       }
       
       return { patientId, updatedPatient };
     } catch (error: any) {
+      console.error('Redux: 콜백 업데이트 네트워크 에러:', error);
       return rejectWithValue(error.message || '콜백 업데이트에 실패했습니다.');
     }
   }
@@ -1126,26 +1152,53 @@ function applyFilters(state: PatientsState) {
   state.pagination.currentPage = 1;
 }
 
+// src/store/slices/patientsSlice.ts - selectPatient 액션 오버로드 수정
+
 const patientsSlice = createSlice({
   name: 'patients',
   initialState,
   reducers: {
-    selectPatient: (state, action: PayloadAction<string>) => {
-      const patientId = action.payload;
-      
-      console.log('환자 선택 시도:', patientId);
-      
-      const updatedPatient = state.patients.find(
-        (patient) => patient._id === patientId || patient.id === patientId
-      );
-      
-      if (updatedPatient) {
-        console.log('환자 찾음:', updatedPatient);
-        state.selectedPatient = updatedPatient;        
-       
+    // 🔧 selectPatient 액션을 오버로드 방식으로 수정 (기존 호환성 유지)
+    selectPatient: (state, action: PayloadAction<string | { 
+      patientId: string; 
+      context?: 'management' | 'visit-management' 
+    }>) => {
+      // 문자열인 경우 (기존 방식)
+      if (typeof action.payload === 'string') {
+        const patientId = action.payload;
+        console.log('환자 선택 시도 (기존 방식):', patientId);
+        
+        const updatedPatient = state.patients.find(
+          (patient) => patient._id === patientId || patient.id === patientId
+        );
+        
+        if (updatedPatient) {
+          console.log('환자 찾음:', updatedPatient);
+          state.selectedPatient = updatedPatient;
+          state.modalContext = null; // 기본값
+        } else {
+          console.error('환자를 찾을 수 없음:', patientId);
+          state.selectedPatient = null;
+          state.modalContext = null;
+        }
       } else {
-        console.error('환자를 찾을 수 없음:', patientId);
-        state.selectedPatient = null;
+        // 객체인 경우 (새로운 방식)
+        const { patientId, context } = action.payload;
+        console.log('환자 선택 시도 (새로운 방식):', patientId, 'context:', context);
+        
+        const updatedPatient = state.patients.find(
+          (patient) => patient._id === patientId || patient.id === patientId
+        );
+        
+        if (updatedPatient) {
+          console.log('환자 찾음:', updatedPatient);
+          state.selectedPatient = updatedPatient;
+          state.modalContext = context || null;
+        } else {
+          console.error('환자를 찾을 수 없음:', patientId);
+          state.selectedPatient = null;
+          state.modalContext = null;
+        }
       }
     },
 
@@ -1155,6 +1208,7 @@ const patientsSlice = createSlice({
 
     clearSelectedPatient: (state) => {
       state.selectedPatient = null;
+      state.modalContext = null; 
     },
     setFilters: (state, action: PayloadAction<Partial<PatientsState['filters']>>) => {
       state.filters = { ...state.filters, ...action.payload };
@@ -1652,5 +1706,11 @@ const patientsSlice = createSlice({
   },
 });
 
+export const selectPatientWithContext = (
+  patientId: string, 
+  context?: 'management' | 'visit-management'
+) => selectPatient({ patientId, context });
+
 export const { selectPatient, setSelectedPatient, clearSelectedPatient, setFilters, setPage, clearFilteredPatients } = patientsSlice.actions;
 export default patientsSlice.reducer;
+

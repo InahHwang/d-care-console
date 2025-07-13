@@ -1,4 +1,4 @@
-// src/app/api/patients/[id]/callbacks/route.ts - 새로운 첫 상담 후 상태 관리 지원 (완전한 코드)
+// src/app/api/patients/[id]/callbacks/route.ts - 새로운 첫 상담 후 상태 관리 지원 + 원래 날짜 보존 (완전한 코드)
 
 import { NextRequest, NextResponse } from 'next/server';
 import { connectToDatabase } from '@/utils/mongodb';
@@ -91,7 +91,8 @@ export async function POST(
     const newCallback = {
       id: callbackId,
       ...callbackData,
-      time: typeof callbackData.time === 'string' ? callbackData.time : undefined
+      time: typeof callbackData.time === 'string' ? callbackData.time : undefined,
+      createdAt: new Date().toISOString()
     };
     
     // 🔥 새로운 상태별 환자 정보 업데이트 로직
@@ -337,7 +338,7 @@ export async function POST(
   }
 }
 
-// 🔥 콜백 업데이트를 위한 PUT 메서드 추가
+// 🔥 콜백 업데이트를 위한 PUT 메서드 - 원래 날짜 보존 로직 추가
 export async function PUT(
   request: NextRequest,
   { params }: { params: { id: string } }
@@ -378,12 +379,31 @@ export async function PUT(
       return NextResponse.json({ error: '콜백을 찾을 수 없습니다.' }, { status: 404 });
     }
     
-    // 콜백 정보 업데이트
+    // 🔥 원래 콜백 정보 보존
+    const originalCallback = callbackHistory[callbackIndex];
+    
+    // 🔥 콜백 정보 업데이트 - 원래 date, time은 보존하고 실제 처리 정보만 추가
     const updatedCallback = {
-      ...callbackHistory[callbackIndex],
+      ...originalCallback,
       ...updateData,
+      // 🔥 원래 예정된 날짜/시간 보존 (updateData에 date, time이 있어도 덮어쓰지 않음)
+      date: originalCallback.date,
+      time: originalCallback.time,
+      // 🔥 실제 처리 시간은 별도 필드로 저장
+      actualCompletedDate: updateData.actualCompletedDate || originalCallback.actualCompletedDate,
+      actualCompletedTime: updateData.actualCompletedTime || originalCallback.actualCompletedTime,
       updatedAt: new Date().toISOString()
     };
+    
+    // 🔥 로그를 위해 원래 날짜와 실제 처리 날짜 구분해서 출력
+    if (updateData.actualCompletedDate && updateData.actualCompletedTime) {
+      console.log(`🔥 콜백 완료 처리:`, {
+        callbackType: originalCallback.type,
+        originalScheduled: `${originalCallback.date} ${originalCallback.time || '시간미정'}`,
+        actualCompleted: `${updateData.actualCompletedDate} ${updateData.actualCompletedTime}`,
+        status: updateData.status
+      });
+    }
     
     callbackHistory[callbackIndex] = updatedCallback;
     
@@ -527,6 +547,10 @@ export async function PUT(
       details: {
         callbackId,
         updateData,
+        originalScheduled: `${originalCallback.date} ${originalCallback.time || ''}`,
+        actualCompleted: updateData.actualCompletedDate && updateData.actualCompletedTime 
+          ? `${updateData.actualCompletedDate} ${updateData.actualCompletedTime}`
+          : '미완료',
         apiEndpoint: '/api/patients/[id]/callbacks'
       }
     });

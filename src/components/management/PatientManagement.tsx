@@ -31,6 +31,7 @@ import { FiPhone, FiPhoneCall } from 'react-icons/fi'
 import { Icon } from '../common/Icon'
 import EventTargetList from './EventTargetList'
 import DeleteConfirmModal from './DeleteConfirmModal'
+import { selectPatientWithContext } from '@/store/slices/patientsSlice'
 
 // 🔥 간소화된 날짜 필터 타입
 type SimpleDateFilterType = 'all' | 'daily' | 'monthly';
@@ -39,6 +40,11 @@ type SimpleDateFilterType = 'all' | 'daily' | 'monthly';
 type BoxFilterType = 'all' | 'unprocessed_callback' | 'post_reservation_unvisited' | 'visit_confirmed' | 'additional_callback_needed' | 'today_reservation';
 
 export default function PatientManagement() {
+  // 🔧 환자 선택 함수 수정 (기존 selectPatient 사용하는 모든 곳)
+  const handleSelectPatient = (patientId: string) => {
+    // 🔧 management 컨텍스트와 함께 환자 선택  
+    dispatch(selectPatientWithContext(patientId, 'management'));
+  };
   const dispatch = useDispatch<AppDispatch>()
   const queryClient = useQueryClient()
   const searchParams = useSearchParams()
@@ -882,6 +888,7 @@ export default function PatientManagement() {
           <PatientList 
             isLoading={queryLoading && (!queryPatients || queryPatients.length === 0)}
             filteredPatients={filteredPatients}
+            onSelectPatient={handleSelectPatient} // 🆕 핸들러 전달
           />
         )}
         {activeTab === '이벤트 타겟' && <EventTargetList />}
