@@ -1,27 +1,33 @@
-// src/components/dashboard/PatientListModal.tsx
-'use client'
+// src/components/management/PatientListModal.tsx - 새로운 필터 타입 지원
+import React, { useEffect, useState } from 'react';
+import { useAppDispatch } from '@/hooks/reduxHooks';
+import { selectPatient } from '@/store/slices/patientsSlice';
+import { Patient, PatientStatus } from '@/store/slices/patientsSlice';
+import PatientDetailModal from '@/components/management/PatientDetailModal';
 
-import React, { useEffect, useState } from 'react'
-import { RootState } from '@/store'
-import { useAppDispatch, useAppSelector } from '@/hooks/reduxHooks'
-import { fetchFilteredPatients, clearFilteredPatients, PatientFilterType, setSelectedPatient } from '@/store/slices/patientsSlice'
-import { 
-  HiOutlineX, 
-  HiOutlinePhone, 
-  HiOutlineCalendar,
-  HiOutlineUser,
-  HiOutlineCheckCircle,
-  HiOutlineCurrencyDollar
-} from 'react-icons/hi'
-import { Icon } from '../common/Icon'
-import { Patient } from '@/types/patient'
-import PatientDetailModal from '../management/PatientDetailModal'
+// 🔥 기존 타입과 새로운 타입을 모두 지원하는 유니온 타입
+export type PatientFilterType = 
+  // 기존 타입들 (호환성 유지)
+  | 'callbackUnregistered' 
+  | 'overdueCallbacks' 
+  | 'callbackNeeded' 
+  | 'absent' 
+  | 'todayScheduled'
+  // 새로운 타입들
+  | 'overdueCallbacks_consultation'
+  | 'overdueCallbacks_visit'
+  | 'todayScheduled_consultation'
+  | 'todayScheduled_visit'
+  | 'callbackUnregistered_consultation'
+  | 'callbackUnregistered_visit'
+  | 'reminderCallbacks_scheduled'
+  | 'reminderCallbacks_registrationNeeded';
 
 interface PatientListModalProps {
-  isOpen: boolean
-  onClose: () => void
-  filterType: PatientFilterType
-  title: string
+  isOpen: boolean;
+  onClose: () => void;
+  filterType: PatientFilterType;
+  title: string;
 }
 
 const PatientListModal: React.FC<PatientListModalProps> = ({
@@ -30,414 +36,458 @@ const PatientListModal: React.FC<PatientListModalProps> = ({
   filterType,
   title
 }) => {
-  const dispatch = useAppDispatch()
-  const { filteredPatientsForModal, isLoading } = useAppSelector((state) => state.patients)
-  
-  // 🔥 환자 상세 모달 상태 추가
-  const [isPatientDetailOpen, setIsPatientDetailOpen] = useState(false)
+  const dispatch = useAppDispatch();
+  const [patients, setPatients] = useState<Patient[]>([]);
+  const [isLoading, setIsLoading] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const [isDetailModalOpen, setIsDetailModalOpen] = useState(false);
+
+  // 환자 목록 가져오기
+  const fetchFilteredPatients = async () => {
+    setIsLoading(true);
+    setError(null);
+    
+    try {
+      console.log(`🔍 API 호출: /api/patients/status-filter?type=${filterType}`);
+      
+      const response = await fetch(`/api/patients/status-filter?type=${filterType}`, {
+        cache: 'no-cache',
+        headers: {
+          'Cache-Control': 'no-cache',
+          'Pragma': 'no-cache'
+        }
+      });
+      
+      if (!response.ok) {
+        throw new Error('환자 목록을 불러오는데 실패했습니다.');
+      }
+      
+      const data = await response.json();
+      console.log(`🔍 API 응답 (${filterType}):`, data);
+      
+      setPatients(data);
+    } catch (err) {
+      console.error('🚨 API 에러:', err);
+      setError(err instanceof Error ? err.message : '알 수 없는 오류가 발생했습니다.');
+    } finally {
+      setIsLoading(false);
+    }
+  };
 
   useEffect(() => {
-    if (isOpen && filterType) {
-      // 필터 타입에 따라 환자 목록 조회
-      dispatch(fetchFilteredPatients(filterType))
+    if (isOpen) {
+      fetchFilteredPatients();
     }
-    
-    return () => {
-      // 모달 닫힐 때 필터된 환자 목록 초기화
-      if (!isOpen) {
-        dispatch(clearFilteredPatients())
-      }
+  }, [isOpen, filterType]);
+
+  const handlePatientClick = (patient: Patient) => {
+    dispatch(selectPatient(patient._id || patient.id));
+    setIsDetailModalOpen(true);
+  };
+
+  const handleDetailModalClose = () => {
+    setIsDetailModalOpen(false);
+  };
+
+  const handleRefresh = () => {
+    console.log('🔄 수동 새로고침 시작');
+    fetchFilteredPatients();
+  };
+
+  const getStatusBadgeColor = (status: PatientStatus) => {
+    switch (status) {
+      case '콜백필요':
+        return 'bg-yellow-100 text-yellow-800';
+      case '부재중':
+        return 'bg-red-100 text-red-800';
+      case '잠재고객':
+        return 'bg-green-100 text-green-800';
+      case 'VIP':
+        return 'bg-purple-100 text-purple-800';
+      case '예약확정':
+        return 'bg-indigo-100 text-indigo-800';
+      case '재예약확정':
+        return 'bg-indigo-100 text-indigo-800';
+      case '종결':
+        return 'bg-gray-100 text-gray-800';
+      default:
+        return 'bg-gray-100 text-gray-800';
     }
-  }, [isOpen, filterType, dispatch])
+  };
 
-  if (!isOpen) return null
-
-  const getPatientStatusBadge = (patient: Patient) => {
-    const { status } = patient
-    
-    const statusConfig: Record<string, { color: string; icon: any }> = {
-      '잠재고객': { color: 'bg-blue-100 text-blue-800', icon: HiOutlineUser },
-      '콜백필요': { color: 'bg-yellow-100 text-yellow-800', icon: HiOutlinePhone },
-      '예약확정': { color: 'bg-green-100 text-green-800', icon: HiOutlineCheckCircle },
-      '재예약확정': { color: 'bg-green-100 text-green-800', icon: HiOutlineCheckCircle },
-      '부재중': { color: 'bg-gray-100 text-gray-800', icon: HiOutlinePhone },
-      'VIP': { color: 'bg-purple-100 text-purple-800', icon: HiOutlineUser },
-      '종결': { color: 'bg-red-100 text-red-800', icon: HiOutlineX }
+  // 🔥 내원 후 상태 뱃지 색상
+  const getPostVisitStatusBadgeColor = (postVisitStatus: string) => {
+    switch (postVisitStatus) {
+      case '재콜백필요':
+        return 'bg-orange-100 text-orange-800';
+      case '치료동의':
+        return 'bg-green-100 text-green-800';
+      case '치료시작':
+        return 'bg-blue-100 text-blue-800';
+      case '종결':
+        return 'bg-gray-100 text-gray-800';
+      default:
+        return 'bg-purple-100 text-purple-800';
     }
-
-    const config = statusConfig[status] || statusConfig['예약확정'] || statusConfig['잠재고객']
-    
-    return (
-      <span className={`inline-flex items-center px-2 py-1 rounded-full text-xs font-medium ${config.color}`}>
-        <Icon icon={config.icon} size={12} className="mr-1" />
-        {status}
-      </span>
-    )
-  }
+  };
 
   const formatDate = (dateString: string) => {
-    if (!dateString) return '-'
-    return new Date(dateString).toLocaleDateString('ko-KR', {
+    const date = new Date(dateString);
+    return date.toLocaleDateString('ko-KR', {
       year: 'numeric',
       month: 'short',
       day: 'numeric'
-    })
-  }
+    });
+  };
 
-  // 🔥 환자명 클릭 핸들러 추가
-  const handlePatientNameClick = (patient: Patient) => {
-    dispatch(setSelectedPatient(patient))
-    setIsPatientDetailOpen(true)
-  }
+  const formatDateWithTime = (dateString: string) => {
+    const date = new Date(dateString);
+    return date.toLocaleDateString('ko-KR', {
+      year: 'numeric',
+      month: 'short',
+      day: 'numeric',
+      weekday: 'short'
+    });
+  };
 
-  // 🔥 환자 상세 모달 닫기 핸들러
-  const handlePatientDetailClose = () => {
-    setIsPatientDetailOpen(false)
-  }
+  const formatPhoneNumber = (phoneNumber: string) => {
+    return phoneNumber.replace(/(\d{3})(\d{4})(\d{4})/, '$1-$2-$3');
+  };
 
-  // 🔥 예약전환율에 맞는 컬럼 설정 (문의일 → 관심분야로 변경)
-  const getRelevantColumns = () => {
-    switch (filterType) {
-      case 'new_inquiry':
-        return ['name', 'phone', 'consultationType', 'status', 'callInDate']
-      case 'reservation_rate':
-        // 🔥 변경: callInDate → interestedServices
-        return ['name', 'phone', 'status', 'reservationDate', 'interestedServices']
-      case 'visit_rate':
-        return ['name', 'phone', 'status', 'visitDate', 'estimateAgreed']
-      case 'treatment_rate':
-        return ['name', 'phone', 'status', 'treatmentContent', 'patientReaction']
-      default:
-        return ['name', 'phone', 'status', 'callInDate']
+  // callbackHistory에서 예정된 콜백 찾기
+  const getNextCallback = (patient: Patient) => {
+    if (!patient.callbackHistory || patient.callbackHistory.length === 0) {
+      return null;
     }
-  }
+    
+    const scheduledCallback = patient.callbackHistory.find(callback => callback.status === '예정');
+    return scheduledCallback;
+  };
 
-  const columns = getRelevantColumns()
+  // 미처리 콜백 찾기
+  const getOverdueCallback = (patient: Patient) => {
+    if (!patient.callbackHistory || patient.callbackHistory.length === 0) {
+      return null;
+    }
+    
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+    
+    const overdueCallbacks = patient.callbackHistory.filter(callback => {
+      if (callback.status !== '예정') return false;
+      const callbackDate = new Date(callback.date);
+      callbackDate.setHours(0, 0, 0, 0);
+      return callbackDate < today;
+    });
+    
+    if (overdueCallbacks.length > 0) {
+      return overdueCallbacks.sort((a, b) => new Date(a.date).getTime() - new Date(b.date).getTime())[0];
+    }
+    
+    return null;
+  };
+
+  // 다음 콜백 날짜 상태 확인
+  const getCallbackDateStatus = (callbackDate: string) => {
+    const today = new Date();
+    const callback = new Date(callbackDate);
+    const todayStart = new Date(today.getFullYear(), today.getMonth(), today.getDate());
+    const tomorrowStart = new Date(today.getFullYear(), today.getMonth(), today.getDate() + 1);
+    
+    if (callback < todayStart) {
+      return { type: 'overdue', text: '지연됨', color: 'text-red-600 bg-red-50' };
+    } else if (callback >= todayStart && callback < tomorrowStart) {
+      return { type: 'today', text: '오늘', color: 'text-orange-600 bg-orange-50' };
+    } else {
+      return { type: 'scheduled', text: '예정', color: 'text-blue-600 bg-blue-50' };
+    }
+  };
+
+  // 미처리 콜백 경과 일수 계산
+  const getOverdueDays = (callbackDate: string) => {
+    const today = new Date();
+    const callback = new Date(callbackDate);
+    const diffTime = today.getTime() - callback.getTime();
+    const diffDays = Math.floor(diffTime / (1000 * 60 * 60 * 24));
+    return diffDays;
+  };
+
+  // 🔥 필터 타입에 따른 특별 정보 표시 여부 결정
+  const shouldShowOverdueInfo = () => {
+    return filterType === 'overdueCallbacks' || 
+           filterType === 'overdueCallbacks_consultation' || 
+           filterType === 'overdueCallbacks_visit';
+  };
+
+  const shouldShowCallbackInfo = () => {
+    return !shouldShowOverdueInfo();
+  };
+
+  // 🔥 리마인더 관련 정보 표시
+  const getReminderInfo = (patient: Patient) => {
+    if (!patient.postVisitConsultation?.treatmentConsentInfo?.treatmentStartDate) {
+      return null;
+    }
+    
+    const treatmentStartDate = patient.postVisitConsultation.treatmentConsentInfo.treatmentStartDate;
+    const today = new Date();
+    const startDate = new Date(treatmentStartDate);
+    const diffTime = startDate.getTime() - today.getTime();
+    const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
+    
+    return {
+      treatmentStartDate,
+      daysUntilStart: diffDays,
+      isOverdue: diffDays < 0
+    };
+  };
+
+  if (!isOpen) return null;
 
   return (
     <>
-      <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
-        <div className="bg-white rounded-lg w-full max-w-6xl max-h-[90vh] flex flex-col">
-          {/* 헤더 */}
+      <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+        <div className="bg-white rounded-lg w-full max-w-5xl mx-4 max-h-[80vh] overflow-hidden">
+          {/* 모달 헤더 */}
           <div className="flex items-center justify-between p-6 border-b">
             <div className="flex items-center gap-3">
-              <h2 className="text-xl font-semibold text-text-primary">{title}</h2>
-              <span className="bg-primary text-white px-2 py-1 rounded-full text-sm">
-                {filteredPatientsForModal.length}명
-              </span>
+              <h2 className="text-xl font-semibold text-gray-900">{title}</h2>
+              <button
+                onClick={handleRefresh}
+                disabled={isLoading}
+                className="px-3 py-1 bg-blue-100 text-blue-600 rounded-md hover:bg-blue-200 disabled:opacity-50 text-sm"
+              >
+                {isLoading ? '새로고침...' : '🔄 새로고침'}
+              </button>
             </div>
             <button
               onClick={onClose}
-              className="p-2 hover:bg-gray-100 rounded-full transition-colors"
+              className="text-gray-400 hover:text-gray-600 transition-colors"
             >
-              <Icon icon={HiOutlineX} size={20} />
+              <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+              </svg>
             </button>
           </div>
 
-          {/* 콘텐츠 */}
-          <div className="flex-1 overflow-auto p-6">
-            {isLoading ? (
-              <div className="flex items-center justify-center py-12">
-                <div className="text-text-secondary">환자 목록을 불러오는 중...</div>
+          {/* 모달 콘텐츠 */}
+          <div className="p-6 overflow-y-auto max-h-[60vh]">
+            {isLoading && (
+              <div className="flex items-center justify-center py-8">
+                <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600"></div>
+                <span className="ml-2 text-gray-600">로딩 중...</span>
               </div>
-            ) : filteredPatientsForModal.length === 0 ? (
-              <div className="flex items-center justify-center py-12">
-                <div className="text-text-secondary">해당 조건의 환자가 없습니다.</div>
-              </div>
-            ) : (
-              <div className="overflow-x-auto">
-                <table className="min-w-full divide-y divide-gray-200">
-                  <thead className="bg-gray-50">
-                    <tr>
-                      {columns.includes('name') && (
-                        <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                          환자명
-                        </th>
-                      )}
-                      {columns.includes('phone') && (
-                        <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                          연락처
-                        </th>
-                      )}
-                      {columns.includes('consultationType') && (
-                        <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                          상담유형
-                        </th>
-                      )}
-                      {columns.includes('status') && (
-                        <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                          상태
-                        </th>
-                      )}
-                      {columns.includes('callInDate') && (
-                        <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                          문의일
-                        </th>
-                      )}
-                      {columns.includes('reservationDate') && (
-                        <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                          예약일
-                        </th>
-                      )}
-                      {/* 🔥 관심분야 컬럼 추가 */}
-                      {columns.includes('interestedServices') && (
-                        <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                          관심분야
-                        </th>
-                      )}
-                      {columns.includes('visitDate') && (
-                        <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                          내원일
-                        </th>
-                      )}
-                      {/* 🔥 견적동의 컬럼 추가 */}
-                      {columns.includes('estimateAgreed') && (
-                        <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                          견적동의
-                        </th>
-                      )}
-                      {/* 🔥 치료내용 컬럼 추가 */}
-                      {columns.includes('treatmentContent') && (
-                        <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                          치료내용
-                        </th>
-                      )}
-                      {/* 🔥 환자반응 컬럼 추가 */}
-                      {columns.includes('patientReaction') && (
-                        <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                          환자반응
-                        </th>
-                      )}
-                    </tr>
-                  </thead>
-                  <tbody className="bg-white divide-y divide-gray-200">
-                    {filteredPatientsForModal.map((patient) => (
-                      <tr key={patient._id} className="hover:bg-gray-50">
-                        {columns.includes('name') && (
-                          <td className="px-6 py-4 whitespace-nowrap">
-                            {/* 🔥 환자명을 클릭 가능하게 수정 */}
-                            <div 
-                              className="text-sm font-medium text-blue-600 hover:text-blue-800 cursor-pointer hover:underline"
-                              onClick={() => handlePatientNameClick(patient)}
-                            >
-                              {patient.name}
-                            </div>
-                            <div className="text-xs text-gray-500">
-                              {patient.patientId}
-                            </div>
-                          </td>
-                        )}
-                        {columns.includes('phone') && (
-                          <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
-                            {patient.phoneNumber}
-                          </td>
-                        )}
-                        {columns.includes('consultationType') && (
-                          <td className="px-6 py-4 whitespace-nowrap">
-                            <span className={`inline-flex items-center px-2 py-1 rounded-full text-xs font-medium ${
-                              patient.consultationType === 'inbound' 
-                                ? 'bg-green-100 text-green-800' 
-                                : 'bg-blue-100 text-blue-800'
-                            }`}>
-                              <Icon 
-                                icon={patient.consultationType === 'inbound' ? HiOutlinePhone : HiOutlineCalendar} 
-                                size={12} 
-                                className="mr-1" 
-                              />
-                              {patient.consultationType === 'inbound' ? '인바운드' : '아웃바운드'}
-                            </span>
-                          </td>
-                        )}
-                        {columns.includes('status') && (
-                          <td className="px-6 py-4 whitespace-nowrap">
-                            {getPatientStatusBadge(patient)}
-                          </td>
-                        )}
-                        {columns.includes('callInDate') && (
-                          <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
-                            {formatDate(patient.callInDate)}
-                          </td>
-                        )}
-                        {columns.includes('reservationDate') && (
-                          <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
-                            {formatDate(patient.reservationDate || '')}
-                          </td>
-                        )}
-                        {/* 🔥 관심분야 컬럼 데이터 추가 */}
-                        {columns.includes('interestedServices') && (
-                          <td className="px-6 py-4 whitespace-nowrap">
-                            <div className="flex flex-wrap gap-1">
-                              {patient.interestedServices && patient.interestedServices.length > 0 ? (
-                                patient.interestedServices.slice(0, 3).map((service, index) => (
-                                  <span 
-                                    key={index}
-                                    className="inline-flex items-center px-2 py-1 rounded-full text-xs bg-blue-50 text-blue-800"
-                                  >
-                                    {service}
-                                  </span>
-                                ))
-                              ) : (
-                                <span className="text-xs text-gray-400">-</span>
-                              )}
-                              {patient.interestedServices && patient.interestedServices.length > 3 && (
-                                <span className="text-xs text-gray-500">
-                                  +{patient.interestedServices.length - 3}개
-                                </span>
-                              )}
-                            </div>
-                          </td>
-                        )}
-                        {columns.includes('visitDate') && (
-                          <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
-                            {formatDate(patient.visitDate || '')}
-                          </td>
-                        )}
-                        {/* 🔥 견적동의 컬럼 데이터 추가 */}
-                        {columns.includes('estimateAgreed') && (
-                          <td className="px-6 py-4 whitespace-nowrap">
-                            {patient.consultation?.estimateAgreed !== undefined ? (
-                              <span className={`inline-flex items-center px-2 py-1 rounded-full text-xs font-medium ${
-                                patient.consultation.estimateAgreed 
-                                  ? 'bg-green-100 text-green-800' 
-                                  : 'bg-red-100 text-red-800'
-                              }`}>
-                                {patient.consultation.estimateAgreed ? '동의' : '미동의'}
-                              </span>
-                            ) : (
-                              <span className="text-xs text-gray-400">-</span>
-                            )}
-                          </td>
-                        )}
-                        {/* 🔥 치료내용 컬럼 데이터 추가 */}
-                        {columns.includes('treatmentContent') && (
-                          <td className="px-6 py-4 whitespace-nowrap">
-                            {(() => {
-                              const treatmentContent = (patient.postVisitConsultation as any)?.treatmentContent;
-                              
-                              if (!treatmentContent) {
-                                return <span className="text-xs text-gray-400">미입력</span>;
-                              }
-                              
-                              // 치료 내용별 색상 구분
-                              const getColorClass = (content: string) => {
-                                switch (content) {
-                                  case '단일 임플란트':
-                                    return 'bg-blue-100 text-blue-800';
-                                  case '다수 임플란트':
-                                    return 'bg-indigo-100 text-indigo-800';
-                                  case '무치악 임플란트':
-                                    return 'bg-purple-100 text-purple-800';
-                                  case '틀니':
-                                    return 'bg-green-100 text-green-800';
-                                  case '라미네이트':
-                                    return 'bg-pink-100 text-pink-800';
-                                  case '충치치료':
-                                    return 'bg-yellow-100 text-yellow-800';
-                                  case '기타':
-                                    return 'bg-gray-100 text-gray-800';
-                                  default:
-                                    return 'bg-gray-100 text-gray-800';
-                                }
-                              };
-                              
-                              return (
-                                <span className={`inline-flex items-center px-2 py-1 rounded-full text-xs font-medium ${getColorClass(treatmentContent)}`}>
-                                  {treatmentContent}
-                                </span>
-                              );
-                            })()}
-                          </td>
-                        )}
-                        {/* 🔥 환자반응 컬럼 데이터 추가 */}
-                        {columns.includes('patientReaction') && (
-                          <td className="px-6 py-4 whitespace-nowrap">
-                            {(() => {
-                              const estimateInfo = patient.postVisitConsultation?.estimateInfo;
-                              
-                              if (!estimateInfo) {
-                                return <span className="text-xs text-gray-400">미입력</span>;
-                              }
-                              
-                              // 환자 반응별 색상 구분
-                              const getReactionColor = (reaction: string) => {
-                                switch (reaction) {
-                                  case '동의해요(적당)':
-                                    return 'bg-green-100 text-green-800';
-                                  case '비싸요':
-                                    return 'bg-red-100 text-red-800';
-                                  case '생각보다 저렴해요':
-                                    return 'bg-blue-100 text-blue-800';
-                                  case '알 수 없음':
-                                    return 'bg-gray-100 text-gray-800';
-                                  default:
-                                    return 'bg-gray-100 text-gray-800';
-                                }
-                              };
+            )}
 
-                              // 가격 표시 우선순위 로직
-                              const getDisplayPrice = () => {
-                                const regularPrice = estimateInfo.regularPrice || 0;
-                                const discountPrice = estimateInfo.discountPrice || 0;
-                                
-                                if (discountPrice > 0) {
-                                  return {
-                                    price: discountPrice,
-                                    label: '할인가'
-                                  };
-                                } else if (regularPrice > 0) {
-                                  return {
-                                    price: regularPrice,
-                                    label: '정가'
-                                  };
-                                }
-                                
-                                return null;
-                              };
-                              
-                              const priceInfo = getDisplayPrice();
-                              
-                              return (
-                                <div className="flex flex-col space-y-1">
-                                  <span className={`inline-flex items-center px-2 py-1 rounded-full text-xs font-medium ${
-                                    getReactionColor(estimateInfo.patientReaction)
-                                  }`}>
-                                    {estimateInfo.patientReaction || '미설정'}
-                                  </span>
-                                  {priceInfo ? (
-                                    <div className="text-xs text-gray-600">
-                                      <span className="font-medium">
-                                        {priceInfo.price.toLocaleString()}원
-                                      </span>
-                                      <span className="text-gray-500 ml-1">
-                                        ({priceInfo.label})
-                                      </span>
-                                    </div>
-                                  ) : (
-                                    <div className="text-xs text-gray-400">
-                                      가격 미입력
-                                    </div>
-                                  )}
+            {error && (
+              <div className="bg-red-50 border border-red-200 rounded-md p-4 mb-4">
+                <div className="text-red-800">{error}</div>
+                <button
+                  onClick={fetchFilteredPatients}
+                  className="mt-2 text-red-600 hover:text-red-800 text-sm underline"
+                >
+                  다시 시도
+                </button>
+              </div>
+            )}
+
+            {!isLoading && !error && patients.length === 0 && (
+              <div className="text-center py-8">
+                <div className="text-gray-500 mb-2">해당하는 환자가 없습니다.</div>
+                <div className="text-sm text-gray-400">조건에 맞는 환자 데이터가 없습니다.</div>
+              </div>
+            )}
+
+            {!isLoading && !error && patients.length > 0 && (
+              <div className="space-y-3">
+                <div className="text-sm text-gray-600 mb-4">
+                  총 <span className="font-semibold text-blue-600">{patients.length}명</span>의 환자가 있습니다.
+                  <div className="text-xs text-gray-400 mt-1">
+                    필터: {filterType} | 마지막 조회: {new Date().toLocaleTimeString()}
+                  </div>
+                </div>
+                
+                {patients.map((patient) => {
+                  const nextCallback = getNextCallback(patient);
+                  const overdueCallback = getOverdueCallback(patient);
+                  const reminderInfo = getReminderInfo(patient);
+                  
+                  return (
+                    <div
+                      key={patient._id || patient.id}
+                      onClick={() => handlePatientClick(patient)}
+                      className="border border-gray-200 rounded-lg p-4 hover:shadow-md transition-shadow cursor-pointer hover:bg-gray-50"
+                    >
+                      <div className="flex items-center justify-between mb-3">
+                        <div className="flex items-center space-x-3">
+                          <h3 className="font-medium text-gray-900">{patient.name}</h3>
+                          <span className={`px-2 py-1 rounded-full text-xs font-medium ${getStatusBadgeColor(patient.status)}`}>
+                            {patient.status}
+                          </span>
+                          
+                          {/* 내원 관리 상태 표시 */}
+                          {patient.visitConfirmed && patient.postVisitStatus && (
+                            <span className={`px-2 py-1 rounded-full text-xs font-medium ${getPostVisitStatusBadgeColor(patient.postVisitStatus)}`}>
+                              {patient.postVisitStatus}
+                            </span>
+                          )}
+                          
+                          {/* 미처리 콜백 경고 뱃지 */}
+                          {shouldShowOverdueInfo() && overdueCallback && (
+                            <span className="px-2 py-1 rounded-full text-xs font-medium bg-red-100 text-red-800">
+                              {getOverdueDays(overdueCallback.date)}일 지연
+                            </span>
+                          )}
+                        </div>
+                        <div className="text-sm text-gray-500">
+                          {patient.patientId}
+                        </div>
+                      </div>
+
+                      {/* 기본 정보 그리드 */}
+                      <div className="grid grid-cols-1 md:grid-cols-2 gap-3 text-sm text-gray-600 mb-3">
+                        <div className="flex items-center">
+                          <svg className="w-4 h-4 mr-2 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 5a2 2 0 012-2h3.28a1 1 0 01.948.684l1.498 4.493a1 1 0 01-.502 1.21l-2.257 1.13a11.042 11.042 0 005.516 5.516l1.13-2.257a1 1 0 011.21-.502l4.493 1.498a1 1 0 01.684.949V19a2 2 0 01-2 2h-1C9.716 21 3 14.284 3 6V5z" />
+                          </svg>
+                          {formatPhoneNumber(patient.phoneNumber)}
+                        </div>
+                        <div className="flex items-center">
+                          <svg className="w-4 h-4 mr-2 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" />
+                          </svg>
+                          최근 상담: {formatDate(patient.lastConsultation)}
+                        </div>
+                      </div>
+
+                      {/* 🔥 미처리 콜백 정보 표시 */}
+                      {shouldShowOverdueInfo() && overdueCallback && (
+                        <div className="mb-3">
+                          <div className="flex items-center justify-between p-3 bg-red-50 rounded-lg border-l-4 border-red-500">
+                            <div className="flex items-center">
+                              <svg className="w-5 h-5 mr-2 text-red-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-2.5L13.732 4c-.77-.833-1.964-.833-2.732 0L3.732 16.5c-.77.833.192 2.5 1.732 2.5z" />
+                              </svg>
+                              <div>
+                                <div className="text-sm font-medium text-red-900">
+                                  🚨 {overdueCallback.type} 콜백 미처리 ({getOverdueDays(overdueCallback.date)}일 지연)
                                 </div>
-                              );
-                            })()}
-                          </td>
-                        )}
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
+                                <div className="text-sm text-red-700">
+                                  예정일: {formatDateWithTime(overdueCallback.date)}
+                                </div>
+                                {overdueCallback.notes && (
+                                  <div className="text-xs text-red-600 mt-1">
+                                    {overdueCallback.notes}
+                                  </div>
+                                )}
+                              </div>
+                            </div>
+                            <div className="px-2 py-1 rounded text-xs font-medium bg-red-200 text-red-800">
+                              긴급
+                            </div>
+                          </div>
+                        </div>
+                      )}
+
+                      {/* 🔥 일반 콜백 정보 표시 */}
+                      {shouldShowCallbackInfo() && nextCallback && (
+                        <div className="mb-3">
+                          <div className="flex items-center justify-between p-3 bg-gray-50 rounded-lg border-l-4 border-blue-400">
+                            <div className="flex items-center">
+                              <svg className="w-5 h-5 mr-2 text-blue-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
+                              </svg>
+                              <div>
+                                <div className="text-sm font-medium text-gray-900">
+                                  다음 {nextCallback.type} 콜백 예정
+                                </div>
+                                <div className="text-sm text-gray-600">
+                                  {formatDateWithTime(nextCallback.date)}
+                                </div>
+                                {nextCallback.notes && (
+                                  <div className="text-xs text-gray-500 mt-1">
+                                    {nextCallback.notes}
+                                  </div>
+                                )}
+                              </div>
+                            </div>
+                            <div className={`px-2 py-1 rounded text-xs font-medium ${getCallbackDateStatus(nextCallback.date).color}`}>
+                              {getCallbackDateStatus(nextCallback.date).text}
+                            </div>
+                          </div>
+                        </div>
+                      )}
+
+                      {/* 🔥 리마인더 정보 표시 */}
+                      {(filterType.includes('reminderCallbacks') || filterType.includes('reminder')) && reminderInfo && (
+                        <div className="mb-3">
+                          <div className={`flex items-center justify-between p-3 rounded-lg border-l-4 ${
+                            reminderInfo.isOverdue ? 'bg-red-50 border-red-500' : 'bg-purple-50 border-purple-500'
+                          }`}>
+                            <div className="flex items-center">
+                              <svg className={`w-5 h-5 mr-2 ${reminderInfo.isOverdue ? 'text-red-500' : 'text-purple-500'}`} fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
+                              </svg>
+                              <div>
+                                <div className={`text-sm font-medium ${reminderInfo.isOverdue ? 'text-red-900' : 'text-purple-900'}`}>
+                                  {reminderInfo.isOverdue ? '⚠️ 치료 시작일 경과' : '⏰ 치료 시작 예정'}
+                                </div>
+                                <div className={`text-sm ${reminderInfo.isOverdue ? 'text-red-700' : 'text-purple-700'}`}>
+                                  치료 시작일: {formatDate(reminderInfo.treatmentStartDate)}
+                                  {reminderInfo.isOverdue 
+                                    ? ` (${Math.abs(reminderInfo.daysUntilStart)}일 경과)` 
+                                    : ` (${reminderInfo.daysUntilStart}일 후)`
+                                  }
+                                </div>
+                              </div>
+                            </div>
+                            <div className={`px-2 py-1 rounded text-xs font-medium ${
+                              reminderInfo.isOverdue 
+                                ? 'bg-red-200 text-red-800' 
+                                : 'bg-purple-200 text-purple-800'
+                            }`}>
+                              {reminderInfo.isOverdue ? '지연' : '예정'}
+                            </div>
+                          </div>
+                        </div>
+                      )}
+
+                      {/* 관심 서비스 태그 */}
+                      {patient.interestedServices && patient.interestedServices.length > 0 && (
+                        <div className="mb-2">
+                          <div className="flex flex-wrap gap-1">
+                            {patient.interestedServices.slice(0, 3).map((service, index) => (
+                              <span key={index} className="px-2 py-1 bg-blue-50 text-blue-600 text-xs rounded">
+                                {service}
+                              </span>
+                            ))}
+                            {patient.interestedServices.length > 3 && (
+                              <span className="px-2 py-1 bg-gray-50 text-gray-500 text-xs rounded">
+                                +{patient.interestedServices.length - 3}개
+                              </span>
+                            )}
+                          </div>
+                        </div>
+                      )}
+
+                      {/* 추가 정보 */}
+                      {patient.callInDate && (
+                        <div className="flex justify-end text-xs text-gray-500 pt-2 border-t border-gray-100">
+                          콜인일: {formatDate(patient.callInDate)}
+                        </div>
+                      )}
+                    </div>
+                  );
+                })}
               </div>
             )}
           </div>
 
-          {/* 푸터 */}
-          <div className="flex items-center justify-between p-6 border-t bg-gray-50">
-            <div className="text-sm text-text-secondary">
-              총 {filteredPatientsForModal.length}명의 환자
-            </div>
+          {/* 모달 푸터 */}
+          <div className="flex justify-end p-6 border-t bg-gray-50">
             <button
               onClick={onClose}
-              className="px-4 py-2 bg-white border border-gray-300 rounded-md text-sm font-medium text-gray-700 hover:bg-gray-50 transition-colors"
+              className="px-4 py-2 text-gray-700 bg-white border border-gray-300 rounded-md hover:bg-gray-50 transition-colors"
             >
               닫기
             </button>
@@ -445,10 +495,14 @@ const PatientListModal: React.FC<PatientListModalProps> = ({
         </div>
       </div>
 
-      {/* 🔥 환자 상세 모달 추가 */}
-      {isPatientDetailOpen && <PatientDetailModal />}
+      {/* 환자 상세 모달 - PatientDetailModal 경로 확인 후 주석 해제 */}
+      {/* 
+      {isDetailModalOpen && (
+        <PatientDetailModal />
+      )}
+      */}
     </>
-  )
-}
+  );
+};
 
-export default PatientListModal
+export default PatientListModal;

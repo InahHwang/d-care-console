@@ -1,4 +1,4 @@
-// src/utils/statisticsUtils.ts - 일별 통계 계산 전용 유틸리티
+// src/utils/statisticsUtils.ts - 내원환자 콜백 미등록 로직 수정
 
 import { Patient, CallbackItem } from '@/types/patient';
 import { ActivityLog } from '@/types/activityLog';
@@ -71,12 +71,38 @@ export function calculateCallbackProcessing(
     });
   });
   
-  // 2. 콜백 미등록 (callbackUnregistered)
+  // 🔥 2. 콜백 미등록 (callbackUnregistered) - 핵심 수정 부분!
   const callbackUnregisteredPatients = patients.filter(patient => {
-    if (patient.status !== '잠재고객') return false;
-    if (patient.isCompleted === true) return false;
+    // 기존 상담환자 로직 (변경 없음)
+    if (patient.status === '잠재고객' && patient.isCompleted !== true) {
+      return !patient.callbackHistory || patient.callbackHistory.length === 0;
+    }
     
-    return !patient.callbackHistory || patient.callbackHistory.length === 0;
+    // 🔥 새로 추가: 내원환자 로직 (핵심 수정!)
+    if (patient.visitConfirmed === true && !patient.postVisitStatus) {
+      // 내원관리 콜백만 체크! 상담관리 콜백은 무시
+      if (!patient.callbackHistory || patient.callbackHistory.length === 0) return true;
+      
+      const hasVisitManagementCallback = patient.callbackHistory.some((callback: any) => 
+        callback.status === '예정' && 
+        callback.isVisitManagementCallback === true  // 🔥 내원관리 콜백만 체크
+      );
+      
+      return !hasVisitManagementCallback;
+    }
+    
+    // 🔥 예약 후 미내원, 부재중 환자들 (기존 로직 유지)
+    if (patient.status === '부재중' || patient.isPostReservationPatient === true) {
+      if (!patient.callbackHistory || patient.callbackHistory.length === 0) return true;
+      
+      const hasScheduledCallback = patient.callbackHistory.some(callback => 
+        callback.status === '예정'
+      );
+      
+      return !hasScheduledCallback;
+    }
+    
+    return false;
   });
   
   // 3. 부재중 (absent)
@@ -111,9 +137,9 @@ export function calculateCallbackProcessing(
     return hasManagementCallback || hasPostVisitCallback;
   });
   
-  // 🔥 처리율 계산 함수
+  // 🔥 처리율 계산 함수 - 수정된 로직
   const calculateProcessingRate = (patients: Patient[]): { processed: number; rate: number } => {
-    if (patients.length === 0) return { processed: 0, rate: 100 };
+    if (patients.length === 0) return { processed: 0, rate: 0 }; // 🔥 수정: 0명이면 처리율도 0%
     
     const processedCount = patients.filter(patient => {
       // 완료된 콜백이 있거나, 예약확정/종결 상태인 경우 처리된 것으로 간주
@@ -161,7 +187,17 @@ export function calculateCallbackProcessing(
     }
   };
   
-  console.log('콜백 처리 현황 계산 완료:', summary);
+  console.log('🔥 콜백 처리 현황 계산 완료 (내원환자 콜백 미등록 로직 수정):', {
+    ...summary,
+    // 🔥 디버깅용 상세 정보
+    callbackUnregistered_breakdown: {
+      상담환자: callbackUnregisteredPatients.filter(p => !p.visitConfirmed).length,
+      내원환자: callbackUnregisteredPatients.filter(p => p.visitConfirmed && !p.postVisitStatus).length,
+      예약후미내원: callbackUnregisteredPatients.filter(p => p.isPostReservationPatient).length,
+      부재중: callbackUnregisteredPatients.filter(p => p.status === '부재중').length
+    }
+  });
+  
   return summary;
 }
 

@@ -1,7 +1,7 @@
-// src/components/management/PatientDetailModal.tsx - 콜백 중복 추가 문제 해결
+// src/components/management/PatientDetailModal.tsx - Hook 규칙 위반 수정
 
 'use client'
-import { useState, useEffect, useMemo } from 'react'
+import { useState, useEffect, useMemo, useCallback } from 'react'
 import { useAppDispatch, useAppSelector } from '@/hooks/reduxHooks'
 import { useMutation, useQueryClient } from '@tanstack/react-query'
 import { RootState } from '@/store'
@@ -11,7 +11,7 @@ import {
   updateConsultationInfo,
   updatePatient,
   addCallback,
-  updateCallback, // 🔥 콜백 업데이트 액션 추가
+  updateCallback,
   fetchPatients,
   selectPatient
 } from '@/store/slices/patientsSlice'
@@ -33,7 +33,6 @@ import {
 } from '@/utils/paymentUtils'
 import { ConsultationInfo } from '@/types/patient'
 import { useActivityLogger } from '@/hooks/useActivityLogger'
-// 🔥 데이터 동기화 유틸리티 import 추가
 import { PatientDataSync, setupDataSyncListener } from '@/utils/dataSync'
 import VisitManagementTab from './VisitManagementTab'
 
@@ -45,116 +44,116 @@ export default function PatientDetailModal() {
   const currentUser = useAppSelector((state: RootState) => state.auth.user)
   const isLoading = useAppSelector((state: RootState) => state.patients.isLoading)
   
-  // 🆕 내원 확정 여부 확인 함수
+  // ✅ 모든 Hook들을 최상단에서 항상 호출 (조건부 호출 금지)
+  const { logPatientAction } = useActivityLogger()
+  
+  // 상태 관리 Hook들
+  const [refreshTrigger, setRefreshTrigger] = useState(0)
+  const [forceUpdate, setForceUpdate] = useState(0)
+  const [activeTab, setActiveTab] = useState('환자정보')
+  const [isEditModalOpen, setIsEditModalOpen] = useState(false)
+  const [isMessageSendModalOpen, setIsMessageSendModalOpen] = useState(false)
+  const [isConsultationFormOpen, setIsConsultationFormOpen] = useState(false)
+  
+  // 설정값
+  const isOptimisticEnabled = true
+
+  // 메모이제이션된 값들 (selectedPatient가 null일 수도 있으므로 안전하게 처리)
   const isVisitConfirmed = useMemo(() => {
     return selectedPatient?.visitConfirmed === true;
   }, [selectedPatient?.visitConfirmed]);
 
-  // 🆕 내원관리 탭 클릭 핸들러
-  const handleVisitManagementTabClick = () => {
+  const needsCallback = useMemo(() => 
+    selectedPatient?.status === '콜백필요' || selectedPatient?.status === '부재중',
+    [selectedPatient?.status]
+  );
+
+  const isCompleted = useMemo(() => {
+    if (!selectedPatient) return false;
+    const completed = selectedPatient.isCompleted === true || selectedPatient.status === '종결';
+    console.log('🔍 종결 상태 확인:', {
+      patientName: selectedPatient.name,
+      isCompleted: selectedPatient.isCompleted,
+      status: selectedPatient.status,
+      finalResult: completed,
+      forceUpdateTrigger: forceUpdate
+    });
+    return completed;
+  }, [selectedPatient?.isCompleted, selectedPatient?.status, selectedPatient?.name, forceUpdate]);
+
+  const timeSinceLastConsultation = useMemo(() => {
+    if (!selectedPatient?.lastConsultation || selectedPatient.lastConsultation === '') return '';
+    return formatDistance(
+      new Date(selectedPatient.lastConsultation),
+      new Date(),
+      { addSuffix: true, locale: ko }
+    );
+  }, [selectedPatient?.lastConsultation]);
+
+  const timeSinceFirstConsult = useMemo(() => {
+    if (!selectedPatient?.firstConsultDate || selectedPatient.firstConsultDate === '') return '';
+    return formatDistance(
+      new Date(selectedPatient.firstConsultDate),
+      new Date(),
+      { addSuffix: true, locale: ko }
+    );
+  }, [selectedPatient?.firstConsultDate]);
+
+  // 콜백 함수들
+  const handleVisitManagementTabClick = useCallback(() => {
     if (!isVisitConfirmed) {
       alert('내원관리 탭을 사용하려면 먼저 상담관리 메뉴에서 "내원 확정"을 완료해주세요.');
       return;
     }
     setActiveTab('내원관리');
-  };
+  }, [isVisitConfirmed]);
 
-  // 🔥 활동 로깅 훅 추가
-  const { logPatientAction } = useActivityLogger()
-  
-  // 🔥 활동 로그 업데이트 트리거를 위한 상태
-  const [refreshTrigger, setRefreshTrigger] = useState(0)
-  
-  // 🔥 강제 리렌더링을 위한 상태 추가
-  const [forceUpdate, setForceUpdate] = useState(0);
-  
-  // 탭 상태 관리
-  const [activeTab, setActiveTab] = useState('환자정보')
-  
-  // 환자 수정 모달 상태
-  const [isEditModalOpen, setIsEditModalOpen] = useState(false)
-  
-  // 문자 발송 모달 상태
-  const [isMessageSendModalOpen, setIsMessageSendModalOpen] = useState(false)
-  
-  // 🔥 상담 정보 모달 상태 추가
-  const [isConsultationFormOpen, setIsConsultationFormOpen] = useState(false)
-  
-  // 🚀 Optimistic Update 활성화
-  const isOptimisticEnabled = true
+  const handleTabChange = useCallback((newTab: string) => {
+    setActiveTab(newTab);
+    console.log('탭 변경:', newTab);
+  }, []);
 
-  // 🆕 컨텍스트에 따른 기본 탭 설정
-  useEffect(() => {
-    if (selectedPatient && modalContext) {
-      if (modalContext === 'visit-management') {
-        setActiveTab('내원관리');
-        console.log('내원관리 페이지에서 열림 - 내원관리 탭으로 설정');
-      } else if (modalContext === 'management') {
-        setActiveTab('환자정보');
-        console.log('상담관리 페이지에서 열림 - 환자정보 탭으로 설정');
-      }
-    } else {
-      // 컨텍스트가 없으면 기본 탭 유지
-      setActiveTab('환자정보');
-    }
-  }, [selectedPatient, modalContext]);
-  
-  // 🔥 데이터 동기화 리스너 설정
-  useEffect(() => {
-    console.log('📡 PatientDetailModal: 데이터 동기화 리스너 설정 시작');
-    
-    const cleanup = setupDataSyncListener(queryClient);
-    
-    // 🔥 추가: 환자 데이터 변경 이벤트 직접 리스너
-    const handlePatientDataChange = (event: Event) => {
-      const customEvent = event as CustomEvent;
-      const { patientId, type } = customEvent.detail;
-      
-      if (selectedPatient && (selectedPatient._id === patientId || selectedPatient.id === patientId)) {
-        console.log('🔄 환자 상세 모달 - 실시간 데이터 변경 감지:', type);
-        
-        // 🔥 특정 이벤트 타입에 대해 강제 새로고침
-        if (['patient_complete', 'callback_update', 'callback_delete'].includes(type)) {
-          setTimeout(() => {
-            refreshPatientData();
-            setForceUpdate(prev => prev + 1);
-          }, 100);
+  const handleClose = useCallback(() => {
+    try {
+      PatientDataSync.refreshAll('PatientDetailModal_close');
+      setTimeout(() => {
+        try {
+          PatientDataSync.refreshAll('PatientDetailModal_close_delayed');
+        } catch (error) {
+          console.warn('지연된 데이터 동기화 실패:', error);
         }
-      }
-    };
-    
-    if (typeof window !== 'undefined') {
-      // 🔥 수정: EventListener 타입으로 변경
-      window.addEventListener('patientDataChanged', handlePatientDataChange);
+      }, 200);
       
-      return () => {
-        cleanup();
-        // 🔥 수정: 동일한 타입으로 제거
-        window.removeEventListener('patientDataChanged', handlePatientDataChange);
-        console.log('📡 PatientDetailModal: 모든 리스너 해제');
-      };
+      dispatch(clearSelectedPatient());
+    } catch (error) {
+      console.error('모달 닫기 중 오류:', error);
+      dispatch(clearSelectedPatient());
     }
-    
-    return cleanup;
-  }, [queryClient, selectedPatient]);
+  }, [dispatch]);
 
-  // 🔥 환자 데이터 새로고침 함수 추가
-  const refreshPatientData = async () => {
+  const handleOpenEditModal = useCallback(() => {
+    console.log('환자 정보 수정 모달 열기');
+    setIsEditModalOpen(true);
+  }, []);
+
+  const handleOpenMessageModal = useCallback(() => {
+    console.log('문자 발송 모달 열기');
+    setIsMessageSendModalOpen(true);
+  }, []);
+
+  const refreshPatientData = useCallback(async () => {
     try {
       if (selectedPatient && (selectedPatient._id || selectedPatient.id)) {
         console.log('🔄 환자 상세 모달 - 환자 데이터 새로고침 시작');
         
-        // 1. 환자 목록 새로고침
         const result = await dispatch(fetchPatients()).unwrap();
         
-        // 2. 🔥 새로고침된 데이터에서 현재 선택된 환자 찾아서 업데이트
         if (result?.patients) {
           const updatedPatient = result.patients.find((p: Patient) => 
             p._id === selectedPatient._id || p.id === selectedPatient.id
           );
           
           if (updatedPatient) {
-            // 🔥 Redux store의 selectedPatient도 업데이트
             dispatch(selectPatient(updatedPatient));
             console.log('✅ 선택된 환자 정보 업데이트 완료:', {
               name: updatedPatient.name,
@@ -164,12 +163,14 @@ export default function PatientDetailModal() {
           }
         }
         
-        // 3. 강제 리렌더링 트리거
         setForceUpdate(prev => prev + 1);
         
-        // 🔥 4. 추가: PatientList 테이블 즉시 업데이트를 위한 전역 이벤트 트리거
         setTimeout(() => {
-          PatientDataSync.refreshAll('PatientDetailModal_refresh');
+          try {
+            PatientDataSync.refreshAll('PatientDetailModal_refresh');
+          } catch (syncError) {
+            console.warn('데이터 동기화 트리거 실패:', syncError);
+          }
         }, 500);
         
         console.log('✅ 환자 상세 모달 - 환자 데이터 새로고침 완료');
@@ -177,9 +178,194 @@ export default function PatientDetailModal() {
     } catch (error) {
       console.error('환자 데이터 새로고침 실패:', error);
     }
-  };
+  }, [dispatch, selectedPatient?._id, selectedPatient?.id]);
 
-  // 🚀 상담 정보 업데이트를 위한 Optimistic Update Mutation
+  const handleEditSuccess = useCallback(async () => {
+    try {
+      setActiveTab('환자정보');
+      console.log('🔥 환자 정보 수정 완료 - 활동 로그 새로고침 트리거');
+      
+      await refreshPatientData();
+      setRefreshTrigger(prev => prev + 1);
+      
+      setTimeout(() => {
+        setRefreshTrigger(prev => prev + 1);
+        console.log('🔥 지연된 활동 로그 새로고침 트리거');
+      }, 1000);
+    } catch (error) {
+      console.error('환자 수정 완료 처리 중 오류:', error);
+    }
+  }, [refreshPatientData]);
+
+  const handleMessageSendComplete = useCallback(() => {
+    setActiveTab('문자내역');
+    console.log('문자 발송 완료');
+  }, []);
+
+  // 유틸리티 함수들
+  const isReservationCompleted = useCallback((patient: Patient) => {
+    if (!patient) return false;
+    const result = patient.isCompleted && 
+          patient.completedReason && 
+          patient.completedReason.includes('[예약완료]');
+    
+    if (result && patient.completedReason) {
+      console.log('=== 예약 완료 환자 디버깅 ===');
+      console.log('completedReason:', patient.completedReason);
+      console.log('contains newline:', patient.completedReason.includes('\n'));
+      console.log('completedReason length:', patient.completedReason.length);
+      console.log('completedReason split by \\n:', patient.completedReason.split('\n'));
+    }
+    
+    return result;
+  }, []);
+
+  const getReservationConsultationNotes = useCallback((patient: Patient) => {
+    if (!patient?.completedReason) return '';
+    
+    const text = patient.completedReason;
+    
+    let match = text.match(/\[예약완료\]\s*예약일시:\s*[\d-]+\s+[\d:]+\s*상담내용:\s*([\s\S]+)/);
+    if (match && match[1]) {
+      return match[1].trim();
+    }
+    
+    match = text.match(/예약일시:\s*[\d-]+\s+[\d:]+\s*처리일:\s*[\d-]+\s*상담내용:\s*([\s\S]+)/);
+    if (match && match[1]) {
+      return match[1].trim();
+    }
+    
+    match = text.match(/처리일:\s*[\d-]+\s*상담내용:\s*([\s\S]+)/);
+    if (match && match[1]) {
+      return match[1].trim();
+    }
+    
+    match = text.match(/상담내용:\s*([\s\S]+)/);
+    if (match && match[1]) {
+      return match[1].trim();
+    }
+    
+    match = text.match(/\[예약완료\]\s*예약일시:\s*[\d-]+\s+[\d:]+\s*(.*)/);
+    if (match && match[1]) {
+      return match[1].trim();
+    }
+    
+    return '';
+  }, []);
+  
+  const getReservationInfo = useCallback((patient: Patient) => {
+    if (!patient?.completedReason) return '';
+    
+    const match = patient.completedReason.match(/(?:\[예약완료\]\s*)?(예약일시:\s*[\d-]+\s+[\d:]+)/);
+    if (match && match[1]) {
+      return match[1].trim();
+    }
+          
+    return '';
+  }, []);
+
+  const isReservationConfirmed = useCallback(() => {
+    if (!selectedPatient) return false;
+    return selectedPatient.status === '예약확정' || 
+           selectedPatient.reservationDate || 
+           isReservationCompleted(selectedPatient);
+  }, [selectedPatient?.status, selectedPatient?.reservationDate, isReservationCompleted, selectedPatient]);
+
+  const getTreatmentStatusText = useCallback(() => {
+    if (isReservationConfirmed()) {
+      return '예약 완료';
+    } else if (selectedPatient?.consultation?.estimateAgreed) {
+      return '치료 동의';
+    } else {
+      return '치료 미시작';
+    }
+  }, [isReservationConfirmed, selectedPatient?.consultation?.estimateAgreed]);
+
+  const getTreatmentStatusColor = useCallback(() => {
+    if (isReservationConfirmed()) {
+      return 'text-blue-600';
+    } else if (selectedPatient?.consultation?.estimateAgreed) {
+      return 'text-green-600';
+    } else {
+      return 'text-red-600';
+    }
+  }, [isReservationConfirmed, selectedPatient?.consultation?.estimateAgreed]);
+
+  const getStatusColor = useCallback((status: string) => {
+    const colorMap: Record<string, string> = {
+      '잠재고객': 'bg-blue-100 text-blue-800',
+      '콜백필요': 'bg-yellow-100 text-yellow-800',
+      '부재중': 'bg-orange-100 text-orange-800',
+      '활성고객': 'bg-green-100 text-green-800',
+      'VIP': 'bg-purple-100 text-purple-800',
+      '예약확정': 'bg-indigo-100 text-indigo-800',
+      '재예약확정': 'bg-purple-100 text-purple-800',
+      '종결': 'bg-gray-100 text-gray-800',
+    }
+    return colorMap[status] || 'bg-gray-100 text-gray-800'
+  }, []);
+
+  const StatusBadge = useCallback(({ status }: { status: string }) => (
+    <span className={`inline-flex items-center px-2.5 py-1 rounded-full text-xs font-medium ${getStatusColor(status)}`}>
+      {status}
+    </span>
+  ), [getStatusColor]);
+
+  const ReminderBadge = useCallback(({ status }: { status: string }) => {
+    if (status === '-') {
+      return <span className="text-text-secondary">-</span>
+    }
+  
+    const colorMap: Record<string, string> = {
+      '초기': 'text-text-secondary',
+      '1차': 'bg-orange-100 text-orange-800',
+      '2차': 'bg-orange-200 text-orange-900',
+      '3차': 'bg-red-100 text-red-800',
+      '4차': 'bg-red-200 text-red-900',
+      '5차': 'bg-red-300 text-red-900',
+    }
+  
+    const isNumeric = ['1차', '2차', '3차', '4차', '5차'].includes(status)
+  
+    if (isNumeric) {
+      return (
+        <span className={`inline-flex items-center justify-center w-6 h-6 rounded-full text-xs font-medium ${colorMap[status]}`}>
+          {status.charAt(0)}
+        </span>
+      )
+    }
+
+    return <span className={`text-sm ${colorMap[status]}`}>{status}</span>
+  }, []);
+
+  const getReferralSourceText = useCallback((source?: string) => {
+    if (!source || source === '') return '-';
+    return source;
+  }, []);
+
+  const getUserDisplayName = useCallback((userId?: string, userName?: string) => {
+    console.log('🔍 getUserDisplayName 호출:', { userId, userName });
+    
+    if (!userId && !userName) return '정보 없음';
+    if (userName && userName.trim() !== '') return userName;
+    if (userId === 'system') return '시스템';
+    if (userId && userId.trim() !== '') return `${userId} (ID)`;
+    return '정보 없음';
+  }, []);
+
+  const formatLastModified = useCallback((dateString?: string) => {
+    if (!dateString) return '';
+    try {
+      return formatDistance(new Date(dateString), new Date(), { 
+        addSuffix: true, 
+        locale: ko 
+      });
+    } catch {
+      return dateString;
+    }
+  }, []);
+
+  // Mutation 정의
   const consultationUpdateMutation = useMutation({
     mutationFn: async ({ consultationData, additionalData }: {
       consultationData: Partial<ConsultationInfo>,
@@ -189,8 +375,8 @@ export default function PatientDetailModal() {
         callbackDate?: string
         callbackTime?: string
         callbackNotes?: string
-        isEditMode?: boolean // 🔥 수정 모드 플래그 추가
-        existingCallbackId?: string // 🔥 기존 콜백 ID 추가
+        isEditMode?: boolean
+        existingCallbackId?: string
       }
     }) => {
       if (!selectedPatient) throw new Error('환자 정보가 없습니다.');
@@ -201,13 +387,11 @@ export default function PatientDetailModal() {
         isEditMode: additionalData?.isEditMode
       });
 
-      // 1. 상담정보 저장
       const consultationResult = await dispatch(updateConsultationInfo({
         patientId: selectedPatient._id || selectedPatient.id,
         consultationData
       })).unwrap();
 
-      // 2. 동의 시 예약완료 처리
       if (consultationData.estimateAgreed === true && additionalData?.reservationDate && additionalData?.reservationTime) {
         await dispatch(updatePatient({
           patientId: selectedPatient._id || selectedPatient.id,
@@ -219,10 +403,8 @@ export default function PatientDetailModal() {
         })).unwrap();
       }
 
-      // 3. 🔥 거부 시 콜백 처리 - 수정 모드 vs 신규 생성 구분
       if (consultationData.estimateAgreed === false && additionalData?.callbackDate) {
         if (additionalData.isEditMode && additionalData.existingCallbackId) {
-          // 🔥 수정 모드: 기존 콜백 업데이트
           console.log('🔥 기존 1차 콜백 업데이트:', additionalData.existingCallbackId);
           await dispatch(updateCallback({
             patientId: selectedPatient._id || selectedPatient.id,
@@ -231,11 +413,10 @@ export default function PatientDetailModal() {
               date: additionalData.callbackDate,
               time: additionalData.callbackTime,
               notes: additionalData.callbackNotes || '1차 콜백 - 견적 재검토',
-              status: '예정' // 상태도 예정으로 리셋
+              status: '예정'
             }
           })).unwrap();
         } else {
-          // 🔥 신규 생성 모드: 새 콜백 추가
           console.log('🔥 새로운 1차 콜백 생성');
           await dispatch(addCallback({
             patientId: selectedPatient._id || selectedPatient.id,
@@ -259,55 +440,53 @@ export default function PatientDetailModal() {
     onMutate: async ({ consultationData, additionalData }) => {
       if (!selectedPatient) return;
 
-      // 🚀 1. 기존 쿼리 취소
-      await queryClient.cancelQueries({ queryKey: ['patients'] });
+      try {
+        await queryClient.cancelQueries({ queryKey: ['patients'] });
+        const previousPatients = queryClient.getQueryData(['patients']);
 
-      // 🚀 2. 현재 데이터 백업
-      const previousPatients = queryClient.getQueryData(['patients']);
+        queryClient.setQueryData(['patients'], (oldData: any) => {
+          if (!oldData) return oldData;
 
-      // 🚀 3. UI에 즉시 반영
-      queryClient.setQueryData(['patients'], (oldData: any) => {
-        if (!oldData) return oldData;
+          const patientId = selectedPatient._id || selectedPatient.id;
 
-        const patientId = selectedPatient._id || selectedPatient.id;
+          if (oldData.patients && Array.isArray(oldData.patients)) {
+            return {
+              ...oldData,
+              patients: oldData.patients.map((p: any) => 
+                (p._id === patientId || p.id === patientId) 
+                  ? { 
+                      ...p, 
+                      consultation: { ...(p.consultation || {}), ...consultationData },
+                      ...(consultationData.estimateAgreed === true && additionalData?.reservationDate ? {
+                        status: '예약확정',
+                        reservationDate: additionalData.reservationDate,
+                        reservationTime: additionalData.reservationTime
+                      } : {}),
+                      updatedAt: new Date().toISOString()
+                    }
+                  : p
+              )
+            };
+          }
 
-        if (oldData.patients && Array.isArray(oldData.patients)) {
-          return {
-            ...oldData,
-            patients: oldData.patients.map((p: any) => 
-              (p._id === patientId || p.id === patientId) 
-                ? { 
-                    ...p, 
-                    consultation: { ...(p.consultation || {}), ...consultationData },
-                    ...(consultationData.estimateAgreed === true && additionalData?.reservationDate ? {
-                      status: '예약확정',
-                      reservationDate: additionalData.reservationDate,
-                      reservationTime: additionalData.reservationTime
-                    } : {}),
-                    updatedAt: new Date().toISOString()
-                  }
-                : p
-            )
-          };
-        }
+          return oldData;
+        });
 
-        return oldData;
-      });
+        alert('상담 정보가 저장되었습니다.');
+        setForceUpdate(prev => prev + 1);
 
-      // 🚀 4. 즉시 성공 메시지 표시
-      alert('상담 정보가 저장되었습니다.');
-      setForceUpdate(prev => prev + 1);
-
-      return { previousPatients, consultationData, additionalData };
+        return { previousPatients, consultationData, additionalData };
+      } catch (error) {
+        console.error('Optimistic update 실패:', error);
+        throw error;
+      }
     },
     onSuccess: async (result, variables, context) => {
       if (!selectedPatient) return;
 
-      // 🔥 즉시 데이터 동기화 트리거
-      PatientDataSync.onConsultationUpdate(selectedPatient._id || selectedPatient.id, 'PatientDetailModal');
-
-      // 🚀 활동 로그 기록
       try {
+        PatientDataSync.onConsultationUpdate(selectedPatient._id || selectedPatient.id, 'PatientDetailModal');
+
         await logPatientAction(
           'consultation_update',
           selectedPatient._id || selectedPatient.id,
@@ -327,128 +506,46 @@ export default function PatientDetailModal() {
       }
     },
     onError: async (error, variables, context) => {
-      // 🚀 실패시 롤백
-      if (context?.previousPatients) {
-        queryClient.setQueryData(['patients'], context.previousPatients);
-      }
-
-      console.error('상담 정보 저장 실패:', error);
-      alert('상담 정보 저장에 실패했습니다.');
-
-      // 실패 로그 기록
-      if (selectedPatient) {
-        try {
-          await logPatientAction(
-            'consultation_update',
-            selectedPatient._id || selectedPatient.id,
-            selectedPatient.name,
-            {
-              patientId: selectedPatient._id || selectedPatient.id,
-              patientName: selectedPatient.name,
-              error: error instanceof Error ? error.message : '알 수 없는 오류',
-              attemptedBy: currentUser?.name,
-              notes: '상담 정보 업데이트 실패'
-            }
-          );
-        } catch (logError) {
-          console.warn('활동 로그 기록 실패:', logError);
+      try {
+        if (context?.previousPatients) {
+          queryClient.setQueryData(['patients'], context.previousPatients);
         }
+
+        console.error('상담 정보 저장 실패:', error);
+        alert('상담 정보 저장에 실패했습니다.');
+
+        if (selectedPatient) {
+          try {
+            await logPatientAction(
+              'consultation_update',
+              selectedPatient._id || selectedPatient.id,
+              selectedPatient.name,
+              {
+                patientId: selectedPatient._id || selectedPatient.id,
+                patientName: selectedPatient.name,
+                error: error instanceof Error ? error.message : '알 수 없는 오류',
+                attemptedBy: currentUser?.name,
+                notes: '상담 정보 업데이트 실패'
+              }
+            );
+          } catch (logError) {
+            console.warn('활동 로그 기록 실패:', logError);
+          }
+        }
+      } catch (rollbackError) {
+        console.error('에러 처리 중 추가 오류:', rollbackError);
       }
     },
     onSettled: () => {
-      // 🚀 최종적으로 서버 데이터로 동기화
-      queryClient.invalidateQueries({ queryKey: ['patients'] });
+      try {
+        queryClient.invalidateQueries({ queryKey: ['patients'] });
+      } catch (error) {
+        console.warn('쿼리 무효화 실패:', error);
+      }
     }
   });
 
-  // 선택된 환자 변경 감지 - forceUpdate 의존성 추가
-  useEffect(() => {
-    if (selectedPatient) {
-      console.log('환자 상세 정보 표시:', selectedPatient.name);
-      console.log('환자 종결 상태:', selectedPatient.isCompleted);
-      console.log('환자 상태:', selectedPatient.status);
-      console.log('🔥 환자 상세 정보 업데이트:', {
-        name: selectedPatient.name,
-        hasConsultation: !!selectedPatient.consultation,
-        estimateAgreed: selectedPatient.consultation?.estimateAgreed,
-        forceUpdateTrigger: forceUpdate
-      });
-      
-      // 🔥 메모 디버깅 로그 추가
-      console.log('🔍 메모 필드 확인:', {
-        notes: selectedPatient.notes,
-        memo: selectedPatient.memo,
-        hasNotes: !!selectedPatient.notes,
-        hasMemo: !!selectedPatient.memo,
-        notesType: typeof selectedPatient.notes,
-        memoType: typeof selectedPatient.memo
-      });
-      
-      // 🔥 환자가 변경되면 새로고침 트리거 초기화
-      setRefreshTrigger(0);
-    }
-  }, [selectedPatient, forceUpdate]);
-  
-  // 탭 변경 핸들러
-  const handleTabChange = (newTab: string) => {
-    setActiveTab(newTab)
-    console.log('탭 변경:', newTab);
-  }
-  
-  // 🔥 모달 닫기 함수 수정 - 닫을 때 추가 동기화 트리거
-  const handleClose = () => {
-    // 🔥 추가: 모달 닫을 때 PatientList 강제 새로고침
-    PatientDataSync.refreshAll('PatientDetailModal_close');
-    
-    // 약간의 지연 후 한 번 더 (확실한 동기화)
-    setTimeout(() => {
-      PatientDataSync.refreshAll('PatientDetailModal_close_delayed');
-    }, 200);
-    
-    dispatch(clearSelectedPatient());
-  };
-  
-  // 환자 수정 모달 열기
-  const handleOpenEditModal = () => {
-    console.log('환자 정보 수정 모달 열기');
-    setIsEditModalOpen(true)
-  }
-  
-  // 🔥 환자 수정 완료 처리 - 활동 로그 새로고침 트리거 추가
-  const handleEditSuccess = async () => {
-    // 환자 정보 탭으로 돌아가기
-    setActiveTab('환자정보')
-    console.log('🔥 환자 정보 수정 완료 - 활동 로그 새로고침 트리거');
-    
-    // 🔥 환자 데이터 새로고침
-    await refreshPatientData();
-    
-    // 🔥 활동 로그 새로고침을 위한 트리거 업데이트
-    setRefreshTrigger(prev => prev + 1);
-    
-    // 약간의 지연 후 추가 새로고침 (로그 기록이 완료될 시간 확보)
-    setTimeout(() => {
-      setRefreshTrigger(prev => prev + 1);
-      console.log('🔥 지연된 활동 로그 새로고침 트리거');
-    }, 1000);
-  }
-
-  // 문자 발송 완료 핸들러
-  const handleMessageSendComplete = () => {
-    // 필요한 경우 환자 상태 업데이트 또는 메시지 갱신
-    // 문자 내역 탭으로 전환
-    setActiveTab('문자내역')
-    console.log('문자 발송 완료');
-  }
-  
-  // 문자 발송 모달 열기
-  const handleOpenMessageModal = () => {
-    console.log('문자 발송 모달 열기');
-    setIsMessageSendModalOpen(true)
-  }
-  
-  // 🔥 기존 상담 정보 업데이트 핸들러 - 기존 방식 (fallback)
-  const handleConsultationUpdateTraditional = async (
+  const handleConsultationUpdateTraditional = useCallback(async (
     consultationData: Partial<ConsultationInfo>, 
     additionalData?: {
       reservationDate?: string
@@ -470,13 +567,11 @@ export default function PatientDetailModal() {
         additionalData
       });
       
-      // 1. 상담정보 저장
       await dispatch(updateConsultationInfo({
         patientId: selectedPatient._id || selectedPatient.id,
         consultationData
       })).unwrap();
       
-      // 2. 동의 시 예약완료 처리
       if (consultationData.estimateAgreed === true && additionalData?.reservationDate && additionalData?.reservationTime) {
         console.log('🔥 예약완료 처리 시작:', {
           reservationDate: additionalData.reservationDate,
@@ -495,10 +590,8 @@ export default function PatientDetailModal() {
         console.log('✅ 예약완료 처리 성공');
       }
       
-      // 3. 🔥 거부 시 콜백 처리 - 수정 vs 신규 구분
       if (consultationData.estimateAgreed === false && additionalData?.callbackDate) {
         if (additionalData.isEditMode && additionalData.existingCallbackId) {
-          // 🔥 수정 모드: 기존 콜백 업데이트
           console.log('🔥 기존 1차 콜백 업데이트:', {
             callbackId: additionalData.existingCallbackId,
             callbackDate: additionalData.callbackDate,
@@ -513,13 +606,12 @@ export default function PatientDetailModal() {
               date: additionalData.callbackDate,
               time: additionalData.callbackTime,
               notes: additionalData.callbackNotes || '1차 콜백 - 견적 재검토',
-              status: '예정' // 상태도 예정으로 리셋
+              status: '예정'
             }
           })).unwrap();
           
           console.log('✅ 기존 1차 콜백 업데이트 성공');
         } else {
-          // 🔥 신규 생성 모드: 새 콜백 추가
           console.log('🔥 새로운 1차 콜백 등록 시작:', {
             callbackDate: additionalData.callbackDate,
             callbackTime: additionalData.callbackTime,
@@ -545,13 +637,8 @@ export default function PatientDetailModal() {
         }
       }
       
-      // 🔥 즉시 데이터 동기화 트리거
       PatientDataSync.onConsultationUpdate(selectedPatient._id || selectedPatient.id, 'PatientDetailModal_traditional');
-      
-      // 🔥 강제 리렌더링을 위한 상태 업데이트
       setForceUpdate(prev => prev + 1);
-      
-      // 환자 데이터 새로고침
       await refreshPatientData();
       
       console.log('🔥 상담 정보 업데이트 완료 - 모든 처리 성공');
@@ -561,10 +648,9 @@ export default function PatientDetailModal() {
       alert('상담 정보 저장에 실패했습니다.');
       throw error;
     }
-  };
+  }, [dispatch, selectedPatient, refreshPatientData]);
 
-  // 🚀 Optimistic 방식 상담 정보 업데이트 핸들러
-  const handleConsultationUpdateOptimistic = async (
+  const handleConsultationUpdateOptimistic = useCallback(async (
     consultationData: Partial<ConsultationInfo>, 
     additionalData?: {
       reservationDate?: string
@@ -576,231 +662,108 @@ export default function PatientDetailModal() {
       existingCallbackId?: string
     }
   ) => {
-    // 🚀 Optimistic Update 실행
     consultationUpdateMutation.mutate({ consultationData, additionalData });
-  };
+  }, [consultationUpdateMutation]);
 
-  // 🚀 환경변수에 따라 상담 정보 업데이트 방식 선택
-  const handleConsultationUpdate = isOptimisticEnabled ? handleConsultationUpdateOptimistic : handleConsultationUpdateTraditional;
-  
-  // 기본 정보가 없으면 렌더링하지 않음
-  if (!selectedPatient) return null
-  
-  // 콜백 필요 여부 확인
-  const needsCallback = selectedPatient.status === '콜백필요' || selectedPatient.status === '부재중'
-  
-  // 예약 완료 여부 확인 함수 수정
-  const isReservationCompleted = (patient: Patient) => {
-    const result = patient.isCompleted && 
-          patient.completedReason && 
-          patient.completedReason.includes('[예약완료]');
-    
-    // 디버깅 로그 추가
-    if (result && patient.completedReason) {
-      console.log('=== 예약 완료 환자 디버깅 ===');
-      console.log('completedReason:', patient.completedReason);
-      console.log('contains newline:', patient.completedReason.includes('\n'));
-      console.log('completedReason length:', patient.completedReason.length);
-      console.log('completedReason split by \\n:', patient.completedReason.split('\n'));
-    }
-    
-    return result;
-  };
+  const handleConsultationUpdate = useMemo(() => 
+    isOptimisticEnabled ? handleConsultationUpdateOptimistic : handleConsultationUpdateTraditional,
+    [isOptimisticEnabled, handleConsultationUpdateOptimistic, handleConsultationUpdateTraditional]
+  );
 
-  // 예약 완료 상담 내용 추출 함수 수정
-  const getReservationConsultationNotes = (patient: Patient) => {
-    if (!patient.completedReason) return '';
-    
-    const text = patient.completedReason;
-    
-    // 🔥 수정: s 플래그 대신 [\s\S] 사용 (공백 문자와 비공백 문자 모두 매치)
-    // 패턴 1: [예약완료] 예약일시: YYYY-MM-DD HH:MM 상담내용: 내용
-    let match = text.match(/\[예약완료\]\s*예약일시:\s*[\d-]+\s+[\d:]+\s*상담내용:\s*([\s\S]+)/);
-    if (match && match[1]) {
-      return match[1].trim();
-    }
-    
-    // 패턴 2: 예약일시: YYYY-MM-DD HH:MM 처리일: YYYY-MM-DD 상담내용: 내용
-    match = text.match(/예약일시:\s*[\d-]+\s+[\d:]+\s*처리일:\s*[\d-]+\s*상담내용:\s*([\s\S]+)/);
-    if (match && match[1]) {
-      return match[1].trim();
-    }
-    
-    // 패턴 3: 처리일: YYYY-MM-DD 상담내용: 내용 (예약일시가 앞에 있는 경우)
-    match = text.match(/처리일:\s*[\d-]+\s*상담내용:\s*([\s\S]+)/);
-    if (match && match[1]) {
-      return match[1].trim();
-    }
-    
-    // 패턴 4: 단순히 상담내용: 으로 시작하는 경우
-    match = text.match(/상담내용:\s*([\s\S]+)/);
-    if (match && match[1]) {
-      return match[1].trim();
-    }
-    
-    // 🔥 추가: 기존 패턴 호환성 - [예약완료] 예약일시: 뒤의 모든 내용
-    match = text.match(/\[예약완료\]\s*예약일시:\s*[\d-]+\s+[\d:]+\s*(.*)/);
-    if (match && match[1]) {
-      return match[1].trim();
-    }
-    
-    return '';
-  };
-  
-  // 예약 정보 추출 함수 수정
-  const getReservationInfo = (patient: Patient) => {
-    if (!patient.completedReason) return '';
-    
-    // [예약완료] 예약일시: YYYY-MM-DD HH:MM 부분만 추출
-    const match = patient.completedReason.match(/(?:\[예약완료\]\s*)?(예약일시:\s*[\d-]+\s+[\d:]+)/);
-    if (match && match[1]) {
-      return match[1].trim();
-    }
-          
-    return '';
-  };
-
-  // 3. 🔥 종결 상태 확인 함수 수정 - 실시간 반영
-  const isCompleted = useMemo(() => {
-    const completed = selectedPatient.isCompleted === true || selectedPatient.status === '종결';
-    console.log('🔍 종결 상태 확인:', {
-      patientName: selectedPatient.name,
-      isCompleted: selectedPatient.isCompleted,
-      status: selectedPatient.status,
-      finalResult: completed,
-      forceUpdateTrigger: forceUpdate
-    });
-    return completed;
-  }, [selectedPatient.isCompleted, selectedPatient.status, forceUpdate]);
-  
-  // 🔥 예약완료 상태 확인 함수 추가
-  const isReservationConfirmed = () => {
-    return selectedPatient.status === '예약확정' || 
-           selectedPatient.reservationDate || 
-           isReservationCompleted(selectedPatient);
-  };
-  
-  // 🔥 치료 상태 텍스트 결정 함수
-  const getTreatmentStatusText = () => {
-    if (isReservationConfirmed()) {
-      return '예약 완료';
-    } else if (selectedPatient.consultation?.estimateAgreed) {
-      return '치료 동의';
+  // Effect Hook들
+  useEffect(() => {
+    if (selectedPatient && modalContext) {
+      if (modalContext === 'visit-management') {
+        setActiveTab('내원관리');
+        console.log('내원관리 페이지에서 열림 - 내원관리 탭으로 설정');
+      } else if (modalContext === 'management') {
+        setActiveTab('환자정보');
+        console.log('상담관리 페이지에서 열림 - 환자정보 탭으로 설정');
+      }
     } else {
-      return '치료 미시작';
+      setActiveTab('환자정보');
     }
-  };
-  
-  // 🔥 치료 상태 색상 결정 함수
-  const getTreatmentStatusColor = () => {
-    if (isReservationConfirmed()) {
-      return 'text-blue-600'; // 예약완료는 파란색
-    } else if (selectedPatient.consultation?.estimateAgreed) {
-      return 'text-green-600'; // 치료 동의는 초록색
-    } else {
-      return 'text-red-600'; // 치료 미시작은 빨간색
-    }
-  };
-  
-  // 마지막 상담 일자 기준 경과 시간
-  const lastConsultationDate = new Date(selectedPatient.lastConsultation)
-  const timeSinceLastConsultation = selectedPatient.lastConsultation && selectedPatient.lastConsultation !== ''
-    ? formatDistance(
-        new Date(selectedPatient.lastConsultation),
-        new Date(),
-        { addSuffix: true, locale: ko }
-      )
-    : '';
+  }, [selectedPatient?._id, modalContext]);
 
-  // 첫 상담 이후 경과 시간 - 값이 있는 경우에만 계산
-  const timeSinceFirstConsult = selectedPatient.firstConsultDate && selectedPatient.firstConsultDate !== ''
-    ? formatDistance(
-        new Date(selectedPatient.firstConsultDate),
-        new Date(),
-        { addSuffix: true, locale: ko }
-      )
-    : '';
-  
-  // 환자 상태에 따른 뱃지 색상
-  const getStatusColor = (status: string) => {
-    const colorMap: Record<string, string> = {
-      '잠재고객': 'bg-blue-100 text-blue-800',
-      '콜백필요': 'bg-yellow-100 text-yellow-800',
-      '부재중': 'bg-orange-100 text-orange-800',
-      '활성고객': 'bg-green-100 text-green-800',
-      'VIP': 'bg-purple-100 text-purple-800',
-      '예약확정': 'bg-indigo-100 text-indigo-800',
-      '재예약확정': 'bg-purple-100 text-purple-800',
-      '종결': 'bg-gray-100 text-gray-800',
-    }
-    return colorMap[status] || 'bg-gray-100 text-gray-800'
-  }
-  
-  // 환자 상태 뱃지
-  const StatusBadge = ({ status }: { status: string }) => (
-    <span className={`inline-flex items-center px-2.5 py-1 rounded-full text-xs font-medium ${getStatusColor(status)}`}>
-      {status}
-    </span>
-  )
-  
-  // 리마인더 상태 뱃지
-  const ReminderBadge = ({ status }: { status: string }) => {
-    if (status === '-') {
-      return <span className="text-text-secondary">-</span>
-    }
-  
-    const colorMap: Record<string, string> = {
-      '초기': 'text-text-secondary',
-      '1차': 'bg-orange-100 text-orange-800',
-      '2차': 'bg-orange-200 text-orange-900',
-      '3차': 'bg-red-100 text-red-800',
-      '4차': 'bg-red-200 text-red-900',
-      '5차': 'bg-red-300 text-red-900',
-    }
-  
-    const isNumeric = ['1차', '2차', '3차', '4차', '5차'].includes(status)
-  
-    if (isNumeric) {
-      return (
-        <span className={`inline-flex items-center justify-center w-6 h-6 rounded-full text-xs font-medium ${colorMap[status]}`}>
-          {status.charAt(0)}
-        </span>
-      )
-    }
-  
-    return <span className={`text-sm ${colorMap[status]}`}>{status}</span>
-  }
-  
-  // 유입경로 표시 텍스트
-  const getReferralSourceText = (source?: string) => {
-    if (!source || source === '') return '-';
-    return source;
-  }
-  
-  // 담당자 정보 표시 함수
-  const getUserDisplayName = (userId?: string, userName?: string) => {
-    console.log('🔍 getUserDisplayName 호출:', { userId, userName });
+  useEffect(() => {
+    console.log('📡 PatientDetailModal: 데이터 동기화 리스너 설정 시작');
     
-    if (!userId && !userName) return '정보 없음';
-    if (userName && userName.trim() !== '') return userName;
-    if (userId === 'system') return '시스템';
-    if (userId && userId.trim() !== '') return `${userId} (ID)`;
-    return '정보 없음';
-  }
-
-  // 마지막 수정 시간 포맷팅
-  const formatLastModified = (dateString?: string) => {
-    if (!dateString) return '';
+    let cleanup: (() => void) | undefined;
+    
     try {
-      return formatDistance(new Date(dateString), new Date(), { 
-        addSuffix: true, 
-        locale: ko 
-      });
-    } catch {
-      return dateString;
+      cleanup = setupDataSyncListener(queryClient);
+    } catch (error) {
+      console.error('데이터 동기화 리스너 설정 실패:', error);
     }
+    
+    const handlePatientDataChange = (event: Event) => {
+      try {
+        const customEvent = event as CustomEvent;
+        const { patientId, type } = customEvent.detail || {};
+        
+        if (selectedPatient && (selectedPatient._id === patientId || selectedPatient.id === patientId)) {
+          console.log('🔄 데이터 새로고침 트리거:', { type, patientId });
+          
+          if (['patient_complete', 'callback_update', 'callback_delete'].includes(type)) {
+            setTimeout(() => {
+              refreshPatientData();
+              setForceUpdate(prev => prev + 1);
+            }, 100);
+          }
+        }
+      } catch (error) {
+        console.error('환자 데이터 변경 이벤트 처리 실패:', error);
+      }
+    };
+    
+    if (typeof window !== 'undefined') {
+      console.log('📡 데이터 동기화 리스너 등록 완료');
+      window.addEventListener('patientDataChanged', handlePatientDataChange);
+      
+      return () => {
+        try {
+          if (cleanup) cleanup();
+          window.removeEventListener('patientDataChanged', handlePatientDataChange);
+          console.log('📡 PatientDetailModal: 모든 리스너 해제');
+        } catch (error) {
+          console.error('리스너 해제 중 오류:', error);
+        }
+      };
+    }
+    
+    return cleanup;
+  }, [queryClient, selectedPatient?._id, refreshPatientData]);
+
+  useEffect(() => {
+    if (selectedPatient) {
+      console.log('환자 상세 정보 표시:', selectedPatient.name);
+      console.log('환자 종결 상태:', selectedPatient.isCompleted);
+      console.log('환자 상태:', selectedPatient.status);
+      console.log('🔥 환자 상세 정보 업데이트:', {
+        name: selectedPatient.name,
+        hasConsultation: !!selectedPatient.consultation,
+        estimateAgreed: selectedPatient.consultation?.estimateAgreed,
+        forceUpdateTrigger: forceUpdate
+      });
+      
+      console.log('🔍 메모 필드 확인:', {
+        notes: selectedPatient.notes,
+        memo: selectedPatient.memo,
+        hasNotes: !!selectedPatient.notes,
+        hasMemo: !!selectedPatient.memo,
+        notesType: typeof selectedPatient.notes,
+        memoType: typeof selectedPatient.memo
+      });
+      
+      setRefreshTrigger(0);
+    }
+  }, [selectedPatient?._id, selectedPatient?.name, selectedPatient?.status, forceUpdate]);
+
+  // ✅ 조건부 렌더링을 모든 Hook 호출 후에 배치
+  if (!selectedPatient) {
+    return null;
   }
-  
+
   return (
     <div className="fixed inset-0 bg-black/30 flex items-center justify-center z-50 p-4">
       <div className="bg-white rounded-lg shadow-lg w-full max-w-4xl max-h-[90vh] overflow-auto">
@@ -810,10 +773,8 @@ export default function PatientDetailModal() {
             <h2 className="text-lg font-semibold text-text-primary">
               환자 상세: {selectedPatient.name}
             </h2>
-            {/* 🔥 종결 상태 실시간 반영 */}
             <StatusBadge status={isCompleted ? '종결' : selectedPatient.status} />
             <ReminderBadge status={selectedPatient.reminderStatus} />
-            {/* 상담 타입 뱃지 추가 */}
             <div className={`inline-flex items-center px-2.5 py-1 rounded-full text-xs font-medium ${
               (selectedPatient.consultationType || 'outbound') === 'inbound' 
                 ? 'bg-green-100 text-green-800' 
@@ -831,10 +792,8 @@ export default function PatientDetailModal() {
                 </>
               )}
             </div>
-            
           </div>
           <div className="flex items-center gap-2">
-            {/* 문자 발송 버튼 추가 */}
             <button 
               className="text-primary hover:text-primary-dark flex items-center gap-1"
               onClick={handleOpenMessageModal}
@@ -860,7 +819,7 @@ export default function PatientDetailModal() {
           </div>
         </div>
         
-        {/* 탭 메뉴 - 내원관리 탭 추가, 콜백관리 → 상담관리로 변경 */}
+        {/* 탭 메뉴 */}
         <div className="px-6 pt-4 border-b border-border flex items-center">
           <button
             className={`px-4 py-2 text-sm font-medium transition-colors relative ${
@@ -888,7 +847,6 @@ export default function PatientDetailModal() {
               <div className="absolute bottom-0 left-0 right-0 h-0.5 bg-primary"></div>
             )}
           </button>
-          {/* 🔧 내원관리 탭 - 비활성화 상태 추가 */}
           <button
             className={`px-4 py-2 text-sm font-medium transition-colors relative ${
               !isVisitConfirmed 
@@ -960,7 +918,7 @@ export default function PatientDetailModal() {
                     </div>
                   </div>
                   
-                  {/* 상담 타입 정보 추가 */}
+                  {/* 상담 타입 정보 */}
                   <div className="flex items-start gap-2">
                     <Icon 
                       icon={(selectedPatient.consultationType || 'outbound') === 'inbound' ? FiPhone : FiPhoneCall} 
@@ -973,7 +931,6 @@ export default function PatientDetailModal() {
                         <p className="text-text-primary">
                           {(selectedPatient.consultationType || 'outbound') === 'inbound' ? '인바운드' : '아웃바운드'}
                         </p>
-                        {/* 🔥 변경 버튼 추가 */}
                         <button
                           className="text-xs text-primary hover:text-primary-dark underline"
                           onClick={handleOpenEditModal}
@@ -990,7 +947,7 @@ export default function PatientDetailModal() {
                     </div>
                   </div>
                   
-                  {/* 유입경로 정보 추가 */}
+                  {/* 유입경로 정보 */}
                   <div className="flex items-start gap-2">
                     <Icon 
                       icon={HiOutlineGlobeAlt} 
@@ -1107,7 +1064,7 @@ export default function PatientDetailModal() {
                 </div>
               </div>              
               
-              {/* 🔥 상담/결제 정보 카드 (치료 상태 표시 수정) */}
+              {/* 상담/결제 정보 카드 */}
               <div className="card">
                 <div className="flex items-center justify-between mb-4">
                   <h3 className="text-md font-semibold text-text-primary flex items-center gap-2">
@@ -1154,7 +1111,7 @@ export default function PatientDetailModal() {
                       </div>
                     </div>
                     
-                    {/* 🔥 견적 동의 현황 (치료 상태 수정) */}
+                    {/* 견적 동의 현황 */}
                     <div className="bg-gray-50 p-4 rounded-lg">
                       <h4 className="text-sm font-semibold text-gray-700 mb-3 flex items-center gap-2">
                         <Icon icon={HiOutlineClipboardCheck} size={16} />
@@ -1178,7 +1135,7 @@ export default function PatientDetailModal() {
                         </div>
                       </div>
                       
-                      {/* 🔥 예약 정보 표시 추가 */}
+                      {/* 예약 정보 표시 */}
                       {isReservationConfirmed() && (selectedPatient.reservationDate || selectedPatient.reservationTime) && (
                         <div className="mt-3 pt-3 border-t border-gray-200">
                           <p className="text-xs text-gray-600 mb-1">예약 정보</p>
@@ -1228,7 +1185,7 @@ export default function PatientDetailModal() {
                 )}
               </div>
 
-              {/* 담당자 정보 카드 추가 */}
+              {/* 담당자 정보 카드 */}
               <div className="card">
                 <h3 className="text-md font-semibold text-text-primary mb-4">담당자 정보</h3>
                 
@@ -1275,7 +1232,7 @@ export default function PatientDetailModal() {
                 </div>
               </div>
               
-              {/* 콜백 필요 알림 - 종결 처리되지 않은 경우에만 표시 */}
+              {/* 콜백 필요 알림 */}
               {needsCallback && !isCompleted && (
                 <div className="card bg-yellow-50 border-yellow-200">
                   <div className="flex items-center justify-between">
@@ -1285,15 +1242,15 @@ export default function PatientDetailModal() {
                     </div>
                     <button
                       className="px-4 py-2 bg-yellow-100 text-yellow-800 rounded-md hover:bg-yellow-200 transition-colors"
-                      onClick={() => handleTabChange('콜백관리')}
+                      onClick={() => handleTabChange('상담관리')}
                     >
-                      콜백 관리로 이동
+                      상담 관리로 이동
                     </button>
                   </div>
                 </div>
               )}
 
-              {/* 종결 처리 알림 - 종결 처리된 경우에만 표시 (수정된 부분) */}
+              {/* 종결 처리 알림 */}
               {isCompleted && (
                 <div className={`card ${
                   isReservationCompleted(selectedPatient)
@@ -1317,17 +1274,14 @@ export default function PatientDetailModal() {
                           : '이 환자는 종결 처리되었습니다'}
                       </h3>
                       
-                      {/* 예약 정보와 상담 내용을 모두 표시 */}
                       {isReservationCompleted(selectedPatient) ? (
                         <div className="mt-1 space-y-2">
-                          {/* 예약 정보 표시 */}
                           {getReservationInfo(selectedPatient) && (
                             <p className="text-sm text-green-600 font-medium">
                               {getReservationInfo(selectedPatient)}
                             </p>
                           )}
                           
-                          {/* 상담 내용 표시 */}
                           {getReservationConsultationNotes(selectedPatient) && (
                             <p className="text-sm text-green-600">
                               상담내용: {getReservationConsultationNotes(selectedPatient)}
@@ -1335,7 +1289,6 @@ export default function PatientDetailModal() {
                           )}
                         </div>
                       ) : selectedPatient.completedReason ? (
-                        // 일반 종결인 경우 기존 방식 유지
                         <p className="text-sm text-gray-600 mt-1 whitespace-pre-line">
                           상담내용: {selectedPatient.completedReason}
                         </p>
@@ -1361,7 +1314,7 @@ export default function PatientDetailModal() {
                           ? 'bg-green-500 hover:bg-green-600'
                           : 'bg-gray-500 hover:bg-gray-600'
                       } text-white rounded-md transition-colors flex items-center gap-2`}
-                      onClick={() => handleTabChange('콜백관리')}
+                      onClick={() => handleTabChange('상담관리')}
                     >
                       <Icon icon={HiOutlineRefresh} size={18} />
                       <span>{isReservationCompleted(selectedPatient) ? '예약 취소' : '종결 취소'}</span>
@@ -1372,12 +1325,12 @@ export default function PatientDetailModal() {
             </div>
           )}
           
-          {/* 상담관리 탭 (기존 콜백관리에서 이름만 변경) */}
+          {/* 상담관리 탭 */}
           {activeTab === '상담관리' && (
             <CallbackManagement patient={selectedPatient} />
           )}
           
-          {/* 내원관리 탭 - 새로 추가 */}
+          {/* 내원관리 탭 */}
           {activeTab === '내원관리' && (
             <VisitManagementTab patient={selectedPatient} />
           )}
@@ -1389,13 +1342,16 @@ export default function PatientDetailModal() {
         </div>
       </div>
       
-      {/* 🔥 환자 수정 모달 - refreshTrigger를 key로 전달하여 강제 리렌더링 */}
+      {/* 환자 수정 모달 */}
       {isEditModalOpen && (
         <PatientEditForm 
           key={`edit-${selectedPatient._id}-${refreshTrigger}`}
           patient={selectedPatient} 
           isOpen={isEditModalOpen}
-          onClose={() => setIsEditModalOpen(false)} 
+          onClose={() => {
+            setIsEditModalOpen(false);
+            handleEditSuccess();
+          }}
         />
       )}
       
@@ -1409,7 +1365,7 @@ export default function PatientDetailModal() {
         />
       )}
       
-      {/* 🔥 상담 정보 모달 - 환자 콜백 히스토리 전달 */}
+      {/* 상담 정보 모달 */}
       {isConsultationFormOpen && (
         <ConsultationFormModal
           isOpen={isConsultationFormOpen}
@@ -1417,7 +1373,7 @@ export default function PatientDetailModal() {
           patientId={selectedPatient._id}
           patientName={selectedPatient.name}
           existingConsultation={selectedPatient.consultation}
-          patientCallbackHistory={selectedPatient.callbackHistory} // 🔥 콜백 히스토리 전달
+          patientCallbackHistory={selectedPatient.callbackHistory}
           onSave={handleConsultationUpdate}
         />
       )}

@@ -1,8 +1,9 @@
-// src/utils/activityLogger.ts - 관리자 작업 로깅 제외 버전 (수정됨) + 초기화 메서드 추가
+// src/utils/activityLogger.ts - 순환 의존성 해결 버전
 
 import { ActivityAction, ActivityTarget, ActivityDetails } from '@/types/activityLog';
-import { store } from '@/store';
-import { shouldSkipLogging } from './adminActivityFilter'; // 🔥 새로 추가
+// 🔥 순환 의존성 해결: store 직접 import 제거
+// import { store } from '@/store';  // 이 줄 제거!
+import { shouldSkipLogging } from './adminActivityFilter';
 
 // 🔥 최근 로그 추적을 위한 캐시 (중복 방지용)
 let recentLogCache: Map<string, number> = new Map();
@@ -37,6 +38,18 @@ function isDuplicateLog(
   return false;
 }
 
+// 🔥 런타임에 store 가져오기 (순환 의존성 해결)
+function getStore() {
+  try {
+    // 동적 import로 런타임에 store 가져오기
+    const storeModule = require('@/store');
+    return storeModule.store;
+  } catch (error) {
+    console.warn('Store 접근 실패:', error);
+    return null;
+  }
+}
+
 // 활동 로그 기록 함수
 export async function logActivity(
   action: ActivityAction,
@@ -56,10 +69,16 @@ export async function logActivity(
       return; // 중복 로그는 기록하지 않음
     }
 
-    // 현재 로그인한 사용자 정보 가져오기
+    // 🔥 런타임에 현재 로그인한 사용자 정보 가져오기
+    const store = getStore();
+    if (!store) {
+      console.warn('Store에 접근할 수 없어 활동 로그를 기록할 수 없습니다.');
+      return;
+    }
+
     const state = store.getState();
-    const currentUser = state.auth.user;
-    const token = state.auth.token;
+    const currentUser = state.auth?.user;
+    const token = state.auth?.token;
 
     if (!currentUser || !token) {
       console.warn('사용자가 로그인하지 않아 활동 로그를 기록할 수 없습니다.');
