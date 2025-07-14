@@ -4,29 +4,7 @@ import { useAppDispatch } from '@/hooks/reduxHooks';
 import { selectPatient } from '@/store/slices/patientsSlice';
 import { Patient, PatientStatus } from '@/store/slices/patientsSlice';
 import PatientDetailModal from '@/components/management/PatientDetailModal';
-
-// 🔥 기존 타입과 새로운 타입을 모두 지원하는 유니온 타입
-export type PatientFilterType = 
-  // 🔥 대시보드 필터 타입들 (새로 추가)
-  | 'new_inquiry'           // 이번달 신규 문의
-  | 'reservation_rate'      // 예약전환율
-  | 'visit_rate'           // 내원전환율  
-  | 'payment_rate'         // 결제전환율
-  // 기존 타입들 (호환성 유지)
-  | 'callbackUnregistered' 
-  | 'overdueCallbacks' 
-  | 'callbackNeeded' 
-  | 'absent' 
-  | 'todayScheduled'
-  // 새로운 타입들
-  | 'overdueCallbacks_consultation'
-  | 'overdueCallbacks_visit'
-  | 'todayScheduled_consultation'
-  | 'todayScheduled_visit'
-  | 'callbackUnregistered_consultation'
-  | 'callbackUnregistered_visit'
-  | 'reminderCallbacks_scheduled'
-  | 'reminderCallbacks_registrationNeeded';
+import { PatientFilterType } from '@/types/patient';
 
 interface PatientListModalProps {
   isOpen: boolean;

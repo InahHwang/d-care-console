@@ -28,7 +28,8 @@ import {
   CallbackFollowupStatus,
   FirstConsultationResult,
   PostReservationResult,
-  CallbackFollowupResult
+  CallbackFollowupResult,
+  PatientFilterType
 } from '@/types/patient';
 import { RootState } from '..';
 
@@ -149,13 +150,6 @@ export const resetPostVisitData = createAsyncThunk(
     }
   }
 );
-
-// 🔥 여기에 PatientFilterType 타입 정의 추가!
-export type PatientFilterType = 
-  | 'new_inquiry'      // 이번달 신규 문의
-  | 'reservation_rate' // 예약 전환율
-  | 'visit_rate'       // 내원 전환율
-  | 'treatment_rate'   // 치료 시작율
 
 // 🔥 기존 컴포넌트들이 사용할 수 있도록 타입들을 re-export
 export type {

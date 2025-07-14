@@ -2,6 +2,29 @@
 
 import { EventCategory } from '@/types/messageLog';
 
+// 🔥 환자 필터 타입 정의 (통합)
+export type PatientFilterType = 
+  // 대시보드 필터 타입들
+  | 'new_inquiry'           
+  | 'reservation_rate'      
+  | 'visit_rate'           
+  | 'treatment_rate'       
+  // 상태별 필터 타입들
+  | 'callbackUnregistered' 
+  | 'overdueCallbacks' 
+  | 'callbackNeeded' 
+  | 'absent' 
+  | 'todayScheduled'
+  // 세분화된 필터 타입들
+  | 'overdueCallbacks_consultation'
+  | 'overdueCallbacks_visit'
+  | 'todayScheduled_consultation'
+  | 'todayScheduled_visit'
+  | 'callbackUnregistered_consultation'
+  | 'callbackUnregistered_visit'
+  | 'reminderCallbacks_scheduled'
+  | 'reminderCallbacks_registrationNeeded';
+
 // 🔥 상담 타입 추가
 export type ConsultationType = 'inbound' | 'outbound' | 'returning' | 'walkin';
 
