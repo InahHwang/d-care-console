@@ -3,7 +3,7 @@
 
 import { useState, useEffect } from 'react'
 import PatientListModal from './PatientListModal'
-import { PatientFilterType } from '@/store/slices/patientsSlice'
+import { PatientFilterType } from '@/types/patient'
 import { Patient } from '@/types/patient'
 
 export default function CumulativeStats() {

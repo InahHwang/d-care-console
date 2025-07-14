@@ -5,7 +5,7 @@ import { useSelector } from 'react-redux'
 import { RootState } from '@/store'
 import { useState } from 'react'
 import PatientListModal from './PatientListModal'
-import { PatientFilterType } from '@/store/slices/patientsSlice'
+import { PatientFilterType } from '@/types/patient'
 
 interface FunnelStage {
   id: string

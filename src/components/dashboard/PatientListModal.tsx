@@ -2,26 +2,8 @@
 import React, { useEffect, useState } from 'react';
 import { useAppDispatch } from '@/hooks/reduxHooks';
 import { selectPatient } from '@/store/slices/patientsSlice';
-import { Patient, PatientStatus } from '@/store/slices/patientsSlice';
 import PatientDetailModal from '@/components/management/PatientDetailModal';
-
-// 🔥 기존 타입과 새로운 타입을 모두 지원하는 유니온 타입
-export type PatientFilterType = 
-  // 기존 타입들 (호환성 유지)
-  | 'callbackUnregistered' 
-  | 'overdueCallbacks' 
-  | 'callbackNeeded' 
-  | 'absent' 
-  | 'todayScheduled'
-  // 새로운 타입들
-  | 'overdueCallbacks_consultation'
-  | 'overdueCallbacks_visit'
-  | 'todayScheduled_consultation'
-  | 'todayScheduled_visit'
-  | 'callbackUnregistered_consultation'
-  | 'callbackUnregistered_visit'
-  | 'reminderCallbacks_scheduled'
-  | 'reminderCallbacks_registrationNeeded';
+import { Patient, PatientStatus, PatientFilterType } from '@/types/patient';
 
 interface PatientListModalProps {
   isOpen: boolean;

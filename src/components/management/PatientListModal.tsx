@@ -2,9 +2,8 @@
 import React, { useEffect, useState } from 'react';
 import { useAppDispatch } from '@/hooks/reduxHooks';
 import { selectPatient } from '@/store/slices/patientsSlice';
-import { Patient, PatientStatus } from '@/store/slices/patientsSlice';
 import PatientDetailModal from '@/components/management/PatientDetailModal';
-import { PatientFilterType } from '@/types/patient';
+import { Patient, PatientStatus, PatientFilterType } from '@/types/patient';
 
 interface PatientListModalProps {
   isOpen: boolean;

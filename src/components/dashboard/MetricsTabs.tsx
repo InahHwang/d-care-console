@@ -14,7 +14,7 @@ import {
 } from 'react-icons/hi'
 import { Icon } from '../common/Icon'
 import PatientListModal from './PatientListModal'
-import { PatientFilterType } from '@/store/slices/patientsSlice'
+import { PatientFilterType } from '@/types/patient'
 
 interface SummaryCardProps {
   title: string

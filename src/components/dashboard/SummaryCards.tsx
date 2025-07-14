@@ -17,7 +17,8 @@ import { FiPhone, FiPhoneCall } from 'react-icons/fi'
 import { Icon } from '../common/Icon'
 import { useState } from 'react'
 import PatientListModal from './PatientListModal'
-import { PatientFilterType } from '@/store/slices/patientsSlice'
+import { PatientFilterType } from '@/types/patient'
+
 
 interface SummaryCardProps {
   title: string

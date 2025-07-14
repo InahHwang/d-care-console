@@ -1,7 +1,8 @@
 // src/components/dashboard/PerformanceCards.tsx - 건수/포인트 증감 표시로 수정된 버전
 import React, { useState } from 'react';
 import PatientListModal from './PatientListModal';
-import { PatientFilterType } from '@/store/slices/patientsSlice';
+import { PatientFilterType } from '@/types/patient'
+
 
 // 🔥 수정된 성과 데이터 타입 정의 - 인바운드/아웃바운드 실제 건수 추가
 interface PerformanceData {
