@@ -28,6 +28,18 @@ const MEMO_COLORS = [
   '#fed7d7', // pink
 ];
 
+// 디바운스 함수
+function debounce<T extends (...args: any[]) => any>(
+  func: T,
+  wait: number
+): (...args: Parameters<T>) => void {
+  let timeout: NodeJS.Timeout;
+  return (...args: Parameters<T>) => {
+    clearTimeout(timeout);
+    timeout = setTimeout(() => func(...args), wait);
+  };
+}
+
 export default function StickyNote({ memo }: StickyNoteProps) {
   const dispatch = useAppDispatch();
   const [isEditing, setIsEditing] = useState(false);
@@ -52,6 +64,27 @@ export default function StickyNote({ memo }: StickyNoteProps) {
       setTempSize(memo.size);
     }
   }, [memo.position, memo.size, isDragging, isResizing]);
+
+  // 디바운스된 API 호출 함수들
+  const debouncedUpdatePosition = useCallback(
+    debounce((position: { x: number; y: number }) => {
+      dispatch(updateMemo({
+        id: memo._id,
+        updates: { position }
+      }));
+    }, 300), // 300ms 후 API 호출
+    [memo._id, dispatch]
+  );
+
+  const debouncedUpdateSize = useCallback(
+    debounce((size: { width: number; height: number }) => {
+      dispatch(updateMemo({
+        id: memo._id,
+        updates: { size }
+      }));
+    }, 300), // 300ms 후 API 호출
+    [memo._id, dispatch]
+  );
 
   // 메모를 최상단으로 가져오기
   const handleBringToFront = useCallback(() => {
@@ -118,13 +151,13 @@ export default function StickyNote({ memo }: StickyNoteProps) {
         newPosition.x = Math.max(0, Math.min(newPosition.x, maxX));
         newPosition.y = Math.max(0, Math.min(newPosition.y, maxY));
         
-        // 로컬 상태만 업데이트 (즉시 반영)
+        // 로컬 상태만 즉시 업데이트 (부드러운 드래그)
         setTempPosition(newPosition);
       } else if (isResizing) {
         const newWidth = Math.max(200, resizeStart.width + (e.clientX - resizeStart.x));
         const newHeight = Math.max(150, resizeStart.height + (e.clientY - resizeStart.y));
         
-        // 로컬 상태만 업데이트 (즉시 반영)
+        // 로컬 상태만 즉시 업데이트 (부드러운 리사이즈)
         setTempSize({ width: newWidth, height: newHeight });
       }
     };
@@ -132,34 +165,48 @@ export default function StickyNote({ memo }: StickyNoteProps) {
     const handleMouseUp = () => {
       if (isDragging) {
         setIsDragging(false);
-        // 드래그 완료 후 Redux 상태 업데이트
+        console.log('드래그 완료 - 위치 업데이트:', tempPosition);
+        
+        // 1. 즉시 Redux 상태 업데이트 (UI 반응성)
         dispatch(updateMemoPosition({ id: memo._id, position: tempPosition }));
-        dispatch(updateMemo({
-          id: memo._id,
-          updates: { position: tempPosition }
-        }));
+        
+        // 2. 디바운스된 API 호출 (네트워크 최적화)
+        debouncedUpdatePosition(tempPosition);
       }
       if (isResizing) {
         setIsResizing(false);
-        // 리사이즈 완료 후 Redux 상태 업데이트
+        console.log('리사이즈 완료 - 크기 업데이트:', tempSize);
+        
+        // 1. 즉시 Redux 상태 업데이트 (UI 반응성)
         dispatch(updateMemoSize({ id: memo._id, size: tempSize }));
-        dispatch(updateMemo({
-          id: memo._id,
-          updates: { size: tempSize }
-        }));
+        
+        // 2. 디바운스된 API 호출 (네트워크 최적화)
+        debouncedUpdateSize(tempSize);
       }
     };
 
     if (isDragging || isResizing) {
-      document.addEventListener('mousemove', handleMouseMove);
-      document.addEventListener('mouseup', handleMouseUp);
+      // passive: false로 preventDefault 허용
+      document.addEventListener('mousemove', handleMouseMove, { passive: false });
+      document.addEventListener('mouseup', handleMouseUp, { passive: false });
       
       return () => {
         document.removeEventListener('mousemove', handleMouseMove);
         document.removeEventListener('mouseup', handleMouseUp);
       };
     }
-  }, [isDragging, isResizing, dragStart, resizeStart, tempPosition, tempSize, memo._id, dispatch]);
+  }, [
+    isDragging, 
+    isResizing, 
+    dragStart, 
+    resizeStart, 
+    tempPosition, 
+    tempSize, 
+    memo._id, 
+    dispatch, 
+    debouncedUpdatePosition, 
+    debouncedUpdateSize
+  ]);
 
   // 편집 모드 저장
   const handleSave = useCallback(() => {

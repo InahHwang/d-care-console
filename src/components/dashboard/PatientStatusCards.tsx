@@ -251,7 +251,6 @@ const PatientStatusCards: React.FC<PatientStatusCardsProps> = ({ statusCounts })
           </div>
           
           <div className="mt-3 text-xs text-purple-600">
-            <div>예정: 리마인더 콜백 예정일 3일 전에 다다른 환자 표기</div>
             <div>등록필요: 치료동의 상태인데 "치료시작예정일"이 오늘날짜보다 이전인 경우</div>
           </div>
         </div>
