@@ -1,4 +1,4 @@
-// src/app/api/patients/[id]/callbacks/route.ts - 새로운 첫 상담 후 상태 관리 지원 + 원래 날짜 보존 (완전한 코드)
+// src/app/api/patients/[id]/callbacks/route.ts - UI 통일화를 위한 notes 중복 정보 제거
 
 import { NextRequest, NextResponse } from 'next/server';
 import { connectToDatabase } from '@/utils/mongodb';
@@ -31,6 +31,31 @@ function getCurrentUser(request: NextRequest) {
     id: 'temp-user-001',
     name: '임시 관리자'
   };
+}
+
+// 🔥 순수 상담내용 추출 함수 추가 (프론트엔드와 동일한 로직)
+function extractPureConsultationContent(text: string): string {
+  if (!text) return '';
+  
+  // 1. [차수 콜백 등록] 패턴 제거
+  let content = text.replace(/\[.*?차 콜백 등록\]/g, '').trim();
+  
+  // 2. [차수 콜백 - 설명] 패턴 제거  
+  content = content.replace(/\[.*?차 콜백 - .*?\]/g, '').trim();
+  
+  // 3. "사유:" 접두어 제거
+  content = content.replace(/^사유:\s*/g, '').trim();
+  
+  // 4. [예약완료] 관련 정보 제거
+  content = content.replace(/\[예약완료\].*?예약일시:\s*[\d-]+\s+[\d:]+/g, '').trim();
+  content = content.replace(/예약일시:\s*[\d-]+\s+[\d:]+/g, '').trim();
+  content = content.replace(/처리일:\s*[\d-]+/g, '').trim();
+  content = content.replace(/상담내용:\s*/g, '').trim();
+  
+  // 5. 빈 줄 정리
+  content = content.replace(/\n+/g, '\n').trim();
+  
+  return content;
 }
 
 export async function POST(
@@ -88,9 +113,20 @@ export async function POST(
     
     // 콜백 ID 생성
     const callbackId = `cb-${Date.now()}`;
+    
+    // 🔥 콜백 데이터 처리 - notes 중복 제거
+    let processedNotes = callbackData.notes || '';
+    
+    // 🔥 순수 상담내용만 추출 (예약 정보 중복 제거)
+    if (callbackData.firstConsultationResult || callbackData.callbackFollowupResult) {
+      processedNotes = extractPureConsultationContent(processedNotes);
+    }
+    
     const newCallback = {
       id: callbackId,
       ...callbackData,
+      // 🔥 수정: 순수 상담내용만 저장, 예약 정보는 result 객체에만 저장
+      notes: processedNotes,
       time: typeof callbackData.time === 'string' ? callbackData.time : undefined,
       createdAt: new Date().toISOString()
     };
@@ -111,6 +147,7 @@ export async function POST(
           updateData.reservationTime = result.reservationTime;
           updateData.currentConsultationStage = 'completed';
           updateData.lastFirstConsultationResult = result;
+          console.log(`🔥 1차 상담 후 예약완료: ${result.reservationDate} ${result.reservationTime}`);
           break;
           
         case '상담진행중':
@@ -184,10 +221,11 @@ export async function POST(
           updateData.reservationDate = result.reservationDate;
           updateData.reservationTime = result.reservationTime;
           updateData.currentConsultationStage = 'completed';
+          console.log(`🔥 ${callbackData.type || 'N차'} 콜백 후 예약완료: ${result.reservationDate} ${result.reservationTime}`);
           break;
           
         case '부재중':
-        case '상담중':
+        case '상담진행중':
           updateData.status = result.status === '부재중' ? '부재중' : '콜백필요';
           updateData.nextCallbackDate = result.nextCallbackDate;
           updateData.currentConsultationStage = 'callback';
@@ -195,7 +233,7 @@ export async function POST(
       }
     }
     
-    // 기본 콜백 상태에 따른 업데이트 (기존 로직)
+    // 기본 콜백 상태에 따른 업데이트 (기존 로직 유지)
     if (!callbackData.firstConsultationResult && !callbackData.postReservationResult && !callbackData.callbackFollowupResult) {
       if (callbackData.status === '부재중') {
         updateData.status = '부재중';
@@ -303,6 +341,7 @@ export async function POST(
           firstConsultationResult: callbackData.firstConsultationResult,
           postReservationResult: callbackData.postReservationResult,
           callbackFollowupResult: callbackData.callbackFollowupResult,
+          processedNotes: processedNotes, // 🔥 추가: 처리된 notes 정보
           apiEndpoint: '/api/patients/[id]/callbacks',
           userAgent: request.headers.get('user-agent')?.substring(0, 100) // 길이 제한
         }
@@ -338,7 +377,7 @@ export async function POST(
   }
 }
 
-// 🔥 콜백 업데이트를 위한 PUT 메서드 - 원래 날짜 보존 로직 추가
+// 🔥 콜백 업데이트를 위한 PUT 메서드 - 원래 날짜 보존 로직 + notes 중복 제거
 export async function PUT(
   request: NextRequest,
   { params }: { params: { id: string } }
@@ -382,6 +421,14 @@ export async function PUT(
     // 🔥 원래 콜백 정보 보존
     const originalCallback = callbackHistory[callbackIndex];
     
+    // 🔥 notes 처리 - 중복 정보 제거
+    let processedNotes = updateData.notes || originalCallback.notes || '';
+    
+    // 🔥 예약완료 처리 시 순수 상담내용만 추출
+    if (updateData.firstConsultationResult || updateData.callbackFollowupResult) {
+      processedNotes = extractPureConsultationContent(processedNotes);
+    }
+    
     // 🔥 콜백 정보 업데이트 - 원래 date, time은 보존하고 실제 처리 정보만 추가
     const updatedCallback = {
       ...originalCallback,
@@ -389,6 +436,8 @@ export async function PUT(
       // 🔥 원래 예정된 날짜/시간 보존 (updateData에 date, time이 있어도 덮어쓰지 않음)
       date: originalCallback.date,
       time: originalCallback.time,
+      // 🔥 순수 상담내용만 저장 (예약 정보 중복 제거)
+      notes: processedNotes,
       // 🔥 실제 처리 시간은 별도 필드로 저장
       actualCompletedDate: updateData.actualCompletedDate || originalCallback.actualCompletedDate,
       actualCompletedTime: updateData.actualCompletedTime || originalCallback.actualCompletedTime,
@@ -401,7 +450,8 @@ export async function PUT(
         callbackType: originalCallback.type,
         originalScheduled: `${originalCallback.date} ${originalCallback.time || '시간미정'}`,
         actualCompleted: `${updateData.actualCompletedDate} ${updateData.actualCompletedTime}`,
-        status: updateData.status
+        status: updateData.status,
+        processedNotes: processedNotes.substring(0, 50) + '...' // 로그용 요약
       });
     }
     
@@ -424,6 +474,7 @@ export async function PUT(
           patientUpdateData.reservationTime = result.reservationTime;
           patientUpdateData.currentConsultationStage = 'completed';
           patientUpdateData.lastFirstConsultationResult = result;
+          console.log(`🔥 1차 상담 후 예약완료 업데이트: ${result.reservationDate} ${result.reservationTime}`);
           break;
           
         case '상담진행중':
@@ -497,10 +548,11 @@ export async function PUT(
           patientUpdateData.reservationDate = result.reservationDate;
           patientUpdateData.reservationTime = result.reservationTime;
           patientUpdateData.currentConsultationStage = 'completed';
+          console.log(`🔥 ${originalCallback.type || 'N차'} 콜백 후 예약완료 업데이트: ${result.reservationDate} ${result.reservationTime}`);
           break;
           
         case '부재중':
-        case '상담중':
+        case '상담진행중':
           patientUpdateData.status = result.status === '부재중' ? '부재중' : '콜백필요';
           patientUpdateData.nextCallbackDate = result.nextCallbackDate;
           patientUpdateData.currentConsultationStage = 'callback';
@@ -551,6 +603,7 @@ export async function PUT(
         actualCompleted: updateData.actualCompletedDate && updateData.actualCompletedTime 
           ? `${updateData.actualCompletedDate} ${updateData.actualCompletedTime}`
           : '미완료',
+        processedNotes: processedNotes.substring(0, 50) + '...', // 🔥 추가: 처리된 notes 요약
         apiEndpoint: '/api/patients/[id]/callbacks'
       }
     });
@@ -564,7 +617,7 @@ export async function PUT(
   }
 }
 
-// 🔥 콜백 삭제를 위한 DELETE 메서드 추가
+// 🔥 콜백 삭제를 위한 DELETE 메서드 (기존 로직 유지)
 export async function DELETE(
   request: NextRequest,
   { params }: { params: { id: string } }

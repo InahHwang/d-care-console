@@ -1,4 +1,4 @@
-// src/app/api/patients/[id]/reservation-complete/route.ts
+// src/app/api/patients/[id]/reservation-complete/route.ts - 상담내용 선택사항 변경
 
 import { NextRequest, NextResponse } from 'next/server';
 import { connectToDatabase } from '@/utils/mongodb';
@@ -31,6 +31,31 @@ function getCurrentUser(request: NextRequest) {
     id: 'temp-user-001',
     name: '임시 관리자'
   };
+}
+
+// 🔥 순수 상담내용 추출 함수
+function extractPureConsultationContent(text: string): string {
+  if (!text) return '';
+  
+  // 1. [차수 콜백 등록] 패턴 제거
+  let content = text.replace(/\[.*?차 콜백 등록\]/g, '').trim();
+  
+  // 2. [차수 콜백 - 설명] 패턴 제거  
+  content = content.replace(/\[.*?차 콜백 - .*?\]/g, '').trim();
+  
+  // 3. "사유:" 접두어 제거
+  content = content.replace(/^사유:\s*/g, '').trim();
+  
+  // 4. [예약완료] 관련 정보 제거
+  content = content.replace(/\[예약완료\].*?예약일시:\s*[\d-]+\s+[\d:]+/g, '').trim();
+  content = content.replace(/예약일시:\s*[\d-]+\s+[\d:]+/g, '').trim();
+  content = content.replace(/처리일:\s*[\d-]+/g, '').trim();
+  content = content.replace(/상담내용:\s*/g, '').trim();
+  
+  // 5. 빈 줄 정리
+  content = content.replace(/\n+/g, '\n').trim();
+  
+  return content;
 }
 
 // UUID 생성 유틸리티 함수
@@ -80,12 +105,26 @@ export async function PUT(
     const { db } = await connectToDatabase();
     const patientId = params.id;
     const data = await request.json();
-    // 🔥 수정: reason을 consultationContent로 변경하고 필수로 처리
     const { reservationDate, reservationTime, consultationContent } = data;
     const currentUser = getCurrentUser(request);
 
     console.log(`환자 예약완료 처리 시도 - 환자 ID: ${patientId}`);
     console.log('예약 정보:', { reservationDate, reservationTime, consultationContent });
+
+    // 🔥 수정된 유효성 검증 - 상담내용 선택사항으로 변경
+    if (!reservationDate || !reservationTime) {
+      console.error('예약 날짜와 시간은 필수입니다.');
+      return NextResponse.json({ error: '예약 날짜와 시간을 모두 입력해주세요.' }, { status: 400 });
+    }
+
+    // 🔥 상담내용 필수 검증 제거 (선택사항으로 변경)
+    // if (!consultationContent) {
+    //   console.error('상담내용은 필수입니다.');
+    //   return NextResponse.json({ error: '상담내용을 입력해주세요.' }, { status: 400 });
+    // }
+
+    // 🔥 상담내용 기본값 처리
+    const finalConsultationContent = consultationContent || '예약완료';
 
     // 환자 검색
     let patient;
@@ -117,6 +156,7 @@ export async function PUT(
           error: '환자를 찾을 수 없음',
           reservationDate,
           reservationTime,
+          consultationContent: finalConsultationContent,
           apiEndpoint: '/api/patients/[id]/reservation-complete'
         }
       });
@@ -130,54 +170,101 @@ export async function PUT(
     // 콜백 이력 업데이트
     const callbackHistory = patient.callbackHistory || [];
     
-    // 🔥 오늘 날짜에 이미 완료된 콜백이 있는지 확인
-    const todayCompletedCallback = callbackHistory.find((cb: { date: string; status: string; isCompletionRecord: any; }) => 
+    // 🔥 오늘 날짜에 이미 완료된 콜백이 있는지 확인 (재예약 기록 제외)
+    const todayCompletedCallback = callbackHistory.find((cb: any) => 
       cb.date === todayKorean && 
       cb.status === '완료' && 
-      !cb.isCompletionRecord
+      !cb.isCompletionRecord &&
+      !cb.isReservationRecord
     );
     
-    // 🔥 오늘 완료된 콜백이 있으면 추가 콜백 기록을 생성하지 않음
     let updatedCallbackHistory = [...callbackHistory];
     
     if (!todayCompletedCallback) {
+      // 🔥 새로운 콜백 완료 기록 생성 - result 객체 포함으로 박스 형태 표시
+      const callbackType = getCallbackTypeBasedOnHistory(callbackHistory);
       const actualCallbackRecord = {
         id: `callback-${Date.now()}-${generateUUID()}`,
         date: todayKorean,
         status: '완료',
-        // 🔥 수정: 상담내용을 명확히 구분해서 저장
-        notes: `[${getCallbackTypeBasedOnHistory(callbackHistory)} 상담 완료 - ${todayKorean}]\n예약일정: ${reservationDate} ${reservationTime}${consultationContent ? `\n상담내용: ${consultationContent}` : ''}`,
-        type: getCallbackTypeBasedOnHistory(callbackHistory),
+        // 🔥 상담내용 기본값 처리
+        notes: finalConsultationContent || `${callbackType} 상담 완료`,
+        type: callbackType,
         time: undefined,
         customerResponse: 'positive',
         nextStep: '예약_확정',
+        // 🔥 실제 처리 시간 추가
+        actualCompletedDate: todayKorean,
+        actualCompletedTime: new Date().toTimeString().slice(0, 5),
+        // 🔥 케이스B와 동일한 result 객체 추가 (박스 표시용)
+        ...(callbackType === '1차' ? {
+          firstConsultationResult: {
+            status: '예약완료',
+            reservationDate: reservationDate,
+            reservationTime: reservationTime,
+            consultationContent: finalConsultationContent, // 🔥 기본값 적용
+            createdAt: new Date().toISOString(),
+            updatedAt: new Date().toISOString()
+          }
+        } : {
+          callbackFollowupResult: {
+            status: '예약완료',
+            callbackType: callbackType,
+            reservationDate: reservationDate,
+            reservationTime: reservationTime,
+            consultationContent: finalConsultationContent, // 🔥 기본값 적용
+            createdAt: new Date().toISOString(),
+            updatedAt: new Date().toISOString()
+          }
+        }),
         createdAt: new Date().toISOString()
       };
       
       updatedCallbackHistory.push(actualCallbackRecord);
-      console.log('새로운 콜백 완료 기록 추가:', actualCallbackRecord.type);
+      console.log(`✅ 통합된 콜백 완료 기록 추가 (${callbackType}):`, actualCallbackRecord.id);
+    } else {
+      // 🔥 기존 완료된 콜백에 result 객체 추가
+      const callbackIndex = updatedCallbackHistory.findIndex(cb => cb.id === todayCompletedCallback.id);
+      if (callbackIndex !== -1) {
+        const callbackType = todayCompletedCallback.type;
+        updatedCallbackHistory[callbackIndex] = {
+          ...todayCompletedCallback,
+          // 🔥 실제 처리 시간 추가
+          actualCompletedDate: todayKorean,
+          actualCompletedTime: new Date().toTimeString().slice(0, 5),
+          // 🔥 result 객체 추가 - 기본값 적용
+          ...(callbackType === '1차' ? {
+            firstConsultationResult: {
+              status: '예약완료',
+              reservationDate: reservationDate,
+              reservationTime: reservationTime,
+              consultationContent: finalConsultationContent, // 🔥 기본값 적용
+              createdAt: new Date().toISOString(),
+              updatedAt: new Date().toISOString()
+            }
+          } : {
+            callbackFollowupResult: {
+              status: '예약완료',
+              callbackType: callbackType,
+              reservationDate: reservationDate,
+              reservationTime: reservationTime,
+              consultationContent: finalConsultationContent, // 🔥 기본값 적용
+              createdAt: new Date().toISOString(),
+              updatedAt: new Date().toISOString()
+            }
+          }),
+          updatedAt: new Date().toISOString()
+        };
+        console.log(`✅ 기존 콜백에 예약완료 result 추가 (${callbackType}):`, todayCompletedCallback.id);
+      }
     }
-    
-    // 🔥 예약완료 기록 추가 (항상 추가)
-    const reservationCompletionRecord = {
-      id: `reservation-${Date.now()}-${generateUUID()}`,
-      date: reservationDate,
-      status: '예약확정',
-      // 🔥 수정: 상담내용을 포함하여 저장
-      notes: `[예약완료]\n예약일시: ${reservationDate} ${reservationTime}\n처리일: ${todayKorean}${consultationContent ? `\n상담내용: ${consultationContent}` : ''}`,
-      type: '예약완료',
-      time: reservationTime,
-      isCompletionRecord: false,
-      isReservationRecord: true,
-      createdAt: new Date().toISOString()
-    };
 
-    updatedCallbackHistory.push(reservationCompletionRecord);
-    console.log('예약완료 기록 추가:', reservationCompletionRecord);
+    // 🔥 중요: 별도의 "예약완료" 타입 콜백 기록은 생성하지 않음!
+    // (기존 코드의 reservationCompletionRecord 제거)
 
     // 🔥 환자 정보 업데이트 - 예약확정 상태로 변경
     const updateData = {
-      status: '예약확정', // 🔥 상태를 예약확정으로 변경
+      status: '예약확정',
       callbackHistory: updatedCallbackHistory,
       updatedAt: new Date().toISOString(),
       // 🔥 예약 정보 추가
@@ -220,6 +307,7 @@ export async function PUT(
           error: '환자 정보 업데이트 실패',
           reservationDate,
           reservationTime,
+          consultationContent: finalConsultationContent,
           apiEndpoint: '/api/patients/[id]/reservation-complete'
         }
       });
@@ -249,17 +337,18 @@ export async function PUT(
       details: {
         reservationDate: reservationDate,
         reservationTime: reservationTime,
+        consultationContent: finalConsultationContent, // 🔥 기본값 적용
         completedAt: todayKorean,
         previousStatus: patient.status,
         newStatus: '예약확정',
         hadTodayCallback: !!todayCompletedCallback,
-        callbackRecordsAdded: todayCompletedCallback ? 1 : 2, // 예약 기록만 또는 콜백+예약 기록
+        unifiedCallbackRecord: true, // 🔥 통합된 기록임을 표시
         apiEndpoint: '/api/patients/[id]/reservation-complete',
         userAgent: request.headers.get('user-agent')?.substring(0, 100)
       }
     });
 
-    console.log(`환자 예약완료 처리 성공 - 환자 ID: ${patientId}`);
+    console.log(`✅ 환자 예약완료 처리 성공 (통합 형태) - 환자 ID: ${patientId}`);
 
     return NextResponse.json({
       updatedPatient,
@@ -267,6 +356,7 @@ export async function PUT(
       reservationInfo: {
         reservationDate,
         reservationTime,
+        consultationContent: finalConsultationContent, // 🔥 기본값 적용
         completedAt: todayKorean
       }
     }, { status: 200 });
