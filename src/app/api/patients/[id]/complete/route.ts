@@ -1,4 +1,4 @@
-// src/app/api/patients/[id]/complete/route.ts - 케이스A → 케이스B 완전 통일
+// src/app/api/patients/[id]/complete/route.ts - 예정된 콜백을 완료로 업데이트
 
 import { NextRequest, NextResponse } from 'next/server';
 import { connectToDatabase } from '@/utils/mongodb';
@@ -189,42 +189,103 @@ export async function PUT(
     // 콜백 이력 업데이트 - 🔥 핵심 수정 부분
     const callbackHistory = patient.callbackHistory || [];
     
-    // 🔥 수정: 오늘 날짜의 예정된 콜백 찾기
-    const todayScheduledCallback = callbackHistory.find((cb: any) => 
+    // 🔥 디버깅 로그 추가
+    console.log('🔍 콜백 이력 디버깅:', {
+      todayKorean,
+      totalCallbacks: callbackHistory.length,
+      callbackDates: callbackHistory.map((cb: { id: any; date: any; status: any; type: any; }) => ({ id: cb.id, date: cb.date, status: cb.status, type: cb.type }))
+    });
+    
+    // 🔥 수정: 오늘 날짜의 예정된 콜백 찾기 (처리일 기준)
+    const scheduledCallback = callbackHistory.find((cb: any) => 
       cb.date === todayKorean && 
       cb.status === '예정' && 
       !cb.isCompletionRecord &&
       !cb.isVisitManagementCallback
     );
     
+    console.log('🔍 예정된 콜백 찾기 결과:', {
+      found: !!scheduledCallback,
+      scheduledCallback: scheduledCallback ? {
+        id: scheduledCallback.id,
+        date: scheduledCallback.date,
+        status: scheduledCallback.status,
+        type: scheduledCallback.type
+      } : null
+    });
+    
     let updatedCallbackHistory = [...callbackHistory];
     let updatedExistingCallback = false;
     
-    if (todayScheduledCallback && isReservationCompletion) {
-      // 🔥 케이스A 수정: 기존 예정된 콜백을 업데이트 (새로 생성하지 않음)
-      const callbackIndex = updatedCallbackHistory.findIndex(cb => cb.id === todayScheduledCallback.id);
-      
-      if (callbackIndex !== -1) {
-        const callbackType = todayScheduledCallback.type;
+    if (isReservationCompletion) {
+      if (scheduledCallback) {
+        // 🔥 케이스A: 예정된 콜백을 완료로 업데이트 + result 객체 추가
+        const callbackIndex = updatedCallbackHistory.findIndex(cb => cb.id === scheduledCallback.id);
         
-        // 🔥 상담내용 추출 - 선택사항으로 처리
+        if (callbackIndex !== -1) {
+          const callbackType = scheduledCallback.type;
+          const consultationContent = extractPureConsultationContent(reason);
+          
+          // 🔥 중요: 예정 → 완료로 상태 변경 + result 객체 추가
+          updatedCallbackHistory[callbackIndex] = {
+            ...scheduledCallback,
+            status: '완료', // 🔥 핵심: 예정 → 완료로 변경
+            notes: consultationContent || scheduledCallback.notes || '예약 완료 상담',
+            actualCompletedDate: todayKorean,
+            actualCompletedTime: new Date().toTimeString().slice(0, 5),
+            completedAt: new Date().toISOString(),
+            
+            // 🔥 케이스B와 동일한 result 객체 추가 (통합 박스용)
+            ...(callbackType === '1차' ? {
+              firstConsultationResult: {
+                status: '예약완료',
+                reservationDate: extractReservationDate(reason),
+                reservationTime: extractReservationTime(reason),
+                consultationContent: consultationContent || '예약완료',
+                createdAt: new Date().toISOString(),
+                updatedAt: new Date().toISOString()
+              }
+            } : {
+              callbackFollowupResult: {
+                status: '예약완료',
+                callbackType: callbackType,
+                reservationDate: extractReservationDate(reason),
+                reservationTime: extractReservationTime(reason),
+                consultationContent: consultationContent || '예약완료',
+                createdAt: new Date().toISOString(),
+                updatedAt: new Date().toISOString()
+              }
+            }),
+            updatedAt: new Date().toISOString()
+          };
+          
+          updatedExistingCallback = true;
+          console.log(`✅ 예정된 콜백을 완료로 업데이트 (${callbackType}):`, scheduledCallback.id);
+        }
+      } else {
+        // 🔥 예정된 콜백이 없는 경우: result 객체 포함한 새 콜백 생성
+        const callbackType = getCallbackTypeBasedOnHistory(callbackHistory);
         const consultationContent = extractPureConsultationContent(reason);
         
-        updatedCallbackHistory[callbackIndex] = {
-          ...todayScheduledCallback,
-          status: '완료',
-          notes: consultationContent || todayScheduledCallback.notes || '예약 완료 상담',
+        const newCallbackRecord = {
+          id: `callback-${Date.now()}-${generateUUID()}`,
+          date: todayKorean,
+          status: '완료', // 🔥 바로 완료 상태로 생성
+          notes: consultationContent || '예약 완료 상담',
+          type: callbackType,
+          time: undefined,
+          customerResponse: 'positive',
+          nextStep: '예약_확정',
           actualCompletedDate: todayKorean,
           actualCompletedTime: new Date().toTimeString().slice(0, 5),
-          completedAt: new Date().toISOString(),
           
-          // 🔥 케이스B와 동일한 result 객체 추가
+          // 🔥 케이스B와 동일한 result 객체 추가 (통합 박스용)
           ...(callbackType === '1차' ? {
             firstConsultationResult: {
               status: '예약완료',
               reservationDate: extractReservationDate(reason),
               reservationTime: extractReservationTime(reason),
-              consultationContent: consultationContent || '예약완료', // 🔥 선택사항으로 처리
+              consultationContent: consultationContent || '예약완료',
               createdAt: new Date().toISOString(),
               updatedAt: new Date().toISOString()
             }
@@ -234,60 +295,17 @@ export async function PUT(
               callbackType: callbackType,
               reservationDate: extractReservationDate(reason),
               reservationTime: extractReservationTime(reason),
-              consultationContent: consultationContent || '예약완료', // 🔥 선택사항으로 처리
+              consultationContent: consultationContent || '예약완료',
               createdAt: new Date().toISOString(),
               updatedAt: new Date().toISOString()
             }
           }),
-          updatedAt: new Date().toISOString()
+          createdAt: new Date().toISOString()
         };
         
-        updatedExistingCallback = true;
-        console.log(`✅ 기존 콜백 업데이트 완료 (${callbackType}):`, todayScheduledCallback.id);
+        updatedCallbackHistory.push(newCallbackRecord);
+        console.log(`✅ 새로운 통합 콜백 생성 (${callbackType}):`, newCallbackRecord.id);
       }
-    } else if (!todayScheduledCallback && isReservationCompletion) {
-      // 🔥 오늘 예정된 콜백이 없는 경우에만 새로 생성
-      const callbackType = getCallbackTypeBasedOnHistory(callbackHistory);
-      const consultationContent = extractPureConsultationContent(reason);
-      
-      const newCallbackRecord = {
-        id: `callback-${Date.now()}-${generateUUID()}`,
-        date: todayKorean,
-        status: '완료',
-        notes: consultationContent || '예약 완료 상담',
-        type: callbackType,
-        time: undefined,
-        customerResponse: 'positive',
-        nextStep: '예약_확정',
-        actualCompletedDate: todayKorean,
-        actualCompletedTime: new Date().toTimeString().slice(0, 5),
-        
-        // result 객체 추가
-        ...(callbackType === '1차' ? {
-          firstConsultationResult: {
-            status: '예약완료',
-            reservationDate: extractReservationDate(reason),
-            reservationTime: extractReservationTime(reason),
-            consultationContent: consultationContent || '예약완료',
-            createdAt: new Date().toISOString(),
-            updatedAt: new Date().toISOString()
-          }
-        } : {
-          callbackFollowupResult: {
-            status: '예약완료',
-            callbackType: callbackType,
-            reservationDate: extractReservationDate(reason),
-            reservationTime: extractReservationTime(reason),
-            consultationContent: consultationContent || '예약완료',
-            createdAt: new Date().toISOString(),
-            updatedAt: new Date().toISOString()
-          }
-        }),
-        createdAt: new Date().toISOString()
-      };
-      
-      updatedCallbackHistory.push(newCallbackRecord);
-      console.log('새로운 콜백 완료 기록 추가 (예정된 콜백 없음):', newCallbackRecord.type);
     }
     
     // 🔥 일반 종결인 경우에만 종결 기록 추가
@@ -391,7 +409,8 @@ export async function PUT(
           previousStatus: patient.status,
           newStatus: updateData.status,
           updatedExistingCallback: updatedExistingCallback,
-          hadScheduledCallback: !!todayScheduledCallback,
+          hadScheduledCallback: !!scheduledCallback,
+          processingMethod: scheduledCallback ? 'updated_scheduled_callback' : 'created_new_callback',
           callbackRecordsAdded: isReservationCompletion ? (updatedExistingCallback ? 0 : 1) : 1,
           apiEndpoint: '/api/patients/[id]/complete',
           userAgent: request.headers.get('user-agent')?.substring(0, 100)
