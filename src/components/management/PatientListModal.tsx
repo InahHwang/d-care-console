@@ -1,4 +1,4 @@
-// src/components/management/PatientListModal.tsx - 새로운 필터 타입 지원
+// src/components/management/PatientListModal.tsx - API 엔드포인트 수정
 import React, { useEffect, useState } from 'react';
 import { useAppDispatch } from '@/hooks/reduxHooks';
 import { selectPatient } from '@/store/slices/patientsSlice';
@@ -30,6 +30,7 @@ const PatientListModal: React.FC<PatientListModalProps> = ({
     setError(null);
     
     try {
+      // 🔥 핵심 수정: 올바른 API 엔드포인트 사용
       console.log(`🔍 API 호출: /api/patients/status-filter?type=${filterType}`);
       
       const response = await fetch(`/api/patients/status-filter?type=${filterType}`, {
@@ -46,6 +47,18 @@ const PatientListModal: React.FC<PatientListModalProps> = ({
       
       const data = await response.json();
       console.log(`🔍 API 응답 (${filterType}):`, data);
+      
+      // 🔥 디버깅: 실제 응답 데이터 확인
+      console.log(`📊 ${filterType} 필터 결과:`, {
+        조회된_환자수: data.length,
+        환자목록: data.map((p: any) => ({
+          이름: p.name,
+          상태: p.status,
+          내원확정: p.visitConfirmed,
+          문의일: p.callInDate,
+          예약일: p.reservationDate
+        }))
+      });
       
       setPatients(data);
     } catch (err) {
@@ -75,6 +88,28 @@ const PatientListModal: React.FC<PatientListModalProps> = ({
     console.log('🔄 수동 새로고침 시작');
     fetchFilteredPatients();
   };
+
+  // 🔥 디버깅용 로그 추가
+  useEffect(() => {
+    if (patients.length > 0) {
+      console.log(`📈 ${title} 모달 환자 수: ${patients.length}명`);
+      console.log(`🔍 필터 타입: ${filterType}`);
+      
+      // 예약전환율인 경우 특별 디버깅
+      if (filterType === 'reservation_rate') {
+        console.log('🎯 예약전환율 환자 상세:', {
+          총_환자수: patients.length,
+          예약확정_환자: patients.filter(p => p.status === '예약확정').length,
+          환자별_상태: patients.map(p => ({
+            이름: p.name,
+            상태: p.status,
+            문의일: p.callInDate,
+            예약일: p.reservationDate
+          }))
+        });
+      }
+    }
+  }, [patients, filterType, title]);
 
   const getStatusBadgeColor = (status: PatientStatus) => {
     switch (status) {
@@ -282,11 +317,24 @@ const PatientListModal: React.FC<PatientListModalProps> = ({
 
             {!isLoading && !error && patients.length > 0 && (
               <div className="space-y-3">
+                {/* 🔥 디버깅 정보 표시 */}
                 <div className="text-sm text-gray-600 mb-4">
                   총 <span className="font-semibold text-blue-600">{patients.length}명</span>의 환자가 있습니다.
                   <div className="text-xs text-gray-400 mt-1">
                     필터: {filterType} | 마지막 조회: {new Date().toLocaleTimeString()}
                   </div>
+                  
+                  {/* 🔥 예약전환율 특별 디버깅 정보 */}
+                  {filterType === 'reservation_rate' && (
+                    <div className="mt-2 p-2 bg-blue-50 rounded text-xs">
+                      <div className="font-medium text-blue-800">예약전환율 디버깅 정보:</div>
+                      <div className="text-blue-700">
+                        • 필터 조건: 이번달 신규 문의 + 예약확정 상태
+                        • 예약확정 환자: {patients.filter(p => p.status === '예약확정').length}명
+                        • 기타 상태: {patients.filter(p => p.status !== '예약확정').length}명
+                      </div>
+                    </div>
+                  )}
                 </div>
                 
                 {patients.map((patient) => {
@@ -318,6 +366,13 @@ const PatientListModal: React.FC<PatientListModalProps> = ({
                           {shouldShowOverdueInfo() && overdueCallback && (
                             <span className="px-2 py-1 rounded-full text-xs font-medium bg-red-100 text-red-800">
                               {getOverdueDays(overdueCallback.date)}일 지연
+                            </span>
+                          )}
+                          
+                          {/* 🔥 예약전환율 디버깅 뱃지 */}
+                          {filterType === 'reservation_rate' && (
+                            <span className="px-2 py-1 rounded-full text-xs font-medium bg-green-100 text-green-800">
+                              문의일: {patient.callInDate}
                             </span>
                           )}
                         </div>
@@ -477,12 +532,10 @@ const PatientListModal: React.FC<PatientListModalProps> = ({
         </div>
       </div>
 
-      {/* 환자 상세 모달 - PatientDetailModal 경로 확인 후 주석 해제 */}
-      {/* 
+      {/* 환자 상세 모달 */}
       {isDetailModalOpen && (
         <PatientDetailModal />
       )}
-      */}
     </>
   );
 };
