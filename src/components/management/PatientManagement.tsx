@@ -557,7 +557,7 @@ export default function PatientManagement() {
     },
     { 
       key: 'visit_confirmed' as BoxFilterType, 
-      label: '내원 확정', 
+      label: '내원 완료', 
       count: boxStats.visitConfirmed, 
       color: 'bg-white hover:bg-green-50',
       textColor: 'text-green-600'
