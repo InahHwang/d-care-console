@@ -170,7 +170,7 @@ const getLastConsultationDate = (patient: Patient): string => {
 };
 
 // 상담 타입 배지 컴포넌트
-const ConsultationTypeBadge = ({ type, inboundPhoneNumber }: { type: 'inbound' | 'outbound' | 'returning' | 'walkin', inboundPhoneNumber?: string }) => {
+const ConsultationTypeBadge = ({ type, inboundPhoneNumber }: { type: 'inbound' | 'outbound' | 'returning', inboundPhoneNumber?: string }) => {
   if (type === 'inbound') {
     return (
       <div className="flex items-center space-x-1">
@@ -195,15 +195,6 @@ const ConsultationTypeBadge = ({ type, inboundPhoneNumber }: { type: 'inbound' |
     );
   }
 
-  if (type === 'walkin') {
-    return (
-      <span className="inline-flex items-center px-2 py-1 rounded-full text-xs font-medium bg-orange-100 text-orange-800">
-        <HiOutlineUser className="w-3 h-3 mr-1" />
-        워크인
-      </span>
-    );
-  }
-  
   return (
     <span className="inline-flex items-center px-2 py-1 rounded-full text-xs font-medium bg-blue-100 text-blue-800">
       <FiPhoneCall className="w-3 h-3 mr-1" />
@@ -596,7 +587,7 @@ export default function PatientList({ isLoading = false, filteredPatients, onSel
               <th className="px-4 py-3 text-left text-xs font-semibold text-text-secondary">지역</th>
               <th className="px-4 py-3 text-left text-xs font-semibold text-text-secondary">연락처</th>
               <th className="px-4 py-3 text-left text-xs font-semibold text-text-secondary">관심 분야</th>
-              <th className="px-4 py-3 text-left text-xs font-semibold text-text-secondary">최근 상담</th>
+              <th className="px-4 py-3 text-left text-xs font-semibold text-text-secondary">콜 유입 날짜</th>
               <th className="px-4 py-3 text-left text-xs font-semibold text-text-secondary">상태</th>
               <th className="px-4 py-3 text-left text-xs font-semibold text-text-secondary">총 콜백 횟수</th>
               <th className="px-4 py-3 text-left text-xs font-semibold text-text-secondary">견적금액</th>
@@ -709,7 +700,7 @@ export default function PatientList({ isLoading = false, filteredPatients, onSel
                       </div>
                     </td>
                     <td className="px-4 py-4 text-sm text-gray-900">
-                      {getLastConsultationDate(patient)}
+                      {patient.callInDate || '-'}
                     </td>
                     <td className="px-4 py-4">
                       {/* 🔥 PatientStatusBadge 올바른 위치에 배치 */}

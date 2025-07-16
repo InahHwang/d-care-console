@@ -119,6 +119,28 @@ export async function GET(request: NextRequest) {
         break;
       }
 
+      case 'treatment_rate': {
+        // 🔥 대시보드 계산 로직과 동일하게 수정: 실제 치료시작 환자만
+        patients = await db.collection('patients')
+          .find({
+            createdAt: {
+              $gte: thisMonthStart.toISOString(),
+              $lte: thisMonthEnd.toISOString()
+            },
+            visitConfirmed: true,           // 🔥 내원확정 필수
+            postVisitStatus: '치료시작',     // 🔥 치료시작 상태 필수
+            $or: [
+              { isCompleted: { $ne: true } },
+              { isCompleted: { $exists: false } },
+              { isCompleted: true } // 종결된 환자도 포함
+            ]
+          })
+          .sort({ createdAt: -1 })
+          .toArray();
+        
+        console.log(`[API] 결제전환율(treatment_rate) - 실제 치료시작 환자 ${patients.length}명 조회 완료`);
+        break;
+      }
       case 'payment_rate': {
         // 결제전환율 - 이번달 신규 환자 중 결제 정보가 있는 환자들
         // postVisitConsultation.estimateInfo.regularPrice 또는 treatmentCost가 있는 환자들

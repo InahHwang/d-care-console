@@ -778,12 +778,19 @@ export default function PatientDetailModal() {
             <div className={`inline-flex items-center px-2.5 py-1 rounded-full text-xs font-medium ${
               (selectedPatient.consultationType || 'outbound') === 'inbound' 
                 ? 'bg-green-100 text-green-800' 
+                : selectedPatient.consultationType === 'returning'
+                ? 'bg-purple-100 text-purple-800'
                 : 'bg-blue-100 text-blue-800'
             }`}>
               {(selectedPatient.consultationType || 'outbound') === 'inbound' ? (
                 <>
                   <FiPhone className="w-3 h-3 mr-1" />
                   인바운드
+                </>
+              ) : selectedPatient.consultationType === 'returning' ? (
+                <>
+                  <FiPhoneCall className="w-3 h-3 mr-1" />
+                  구신환
                 </>
               ) : (
                 <>

@@ -1217,7 +1217,7 @@ const hasPendingVisitCallbacks = currentVisitCallbacks.some(cb => cb.status === 
 
 // 상담 타입 배지 컴포넌트 - walkin 타입 지원 추가
 const ConsultationTypeBadge = ({ type, inboundPhoneNumber }: { 
-  type: 'inbound' | 'outbound' | 'returning' | 'walkin', 
+  type: 'inbound' | 'outbound' | 'returning', 
   inboundPhoneNumber?: string 
 }) => {
   if (type === 'inbound') {
@@ -1238,17 +1238,7 @@ const ConsultationTypeBadge = ({ type, inboundPhoneNumber }: {
       </span>
     );
   }
-
-  // walkin 타입 추가
-  if (type === 'walkin') {
-    return (
-      <span className="inline-flex items-center px-2 py-1 rounded-full text-xs font-medium bg-orange-100 text-orange-800">
-        <HiOutlineUser className="w-3 h-3 mr-1" />
-        워크인
-      </span>
-    );
-  }
-  
+ 
   return (
     <span className="inline-flex items-center px-2 py-1 rounded-full text-xs font-medium bg-blue-100 text-blue-800">
       <FiPhoneCall className="w-3 h-3 mr-1" />
@@ -1612,14 +1602,12 @@ const handlePatientUpdate = useCallback((updatedPatient: Patient) => {
 }, []);
 
  // 🔥 consultationType을 안전하게 변환하는 헬퍼 함수
- const getConsultationTypeForBadge = (type?: string): 'inbound' | 'outbound' | 'returning' | 'walkin' => {
+ const getConsultationTypeForBadge = (type?: string): 'inbound' | 'outbound' | 'returning' => {
    switch (type) {
      case 'inbound':
        return 'inbound';
      case 'returning':
        return 'returning';
-     case 'walkin':
-       return 'walkin';
      case 'outbound':
      default:
        return 'outbound';

@@ -24,6 +24,8 @@ interface PerformanceData {
     outboundChange: number;
     inboundCount: number;
     outboundCount: number;
+    returningChange: number;
+    returningCount: number;
   };
   appointmentRate: {
     value: number;
@@ -132,7 +134,7 @@ export const useGoalsCalculation = (): UseGoalsCalculationResult => {
     if (patients.length === 0) {
       return {
         performance: {
-          totalInquiries: { count: 0, trend: 0, inboundChange: 0, outboundChange: 0, inboundCount: 0, outboundCount: 0 },
+          totalInquiries: { count: 0, trend: 0, inboundChange: 0, outboundChange: 0, inboundCount: 0, outboundCount: 0, returningChange: 0, returningCount: 0},
           appointmentRate: { value: 0, trend: 0, count: 0 },
           visitRate: { value: 0, trend: 0, count: 0 },
           paymentRate: { value: 0, trend: 0, count: 0 },
@@ -171,6 +173,16 @@ export const useGoalsCalculation = (): UseGoalsCalculationResult => {
     const inquiriesTrendCount = currentMonthInquiries - prevMonthInquiries;
     const inboundChange = currentMonthInbound - prevMonthInbound;
     const outboundChange = currentMonthOutbound - prevMonthOutbound;
+    // 🔥 구신환 계산 추가 (여기에 추가!)
+    const currentMonthReturning = currentMonthPatients.filter(p => 
+      p.consultationType === 'returning'
+    ).length;
+
+    const prevMonthReturning = prevMonthPatients.filter(p => 
+      p.consultationType === 'returning'
+    ).length;
+
+    const returningChange = currentMonthReturning - prevMonthReturning;
     
     // 예약 전환율 계산 (기존 로직 유지)
     const currentMonthConfirmedAppointments = patients.filter(patient => {
@@ -536,7 +548,9 @@ export const useGoalsCalculation = (): UseGoalsCalculationResult => {
           inboundChange: inboundChange,
           outboundChange: outboundChange,
           inboundCount: currentMonthInbound,
-          outboundCount: currentMonthOutbound
+          outboundCount: currentMonthOutbound,
+          returningChange: returningChange,
+          returningCount: currentMonthReturning
         },
         appointmentRate: {
           value: Math.round(appointmentRate * 10) / 10,

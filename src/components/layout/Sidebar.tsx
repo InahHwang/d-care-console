@@ -86,14 +86,20 @@ export default function Sidebar() {
     ).length;
   }, [patients]);
 
-  // 페이지 경로에 따라 메뉴 아이템 활성화
-  const getIsActive = (menuItem: string) => {
-    return currentMenuItem === menuItem
-  }
-
-  // 🔥 pathname 기반으로도 활성화 상태 판단 (스마트 보고서용)
-  const getIsActiveByPath = (path: string) => {
-    return pathname === path
+  // 🔥 수정된 활성화 판단 로직 - pathname 우선, Redux 상태는 보조
+  const getIsActive = (href: string, menuItem: string) => {
+    // 🔥 루트 경로는 정확히 일치할 때만 활성화
+    if (href === '/') {
+      return pathname === '/';
+    }
+    
+    // 🔥 다른 경로들은 정확히 일치할 때만 활성화
+    if (pathname === href) {
+      return true;
+    }
+    
+    // 2순위: Redux 상태 기반 판단 (SPA 네비게이션 대응)
+    return currentMenuItem === menuItem;
   }
 
   return (
@@ -109,20 +115,20 @@ export default function Sidebar() {
         <SidebarItem 
           icon={HiOutlineViewGrid} 
           text="대시보드" 
-          isActive={getIsActive('대시보드')} 
+          isActive={getIsActive('/', '대시보드')} 
           href="/"
         />
         <SidebarItem 
           icon={HiOutlinePhone} 
           text="상담 관리" 
-          isActive={getIsActive('상담 관리')} 
+          isActive={getIsActive('/management', '상담 관리')} 
           href="/management"
         />
-        {/* 🔥 내원 관리 메뉴 */}
+        {/* 🔥 내원 관리 메뉴 - 수정된 활성화 로직 적용 */}
         <SidebarItem 
           icon={HiOutlineClipboardCheck} 
           text="내원 관리" 
-          isActive={getIsActive('내원 관리')} 
+          isActive={getIsActive('/visit-management', '내원 관리')} 
           href="/visit-management"
           badge={visitManagementBadge}
         />
@@ -130,21 +136,21 @@ export default function Sidebar() {
        <SidebarItem 
           icon={HiOutlineChartBar} 
           text="통계 분석" 
-          isActive={getIsActive('통계 분석')} 
+          isActive={getIsActive('/statistics', '통계 분석')} 
           href="/statistics"
         />
         */}
         <SidebarItem 
           icon={HiOutlineDocumentReport} 
           text="보고서" 
-          isActive={getIsActive('보고서')} 
+          isActive={getIsActive('/reports', '보고서')} 
           href="/reports"
         />
         {/* 임시 비활성화
         <SidebarItem 
           icon={HiOutlineLightBulb} 
           text="스마트 보고서" 
-          isActive={getIsActiveByPath('/smart-reports')} 
+          isActive={getIsActive('/smart-reports', '스마트 보고서')} 
           href="/smart-reports"
           aiLabel={true}
         />
@@ -153,7 +159,7 @@ export default function Sidebar() {
         <SidebarItem 
           icon={HiOutlineCog} 
           text="설정" 
-          isActive={getIsActive('설정')} 
+          isActive={getIsActive('/settings', '설정')} 
           href="/settings"
         />
       </nav>

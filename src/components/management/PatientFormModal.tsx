@@ -744,7 +744,6 @@ const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement 
                   <option value="outbound">아웃바운드</option>
                   <option value="inbound">인바운드</option>
                   <option value="returning">구신환</option>
-                  <option value="walkin">워크인</option>
                 </select>
                 <span className="absolute left-3 top-1/2 transform -translate-y-1/2 text-text-muted">
                   <Icon icon={FiPhoneCall} size={18} />

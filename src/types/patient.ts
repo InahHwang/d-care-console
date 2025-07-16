@@ -26,7 +26,7 @@ export type PatientFilterType =
   | 'reminderCallbacks_registrationNeeded';
 
 // 🔥 상담 타입 추가
-export type ConsultationType = 'inbound' | 'outbound' | 'returning' | 'walkin';
+export type ConsultationType = 'inbound' | 'outbound' | 'returning';
 
 // 🔥 내원관리 전용 콜백 타입 추가
 export type VisitManagementCallbackType = 

@@ -767,8 +767,8 @@ const DailyReport: React.FC = () => {
                     <td className="px-4 py-4 whitespace-nowrap">
                       <div className="font-medium text-gray-900">{patient.name}</div>
                     </td>
-                    <td className="px-4 py-4 whitespace-nowrap">
-                      <div className="text-sm text-gray-900">{patient.treatmentContent}</div>
+                    <td className="px-4 py-4">
+                      <div className="text-sm text-gray-900 max-w-xs break-words">{patient.treatmentContent}</div>
                     </td>
                     <td className="px-4 py-4 whitespace-nowrap">
                       <div className="text-sm font-medium text-gray-900">
@@ -902,8 +902,8 @@ const DailyReport: React.FC = () => {
                     <td className="px-4 py-4 whitespace-nowrap">
                       <div className="font-medium text-gray-900">{consultation.name}</div>
                     </td>
-                    <td className="px-4 py-4 whitespace-nowrap">
-                      <div className="text-sm text-gray-900">{consultation.treatmentContent}</div>
+                    <td className="px-4 py-4">
+                      <div className="text-sm text-gray-900 max-w-xs break-words">{consultation.treatmentContent}</div>
                     </td>
                     <td className="px-4 py-4 whitespace-nowrap">
                       <div className="text-sm font-medium text-gray-900">

@@ -1,4 +1,4 @@
-// src/types/report.ts - 🔥 상담 손실 타입 확장
+// src/types/report.ts - 🔥 기존 구조 유지하면서 새 기능 추가
 
 // 🔥 새로 추가: 원장님 피드백 타입
 export interface DirectorFeedback {
@@ -65,12 +65,52 @@ export interface ChannelStat {
   count: number;
 }
 
+// 🔥 기존 구조 유지하면서 확장
+export interface PatientConsultationSummary {
+  visitConsultation: any;
+  phoneConsultation: any;
+  _id: string;
+  name: string;
+  age?: number;
+  discomfort: string;        // 불편한 부분 (treatmentPlan 필드)
+  consultationSummary: string; // 상담 메모 요약 (consultationNotes 필드)
+  fullDiscomfort?: string;     // 전체 불편한 부분 내용 (모달용)
+  fullConsultation?: string;   // 전체 상담 내용 (모달용)
+  estimatedAmount: number;
+  estimateAgreed: boolean;
+  
+  // 🔥 새로 추가된 선택적 필드들
+  callInDate?: string;         // 신규 등록일
+  hasPhoneConsultation?: boolean;  // 전화상담 내용 존재 여부
+  hasVisitConsultation?: boolean;  // 내원상담 내용 존재 여부
+  visitAmount?: number;        // 내원 후 견적금액
+  phoneAmount?: number;        // 전화상담 견적금액
+  postVisitStatus?: string;    // 내원 후 상태
+  
+  // 🔥 상담 단계 정보 (상세 정보용)
+  consultationStages?: {
+    phone: {
+      hasContent: boolean;
+      discomfort?: string;
+      notes?: string;
+      amount?: number;
+      agreed?: boolean;
+    };
+    visit: {
+      hasContent: boolean;
+      firstVisitContent?: string;
+      amount?: number;
+      status?: string;
+    };
+  };
+}
+
 // 월별 통계 계산용 타입 - 🔥 손실 분석 추가
 export interface MonthlyStats {
-  patientConsultations: any;
   totalInquiries: number;
   inboundCalls: number;
   outboundCalls: number;
+  returningCalls: number;
   appointmentPatients: number;
   appointmentRate: number;
   visitedPatients: number;
@@ -83,20 +123,9 @@ export interface MonthlyStats {
   channelStats: ChannelStat[];
   // 🔥 새로 추가: 손실 분석 데이터
   lossAnalysis: LossPatientAnalysis;
+  // 🔥 환자별 상담 내용
+  patientConsultations: PatientConsultationSummary[];
 }
-
-export interface PatientConsultationSummary {
-  _id: string;
-  name: string;
-  age?: number;
-  discomfort: string;        // 불편한 부분 (treatmentPlan 필드)
-  consultationSummary: string; // 상담 메모 요약 (consultationNotes 필드)
-  fullDiscomfort?: string;     // 전체 불편한 부분 내용 (모달용)
-  fullConsultation?: string;   // 전체 상담 내용 (모달용)
-  estimatedAmount: number;
-  estimateAgreed: boolean;
-}
-
 
 // 🔥 기존 MonthlyReportData 타입에 피드백 필드 추가
 export interface MonthlyReportData {
@@ -112,6 +141,7 @@ export interface MonthlyReportData {
   totalInquiries: number;
   inboundCalls: number;
   outboundCalls: number;
+  returningCalls: number;
   appointmentPatients: number;
   appointmentRate: number;
   visitedPatients: number;
@@ -125,6 +155,7 @@ export interface MonthlyReportData {
   changes: {
     outboundCalls: any;
     inboundCalls: any;
+    returningCalls: any;
     paymentPatients: any;
     visitedPatients: any;
     appointmentPatients: any;

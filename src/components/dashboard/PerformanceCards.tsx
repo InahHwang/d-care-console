@@ -13,6 +13,8 @@ interface PerformanceData {
     outboundChange: number; // 🔥 아웃바운드 건수 증감
     inboundCount: number;   // 🔥 이번달 인바운드 실제 건수
     outboundCount: number;  // 🔥 이번달 아웃바운드 실제 건수
+    returningChange: number;  // 구신환 건수 증감
+    returningCount: number;   // 이번달 구신환 실제 건수
   };
   appointmentRate: {
     value: number;
@@ -98,7 +100,9 @@ const PerformanceCards: React.FC<PerformanceCardsProps> = ({ performance }) => {
               인바운드: {performance.totalInquiries.inboundCount}건 
               ({performance.totalInquiries.inboundChange >= 0 ? '+' : ''}{performance.totalInquiries.inboundChange}건), 
               아웃바운드: {performance.totalInquiries.outboundCount}건 
-              ({performance.totalInquiries.outboundChange >= 0 ? '+' : ''}{performance.totalInquiries.outboundChange}건)
+              ({performance.totalInquiries.outboundChange >= 0 ? '+' : ''}{performance.totalInquiries.outboundChange}건),
+              구신환: {performance.totalInquiries.returningCount}건 
+              ({performance.totalInquiries.returningChange >= 0 ? '+' : ''}{performance.totalInquiries.returningChange}건)
             </div>
             <div className="mt-2 h-8 bg-gray-50 rounded-md"></div>
           </div>

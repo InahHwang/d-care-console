@@ -139,7 +139,7 @@ export default function VisitManagementTab({ patient }: VisitManagementTabProps)
       title: '치료 시작 정보', // 🔧 제목 변경
       details: [
         paymentInfo?.paymentType ? `결제 방식: ${paymentInfo.paymentType === 'lump_sum' ? '일시불' : '분할납'}` : '',
-        nextVisitDate ? `다음 내원일: ${nextVisitDate}` : '',
+        nextVisitDate ? `치료 시작 예정일: ${nextVisitDate}` : '',
         paymentInfo?.downPayment ? `선입금: ${paymentInfo.downPayment.toLocaleString()}원` : ''
       ].filter(Boolean)
     }
@@ -1031,7 +1031,7 @@ export default function VisitManagementTab({ patient }: VisitManagementTabProps)
                 </div>
                 
                 <div>
-                  <label className="block text-xs text-gray-700 mb-1 font-medium">다음 내원 예정일 <span className="text-red-500">*</span></label>
+                  <label className="block text-xs text-gray-700 mb-1 font-medium">치료 시작 예정일 <span className="text-red-500">*</span></label>
                   <input
                     type="date"
                     value={nextVisitDate}

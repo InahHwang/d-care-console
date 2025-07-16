@@ -143,7 +143,7 @@ export default function ReservationDateModal({
 
   // 시간 옵션 생성 (09:00 ~ 18:00, 30분 단위) (기존 로직 그대로 유지)
   const timeOptions = []
-  for (let hour = 9; hour <= 18; hour++) {
+  for (let hour = 9; hour <= 21; hour++) {
     for (let minute = 0; minute < 60; minute += 30) {
       const timeStr = `${String(hour).padStart(2, '0')}:${String(minute).padStart(2, '0')}`
       timeOptions.push(timeStr)

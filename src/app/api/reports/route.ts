@@ -258,6 +258,7 @@ function calculateMonthlyStats(patients: any[]) {
   // 인바운드/아웃바운드 구분
   const inboundCalls = patients.filter(p => p.consultationType === 'inbound').length;
   const outboundCalls = patients.filter(p => p.consultationType === 'outbound').length;
+  const returningCalls = patients.filter(p => p.consultationType === 'returning').length;
   
   console.log(`📞 인바운드: ${inboundCalls}건, 아웃바운드: ${outboundCalls}건`);
   
@@ -407,6 +408,7 @@ function calculateMonthlyStats(patients: any[]) {
     totalInquiries,
     inboundCalls,
     outboundCalls,
+    returningCalls,
     appointmentPatients,
     appointmentRate: Math.round(appointmentRate * 10) / 10,
     visitedPatients,
