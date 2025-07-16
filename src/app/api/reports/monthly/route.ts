@@ -196,86 +196,91 @@ function calculateMonthlyStats(patients: any[]): MonthlyStats {
 
   // 🔥 환자별 상담 내용 요약 생성 - 기존 타입 호환성 유지하면서 새 기능 추가
   const patientConsultations: PatientConsultationSummary[] = patients
-    .map(p => {
-      const consultation = p.consultation;
-      const postVisitConsultation = p.postVisitConsultation;
+  .map(p => {
+    const consultation = p.consultation;
+    const postVisitConsultation = p.postVisitConsultation;
+    
+    // 🔥 전화상담 내용 추출
+    const phoneDiscomfort = consultation?.treatmentPlan || '';
+    const phoneConsultationNotes = consultation?.consultationNotes || '';
+    const visitFirstContent = postVisitConsultation?.firstVisitConsultationContent || '';
+    
+    // 🔥 통합된 상담내용 생성 (전화상담 + 내원상담)
+    const combinedContent = [];
+    
+    // 전화상담 내용 추가
+    if (phoneDiscomfort || phoneConsultationNotes) {
+      const phoneContent = [];
+      if (phoneDiscomfort) phoneContent.push(`[불편부위] ${phoneDiscomfort}`);
+      if (phoneConsultationNotes) phoneContent.push(`[상담메모] ${phoneConsultationNotes}`);
       
-      // 🔥 전화상담 내용 추출
-      const phoneDiscomfort = consultation?.treatmentPlan || '';
-      const phoneConsultationNotes = consultation?.consultationNotes || '';
-      const visitFirstContent = postVisitConsultation?.firstVisitConsultationContent || '';
-      
-      // 🔥 통합된 상담내용 생성 (전화상담 + 내원상담)
-      const combinedContent = [];
-      
-      // 전화상담 내용 추가
-      if (phoneDiscomfort || phoneConsultationNotes) {
-        const phoneContent = [];
-        if (phoneDiscomfort) phoneContent.push(`[불편부위] ${phoneDiscomfort}`);
-        if (phoneConsultationNotes) phoneContent.push(`[상담메모] ${phoneConsultationNotes}`);
-        
-        if (phoneContent.length > 0) {
-          combinedContent.push(`📞 전화상담:\n${phoneContent.join('\n')}`);
-        }
+      if (phoneContent.length > 0) {
+        combinedContent.push(`📞 전화상담:\n${phoneContent.join('\n')}`);
       }
-      
-      // 내원상담 내용 추가
-      if (visitFirstContent) {
-        combinedContent.push(`🏥 내원상담:\n[첫 상담] ${visitFirstContent}`);
-      }
-      
-      // 최종 통합 내용
-      const fullCombinedContent = combinedContent.join('\n\n');
-      const summarizedContent = fullCombinedContent.length > 100 ? 
-        fullCombinedContent.substring(0, 100) + '...' : 
-        fullCombinedContent;
-      
-      // 🔥 견적금액 우선순위: 내원상담 > 전화상담
-      const visitAmount = postVisitConsultation?.estimateInfo?.discountPrice || 
-                         postVisitConsultation?.estimateInfo?.regularPrice || 0;
-      const phoneAmount = consultation?.estimatedAmount || 0;
-      const finalAmount = visitAmount || phoneAmount;
-      
-      return {
-        _id: p._id,
-        name: p.name,
-        age: p.age,
-        
-        // 🔥 기존 필드들 (하위 호환성 유지)
-        discomfort: truncateText(phoneDiscomfort, 50), // 기존 필드 유지
-        consultationSummary: summarizedContent || '상담내용 없음', // 🔥 통합된 상담내용
-        fullDiscomfort: phoneDiscomfort, // 기존 필드 유지
-        fullConsultation: fullCombinedContent || '상담내용 없음', // 🔥 통합된 전체 상담내용
-        estimatedAmount: finalAmount,
-        estimateAgreed: consultation?.estimateAgreed || false,
-        
-        // 🔥 추가 정보 (선택적 필드들 - 타입 정의에서 선택적으로 처리)
-        callInDate: p.callInDate,
-        hasPhoneConsultation: !!(phoneDiscomfort || phoneConsultationNotes),
-        hasVisitConsultation: !!visitFirstContent,
-        visitAmount: visitAmount,
-        phoneAmount: phoneAmount,
-        postVisitStatus: p.postVisitStatus,
-        
-        // 🔥 상담 단계 정보 (상세 정보용)
-        consultationStages: {
-          phone: {
-            hasContent: !!(phoneDiscomfort || phoneConsultationNotes),
-            discomfort: phoneDiscomfort,
-            notes: phoneConsultationNotes,
-            amount: phoneAmount,
-            agreed: consultation?.estimateAgreed || false
-          },
-          visit: {
-            hasContent: !!visitFirstContent,
-            firstVisitContent: visitFirstContent,
-            amount: visitAmount,
-            status: p.postVisitStatus
-          }
+    }
+    
+    // 내원상담 내용 추가
+    if (visitFirstContent) {
+      combinedContent.push(`🏥 내원상담:\n[첫 상담] ${visitFirstContent}`);
+    }
+    
+    // 최종 통합 내용
+    const fullCombinedContent = combinedContent.join('\n\n');
+    const summarizedContent = fullCombinedContent.length > 100 ? 
+      fullCombinedContent.substring(0, 100) + '...' : 
+      fullCombinedContent;
+    
+    // 🔥 견적금액 우선순위: 내원상담 > 전화상담
+    const visitAmount = postVisitConsultation?.estimateInfo?.discountPrice || 
+                       postVisitConsultation?.estimateInfo?.regularPrice || 0;
+    const phoneAmount = consultation?.estimatedAmount || 0;
+    const finalAmount = visitAmount || phoneAmount;
+    
+    // 🔥 타입에 정확히 맞는 객체 반환 (필수 필드만)
+    const result: PatientConsultationSummary = {
+      _id: p._id,
+      name: p.name,
+      age: p.age,
+
+      // 🔥 필수 필드들
+      discomfort: truncateText(phoneDiscomfort, 50),
+      consultationSummary: summarizedContent || '상담내용 없음',
+      estimatedAmount: finalAmount,
+      estimateAgreed: consultation?.estimateAgreed || false,
+
+      // 🔥 선택적 필드들
+      fullDiscomfort: phoneDiscomfort,
+      fullConsultation: fullCombinedContent || '상담내용 없음',
+      callInDate: p.callInDate,
+      hasPhoneConsultation: !!(phoneDiscomfort || phoneConsultationNotes),
+      hasVisitConsultation: !!visitFirstContent,
+      visitAmount: visitAmount,
+      phoneAmount: phoneAmount,
+      postVisitStatus: p.postVisitStatus,
+
+      // 🔥 상담 단계 정보
+      consultationStages: {
+        phone: {
+          hasContent: !!(phoneDiscomfort || phoneConsultationNotes),
+          discomfort: phoneDiscomfort,
+          notes: phoneConsultationNotes,
+          amount: phoneAmount,
+          agreed: consultation?.estimateAgreed || false
+        },
+        visit: {
+          hasContent: !!visitFirstContent,
+          firstVisitContent: visitFirstContent,
+          amount: visitAmount,
+          status: p.postVisitStatus
         }
-      };
-    })
-    .sort((a, b) => new Date(b.callInDate || '').getTime() - new Date(a.callInDate || '').getTime()); // 최신순 정렬
+      },
+      visitConsultation: undefined,
+      phoneConsultation: undefined
+    };
+    
+    return result;
+  })
+  .sort((a, b) => new Date(b.callInDate || '').getTime() - new Date(a.callInDate || '').getTime());
 
   
   // 결제 전환율 계산 (신규문의 기준)
