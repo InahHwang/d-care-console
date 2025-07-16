@@ -564,7 +564,7 @@ export default function PatientManagement() {
     },
     { 
       key: 'additional_callback_needed' as BoxFilterType, 
-      label: '추가 콜백 필요', 
+      label: '콜백 필요', 
       count: boxStats.additionalCallbackNeeded, 
       color: 'bg-white hover:bg-yellow-50',
       textColor: 'text-yellow-600'
