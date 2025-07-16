@@ -57,92 +57,151 @@ export async function GET(request: NextRequest) {
     switch (filterType) {
       // 🔥 대시보드 필터 타입들 추가
       case 'new_inquiry': {
-        // 이번달 신규 문의 환자들
-        patients = await db.collection('patients')
-          .find({
-            createdAt: {
-              $gte: thisMonthStart.toISOString(),
-              $lte: thisMonthEnd.toISOString()
-            },
-            $or: [
-              { isCompleted: { $ne: true } },
-              { isCompleted: { $exists: false } },
-              { isCompleted: true } // 종결된 환자도 포함 (신규 문의이므로)
-            ]
-          })
-          .sort({ createdAt: -1 })
-          .toArray();
+      // 🔥 SummaryCards.tsx와 동일한 로직 적용
+      const now = new Date();
+      const currentYear = now.getFullYear();
+      const currentMonth = now.getMonth();
+      
+      // 이번달 범위 (SummaryCards.tsx와 동일)
+      const firstDayOfMonthStr = `${currentYear}-${String(currentMonth + 1).padStart(2, '0')}-01`;
+      const todayStr = now.toISOString().split('T')[0];
+      
+      console.log(`[API] 이번달 신규 문의 필터링 범위: ${firstDayOfMonthStr} ~ ${todayStr}`);
+      
+      // 🔥 핵심 수정: callInDate 기준으로 필터링 (createdAt이 아닌!)
+      const allPatients = await db.collection('patients')
+        .find({
+          $or: [
+            { isCompleted: { $ne: true } },
+            { isCompleted: { $exists: false } },
+            { isCompleted: true } // 종결된 환자도 포함 (신규 문의이므로)
+          ]
+        })
+        .sort({ createdAt: -1 })
+        .toArray();
+      
+      // 🔥 SummaryCards.tsx와 동일한 필터링 로직 적용
+      patients = allPatients.filter((patient: any) => {
+        const callInDate = patient.callInDate;
+        if (!callInDate) return false;
         
-        console.log(`[API] 이번달 신규 문의 환자 ${patients.length}명 조회 완료`);
-        break;
-      }
+        return callInDate >= firstDayOfMonthStr && callInDate <= todayStr;
+      });
+      
+      console.log(`[API] 이번달 신규 문의 환자 ${patients.length}명 조회 완료 (callInDate 기준)`);
+      break;
+    }
 
       case 'reservation_rate': {
-        // 예약전환율 - 이번달 신규 환자 중 예약확정/재예약확정 상태인 환자들
-        patients = await db.collection('patients')
-          .find({
-            createdAt: {
-              $gte: thisMonthStart.toISOString(),
-              $lte: thisMonthEnd.toISOString()
-            },
-            status: { $in: ['예약확정', '재예약확정'] },
-            $or: [
-              { isCompleted: { $ne: true } },
-              { isCompleted: { $exists: false } },
-              { isCompleted: true } // 종결된 환자도 포함
-            ]
-          })
-          .sort({ createdAt: -1 })
-          .toArray();
+      // 🔥 SummaryCards.tsx와 동일한 로직 적용
+      const now = new Date();
+      const currentYear = now.getFullYear();
+      const currentMonth = now.getMonth();
+      
+      const firstDayOfMonthStr = `${currentYear}-${String(currentMonth + 1).padStart(2, '0')}-01`;
+      const todayStr = now.toISOString().split('T')[0];
+      
+      const allPatients = await db.collection('patients')
+        .find({
+          $or: [
+            { isCompleted: { $ne: true } },
+            { isCompleted: { $exists: false } },
+            { isCompleted: true }
+          ]
+        })
+        .sort({ createdAt: -1 })
+        .toArray();
+      
+      // 🔥 이번달 신규 환자 중 예약확정 상태인 환자들
+      patients = allPatients.filter((patient: any) => {
+        const callInDate = patient.callInDate;
+        if (!callInDate) return false;
         
-        console.log(`[API] 예약전환율 환자 ${patients.length}명 조회 완료`);
-        break;
-      }
+        // 이번달 신규 환자인지 확인
+        const isThisMonth = callInDate >= firstDayOfMonthStr && callInDate <= todayStr;
+        if (!isThisMonth) return false;
+        
+        // 예약확정 상태인지 확인
+        return patient.status === '예약확정';
+      });
+      
+      console.log(`[API] 예약전환율 환자 ${patients.length}명 조회 완료 (callInDate 기준)`);
+      break;
+    }
 
       case 'visit_rate': {
-        // 내원전환율 - 이번달 신규 환자 중 내원확정된 환자들
-        patients = await db.collection('patients')
-          .find({
-            createdAt: {
-              $gte: thisMonthStart.toISOString(),
-              $lte: thisMonthEnd.toISOString()
-            },
-            visitConfirmed: true,
-            $or: [
-              { isCompleted: { $ne: true } },
-              { isCompleted: { $exists: false } },
-              { isCompleted: true } // 종결된 환자도 포함
-            ]
-          })
-          .sort({ createdAt: -1 })
-          .toArray();
+      // 🔥 SummaryCards.tsx와 동일한 로직 적용
+      const now = new Date();
+      const currentYear = now.getFullYear();
+      const currentMonth = now.getMonth();
+      
+      const firstDayOfMonthStr = `${currentYear}-${String(currentMonth + 1).padStart(2, '0')}-01`;
+      const todayStr = now.toISOString().split('T')[0];
+      
+      const allPatients = await db.collection('patients')
+        .find({
+          $or: [
+            { isCompleted: { $ne: true } },
+            { isCompleted: { $exists: false } },
+            { isCompleted: true }
+          ]
+        })
+        .sort({ createdAt: -1 })
+        .toArray();
+      
+      // 🔥 이번달 신규 환자 중 내원확정된 환자들
+      patients = allPatients.filter((patient: any) => {
+        const callInDate = patient.callInDate;
+        if (!callInDate) return false;
         
-        console.log(`[API] 내원전환율 환자 ${patients.length}명 조회 완료`);
-        break;
-      }
+        // 이번달 신규 환자인지 확인
+        const isThisMonth = callInDate >= firstDayOfMonthStr && callInDate <= todayStr;
+        if (!isThisMonth) return false;
+        
+        // 내원확정된 환자인지 확인
+        return patient.visitConfirmed === true;
+      });
+      
+      console.log(`[API] 내원전환율 환자 ${patients.length}명 조회 완료 (callInDate 기준)`);
+      break;
+    }
 
       case 'treatment_rate': {
-        // 🔥 대시보드 계산 로직과 동일하게 수정: 실제 치료시작 환자만
-        patients = await db.collection('patients')
-          .find({
-            createdAt: {
-              $gte: thisMonthStart.toISOString(),
-              $lte: thisMonthEnd.toISOString()
-            },
-            visitConfirmed: true,           // 🔥 내원확정 필수
-            postVisitStatus: '치료시작',     // 🔥 치료시작 상태 필수
-            $or: [
-              { isCompleted: { $ne: true } },
-              { isCompleted: { $exists: false } },
-              { isCompleted: true } // 종결된 환자도 포함
-            ]
-          })
-          .sort({ createdAt: -1 })
-          .toArray();
+      // 🔥 SummaryCards.tsx와 동일한 로직 적용
+      const now = new Date();
+      const currentYear = now.getFullYear();
+      const currentMonth = now.getMonth();
+      
+      const firstDayOfMonthStr = `${currentYear}-${String(currentMonth + 1).padStart(2, '0')}-01`;
+      const todayStr = now.toISOString().split('T')[0];
+      
+      const allPatients = await db.collection('patients')
+        .find({
+          $or: [
+            { isCompleted: { $ne: true } },
+            { isCompleted: { $exists: false } },
+            { isCompleted: true }
+          ]
+        })
+        .sort({ createdAt: -1 })
+        .toArray();
+      
+      // 🔥 이번달 신규 환자 중 치료시작 상태인 환자들
+      patients = allPatients.filter((patient: any) => {
+        const callInDate = patient.callInDate;
+        if (!callInDate) return false;
         
-        console.log(`[API] 결제전환율(treatment_rate) - 실제 치료시작 환자 ${patients.length}명 조회 완료`);
-        break;
-      }
+        // 이번달 신규 환자인지 확인
+        const isThisMonth = callInDate >= firstDayOfMonthStr && callInDate <= todayStr;
+        if (!isThisMonth) return false;
+        
+        // 치료시작 상태인지 확인
+        return patient.postVisitStatus === '치료시작';
+      });
+      
+      console.log(`[API] 결제전환율(treatment_rate) 환자 ${patients.length}명 조회 완료 (callInDate 기준)`);
+      break;
+    }
       case 'payment_rate': {
         // 결제전환율 - 이번달 신규 환자 중 결제 정보가 있는 환자들
         // postVisitConsultation.estimateInfo.regularPrice 또는 treatmentCost가 있는 환자들
