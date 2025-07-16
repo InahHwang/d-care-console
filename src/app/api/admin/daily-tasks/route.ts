@@ -1,5 +1,7 @@
 // src/app/api/admin/daily-tasks/route.ts
 
+export const dynamic = 'force-dynamic';
+
 import { NextRequest, NextResponse } from 'next/server';
 import { connectToDatabase, getActivityLogsCollection, getPatientsCollection } from '@/utils/mongodb';
 import jwt from 'jsonwebtoken';

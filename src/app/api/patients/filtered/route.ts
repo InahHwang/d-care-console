@@ -1,5 +1,7 @@
 // 실제로 생성해야 할 파일: src/app/api/patients/filtered/route.ts
 
+export const dynamic = 'force-dynamic';
+
 import { NextRequest, NextResponse } from 'next/server';
 import { connectToDatabase } from '@/utils/mongodb';
 

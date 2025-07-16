@@ -1,5 +1,7 @@
 // src/app/api/patients/status-filter/route.ts - 내원환자 콜백 미등록 로직 수정
 
+export const dynamic = 'force-dynamic';
+
 import { NextRequest, NextResponse } from 'next/server';
 import { connectToDatabase } from '@/utils/mongodb';
 import { ObjectId } from 'mongodb';

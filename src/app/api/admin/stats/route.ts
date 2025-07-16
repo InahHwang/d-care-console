@@ -1,5 +1,7 @@
 // src/app/api/admin/stats/route.ts (개선된 버전)
 
+export const dynamic = 'force-dynamic';
+
 import { NextRequest, NextResponse } from 'next/server';
 import { connectToDatabase } from '@/utils/mongodb';
 import jwt from 'jsonwebtoken';

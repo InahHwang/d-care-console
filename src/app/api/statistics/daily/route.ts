@@ -1,5 +1,7 @@
 // src/app/api/statistics/daily/route.ts - 완전히 수정된 처리완료 로직
 
+export const dynamic = 'force-dynamic';
+
 import { NextRequest, NextResponse } from 'next/server';
 import { connectToDatabase } from '@/utils/mongodb';
 import jwt from 'jsonwebtoken';

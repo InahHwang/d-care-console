@@ -1,5 +1,7 @@
 // src/app/api/activity-logs/export/route.ts (새로 생성)
 
+export const dynamic = 'force-dynamic';
+
 import { NextRequest, NextResponse } from 'next/server';
 import { connectToDatabase } from '@/utils/mongodb';
 import jwt from 'jsonwebtoken';
