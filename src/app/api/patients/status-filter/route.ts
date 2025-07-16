@@ -122,7 +122,7 @@ export async function GET(request: NextRequest) {
         if (!isThisMonth) return false;
         
         // 예약확정 상태인지 확인
-        return patient.status === '예약확정';
+        return patient.status === '예약확정' || patient.visitConfirmed === true;
       });
       
       console.log(`[API] 예약전환율 환자 ${patients.length}명 조회 완료 (callInDate 기준)`);
