@@ -123,26 +123,22 @@ export async function PUT(
     // 🔥 프론트엔드 로깅 스킵 여부 확인
     const skipFrontendLog = request.headers.get('X-Skip-Activity-Log') === 'true';
 
-    // 환자 검색
+    // 환자 검색 (기존 코드 유지)
     let patient;
     
-    // 1. ObjectId로 찾기 시도
     if (ObjectId.isValid(patientId)) {
       patient = await db.collection('patients').findOne({ _id: new ObjectId(patientId) });
     }
     
-    // 2. id 필드로 찾기 시도
     if (!patient) {
       patient = await db.collection('patients').findOne({ id: patientId });
     }
     
-    // 3. patientId 필드로 찾기 시도
     if (!patient) {
       patient = await db.collection('patients').findOne({ patientId: patientId });
     }
     
     if (!patient) {
-      // 🔥 백엔드 로그 - 환자 찾기 실패
       await logActivityToDatabase({
         action: 'patient_complete_api_error',
         targetId: patientId,
@@ -160,8 +156,7 @@ export async function PUT(
     }
 
     // 이미 종결 처리된 경우
-    if (patient.isCompleted) {
-      // 🔥 백엔드 로그 - 이미 종결됨
+     if (patient.isCompleted) {
       await logActivityToDatabase({
         action: 'patient_complete_api_error',
         targetId: patientId,
@@ -229,7 +224,7 @@ export async function PUT(
           // 🔥 중요: 예정 → 완료로 상태 변경 + result 객체 추가
           updatedCallbackHistory[callbackIndex] = {
             ...scheduledCallback,
-            status: '완료', // 🔥 핵심: 예정 → 완료로 변경
+            status: '완료',
             notes: consultationContent || scheduledCallback.notes || '예약 완료 상담',
             actualCompletedDate: todayKorean,
             actualCompletedTime: new Date().toTimeString().slice(0, 5),
@@ -263,14 +258,14 @@ export async function PUT(
           console.log(`✅ 예정된 콜백을 완료로 업데이트 (${callbackType}):`, scheduledCallback.id);
         }
       } else {
-        // 🔥 예정된 콜백이 없는 경우: result 객체 포함한 새 콜백 생성
+        // 🔥 예정된 콜백이 없는 경우: 직접 내원완료 플래그 추가
         const callbackType = getCallbackTypeBasedOnHistory(callbackHistory);
         const consultationContent = extractPureConsultationContent(reason);
         
         const newCallbackRecord = {
           id: `callback-${Date.now()}-${generateUUID()}`,
           date: todayKorean,
-          status: '완료', // 🔥 바로 완료 상태로 생성
+          status: '완료',
           notes: consultationContent || '예약 완료 상담',
           type: callbackType,
           time: undefined,
@@ -278,6 +273,9 @@ export async function PUT(
           nextStep: '예약_확정',
           actualCompletedDate: todayKorean,
           actualCompletedTime: new Date().toTimeString().slice(0, 5),
+          
+          // 🔥 핵심 수정: 직접 내원완료 플래그 추가
+          isDirectVisitCompletion: true,  // 콜백 없이 바로 내원완료 처리된 경우
           
           // 🔥 케이스B와 동일한 result 객체 추가 (통합 박스용)
           ...(callbackType === '1차' ? {
@@ -304,7 +302,7 @@ export async function PUT(
         };
         
         updatedCallbackHistory.push(newCallbackRecord);
-        console.log(`✅ 새로운 통합 콜백 생성 (${callbackType}):`, newCallbackRecord.id);
+        console.log(`✅ 새로운 직접 내원완료 콜백 생성 (${callbackType}):`, newCallbackRecord.id);
       }
     }
     
@@ -324,9 +322,8 @@ export async function PUT(
       updatedCallbackHistory.push(completionRecord);
     }
 
-    // 환자 정보 업데이트
+    // 환자 정보 업데이트 (기존 코드 유지)
     const updateData = {
-      // 🔥 예약완료는 종결이 아니므로 isCompleted: false
       ...(isReservationCompletion ? {
         status: '예약확정',
         reservationDate: extractReservationDate(reason),
@@ -341,7 +338,7 @@ export async function PUT(
       updatedAt: new Date().toISOString()
     };
 
-    // MongoDB에 저장
+    // MongoDB에 저장 (기존 코드 유지)
     let result;
     if (ObjectId.isValid(patientId)) {
       result = await db.collection('patients').findOneAndUpdate(
@@ -364,7 +361,6 @@ export async function PUT(
     }
 
     if (!result) {
-      // 🔥 백엔드 로그 - 업데이트 실패
       await logActivityToDatabase({
         action: 'patient_complete_api_error',
         targetId: patientId,
@@ -389,7 +385,6 @@ export async function PUT(
       (updatedPatient as any)._id = updatedPatient._id.toString();
     }
     
-    // 호환성을 위해 id 필드가 없다면 _id로 설정
     if (!updatedPatient.id && updatedPatient._id) {
       updatedPatient.id = updatedPatient._id;
     }

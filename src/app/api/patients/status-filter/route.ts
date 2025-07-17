@@ -1,4 +1,4 @@
-// src/app/api/patients/status-filter/route.ts - 내원환자 콜백 미등록 로직 수정
+// src/app/api/patients/status-filter/route.ts - "잠재고객" 필터 추가
 
 export const dynamic = 'force-dynamic';
 
@@ -55,6 +55,24 @@ export async function GET(request: NextRequest) {
     let patients = [];
     
     switch (filterType) {
+      // 🔥 새로 추가: "잠재고객" 필터 케이스
+      case 'potential_customer': {
+        // 잠재고객 상태인 환자들만 필터링
+        patients = await db.collection('patients')
+          .find({
+            status: '잠재고객',
+            $or: [
+              { isCompleted: { $ne: true } },
+              { isCompleted: { $exists: false } }
+            ]
+          })
+          .sort({ createdAt: -1 })
+          .toArray();
+        
+        console.log(`[API] 잠재고객 환자 ${patients.length}명 조회 완료`);
+        break;
+      }
+
       // 🔥 대시보드 필터 타입들 추가
       case 'new_inquiry': {
       // 🔥 SummaryCards.tsx와 동일한 로직 적용

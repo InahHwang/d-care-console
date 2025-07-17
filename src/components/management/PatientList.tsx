@@ -255,17 +255,61 @@ const VisitDateBadge = ({ patient }: { patient: Patient }) => {
 
 // 총 콜백 횟수 표시를 위한 컴포넌트
 const CallbackCountBadge = ({ patient }: { patient: Patient }) => {
-  const completedCallbacks = (patient.callbackHistory || []).filter(cb => cb.status === '완료').length;
-  const scheduledCallbacks = (patient.callbackHistory || []).filter(cb => cb.status === '예정').length;
+  // 🔥 디버깅: 전체 콜백 히스토리 로그
+  console.log(`🔍 CallbackCountBadge 디버깅 - 환자: ${patient.name}`);
+  console.log('전체 콜백 히스토리:', patient.callbackHistory);
   
-  if (completedCallbacks === 0) {
+  // 🔥 디버깅: 전체 콜백 히스토리 로그
+  console.log(`🔍 CallbackCountBadge 디버깅 - 환자: ${patient.name}`);
+  console.log('전체 콜백 히스토리:', patient.callbackHistory);
+  
+  if (patient.callbackHistory && patient.callbackHistory.length > 0) {
+    patient.callbackHistory.forEach((cb, index) => {
+      console.log(`콜백 ${index + 1} 전체 객체:`, cb);
+      console.log(`콜백 ${index + 1} 핵심 필드:`, {
+        id: cb.id,
+        status: cb.status,
+        type: cb.type,
+        isCompletionRecord: cb.isCompletionRecord,
+        isDirectVisitCompletion: cb.isDirectVisitCompletion,
+        date: cb.date,
+        notes: cb.notes?.substring(0, 50)
+      });
+      
+      // 🔥 추가: isDirectVisitCompletion 값 특별히 체크
+      console.log(`콜백 ${index + 1} isDirectVisitCompletion 상세:`, {
+        value: cb.isDirectVisitCompletion,
+        type: typeof cb.isDirectVisitCompletion,
+        hasProperty: cb.hasOwnProperty('isDirectVisitCompletion'),
+        truthyTest: !!cb.isDirectVisitCompletion
+      });
+    });
+  }
+  
+  // 🔥 기존 필터링 로직 - 단계별 로그 추가
+  const allCallbacks = patient.callbackHistory || [];
+  console.log(`1단계 - 전체 콜백 수: ${allCallbacks.length}`);
+  
+  const completedCallbacks = allCallbacks.filter(cb => cb.status === '완료');
+  console.log(`2단계 - 완료 상태 콜백 수: ${completedCallbacks.length}`);
+  
+  const withoutCompletionRecord = completedCallbacks.filter(cb => !cb.isCompletionRecord);
+  console.log(`3단계 - 종결 기록 제외 후: ${withoutCompletionRecord.length}`);
+  
+  const finalCount = withoutCompletionRecord.filter(cb => !cb.isDirectVisitCompletion);
+  console.log(`4단계 - 직접 내원완료 제외 후 (최종): ${finalCount.length}`);
+  
+  const scheduledCallbacks = allCallbacks.filter(cb => cb.status === '예정').length;
+  console.log(`예정된 콜백 수: ${scheduledCallbacks}`);
+  
+  if (finalCount.length === 0) {
     return <span className="text-text-secondary">-</span>;
   }
   
   return (
     <div className="flex items-center gap-1">
       <span className="inline-flex items-center justify-center w-6 h-6 rounded-full text-xs font-medium bg-blue-100 text-blue-800">
-        {completedCallbacks}
+        {finalCount.length}
       </span>
       {scheduledCallbacks > 0 && (
         <span className="text-xs text-blue-600">

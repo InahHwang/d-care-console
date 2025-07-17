@@ -8,7 +8,8 @@ export type PatientFilterType =
   | 'new_inquiry'           
   | 'reservation_rate'      
   | 'visit_rate'           
-  | 'treatment_rate'       
+  | 'treatment_rate'    
+  | 'potential_customer'   
   // 상태별 필터 타입들
   | 'callbackUnregistered' 
   | 'overdueCallbacks' 
@@ -245,6 +246,7 @@ export type CallbackStatus =
 
 // 🔥 콜백 아이템 타입 정의 - 재예약 기록 필드 추가
 export interface CallbackItem {
+  isDirectVisitCompletion?: boolean;
   id: string;
   date: string;                    // 원래 예정된 날짜 (변경되지 않음)
   time: string | undefined;        // 원래 예정된 시간 (변경되지 않음)

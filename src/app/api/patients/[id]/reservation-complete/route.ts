@@ -1,5 +1,4 @@
-// src/app/api/patients/[id]/reservation-complete/route.ts - 수정된 버전
-// 핵심: 예정된 콜백을 찾아서 완료로 업데이트 (2개 박스 → 1개 박스)
+// src/app/api/patients/[id]/reservation-complete/route.ts - isDirectVisitCompletion 플래그 추가
 
 import { NextRequest, NextResponse } from 'next/server';
 import { connectToDatabase } from '@/utils/mongodb';
@@ -107,7 +106,7 @@ export async function PUT(
       const scheduledCallback = callbackHistory[scheduledCallbackIndex];
       console.log('📅 예정된 콜백 발견:', scheduledCallback);
 
-      // 예정된 콜백을 완료로 업데이트
+      // 예정된 콜백을 완료로 업데이트 (isDirectVisitCompletion 없음 - 정상 콜백)
       callbackHistory[scheduledCallbackIndex] = {
         ...scheduledCallback,
         status: '완료',
@@ -144,8 +143,8 @@ export async function PUT(
       console.log('✅ 예정된 콜백을 완료로 업데이트:', callbackHistory[scheduledCallbackIndex]);
 
     } else {
-      // 🔥 Case B: 예정된 콜백이 없는 경우 → 새로운 완료 콜백 생성
-      console.log('📝 예정된 콜백이 없어 새로운 완료 콜백 생성');
+      // 🔥 Case B: 예정된 콜백이 없는 경우 → 새로운 완료 콜백 생성 (직접 내원완료)
+      console.log('📝 예정된 콜백이 없어 새로운 완료 콜백 생성 (직접 내원완료)');
 
       // 콜백 타입 결정
       const completedCallbacks = callbackHistory.filter((cb: { status: string; isCompletionRecord: any; }) => 
@@ -172,6 +171,10 @@ export async function PUT(
         nextStep: '예약_확정',
         actualCompletedDate: todayKorean,
         actualCompletedTime: currentTime,
+        
+        // 🔥 핵심 추가: 직접 내원완료 플래그
+        isDirectVisitCompletion: true,  // 콜백 없이 바로 내원완료 처리된 경우
+        
         // result 객체 추가
         ...(callbackType === '1차' ? {
           firstConsultationResult: {
@@ -197,7 +200,7 @@ export async function PUT(
       };
       
       callbackHistory.push(newCallbackRecord);
-      console.log('✅ 새로운 완료 콜백 추가:', newCallbackRecord);
+      console.log('✅ 새로운 직접 내원완료 콜백 추가:', newCallbackRecord);
     }
 
     // 🔥 환자 정보 업데이트
@@ -265,6 +268,7 @@ export async function PUT(
         previousStatus: patient.status,
         newStatus: '예약확정',
         hadScheduledCallback: scheduledCallbackIndex !== -1,
+        isDirectVisitCompletion: scheduledCallbackIndex === -1, // 예정된 콜백이 없으면 직접 내원완료
         unifiedRecord: true,
         apiEndpoint: '/api/patients/[id]/reservation-complete'
       }

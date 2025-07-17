@@ -36,8 +36,8 @@ import { selectPatientWithContext } from '@/store/slices/patientsSlice'
 // 🔥 간소화된 날짜 필터 타입
 type SimpleDateFilterType = 'all' | 'daily' | 'monthly';
 
-// 🔥 박스 필터 타입 추가
-type BoxFilterType = 'all' | 'unprocessed_callback' | 'post_reservation_unvisited' | 'visit_confirmed' | 'additional_callback_needed' | 'today_reservation';
+// 🔥 박스 필터 타입 수정 - "오늘 예약" → "잠재고객"으로 변경
+type BoxFilterType = 'all' | 'unprocessed_callback' | 'post_reservation_unvisited' | 'visit_confirmed' | 'additional_callback_needed' | 'potential_customer';
 
 export default function PatientManagement() {
   // 🔧 환자 선택 함수 수정 (기존 selectPatient 사용하는 모든 곳)
@@ -234,7 +234,7 @@ export default function PatientManagement() {
     );
   }, []);
 
-  // 🔥 수정된 필터링 로직 - 박스 필터 적용
+  // 🔥 수정된 필터링 로직 - "잠재고객" 필터 추가
   const filteredPatients = useMemo(() => {
     if (!queryPatients || !Array.isArray(queryPatients) || queryPatients.length === 0) return [];
     
@@ -277,7 +277,7 @@ export default function PatientManagement() {
       // 상담타입 필터 (기존)
       if (consultationTypeFilter !== 'all' && patient.consultationType !== consultationTypeFilter) return false;
       
-      // 🔥 박스 필터 적용
+      // 🔥 수정된 박스 필터 적용 - "오늘 예약" → "잠재고객"으로 변경
       if (selectedBoxFilter !== 'all') {
         switch (selectedBoxFilter) {
           case 'unprocessed_callback':
@@ -288,8 +288,8 @@ export default function PatientManagement() {
             return patient.visitConfirmed === true;
           case 'additional_callback_needed':
             return patient.visitConfirmed === true && patient.postVisitStatus === '재콜백필요';
-          case 'today_reservation':
-            return patient.isTodayReservationPatient === true;
+          case 'potential_customer': // 🔥 "오늘 예약" → "잠재고객"으로 변경
+            return patient.status === '잠재고객';
           default:
             return true;
         }
@@ -329,7 +329,7 @@ export default function PatientManagement() {
     });
   }, [queryPatients, dateFilterType, dailyStartDate, dailyEndDate, getMonthlyDateRange]);
 
-  // 🔥 수정된 통계 계산 - 날짜 필터링 적용된 환자 기준
+  // 🔥 수정된 통계 계산 - "오늘 예약" → "잠재고객"으로 변경
   const boxStats = useMemo(() => {
     if (!Array.isArray(dateFilteredPatients)) return {
       total: 0,
@@ -337,7 +337,7 @@ export default function PatientManagement() {
       postReservationUnvisited: 0,
       visitConfirmed: 0,
       additionalCallbackNeeded: 0,
-      todayReservations: 0
+      potentialCustomers: 0 // 🔥 "todayReservations" → "potentialCustomers"로 변경
     };
     
     const total = dateFilteredPatients.length;
@@ -347,7 +347,7 @@ export default function PatientManagement() {
     const additionalCallbackNeeded = dateFilteredPatients.filter(p => 
       p.visitConfirmed === true && p.postVisitStatus === '재콜백필요'
     ).length;
-    const todayReservations = dateFilteredPatients.filter(p => p.isTodayReservationPatient === true).length;
+    const potentialCustomers = dateFilteredPatients.filter(p => p.status === '잠재고객').length; // 🔥 "오늘 예약" → "잠재고객"으로 변경
     
     return {
       total,
@@ -355,11 +355,11 @@ export default function PatientManagement() {
       postReservationUnvisited,
       visitConfirmed,
       additionalCallbackNeeded,
-      todayReservations
+      potentialCustomers // 🔥 "todayReservations" → "potentialCustomers"로 변경
     };
   }, [dateFilteredPatients, hasOverdueCallbacks]);
 
-  // 🔥 기존 통계 계산 (헤더 표시용)
+  // 🔥 기존 통계 계산 (헤더 표시용) - 더 이상 표시하지 않음
   const filterStats = useMemo(() => {
     if (!Array.isArray(filteredPatients)) return { inboundCount: 0, outboundCount: 0, totalCount: 0, visitConfirmedCount: 0, postVisitNeededCount: 0 };
     
@@ -532,7 +532,7 @@ export default function PatientManagement() {
 
   const { inboundCount, outboundCount, totalCount, visitConfirmedCount, postVisitNeededCount } = filterStats;
 
-  // 🔥 박스 데이터 정의
+  // 🔥 수정된 박스 데이터 정의 - "오늘 예약" → "잠재고객"으로 변경
   const statusBoxes = [
     { 
       key: 'all' as BoxFilterType, 
@@ -570,9 +570,9 @@ export default function PatientManagement() {
       textColor: 'text-yellow-600'
     },
     { 
-      key: 'today_reservation' as BoxFilterType, 
-      label: '오늘 예약', 
-      count: boxStats.todayReservations, 
+      key: 'potential_customer' as BoxFilterType, // 🔥 "today_reservation" → "potential_customer"로 변경
+      label: '잠재고객', // 🔥 "오늘 예약" → "잠재고객"으로 변경
+      count: boxStats.potentialCustomers, // 🔥 "todayReservations" → "potentialCustomers"로 변경
       color: 'bg-white hover:bg-blue-50',
       textColor: 'text-blue-600'
     }
@@ -583,7 +583,8 @@ export default function PatientManagement() {
       <div className="flex items-center justify-between mb-6">
         <div>
           <h1 className="text-2xl font-bold text-text-primary">상담 관리</h1>
-          <div className="flex items-center space-x-4 mt-1">
+          {/* 🔥 요약 텍스트 제거 - 아래 div 전체를 삭제 */}
+          {/* <div className="flex items-center space-x-4 mt-1">
             <span className="text-sm text-gray-600">
               전체: <strong>{totalCount}명</strong>
             </span>
@@ -599,7 +600,7 @@ export default function PatientManagement() {
             <span className="text-sm text-yellow-600">
               추가콜백필요: <strong>{postVisitNeededCount}명</strong>
             </span>
-          </div>
+          </div> */}
         </div>
         
         <div className="flex items-center space-x-3">
