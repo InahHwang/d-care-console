@@ -1320,76 +1320,41 @@ const TreatmentContentBadge = ({ patient }: { patient: Patient }) => {
  );
 };
 
-// 환자 반응 배지 컴포넌트
-const PatientReactionBadge = ({ patient }: { patient: Patient }) => {
- const estimateInfo = patient.postVisitConsultation?.estimateInfo;
- 
- if (!estimateInfo) {
-   return <span className="text-xs text-gray-400">미입력</span>;
- }
- 
- // 환자 반응별 색상 구분
- const getReactionColor = (reaction: string) => {
-   switch (reaction) {
-     case '동의해요(적당)':
-       return 'bg-green-100 text-green-800';
-     case '비싸요':
-       return 'bg-red-100 text-red-800';
-     case '생각보다 저렴해요':
-       return 'bg-blue-100 text-blue-800';
-     case '알 수 없음':
-       return 'bg-gray-100 text-gray-800';
-     default:
-       return 'bg-gray-100 text-gray-800';
-   }
- };
-
- // 가격 표시 우선순위 로직
- const getDisplayPrice = () => {
-   const regularPrice = estimateInfo.regularPrice || 0;
-   const discountPrice = estimateInfo.discountPrice || 0;
-   
-   if (discountPrice > 0) {
-     return {
-       price: discountPrice,
-       label: '할인가'
-     };
-   } else if (regularPrice > 0) {
-     return {
-       price: regularPrice,
-       label: '정가'
-     };
-   }
-   
-   return null;
- };
- 
- const priceInfo = getDisplayPrice();
- 
- return (
-   <div className="flex flex-col space-y-1">
-     {/* 환자 반응 배지 */}
-     <span className={`inline-flex items-center px-2 py-1 rounded-full text-xs font-medium ${
-       getReactionColor(estimateInfo.patientReaction)
-     }`}>
-       {estimateInfo.patientReaction || '미설정'}
-     </span>
-     {priceInfo ? (
-       <div className="text-xs text-gray-600">
-         <span className="font-medium">
-           {priceInfo.price.toLocaleString()}원
-         </span>
-         <span className="text-gray-500 ml-1">
-           ({priceInfo.label})
-         </span>
-       </div>
-     ) : (
-       <div className="text-xs text-gray-400">
-         가격 미입력
-       </div>
-     )}
-   </div>
- );
+// 2. 컴포넌트 이름 변경 및 로직 수정 (라인 862-910 근처)
+const FinalTreatmentCostBadge = ({ patient }: { patient: Patient }) => {
+  const estimateInfo = patient.postVisitConsultation?.estimateInfo;
+  
+  if (!estimateInfo) {
+    return <span className="text-xs text-gray-400">미입력</span>;
+  }
+  
+  // 가격 표시 우선순위 로직
+  const getDisplayPrice = () => {
+    const regularPrice = estimateInfo.regularPrice || 0;
+    const discountPrice = estimateInfo.discountPrice || 0;
+    
+    if (discountPrice > 0) {
+      return discountPrice;
+    } else if (regularPrice > 0) {
+      return regularPrice;
+    }
+    
+    return 0;
+  };
+  
+  const finalPrice = getDisplayPrice();
+  
+  return (
+    <div className="text-sm text-gray-700">
+      {finalPrice > 0 ? (
+        <span className="font-medium">
+          {finalPrice.toLocaleString()}원
+        </span>
+      ) : (
+        <span className="text-gray-400">미입력</span>
+      )}
+    </div>
+  );
 };
 
 // 다음 예약/재콜백 배지 컴포넌트 - 치료 동의 상태 추가
@@ -2253,7 +2218,7 @@ const handleStatsCardClick = useCallback((filterType: 'all' | 'needs_callback' |
               <th className="px-4 py-3 text-left text-xs font-semibold text-gray-600">연락처</th>
               <th className="px-4 py-3 text-left text-xs font-semibold text-gray-600">내원일자</th>
               <th className="px-4 py-3 text-left text-xs font-semibold text-gray-600">내원 후 상태</th>
-              <th className="px-4 py-3 text-left text-xs font-semibold text-gray-600">환자 반응</th>
+              <th className="px-4 py-3 text-left text-xs font-semibold text-gray-600">최종 치료 비용</th>
               <th className="px-4 py-3 text-left text-xs font-semibold text-gray-600">치료 내용</th>
               <th className="px-4 py-3 text-left text-xs font-semibold text-gray-600">내원 콜백</th>
               <th className="px-4 py-3 text-left text-xs font-semibold text-gray-600">다음 예약/재콜백</th>
@@ -2309,7 +2274,7 @@ const handleStatsCardClick = useCallback((filterType: 'all' | 'needs_callback' |
                        <PostVisitStatusBadge status={patient.postVisitStatus} />
                      </td>
                      <td className="px-4 py-4">
-                       <PatientReactionBadge patient={patient} />
+                       <FinalTreatmentCostBadge patient={patient} />
                      </td>
                      <td className="px-4 py-4">
                        <TreatmentContentBadge patient={patient} />
