@@ -1,4 +1,4 @@
-// src/app/api/patients/status-filter/route.ts - "잠재고객" 필터 추가
+// src/app/api/patients/status-filter/route.ts - 완전한 수정된 버전
 
 export const dynamic = 'force-dynamic';
 
@@ -55,6 +55,114 @@ export async function GET(request: NextRequest) {
     let patients = [];
     
     switch (filterType) {
+      // 🔥 새로 추가된 내원관리 필터들
+      case 'unprocessed_callback': {
+        // 미처리 콜백 - 내원관리 콜백 예정일이 지났는데 아직 처리되지 않은 환자
+        const allPatients = await db.collection('patients')
+          .find({
+            visitConfirmed: true,
+            $or: [
+              { isCompleted: { $ne: true } },
+              { isCompleted: { $exists: false } }
+            ]
+          })
+          .toArray();
+        
+        patients = allPatients.filter((patient: any) => {
+          if (!patient.callbackHistory || patient.callbackHistory.length === 0) {
+            return false;
+          }
+          
+          // 내원 관리 콜백 중 예정인 것들만 체크
+          const visitCallbacks = patient.callbackHistory.filter((cb: any) => 
+            cb.isVisitManagementCallback === true && cb.status === '예정'
+          );
+          
+          if (visitCallbacks.length === 0) {
+            return false;
+          }
+          
+          // 예정일이 지났는지 확인
+          return visitCallbacks.some((callback: any) => {
+            return callback.date < todayStr;
+          });
+        });
+        
+        console.log(`[API] 미처리 콜백 환자 ${patients.length}명 조회 완료`);
+        break;
+      }
+
+      case 'treatment_consent_not_started': {
+        // 치료동의 후 미시작 - 치료동의 상태이고 치료 시작 예정일이 지났는데 팔로업이 안 된 환자
+        patients = await db.collection('patients')
+          .find({
+            visitConfirmed: true,
+            postVisitStatus: '치료동의',
+            $or: [
+              { isCompleted: { $ne: true } },
+              { isCompleted: { $exists: false } }
+            ]
+          })
+          .toArray();
+        
+        patients = patients.filter((patient: any) => {
+          const treatmentStartDate = patient.postVisitConsultation?.treatmentConsentInfo?.treatmentStartDate;
+          if (!treatmentStartDate) {
+            return false;
+          }
+          
+          // 치료 시작 예정일이 지났는지 확인
+          return treatmentStartDate < todayStr;
+        });
+        
+        console.log(`[API] 치료동의 후 미시작 환자 ${patients.length}명 조회 완료`);
+        break;
+      }
+
+      case 'needs_callback_visit': {
+        // 재콜백 필요 - 내원관리 (기존 로직과 동일하지만 명확히 구분)
+        patients = await db.collection('patients')
+          .find({
+            visitConfirmed: true,
+            postVisitStatus: '재콜백필요',
+            $or: [
+              { isCompleted: { $ne: true } },
+              { isCompleted: { $exists: false } }
+            ]
+          })
+          .sort({ createdAt: -1 })
+          .toArray();
+        
+        console.log(`[API] 재콜백 필요 - 내원환자 ${patients.length}명 조회 완료`);
+        break;
+      }
+
+      case 'no_status_visit': {
+        // 상태 미설정 - 내원관리 (내원확정되었지만 postVisitStatus가 없는 환자)
+        patients = await db.collection('patients')
+          .find({
+            visitConfirmed: true,
+            $or: [
+              { postVisitStatus: { $exists: false } },
+              { postVisitStatus: null },
+              { postVisitStatus: '' }
+            ],
+            $and: [
+              {
+                $or: [
+                  { isCompleted: { $ne: true } },
+                  { isCompleted: { $exists: false } }
+                ]
+              }
+            ]
+          })
+          .sort({ createdAt: -1 })
+          .toArray();
+        
+        console.log(`[API] 상태 미설정 - 내원환자 ${patients.length}명 조회 완료`);
+        break;
+      }
+
       // 🔥 새로 추가: "잠재고객" 필터 케이스
       case 'potential_customer': {
         // 잠재고객 상태인 환자들만 필터링
@@ -75,151 +183,152 @@ export async function GET(request: NextRequest) {
 
       // 🔥 대시보드 필터 타입들 추가
       case 'new_inquiry': {
-      // 🔥 SummaryCards.tsx와 동일한 로직 적용
-      const now = new Date();
-      const currentYear = now.getFullYear();
-      const currentMonth = now.getMonth();
-      
-      // 이번달 범위 (SummaryCards.tsx와 동일)
-      const firstDayOfMonthStr = `${currentYear}-${String(currentMonth + 1).padStart(2, '0')}-01`;
-      const todayStr = now.toISOString().split('T')[0];
-      
-      console.log(`[API] 이번달 신규 문의 필터링 범위: ${firstDayOfMonthStr} ~ ${todayStr}`);
-      
-      // 🔥 핵심 수정: callInDate 기준으로 필터링 (createdAt이 아닌!)
-      const allPatients = await db.collection('patients')
-        .find({
-          $or: [
-            { isCompleted: { $ne: true } },
-            { isCompleted: { $exists: false } },
-            { isCompleted: true } // 종결된 환자도 포함 (신규 문의이므로)
-          ]
-        })
-        .sort({ createdAt: -1 })
-        .toArray();
-      
-      // 🔥 SummaryCards.tsx와 동일한 필터링 로직 적용
-      patients = allPatients.filter((patient: any) => {
-        const callInDate = patient.callInDate;
-        if (!callInDate) return false;
+        // 🔥 SummaryCards.tsx와 동일한 로직 적용
+        const now = new Date();
+        const currentYear = now.getFullYear();
+        const currentMonth = now.getMonth();
         
-        return callInDate >= firstDayOfMonthStr && callInDate <= todayStr;
-      });
-      
-      console.log(`[API] 이번달 신규 문의 환자 ${patients.length}명 조회 완료 (callInDate 기준)`);
-      break;
-    }
+        // 이번달 범위 (SummaryCards.tsx와 동일)
+        const firstDayOfMonthStr = `${currentYear}-${String(currentMonth + 1).padStart(2, '0')}-01`;
+        const todayStr = now.toISOString().split('T')[0];
+        
+        console.log(`[API] 이번달 신규 문의 필터링 범위: ${firstDayOfMonthStr} ~ ${todayStr}`);
+        
+        // 🔥 핵심 수정: callInDate 기준으로 필터링 (createdAt이 아닌!)
+        const allPatients = await db.collection('patients')
+          .find({
+            $or: [
+              { isCompleted: { $ne: true } },
+              { isCompleted: { $exists: false } },
+              { isCompleted: true } // 종결된 환자도 포함 (신규 문의이므로)
+            ]
+          })
+          .sort({ createdAt: -1 })
+          .toArray();
+        
+        // 🔥 SummaryCards.tsx와 동일한 필터링 로직 적용
+        patients = allPatients.filter((patient: any) => {
+          const callInDate = patient.callInDate;
+          if (!callInDate) return false;
+          
+          return callInDate >= firstDayOfMonthStr && callInDate <= todayStr;
+        });
+        
+        console.log(`[API] 이번달 신규 문의 환자 ${patients.length}명 조회 완료 (callInDate 기준)`);
+        break;
+      }
 
       case 'reservation_rate': {
-      // 🔥 SummaryCards.tsx와 동일한 로직 적용
-      const now = new Date();
-      const currentYear = now.getFullYear();
-      const currentMonth = now.getMonth();
-      
-      const firstDayOfMonthStr = `${currentYear}-${String(currentMonth + 1).padStart(2, '0')}-01`;
-      const todayStr = now.toISOString().split('T')[0];
-      
-      const allPatients = await db.collection('patients')
-        .find({
-          $or: [
-            { isCompleted: { $ne: true } },
-            { isCompleted: { $exists: false } },
-            { isCompleted: true }
-          ]
-        })
-        .sort({ createdAt: -1 })
-        .toArray();
-      
-      // 🔥 이번달 신규 환자 중 예약확정 상태인 환자들
-      patients = allPatients.filter((patient: any) => {
-        const callInDate = patient.callInDate;
-        if (!callInDate) return false;
+        // 🔥 SummaryCards.tsx와 동일한 로직 적용
+        const now = new Date();
+        const currentYear = now.getFullYear();
+        const currentMonth = now.getMonth();
         
-        // 이번달 신규 환자인지 확인
-        const isThisMonth = callInDate >= firstDayOfMonthStr && callInDate <= todayStr;
-        if (!isThisMonth) return false;
+        const firstDayOfMonthStr = `${currentYear}-${String(currentMonth + 1).padStart(2, '0')}-01`;
+        const todayStr = now.toISOString().split('T')[0];
         
-        // 예약확정 상태인지 확인
-        return patient.status === '예약확정' || patient.visitConfirmed === true;
-      });
-      
-      console.log(`[API] 예약전환율 환자 ${patients.length}명 조회 완료 (callInDate 기준)`);
-      break;
-    }
+        const allPatients = await db.collection('patients')
+          .find({
+            $or: [
+              { isCompleted: { $ne: true } },
+              { isCompleted: { $exists: false } },
+              { isCompleted: true }
+            ]
+          })
+          .sort({ createdAt: -1 })
+          .toArray();
+        
+        // 🔥 이번달 신규 환자 중 예약확정 상태인 환자들
+        patients = allPatients.filter((patient: any) => {
+          const callInDate = patient.callInDate;
+          if (!callInDate) return false;
+          
+          // 이번달 신규 환자인지 확인
+          const isThisMonth = callInDate >= firstDayOfMonthStr && callInDate <= todayStr;
+          if (!isThisMonth) return false;
+          
+          // 예약확정 상태인지 확인
+          return patient.status === '예약확정' || patient.visitConfirmed === true;
+        });
+        
+        console.log(`[API] 예약전환율 환자 ${patients.length}명 조회 완료 (callInDate 기준)`);
+        break;
+      }
 
       case 'visit_rate': {
-      // 🔥 SummaryCards.tsx와 동일한 로직 적용
-      const now = new Date();
-      const currentYear = now.getFullYear();
-      const currentMonth = now.getMonth();
-      
-      const firstDayOfMonthStr = `${currentYear}-${String(currentMonth + 1).padStart(2, '0')}-01`;
-      const todayStr = now.toISOString().split('T')[0];
-      
-      const allPatients = await db.collection('patients')
-        .find({
-          $or: [
-            { isCompleted: { $ne: true } },
-            { isCompleted: { $exists: false } },
-            { isCompleted: true }
-          ]
-        })
-        .sort({ createdAt: -1 })
-        .toArray();
-      
-      // 🔥 이번달 신규 환자 중 내원확정된 환자들
-      patients = allPatients.filter((patient: any) => {
-        const callInDate = patient.callInDate;
-        if (!callInDate) return false;
+        // 🔥 SummaryCards.tsx와 동일한 로직 적용
+        const now = new Date();
+        const currentYear = now.getFullYear();
+        const currentMonth = now.getMonth();
         
-        // 이번달 신규 환자인지 확인
-        const isThisMonth = callInDate >= firstDayOfMonthStr && callInDate <= todayStr;
-        if (!isThisMonth) return false;
+        const firstDayOfMonthStr = `${currentYear}-${String(currentMonth + 1).padStart(2, '0')}-01`;
+        const todayStr = now.toISOString().split('T')[0];
         
-        // 내원확정된 환자인지 확인
-        return patient.visitConfirmed === true;
-      });
-      
-      console.log(`[API] 내원전환율 환자 ${patients.length}명 조회 완료 (callInDate 기준)`);
-      break;
-    }
+        const allPatients = await db.collection('patients')
+          .find({
+            $or: [
+              { isCompleted: { $ne: true } },
+              { isCompleted: { $exists: false } },
+              { isCompleted: true }
+            ]
+          })
+          .sort({ createdAt: -1 })
+          .toArray();
+        
+        // 🔥 이번달 신규 환자 중 내원확정된 환자들
+        patients = allPatients.filter((patient: any) => {
+          const callInDate = patient.callInDate;
+          if (!callInDate) return false;
+          
+          // 이번달 신규 환자인지 확인
+          const isThisMonth = callInDate >= firstDayOfMonthStr && callInDate <= todayStr;
+          if (!isThisMonth) return false;
+          
+          // 내원확정된 환자인지 확인
+          return patient.visitConfirmed === true;
+        });
+        
+        console.log(`[API] 내원전환율 환자 ${patients.length}명 조회 완료 (callInDate 기준)`);
+        break;
+      }
 
       case 'treatment_rate': {
-      // 🔥 SummaryCards.tsx와 동일한 로직 적용
-      const now = new Date();
-      const currentYear = now.getFullYear();
-      const currentMonth = now.getMonth();
-      
-      const firstDayOfMonthStr = `${currentYear}-${String(currentMonth + 1).padStart(2, '0')}-01`;
-      const todayStr = now.toISOString().split('T')[0];
-      
-      const allPatients = await db.collection('patients')
-        .find({
-          $or: [
-            { isCompleted: { $ne: true } },
-            { isCompleted: { $exists: false } },
-            { isCompleted: true }
-          ]
-        })
-        .sort({ createdAt: -1 })
-        .toArray();
-      
-      // 🔥 이번달 신규 환자 중 치료시작 상태인 환자들
-      patients = allPatients.filter((patient: any) => {
-        const callInDate = patient.callInDate;
-        if (!callInDate) return false;
+        // 🔥 SummaryCards.tsx와 동일한 로직 적용
+        const now = new Date();
+        const currentYear = now.getFullYear();
+        const currentMonth = now.getMonth();
         
-        // 이번달 신규 환자인지 확인
-        const isThisMonth = callInDate >= firstDayOfMonthStr && callInDate <= todayStr;
-        if (!isThisMonth) return false;
+        const firstDayOfMonthStr = `${currentYear}-${String(currentMonth + 1).padStart(2, '0')}-01`;
+        const todayStr = now.toISOString().split('T')[0];
         
-        // 치료시작 상태인지 확인
-        return patient.postVisitStatus === '치료시작';
-      });
-      
-      console.log(`[API] 결제전환율(treatment_rate) 환자 ${patients.length}명 조회 완료 (callInDate 기준)`);
-      break;
-    }
+        const allPatients = await db.collection('patients')
+          .find({
+            $or: [
+              { isCompleted: { $ne: true } },
+              { isCompleted: { $exists: false } },
+              { isCompleted: true }
+            ]
+          })
+          .sort({ createdAt: -1 })
+          .toArray();
+        
+        // 🔥 이번달 신규 환자 중 치료시작 상태인 환자들
+        patients = allPatients.filter((patient: any) => {
+          const callInDate = patient.callInDate;
+          if (!callInDate) return false;
+          
+          // 이번달 신규 환자인지 확인
+          const isThisMonth = callInDate >= firstDayOfMonthStr && callInDate <= todayStr;
+          if (!isThisMonth) return false;
+          
+          // 치료시작 상태인지 확인
+          return patient.postVisitStatus === '치료시작';
+        });
+        
+        console.log(`[API] 결제전환율(treatment_rate) 환자 ${patients.length}명 조회 완료 (callInDate 기준)`);
+        break;
+      }
+
       case 'payment_rate': {
         // 결제전환율 - 이번달 신규 환자 중 결제 정보가 있는 환자들
         // postVisitConsultation.estimateInfo.regularPrice 또는 treatmentCost가 있는 환자들
@@ -730,11 +839,48 @@ export async function GET(request: NextRequest) {
         break;
       }
         
-      default:
+      default: {
+        // 🔥 유효한 필터 타입들 목록
+        const validFilters = [
+          'potential_customer',
+          'new_inquiry',
+          'reservation_rate',
+          'visit_rate',
+          'treatment_rate',
+          'payment_rate',
+          'overdueCallbacks_consultation',
+          'overdueCallbacks_visit',
+          'todayScheduled_consultation',
+          'todayScheduled_visit',
+          'callbackUnregistered_consultation',
+          'callbackUnregistered_visit',
+          'reminderCallbacks_scheduled',
+          'reminderCallbacks_registrationNeeded',
+          'callbackUnregistered',
+          'overdueCallbacks',
+          'callbackNeeded',
+          'absent',
+          'todayScheduled',
+          // 🔥 새로운 내원관리 필터들
+          'unprocessed_callback',
+          'treatment_consent_not_started',
+          'needs_callback_visit',
+          'no_status_visit'
+        ];
+        
+        if (!validFilters.includes(filterType)) {
+          return NextResponse.json(
+            { error: `유효하지 않은 필터 타입입니다: ${filterType}` },
+            { status: 400 }
+          );
+        }
+        
+        // 이 시점에서는 도달하지 않아야 함
         return NextResponse.json(
-          { error: '유효하지 않은 필터 타입입니다.' },
-          { status: 400 }
+          { error: '필터 처리 중 오류가 발생했습니다.' },
+          { status: 500 }
         );
+      }
     }
 
     // MongoDB ObjectId를 문자열로 변환

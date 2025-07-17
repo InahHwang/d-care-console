@@ -1,8 +1,8 @@
-// src/types/patient.ts - 첫 상담 후 환자 상태 관리 로직 추가
+// src/types/patient.ts - 완전한 수정된 버전
 
 import { EventCategory } from '@/types/messageLog';
 
-// 🔥 환자 필터 타입 정의 (통합)
+// 🔥 환자 필터 타입 정의 (통합) - 내원관리 새로운 필터들 추가
 export type PatientFilterType = 
   // 대시보드 필터 타입들
   | 'new_inquiry'           
@@ -24,7 +24,55 @@ export type PatientFilterType =
   | 'callbackUnregistered_consultation'
   | 'callbackUnregistered_visit'
   | 'reminderCallbacks_scheduled'
-  | 'reminderCallbacks_registrationNeeded';
+  | 'reminderCallbacks_registrationNeeded'
+  // 🔥 내원관리 새로운 필터 타입들 추가
+  | 'unprocessed_callback'           // 미처리 콜백
+  | 'treatment_consent_not_started'  // 치료동의 후 미시작
+  | 'needs_callback_visit'           // 재콜백 필요 (내원환자)
+  | 'no_status_visit';               // 상태 미설정 (내원환자)
+
+// 🔥 내원관리 필터 상태 타입 추가
+export type VisitManagementFilterType = 
+  | 'all'                           // 전체 보기
+  | 'unprocessed_callback'          // 미처리 콜백
+  | 'treatment_consent_not_started' // 치료동의 후 미시작
+  | 'in_treatment'                  // 치료 시작
+  | 'needs_callback'                // 재콜백 필요
+  | 'no_status';                    // 상태 미설정
+
+// 🔥 내원관리 필터 설명 매핑
+export const VISIT_MANAGEMENT_FILTER_DESCRIPTIONS: Record<VisitManagementFilterType, string> = {
+  all: '모든 내원확정 환자',
+  unprocessed_callback: '콜백 예정일이 지났는데 아직 추가콜백등록이나 치료동의, 치료 시작 및 종결과 같은 그 이후 팔로업이 되지 않고 방치된 환자',
+  treatment_consent_not_started: '치료동의 상태이고 "치료 예정일"이 지났는데 그 이후 팔로업이 되지 않고 방치된 환자',
+  in_treatment: '치료가 시작된 환자',
+  needs_callback: '재콜백이 필요한 환자',
+  no_status: '내원 후 상태가 설정되지 않은 환자'
+};
+
+// 🔥 내원관리 필터 우선순위 (긴급도 순)
+export const VISIT_MANAGEMENT_FILTER_PRIORITY: VisitManagementFilterType[] = [
+  'unprocessed_callback',          // 가장 긴급
+  'treatment_consent_not_started', // 두 번째 긴급
+  'no_status',                     // 세 번째 긴급
+  'needs_callback',                // 네 번째
+  'in_treatment',                  // 다섯 번째
+  'all'                            // 전체 보기
+];
+
+// 🔥 내원관리 필터 색상 매핑
+export const VISIT_MANAGEMENT_FILTER_COLORS: Record<VisitManagementFilterType, {
+  bg: string;
+  text: string;
+  hover: string;
+}> = {
+  all: { bg: 'bg-gray-100', text: 'text-gray-800', hover: 'hover:bg-gray-200' },
+  unprocessed_callback: { bg: 'bg-red-100', text: 'text-red-800', hover: 'hover:bg-red-50' },
+  treatment_consent_not_started: { bg: 'bg-blue-100', text: 'text-blue-800', hover: 'hover:bg-blue-50' },
+  in_treatment: { bg: 'bg-green-100', text: 'text-green-800', hover: 'hover:bg-green-50' },
+  needs_callback: { bg: 'bg-yellow-100', text: 'text-yellow-800', hover: 'hover:bg-yellow-50' },
+  no_status: { bg: 'bg-gray-100', text: 'text-gray-600', hover: 'hover:bg-gray-50' }
+};
 
 // 🔥 상담 타입 추가
 export type ConsultationType = 'inbound' | 'outbound' | 'returning';
@@ -510,5 +558,190 @@ export interface UpdatePatientData {
   treatmentStartDate?: string;       // 치료 시작일
   nextVisitDate?: string;           // 다음 내원 예정일
 }
+
+// 🔥 내원관리 통계 계산 헬퍼 함수들
+export const calculateVisitManagementStats = (patients: Patient[]) => {
+  const today = new Date();
+  const todayString = today.toISOString().split('T')[0];
+  
+  const stats = {
+    total: patients.length,
+    unprocessed_callback: 0,
+    treatment_consent_not_started: 0,
+    in_treatment: 0,
+    needs_callback: 0,
+    no_status: 0
+  };
+  
+  patients.forEach(patient => {
+    // 미처리 콜백 계산
+    if (patient.callbackHistory && patient.callbackHistory.length > 0) {
+      const visitCallbacks = patient.callbackHistory.filter(cb => 
+        cb.isVisitManagementCallback === true && cb.status === '예정'
+      );
+      
+      if (visitCallbacks.some(callback => callback.date < todayString)) {
+        stats.unprocessed_callback++;
+        return; // 중복 카운트 방지
+      }
+    }
+    
+    // 치료동의 후 미시작 계산
+    if (patient.postVisitStatus === '치료동의') {
+      const treatmentStartDate = patient.postVisitConsultation?.treatmentConsentInfo?.treatmentStartDate;
+      if (treatmentStartDate && treatmentStartDate < todayString) {
+        stats.treatment_consent_not_started++;
+        return;
+      }
+    }
+    
+    // 나머지 상태별 계산
+    switch (patient.postVisitStatus) {
+      case '치료시작':
+        stats.in_treatment++;
+        break;
+      case '재콜백필요':
+        stats.needs_callback++;
+        break;
+      case '':
+      case null:
+      case undefined:
+        stats.no_status++;
+        break;
+    }
+  });
+  
+  return stats;
+};
+
+// 🔥 내원관리 필터 적용 함수
+export const applyVisitManagementFilter = (
+  patients: Patient[], 
+  filterType: VisitManagementFilterType
+): Patient[] => {
+  const today = new Date();
+  const todayString = today.toISOString().split('T')[0];
+  
+  switch (filterType) {
+    case 'unprocessed_callback':
+      return patients.filter(patient => {
+        if (!patient.callbackHistory || patient.callbackHistory.length === 0) {
+          return false;
+        }
+        
+        const visitCallbacks = patient.callbackHistory.filter(cb => 
+          cb.isVisitManagementCallback === true && cb.status === '예정'
+        );
+        
+        if (visitCallbacks.length === 0) {
+          return false;
+        }
+        
+        return visitCallbacks.some(callback => callback.date < todayString);
+      });
+      
+    case 'treatment_consent_not_started':
+      return patients.filter(patient => {
+        if (patient.postVisitStatus !== '치료동의') {
+          return false;
+        }
+        
+        const treatmentStartDate = patient.postVisitConsultation?.treatmentConsentInfo?.treatmentStartDate;
+        if (!treatmentStartDate) {
+          return false;
+        }
+        
+        return treatmentStartDate < todayString;
+      });
+      
+    case 'in_treatment':
+      return patients.filter(patient => patient.postVisitStatus === '치료시작');
+      
+    case 'needs_callback':
+      return patients.filter(patient => patient.postVisitStatus === '재콜백필요');
+      
+    case 'no_status':
+      return patients.filter(patient => !patient.postVisitStatus);
+      
+    case 'all':
+    default:
+      return patients;
+  }
+};
+
+// 🔥 내원관리 필터 유틸리티 함수들 추가
+export const getVisitManagementFilterName = (filterType: PatientFilterType | VisitManagementFilterType): string => {
+  switch (filterType) {
+    case 'unprocessed_callback':
+      return '미처리 콜백';
+    case 'treatment_consent_not_started':
+      return '치료동의 후 미시작';
+    case 'needs_callback':
+    case 'needs_callback_visit':
+      return '재콜백 필요';
+    case 'no_status':
+    case 'no_status_visit':
+      return '상태 미설정';
+    case 'in_treatment':
+      return '치료 시작';
+    case 'all':
+      return '전체 보기';
+    default:
+      return '전체 보기';
+  }
+};
+
+// 🔥 내원관리 필터 검증 함수
+export const isValidVisitManagementFilter = (filterType: string): boolean => {
+  const validFilters = [
+    'all',
+    'unprocessed_callback',
+    'treatment_consent_not_started',
+    'in_treatment',
+    'needs_callback',
+    'no_status'
+  ];
+  return validFilters.includes(filterType);
+};
+
+// 🔥 내원관리 필터 계산 헬퍼 함수들
+export const calculateUnprocessedCallbacks = (patients: Patient[]): Patient[] => {
+  const today = new Date();
+  const todayString = today.toISOString().split('T')[0];
+  
+  return patients.filter(patient => {
+    if (!patient.callbackHistory || patient.callbackHistory.length === 0) {
+      return false;
+    }
+    
+    const visitCallbacks = patient.callbackHistory.filter(cb => 
+      cb.isVisitManagementCallback === true && cb.status === '예정'
+    );
+    
+    if (visitCallbacks.length === 0) {
+      return false;
+    }
+    
+    return visitCallbacks.some(callback => callback.date < todayString);
+  });
+};
+
+export const calculateTreatmentConsentNotStarted = (patients: Patient[]): Patient[] => {
+  const today = new Date();
+  const todayString = today.toISOString().split('T')[0];
+  
+  return patients.filter(patient => {
+    if (patient.postVisitStatus !== '치료동의') {
+      return false;
+    }
+    
+    const treatmentStartDate = patient.postVisitConsultation?.treatmentConsentInfo?.treatmentStartDate;
+    if (!treatmentStartDate) {
+      return false;
+    }
+    
+    return treatmentStartDate < todayString;
+  });
+};
 
 export type { EventCategory };

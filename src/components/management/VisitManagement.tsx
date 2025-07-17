@@ -1527,7 +1527,7 @@ export default function VisitManagement() {
 
  // 필터 상태들 추가
  const [searchTerm, setSearchTerm] = useState('')
- const [selectedFilter, setSelectedFilter] = useState<'all' | 'needs_callback' | 'treatment_consent' | 'in_treatment' | 'completed' | 'no_status'>('all')
+ const [selectedFilter, setSelectedFilter] = useState<'all' | 'unprocessed_callback' | 'treatment_consent_not_started' | 'in_treatment' | 'needs_callback' | 'no_status'>('all')
  const [consultationTypeFilter, setConsultationTypeFilter] = useState<'all' | 'inbound' | 'outbound' | 'returning'>('all')
  
  // 날짜 필터 상태들 추가
@@ -1620,95 +1620,157 @@ const handlePatientUpdate = useCallback((updatedPatient: Patient) => {
 
  // 필터링 로직 개선 - 검색어와 날짜 필터 추가
  const filteredPatients = useMemo(() => {
-   let filtered = visitConfirmedPatients;
-   
-   // 날짜 필터링 (콜 유입날짜 기준)
-   if (dateFilterType !== 'all') {
-     filtered = filtered.filter(patient => {
-       const callInDate = patient.callInDate;
-       if (!callInDate) return false;
-       
-       if (dateFilterType === 'daily') {
-         if (dailyStartDate && dailyEndDate) {
-           if (callInDate < dailyStartDate || callInDate > dailyEndDate) {
-             return false;
-           }
-         }
-       } else if (dateFilterType === 'monthly') {
-         const { startDate, endDate } = getMonthlyDateRange();
-         if (callInDate < startDate || callInDate > endDate) {
-           return false;
-         }
-       }
-       return true;
-     });
-   }
+  let filtered = visitConfirmedPatients;
+  
+  // 날짜 필터링 (콜 유입날짜 기준) - 기존 코드 유지
+  if (dateFilterType !== 'all') {
+    filtered = filtered.filter(patient => {
+      const callInDate = patient.callInDate;
+      if (!callInDate) return false;
+      
+      if (dateFilterType === 'daily') {
+        if (dailyStartDate && dailyEndDate) {
+          if (callInDate < dailyStartDate || callInDate > dailyEndDate) {
+            return false;
+          }
+        }
+      } else if (dateFilterType === 'monthly') {
+        const { startDate, endDate } = getMonthlyDateRange();
+        if (callInDate < startDate || callInDate > endDate) {
+          return false;
+        }
+      }
+      return true;
+    });
+  }
 
    // 검색어 필터링 (환자명, 연락처, 메모)
-   if (searchTerm) {
-     const searchLower = searchTerm.toLowerCase();
-     filtered = filtered.filter(patient => {
-       const matchesName = patient.name?.toLowerCase()?.includes(searchLower) || false;
-       const matchesPhone = patient.phoneNumber?.toLowerCase()?.includes(searchLower) || false;
-       const matchesNotes = patient.notes?.toLowerCase()?.includes(searchLower) || false;
-       return matchesName || matchesPhone || matchesNotes;
-     });
-   }
-
-   // 상담 타입 필터링
-   if (consultationTypeFilter !== 'all') {
-     filtered = filtered.filter(patient => patient.consultationType === consultationTypeFilter);
-   }
-
-   // 내원 후 상태 필터링 - 치료 동의 상태 추가
    switch (selectedFilter) {
-     case 'needs_callback':
-       filtered = filtered.filter(patient => 
-         patient.postVisitStatus === '재콜백필요'
-       );
-       break;
-     case 'treatment_consent':
-       filtered = filtered.filter(patient => 
-         patient.postVisitStatus === '치료동의'
-       );
-       break;
-     case 'in_treatment':
-       filtered = filtered.filter(patient => 
-         patient.postVisitStatus === '치료시작'
-       );
-       break;
-     case 'completed':
-       filtered = filtered.filter(patient => 
-         patient.postVisitStatus === '종결'
-       );
-       break;
-     case 'no_status':
-       filtered = filtered.filter(patient => 
-         !patient.postVisitStatus
-       );
-       break;
-     default:
-       break;
-   }
-   
-   return filtered;
- }, [visitConfirmedPatients, selectedFilter, searchTerm, consultationTypeFilter, dateFilterType, dailyStartDate, dailyEndDate, getMonthlyDateRange]);
+    case 'unprocessed_callback':
+      // 미처리 콜백: 콜백 예정일이 지났는데 아직 추가콜백등록이나 치료동의, 치료 시작 및 종결과 같은 그 이후 팔로업이 되지 않고 방치된 환자
+      filtered = filtered.filter(patient => {
+        if (!patient.callbackHistory || patient.callbackHistory.length === 0) {
+          return false;
+        }
+        
+        // 내원 관리 콜백 중 예정인 것들만 체크
+        const visitCallbacks = patient.callbackHistory.filter(cb => 
+          cb.isVisitManagementCallback === true && cb.status === '예정'
+        );
+        
+        if (visitCallbacks.length === 0) {
+          return false;
+        }
+        
+        // 예정일이 지났는지 확인
+        const today = new Date();
+        const todayString = today.toISOString().split('T')[0];
+        
+        return visitCallbacks.some(callback => {
+          return callback.date < todayString;
+        });
+      });
+      break;
+      
+    case 'treatment_consent_not_started':
+      // 치료동의 후 미시작: 치료동의 상태이고 "치료 예정일"이 지났는데 그 이후 팔로업이 되지 않고 방치된 환자
+      filtered = filtered.filter(patient => {
+        if (patient.postVisitStatus !== '치료동의') {
+          return false;
+        }
+        
+        const treatmentStartDate = patient.postVisitConsultation?.treatmentConsentInfo?.treatmentStartDate;
+        if (!treatmentStartDate) {
+          return false;
+        }
+        
+        const today = new Date();
+        const todayString = today.toISOString().split('T')[0];
+        
+        // 치료 시작 예정일이 지났는지 확인
+        return treatmentStartDate < todayString;
+      });
+      break;
+      
+    case 'in_treatment':
+      // 치료 시작: 기존과 동일
+      filtered = filtered.filter(patient => 
+        patient.postVisitStatus === '치료시작'
+      );
+      break;
+      
+    case 'needs_callback':
+      // 재콜백 필요: 기존과 동일
+      filtered = filtered.filter(patient => 
+        patient.postVisitStatus === '재콜백필요'
+      );
+      break;
+      
+    case 'no_status':
+      // 상태 미설정: 기존과 동일
+      filtered = filtered.filter(patient => 
+        !patient.postVisitStatus
+      );
+      break;
+      
+    default:
+      // 전체 보기
+      break;
+  }
+  
+  return filtered;
+}, [visitConfirmedPatients, selectedFilter, searchTerm, consultationTypeFilter, dateFilterType, dailyStartDate, dailyEndDate, getMonthlyDateRange]);
 
  // 수정된 통계 계산 - 전체 내원확정된 환자 기준으로 실제 인원수 표시, 치료 동의 상태 추가
  const stats = useMemo(() => {
-   const allVisitConfirmed = visitConfirmedPatients; // 전체 내원확정된 환자들
-   const filtered = filteredPatients; // 현재 필터링된 환자들
-   
-   return {
-     total: allVisitConfirmed.length,
-     filtered: filtered.length,
-     needsCallback: allVisitConfirmed.filter(p => p.postVisitStatus === '재콜백필요').length,
-     treatmentConsent: allVisitConfirmed.filter(p => p.postVisitStatus === '치료동의').length,
-     inTreatment: allVisitConfirmed.filter(p => p.postVisitStatus === '치료시작').length,
-     completed: allVisitConfirmed.filter(p => p.postVisitStatus === '종결').length,
-     noStatus: allVisitConfirmed.filter(p => !p.postVisitStatus).length
-   };
- }, [visitConfirmedPatients, filteredPatients]);
+  const allVisitConfirmed = visitConfirmedPatients;
+  const filtered = filteredPatients;
+  
+  // 🔥 새로운 통계 계산 로직
+  const today = new Date();
+  const todayString = today.toISOString().split('T')[0];
+  
+  // 미처리 콜백 계산
+  const unprocessedCallback = allVisitConfirmed.filter(patient => {
+    if (!patient.callbackHistory || patient.callbackHistory.length === 0) {
+      return false;
+    }
+    
+    const visitCallbacks = patient.callbackHistory.filter(cb => 
+      cb.isVisitManagementCallback === true && cb.status === '예정'
+    );
+    
+    if (visitCallbacks.length === 0) {
+      return false;
+    }
+    
+    return visitCallbacks.some(callback => callback.date < todayString);
+  }).length;
+  
+  // 치료동의 후 미시작 계산
+  const treatmentConsentNotStarted = allVisitConfirmed.filter(patient => {
+    if (patient.postVisitStatus !== '치료동의') {
+      return false;
+    }
+    
+    const treatmentStartDate = patient.postVisitConsultation?.treatmentConsentInfo?.treatmentStartDate;
+    if (!treatmentStartDate) {
+      return false;
+    }
+    
+    return treatmentStartDate < todayString;
+  }).length;
+  
+  return {
+    total: allVisitConfirmed.length,
+    filtered: filtered.length,
+    unprocessedCallback,
+    treatmentConsentNotStarted,
+    inTreatment: allVisitConfirmed.filter(p => p.postVisitStatus === '치료시작').length,
+    needsCallback: allVisitConfirmed.filter(p => p.postVisitStatus === '재콜백필요').length,
+    noStatus: allVisitConfirmed.filter(p => !p.postVisitStatus).length
+  };
+}, [visitConfirmedPatients, filteredPatients]);
 
  // 필터 핸들러들
  const handleSearchChange = useCallback((e: React.ChangeEvent<HTMLInputElement>) => {
@@ -1744,17 +1806,17 @@ const handlePatientUpdate = useCallback((updatedPatient: Patient) => {
  }, []);
 
  // 큰 박스 클릭 시 필터링 기능 추가 - 치료 동의 상태 추가
-const handleStatsCardClick = useCallback((filterType: 'all' | 'needs_callback' | 'treatment_consent' | 'in_treatment' | 'completed' | 'no_status') => {
-   // 다른 필터들 초기화
-   setSearchTerm('');
-   setConsultationTypeFilter('all');
-   setDateFilterType('all');
-   setDailyStartDate('');
-   setDailyEndDate('');
-   
-   // 선택된 필터 적용 (상태미설정도 포함)
-   setSelectedFilter(filterType);
- }, []);
+  const handleStatsCardClick = useCallback((filterType: 'all' | 'unprocessed_callback' | 'treatment_consent_not_started' | 'in_treatment' | 'needs_callback' | 'no_status') => {
+    // 다른 필터들 초기화
+    setSearchTerm('');
+    setConsultationTypeFilter('all');
+    setDateFilterType('all');
+    setDailyStartDate('');
+    setDailyEndDate('');
+    
+    // 선택된 필터 적용
+    setSelectedFilter(filterType);
+  }, []);
 
  // 현재 날짜 필터의 표시명 계산
  const getDateFilterDisplayText = () => {
@@ -2133,13 +2195,13 @@ const handleStatsCardClick = useCallback((filterType: 'all' | 'needs_callback' |
                )}
                
                {selectedFilter !== 'all' && (
-                 <span className="inline-flex items-center px-2 py-1 rounded-full text-xs bg-blue-200 text-blue-800">
-                   {selectedFilter === 'needs_callback' ? '재콜백 필요' : 
-                    selectedFilter === 'treatment_consent' ? '치료 동의' :
-                    selectedFilter === 'in_treatment' ? '치료 시작' :
-                    selectedFilter === 'completed' ? '종결' : 
-                    selectedFilter === 'no_status' ? '상태 미설정' : ''}
-                 </span>
+                <span className="inline-flex items-center px-2 py-1 rounded-full text-xs bg-blue-200 text-blue-800">
+                  {selectedFilter === 'unprocessed_callback' ? '미처리 콜백' : 
+                  selectedFilter === 'treatment_consent_not_started' ? '치료동의 후 미시작' :
+                  selectedFilter === 'in_treatment' ? '치료 시작' :
+                  selectedFilter === 'needs_callback' ? '재콜백 필요' : 
+                  selectedFilter === 'no_status' ? '상태 미설정' : ''}
+                </span>
                )}
                
                {searchTerm && (
@@ -2161,50 +2223,54 @@ const handleStatsCardClick = useCallback((filterType: 'all' | 'needs_callback' |
 
      {/* 수정된 통계 카드 - 클릭 시 필터링 기능 추가, 실제 인원수 표시, 치료 동의 상태 추가 */}
      <div className="grid grid-cols-1 md:grid-cols-6 gap-4 mb-6">
-       <div 
-         className="bg-white p-4 rounded-lg border cursor-pointer hover:shadow-lg transition-shadow"
-         onClick={() => handleStatsCardClick('all')}
-       >
-         <div className="text-2xl font-bold text-gray-900">{stats.total}</div>
-         <div className="text-sm text-gray-600">전체 보기</div>
-       </div>
-       <div 
-         className="bg-white p-4 rounded-lg border cursor-pointer hover:shadow-lg transition-shadow hover:bg-yellow-50"
-         onClick={() => handleStatsCardClick('needs_callback')}
-       >
-         <div className="text-2xl font-bold text-yellow-600">{stats.needsCallback}</div>
-         <div className="text-sm text-gray-600">재콜백 필요</div>
-       </div>
-       {/* 치료 동의 통계 카드 추가 */}
-       <div 
-         className="bg-white p-4 rounded-lg border cursor-pointer hover:shadow-lg transition-shadow hover:bg-blue-50"
-         onClick={() => handleStatsCardClick('treatment_consent')}
-       >
-         <div className="text-2xl font-bold text-blue-600">{stats.treatmentConsent}</div>
-         <div className="text-sm text-gray-600">치료 동의</div>
-       </div>
-       <div 
-         className="bg-white p-4 rounded-lg border cursor-pointer hover:shadow-lg transition-shadow hover:bg-green-50"
-         onClick={() => handleStatsCardClick('in_treatment')}
-       >
-         <div className="text-2xl font-bold text-green-600">{stats.inTreatment}</div>
-         <div className="text-sm text-gray-600">치료 시작</div>
-       </div>
-       <div 
-         className="bg-white p-4 rounded-lg border cursor-pointer hover:shadow-lg transition-shadow hover:bg-red-50"
-         onClick={() => handleStatsCardClick('completed')}
-       >
-         <div className="text-2xl font-bold text-red-600">{stats.completed}</div>
-         <div className="text-sm text-gray-600">종결</div>
-       </div>
-       <div 
-         className="bg-white p-4 rounded-lg border cursor-pointer hover:shadow-lg transition-shadow hover:bg-gray-50"
-         onClick={() => handleStatsCardClick('no_status')}
-       >
-         <div className="text-2xl font-bold text-gray-400">{stats.noStatus}</div>
-         <div className="text-sm text-gray-600">상태 미설정</div>
-       </div>
-     </div>
+      <div 
+        className="bg-white p-4 rounded-lg border cursor-pointer hover:shadow-lg transition-shadow"
+        onClick={() => handleStatsCardClick('all')}
+      >
+        <div className="text-2xl font-bold text-gray-900">{stats.total}</div>
+        <div className="text-sm text-gray-600">전체 보기</div>
+      </div>
+      
+      <div 
+        className="bg-white p-4 rounded-lg border cursor-pointer hover:shadow-lg transition-shadow hover:bg-red-50"
+        onClick={() => handleStatsCardClick('unprocessed_callback')}
+      >
+        <div className="text-2xl font-bold text-red-600">{stats.unprocessedCallback}</div>
+        <div className="text-sm text-gray-600">미처리 콜백</div>
+      </div>
+      
+      <div 
+        className="bg-white p-4 rounded-lg border cursor-pointer hover:shadow-lg transition-shadow hover:bg-blue-50"
+        onClick={() => handleStatsCardClick('treatment_consent_not_started')}
+      >
+        <div className="text-2xl font-bold text-blue-600">{stats.treatmentConsentNotStarted}</div>
+        <div className="text-sm text-gray-600">치료동의 후 미시작</div>
+      </div>
+      
+      <div 
+        className="bg-white p-4 rounded-lg border cursor-pointer hover:shadow-lg transition-shadow hover:bg-green-50"
+        onClick={() => handleStatsCardClick('in_treatment')}
+      >
+        <div className="text-2xl font-bold text-green-600">{stats.inTreatment}</div>
+        <div className="text-sm text-gray-600">치료 시작</div>
+      </div>
+      
+      <div 
+        className="bg-white p-4 rounded-lg border cursor-pointer hover:shadow-lg transition-shadow hover:bg-yellow-50"
+        onClick={() => handleStatsCardClick('needs_callback')}
+      >
+        <div className="text-2xl font-bold text-yellow-600">{stats.needsCallback}</div>
+        <div className="text-sm text-gray-600">재콜백 필요</div>
+      </div>
+      
+      <div 
+        className="bg-white p-4 rounded-lg border cursor-pointer hover:shadow-lg transition-shadow hover:bg-gray-50"
+        onClick={() => handleStatsCardClick('no_status')}
+      >
+        <div className="text-2xl font-bold text-gray-400">{stats.noStatus}</div>
+        <div className="text-sm text-gray-600">상태 미설정</div>
+      </div>
+    </div>
 
      {/* 환자 목록 테이블 */}
      <div className="card p-0">

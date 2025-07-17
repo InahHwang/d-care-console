@@ -29,9 +29,77 @@ import {
   FirstConsultationResult,
   PostReservationResult,
   CallbackFollowupResult,
-  PatientFilterType
 } from '@/types/patient';
 import { RootState } from '..';
+
+// 🔥 내원관리 필터 유틸리티 함수들 추가
+export const getVisitManagementFilterName = (filterType: PatientFilterType): string => {
+  switch (filterType) {
+    case 'unprocessed_callback':
+      return '미처리 콜백';
+    case 'treatment_consent_not_started':
+      return '치료동의 후 미시작';
+    case 'needs_callback':
+      return '재콜백 필요';
+    case 'no_status':
+      return '상태 미설정';
+    default:
+      return '전체 보기';
+  }
+};
+
+// 🔥 내원관리 필터 검증 함수
+export const isValidVisitManagementFilter = (filterType: string): boolean => {
+  const validFilters = [
+    'all',
+    'unprocessed_callback',
+    'treatment_consent_not_started',
+    'in_treatment',
+    'needs_callback',
+    'no_status'
+  ];
+  return validFilters.includes(filterType);
+};
+
+// 🔥 내원관리 필터 계산 헬퍼 함수들
+export const calculateUnprocessedCallbacks = (patients: Patient[]): Patient[] => {
+  const today = new Date();
+  const todayString = today.toISOString().split('T')[0];
+  
+  return patients.filter(patient => {
+    if (!patient.callbackHistory || patient.callbackHistory.length === 0) {
+      return false;
+    }
+    
+    const visitCallbacks = patient.callbackHistory.filter(cb => 
+      cb.isVisitManagementCallback === true && cb.status === '예정'
+    );
+    
+    if (visitCallbacks.length === 0) {
+      return false;
+    }
+    
+    return visitCallbacks.some(callback => callback.date < todayString);
+  });
+};
+
+export const calculateTreatmentConsentNotStarted = (patients: Patient[]): Patient[] => {
+  const today = new Date();
+  const todayString = today.toISOString().split('T')[0];
+  
+  return patients.filter(patient => {
+    if (patient.postVisitStatus !== '치료동의') {
+      return false;
+    }
+    
+    const treatmentStartDate = patient.postVisitConsultation?.treatmentConsentInfo?.treatmentStartDate;
+    if (!treatmentStartDate) {
+      return false;
+    }
+    
+    return treatmentStartDate < todayString;
+  });
+};
 
 // 🔥 예약 후 미내원 환자 자동 분류 액션 추가
 export const updatePostReservationPatients = createAsyncThunk(
@@ -177,6 +245,34 @@ export type {
   PostReservationResult,
   CallbackFollowupResult,
 };
+
+export type PatientFilterType = 
+  // 대시보드 필터 타입들
+  | 'new_inquiry'           
+  | 'reservation_rate'      
+  | 'visit_rate'           
+  | 'treatment_rate'    
+  | 'potential_customer'   
+  // 상태별 필터 타입들
+  | 'callbackUnregistered' 
+  | 'overdueCallbacks' 
+  | 'callbackNeeded' 
+  | 'absent' 
+  | 'todayScheduled'
+  // 세분화된 필터 타입들
+  | 'overdueCallbacks_consultation'
+  | 'overdueCallbacks_visit'
+  | 'todayScheduled_consultation'
+  | 'todayScheduled_visit'
+  | 'callbackUnregistered_consultation'
+  | 'callbackUnregistered_visit'
+  | 'reminderCallbacks_scheduled'
+  | 'reminderCallbacks_registrationNeeded'
+  // 🔥 내원관리 새로운 필터 타입들 추가
+  | 'unprocessed_callback'           // 미처리 콜백
+  | 'treatment_consent_not_started'  // 치료동의 후 미시작
+  | 'needs_callback'                 // 재콜백 필요
+  | 'no_status';                     // 상태 미설정
 
 // 🔥 PatientsState 인터페이스만 여기서 정의 (로컬 Patient 제거)
 export interface PatientsState {
