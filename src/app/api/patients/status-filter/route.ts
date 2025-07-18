@@ -649,7 +649,8 @@ export async function GET(request: NextRequest) {
       }
 
       case 'reminderCallbacks_registrationNeeded': {
-        // 리마인더 콜백 - 등록필요 (치료동의 상태인데 "치료시작예정일"이 오늘날짜보다 이전인 경우)
+        // 🔥 기존 코드 (문제가 있던 부분)
+        /*
         patients = await db.collection('patients')
           .find({
             visitConfirmed: true,
@@ -663,6 +664,35 @@ export async function GET(request: NextRequest) {
             ]
           })
           .toArray();
+        */
+
+        // 🔥 새로운 수정된 코드
+        // MongoDB 쿼리 대신 JavaScript 필터링으로 변경
+        const allPatients = await db.collection('patients')
+          .find({
+            visitConfirmed: true,
+            postVisitStatus: '치료동의',
+            $or: [
+              { isCompleted: { $ne: true } },
+              { isCompleted: { $exists: false } }
+            ]
+          })
+          .toArray();
+        
+        // JavaScript로 직접 필터링
+        patients = allPatients.filter((patient: any) => {
+          const treatmentStartDate = patient.postVisitConsultation?.treatmentConsentInfo?.treatmentStartDate;
+          if (!treatmentStartDate) {
+            console.log(`[DEBUG] ${patient.name}: treatmentStartDate 없음`);
+            return false;
+          }
+          
+          // 치료 시작 예정일이 오늘보다 이전인지 확인
+          const isBeforeToday = treatmentStartDate < todayStr;
+          console.log(`[DEBUG] ${patient.name}: treatmentStartDate=${treatmentStartDate}, today=${todayStr}, 조건만족=${isBeforeToday}`);
+          
+          return isBeforeToday;
+        });
         
         console.log(`[API] 리마인더 콜백 - 등록필요 ${patients.length}명 조회 완료`);
         break;
