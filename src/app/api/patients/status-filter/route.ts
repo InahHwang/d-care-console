@@ -649,6 +649,7 @@ export async function GET(request: NextRequest) {
       }
 
       case 'reminderCallbacks_registrationNeeded': {
+        console.log('🚨 수정된 코드가 실행되고 있습니다!'); // 이 로그가 나타나는지 확인
         // 🔥 기존 코드 (문제가 있던 부분)
         /*
         patients = await db.collection('patients')
