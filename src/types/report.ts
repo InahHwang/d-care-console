@@ -67,11 +67,15 @@ export interface ChannelStat {
 
 // 🔥 기존 구조 유지하면서 확장
 export interface PatientConsultationSummary {
+  visitConfirmed: boolean;
+  status: string;
+  isCompleted: boolean;
   visitConsultation: any;
   phoneConsultation: any;
   _id: string;
   name: string;
   age?: number;
+  interestedServices?: string[];
   discomfort: string;        // 불편한 부분 (treatmentPlan 필드)
   consultationSummary: string; // 상담 메모 요약 (consultationNotes 필드)
   fullDiscomfort?: string;     // 전체 불편한 부분 내용 (모달용)
