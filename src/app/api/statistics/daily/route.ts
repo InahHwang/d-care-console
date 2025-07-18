@@ -1,4 +1,4 @@
-// src/app/api/statistics/daily/route.ts - 🔥 fullDiscomfort 필드 추가
+// src/app/api/statistics/daily/route.ts - 🔥 견적금액 중복 계산 문제 수정
 import { NextRequest, NextResponse } from 'next/server';
 import { connectToDatabase } from '@/utils/mongodb';
 import jwt from 'jsonwebtoken';
@@ -265,35 +265,94 @@ export async function GET(request: NextRequest) {
         return b.estimatedAmount - a.estimatedAmount;
       });
 
-    // 견적금액 계산 (기존 로직 유지)
+    // 🔥 수정된 견적금액 계산 로직 - 중복 제거 및 상태 기반 구분
+    console.log(`💰 견적금액 계산 시작 - 총 ${dailyPatients.length}명의 환자`);
+
+    // 1. 내원 상담 환자 견적 (visitConsultationEstimate)
+    // 조건: visitConfirmed === true (내원 완료) 
+    // 계산: postVisitConsultation.estimateInfo의 최종 치료 비용
     const visitConsultationEstimate = dailyPatients
-      .filter(p => p.visitDate === selectedDate && p.postVisitConsultation?.estimateInfo)
+      .filter(p => {
+        const isVisitCompleted = p.visitConfirmed === true;
+        const hasVisitEstimate = p.postVisitConsultation?.estimateInfo;
+        
+        console.log(`내원상담 체크 - ${p.name}: visitConfirmed=${p.visitConfirmed}, hasEstimate=${!!hasVisitEstimate}`);
+        return isVisitCompleted && hasVisitEstimate;
+      })
       .reduce((sum, p) => {
         const estimate = p.postVisitConsultation.estimateInfo;
         const amount = estimate.discountPrice || estimate.regularPrice || 0;
+        
+        console.log(`내원상담 견적 - ${p.name}: ${amount}원 (visitDate: ${p.visitDate})`);
         return sum + amount;
       }, 0);
 
+    // 2. 유선 상담 환자 견적 (phoneConsultationEstimate)  
+    // 조건: visitConfirmed !== true (미내원) AND callInDate === selectedDate
+    // 계산: consultation.estimatedAmount
     const phoneConsultationEstimate = dailyPatients
-      .filter(p => p.callInDate === selectedDate && p.consultation?.estimatedAmount)
-      .reduce((sum, p) => sum + (p.consultation.estimatedAmount || 0), 0);
+      .filter(p => {
+        const isNotVisitCompleted = p.visitConfirmed !== true;
+        const hasPhoneEstimate = p.consultation?.estimatedAmount && p.consultation.estimatedAmount > 0;
+        const isCallInToday = p.callInDate === selectedDate;
+        
+        console.log(`유선상담 체크 - ${p.name}: notVisited=${isNotVisitCompleted}, hasEstimate=${!!hasPhoneEstimate}, callInToday=${isCallInToday}`);
+        return isNotVisitCompleted && hasPhoneEstimate && isCallInToday;
+      })
+      .reduce((sum, p) => {
+        const amount = p.consultation.estimatedAmount || 0;
+        
+        console.log(`유선상담 견적 - ${p.name}: ${amount}원 (callInDate: ${p.callInDate})`);
+        return sum + amount;
+      }, 0);
 
+    console.log(`💰 견적금액 계산 완료:`);
+    console.log(`  - 내원 상담 환자 견적: ${visitConsultationEstimate.toLocaleString()}원`);
+    console.log(`  - 유선 상담 환자 견적: ${phoneConsultationEstimate.toLocaleString()}원`);
+    console.log(`  - 총 상담 견적: ${(visitConsultationEstimate + phoneConsultationEstimate).toLocaleString()}원`);
+
+    // 🔥 치료 시작 견적 계산도 개선
     const treatmentStartedEstimate = await patientsCollection.find({
       postVisitStatus: "치료시작",
-      // 🔥 치료시작 처리일이 선택된 날짜인 환자들
+      // 🔥 실제 치료시작 처리일이 선택된 날짜인 환자들만
       $or: [
-        { treatmentStartDate: selectedDate },
-        { "callbackHistory.actualCompletedDate": selectedDate, "callbackHistory.status": "완료", "callbackHistory.type": { $regex: "치료시작" } }
+        { 
+          // 치료시작일이 명시적으로 설정된 경우
+          treatmentStartDate: selectedDate 
+        },
+        { 
+          // 콜백 히스토리에서 "치료시작" 관련 콜백이 해당 날짜에 완료된 경우
+          callbackHistory: {
+            $elemMatch: {
+              actualCompletedDate: selectedDate,
+              status: "완료",
+              type: { $regex: "치료시작" }
+            }
+          }
+        },
+        {
+          // postVisitStatus가 "치료시작"으로 변경된 날짜가 선택된 날짜인 경우
+          // (실제로는 활동 로그를 확인해야 하지만, 간단히 lastModifiedAt 사용)
+          lastModifiedAt: {
+            $gte: new Date(selectedDate + 'T00:00:00.000Z'),
+            $lt: new Date(selectedDate + 'T23:59:59.999Z')
+          },
+          postVisitStatus: "치료시작"
+        }
       ]
     }).toArray();
 
     const treatmentStartedTotal = treatmentStartedEstimate.reduce((sum, p) => {
       if (p.postVisitConsultation?.estimateInfo) {
         const estimate = p.postVisitConsultation.estimateInfo;
-        return sum + (estimate.discountPrice || estimate.regularPrice || 0);
+        const amount = estimate.discountPrice || estimate.regularPrice || 0;
+        console.log(`치료시작 견적 - ${p.name}: ${amount}원 (처리일: ${selectedDate})`);
+        return sum + amount;
       }
       return sum;
     }, 0);
+
+    console.log(`🚀 치료시작 견적: ${treatmentStartedTotal.toLocaleString()}원`);
 
     // 처리율 계산 헬퍼 함수
     const calculateProcessingRate = (total: number, processed: number): number => {
