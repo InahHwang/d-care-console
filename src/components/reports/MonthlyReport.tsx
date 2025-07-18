@@ -1835,6 +1835,78 @@ const PatientConsultationDetailModal: React.FC<{
 }> = ({ patient, onClose }) => {
   if (!patient) return null;
 
+  // 🔥 환자의 진행상황 계산 (테이블과 동일한 로직)
+  const calculatePatientProgress = (patient: PatientConsultationSummary) => {
+    // 6. 종결 (최우선 - 내원여부 무관)
+    if (patient.isCompleted === true || patient.status === '종결') {
+      return {
+        stage: '종결',
+        color: 'text-gray-800',
+        bgColor: 'bg-gray-100'
+      };
+    }
+
+    // 내원완료 여부로 크게 분기
+    if (patient.visitConfirmed === true) {
+      // 내원완료 환자들
+      switch (patient.postVisitStatus) {
+        case '치료시작':
+          // 5. 치료시작
+          return {
+            stage: '치료시작',
+            color: 'text-green-800',
+            bgColor: 'bg-green-100'
+          };
+        
+        case '치료동의':
+          // 4. 치료동의
+          return {
+            stage: '치료동의',
+            color: 'text-blue-800',
+            bgColor: 'bg-blue-100'
+          };
+        
+        case '재콜백':
+        case '':
+        case null:
+        case undefined:
+          // 3. 내원완료 (재콜백 OR 상태미설정)
+          return {
+            stage: '내원완료',
+            color: 'text-purple-800',
+            bgColor: 'bg-purple-100'
+          };
+        
+        default:
+          // 기타 내원 후 상태들도 내원완료로 분류
+          return {
+            stage: '내원완료',
+            color: 'text-purple-800',
+            bgColor: 'bg-purple-100'
+          };
+      }
+    } else {
+      // 미내원 환자들
+      if (patient.status === '예약확정') {
+        // 2. 예약완료
+        return {
+          stage: '예약완료',
+          color: 'text-orange-800',
+          bgColor: 'bg-orange-100'
+        };
+      } else {
+        // 1. 전화상담 (콜백필요, 잠재고객, 미처리콜백 등 모든 미내원 상태)
+        return {
+          stage: '전화상담',
+          color: 'text-yellow-800',
+          bgColor: 'bg-yellow-100'
+        };
+      }
+    }
+  };
+
+  const progress = calculatePatientProgress(patient);
+
   return (
     <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 no-print">
       <div className="bg-white rounded-lg p-6 w-full max-w-2xl max-h-[80vh] overflow-auto">
@@ -1854,7 +1926,7 @@ const PatientConsultationDetailModal: React.FC<{
         </div>
         
         <div className="space-y-6">
-          {/* 🔥 새로 추가: 관심분야 정보 */}
+          {/* 관심분야 정보 */}
           <div className="bg-blue-50 p-4 rounded-lg">
             <h4 className="font-medium text-blue-900 mb-2">관심분야</h4>
             <div className="flex flex-wrap gap-2">
@@ -1873,14 +1945,13 @@ const PatientConsultationDetailModal: React.FC<{
             </div>
           </div>
 
-          {/* 견적 정보 */}
+          {/* 🔥 견적 정보 - "동의여부" → "진행상황"으로 변경 */}
           <div className="bg-gray-50 p-4 rounded-lg">
             <h4 className="font-medium text-gray-900 mb-2">견적 정보</h4>
             <div className="grid grid-cols-2 gap-4 text-sm">
               <div>
                 <span className="text-gray-600">견적 금액:</span>
                 <span className="ml-2 font-medium">
-                  {/* 🔥 견적금액이 없는 경우 처리 */}
                   {patient.estimatedAmount && patient.estimatedAmount > 0 ? 
                     `${patient.estimatedAmount.toLocaleString()}원` : 
                     <span className="text-gray-400 italic">데이터 없음</span>
@@ -1888,16 +1959,15 @@ const PatientConsultationDetailModal: React.FC<{
                 </span>
               </div>
               <div>
-                <span className="text-gray-600">동의 여부:</span>
-                <span className={`ml-2 px-2 py-1 rounded-full text-xs font-medium ${
-                  patient.estimateAgreed 
-                    ? 'bg-green-100 text-green-800' 
-                    : 'bg-red-100 text-red-800'
-                }`}>
-                  {patient.estimateAgreed ? '동의' : '거부'}
+                {/* 🔥 "동의 여부" → "진행상황"으로 변경 */}
+                <span className="text-gray-600">진행상황:</span>
+                <span className={`ml-2 px-2 py-1 rounded-full text-xs font-medium ${progress.color} ${progress.bgColor}`}>
+                  {progress.stage}
                 </span>
               </div>
             </div>
+            
+
           </div>
           
           {/* 불편한 부분 */}
@@ -1915,8 +1985,15 @@ const PatientConsultationDetailModal: React.FC<{
             <h4 className="font-medium text-gray-900 mb-2">상담 메모</h4>
             <div className="bg-white border rounded-lg p-4">
               <p className="text-gray-700 whitespace-pre-line">
-                {patient.fullConsultation || '기록된 내용이 없습니다.'}
-              </p>
+                    {patient.fullConsultation ? 
+                      patient.fullConsultation
+                        .replace(/\[불편부위\][\s\S]*?(?=\n\[|$)/g, '') // [불편부위] 섹션 제거
+                        .replace(/^\s*\n+/g, '') // 앞쪽 빈 줄 제거
+                        .replace(/(\📞 전화상담:.*?)\n\s*\n(\[상담메모\])/g, '$1\n$2') // 📞 전화상담: 다음의 빈 줄만 제거
+                        .trim() || '기록된 내용이 없습니다.'
+                      : '기록된 내용이 없습니다.'
+                    }
+                  </p>
             </div>
           </div>
         </div>

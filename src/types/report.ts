@@ -1,4 +1,4 @@
-// src/types/report.ts - 🔥 기존 구조 유지하면서 새 기능 추가
+// src/types/report.ts - 🔥 일별 상담 요약 타입 추가
 
 // 🔥 새로 추가: 원장님 피드백 타입
 export interface DirectorFeedback {
@@ -107,6 +107,64 @@ export interface PatientConsultationSummary {
       status?: string;
     };
   };
+}
+
+// 🔥 새로 추가: 일별 환자별 상담 내용 요약 타입
+export interface DailyPatientConsultationSummary {
+  _id: string;
+  name: string;
+  age?: number;
+  interestedServices?: string[];
+  consultationSummary: string;
+  fullConsultation: string;
+  estimatedAmount: number;
+  // 🔥 일별보고서용 추가 필드
+  callInDate: string;
+  visitDate?: string;
+  hasPhoneConsultation: boolean;
+  hasVisitConsultation: boolean;
+  phoneAmount?: number;
+  visitAmount?: number;
+  // 🔥 진행상황 계산을 위한 필드들
+  status: string;
+  visitConfirmed: boolean;
+  postVisitStatus?: string;
+  isCompleted: boolean;
+}
+
+// 🔥 새로 추가: 일별 업무 현황 타입 (환자별 상담 내용 포함)
+export interface DailyWorkSummary {
+  selectedDate: string;
+  callbackSummary: {
+    overdueCallbacks: {
+      total: number;
+      processed: number;
+      processingRate: number;
+    };
+    callbackUnregistered: {
+      total: number;
+      processed: number;
+      processingRate: number;
+    };
+    absent: {
+      total: number;
+      processed: number;
+      processingRate: number;
+    };
+    todayScheduled: {
+      total: number;
+      processed: number;
+      processingRate: number;
+    };
+  };
+  estimateSummary: {
+    totalConsultationEstimate: number;
+    visitConsultationEstimate: number;
+    phoneConsultationEstimate: number;
+    treatmentStartedEstimate: number;
+  };
+  // 🔥 새로 추가: 일별 환자별 상담 내용
+  patientConsultations: DailyPatientConsultationSummary[];
 }
 
 // 월별 통계 계산용 타입 - 🔥 손실 분석 추가
