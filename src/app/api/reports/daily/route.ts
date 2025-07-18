@@ -1,4 +1,8 @@
 // src/app/api/reports/daily/route.ts
+
+export const dynamic = 'force-dynamic'
+export const revalidate = 0
+
 import { NextRequest, NextResponse } from 'next/server';
 import { connectToDatabase } from '@/utils/mongodb';
 import jwt from 'jsonwebtoken';

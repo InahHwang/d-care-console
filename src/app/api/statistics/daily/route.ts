@@ -1,4 +1,8 @@
 // src/app/api/statistics/daily/route.ts - 🔥 견적금액 중복 계산 문제 수정
+
+export const dynamic = 'force-dynamic'
+export const revalidate = 0
+
 import { NextRequest, NextResponse } from 'next/server';
 import { connectToDatabase } from '@/utils/mongodb';
 import jwt from 'jsonwebtoken';
