@@ -729,7 +729,7 @@ const DailyReport: React.FC = () => {
         <div className="p-4 border-b bg-gray-50">
           <h3 className="font-medium text-gray-900 flex items-center gap-2">
             <Users className="w-5 h-5" />
-            {selectedDate}일 내원 환자 목록 ({stats.total}명)
+            {selectedDate} 내원 환자 목록 ({stats.total}명)
           </h3>
         </div>
 
@@ -810,7 +810,7 @@ const DailyReport: React.FC = () => {
           <div className="flex items-start gap-3">
             <DollarSign className="w-5 h-5 text-blue-600 mt-0.5" />
             <div className="text-sm text-blue-800">
-              <p className="font-medium mb-1">💡 {selectedDate}일 내원 현황 요약</p>
+              <p className="font-medium mb-1">💡 {selectedDate} 내원 현황 요약</p>
               <div className="grid grid-cols-1 md:grid-cols-2 gap-2 text-xs">
                 <p>• 총 {stats.total}명이 내원하여 상담을 진행했습니다.</p>
                 <p>• 치료시작 {stats.treatmentStarted}명, 치료동의 {stats.treatmentConsented}명, 재콜백필요 {stats.callbackNeeded}명</p>
@@ -827,7 +827,7 @@ const DailyReport: React.FC = () => {
         <div className="p-4 border-b bg-yellow-50">
           <h3 className="font-medium text-gray-900 flex items-center gap-2">
             <Phone className="w-5 h-5" />
-            {selectedDate}일 신규 상담 환자 목록 ({consultationStats.total}명)
+            {selectedDate} 신규 상담 환자 목록 ({consultationStats.total}명)
           </h3>
         </div>
 
@@ -948,7 +948,7 @@ const DailyReport: React.FC = () => {
           <div className="flex items-start gap-3">
             <Phone className="w-5 h-5 text-yellow-600 mt-0.5" />
             <div className="text-sm text-yellow-800">
-              <p className="font-medium mb-1">📞 {selectedDate}일 상담 현황 요약</p>
+              <p className="font-medium mb-1">📞 {selectedDate} 상담 현황 요약</p>
               <div className="grid grid-cols-1 md:grid-cols-2 gap-2 text-xs">
                 <p>• 총 {consultationStats.total}명의 신규 환자가 상담을 받았습니다.</p>
                 <p>• 미처리콜백 {consultationStats.unprocessedCallback}명, 예약후미내원 {consultationStats.postReservationAbsent}명 (우선 관리 필요)</p>

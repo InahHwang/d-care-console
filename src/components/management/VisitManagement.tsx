@@ -1644,6 +1644,25 @@ const handlePatientUpdate = useCallback((updatedPatient: Patient) => {
     });
   }
 
+  // 🔥 이 부분에 검색어 필터링 추가:
+  // 검색어 필터링 추가 (환자명, 연락처, 메모)
+  if (searchTerm) {
+    const searchLower = searchTerm.toLowerCase();
+    filtered = filtered.filter(patient => {
+      const matchesName = patient.name?.toLowerCase()?.includes(searchLower) || false;
+      const matchesPhone = patient.phoneNumber?.toLowerCase()?.includes(searchLower) || false;
+      const matchesNotes = patient.notes?.toLowerCase()?.includes(searchLower) || false;
+      return matchesName || matchesPhone || matchesNotes;
+    });
+  }
+
+  // 상담타입 필터링 추가
+  if (consultationTypeFilter !== 'all') {
+    filtered = filtered.filter(patient => 
+      patient.consultationType === consultationTypeFilter
+    );
+  }
+
    // 검색어 필터링 (환자명, 연락처, 메모)
    switch (selectedFilter) {
     case 'unprocessed_callback':
