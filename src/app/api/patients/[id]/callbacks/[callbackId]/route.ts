@@ -21,7 +21,6 @@ async function logActivityToDatabase(activityData: any) {
     console.log('✅ 콜백 API 활동 로그 기록 완료:', activityData.action);
   } catch (error) {
     console.warn('⚠️ 콜백 API 활동 로그 기록 실패:', error);
-    // 로그 실패는 무시하고 계속 진행
   }
 }
 
@@ -37,7 +36,6 @@ function getCurrentUser(request: NextRequest) {
 async function findPatient(db: any, patientId: string) {
   let patient;
   
-  // 1. MongoDB ObjectId로 시도
   if (ObjectId.isValid(patientId)) {
     patient = await db.collection('patients').findOne({ _id: new ObjectId(patientId) });
     if (patient) {
@@ -46,14 +44,12 @@ async function findPatient(db: any, patientId: string) {
     }
   }
   
-  // 2. id 필드로 시도
   patient = await db.collection('patients').findOne({ id: patientId });
   if (patient) {
     console.log('✅ id 필드로 환자 찾음:', patient.name);
     return patient;
   }
   
-  // 3. patientId 필드로 시도
   patient = await db.collection('patients').findOne({ patientId: patientId });
   if (patient) {
     console.log('✅ patientId 필드로 환자 찾음:', patient.name);
@@ -90,7 +86,29 @@ async function updatePatientData(db: any, patient: any, patientId: string, updat
   return result;
 }
 
-// 콜백 업데이트 (PUT)
+// 🔥 내원 콜백 체크 함수
+function checkIfVisitManagementCallback(callbackHistory: any[], callbackId: string) {
+  const callback = callbackHistory.find((cb: any) => cb.id === callbackId);
+  return callback?.isVisitManagementCallback === true;
+}
+
+// 🔥 내원 후 상태 초기화 함수
+function shouldResetPostVisitStatus(callbackHistory: any[], deletedCallback: any) {
+  // 삭제되는 콜백이 내원 관리 콜백이 아니면 초기화하지 않음
+  if (!deletedCallback.isVisitManagementCallback) {
+    return false;
+  }
+  
+  // 삭제 후에도 다른 내원 관리 콜백이 남아있는지 확인
+  const remainingVisitCallbacks = callbackHistory.filter(cb => 
+    cb.id !== deletedCallback.id && cb.isVisitManagementCallback === true
+  );
+  
+  // 내원 관리 콜백이 모두 삭제되면 상태 초기화
+  return remainingVisitCallbacks.length === 0;
+}
+
+// 콜백 업데이트 (PUT) - 기존 로직 유지
 export async function PUT(
   request: NextRequest,
   { params }: { params: { id: string, callbackId: string } }
@@ -104,13 +122,11 @@ export async function PUT(
     console.log(`🔄 콜백 업데이트 시도 - 환자: ${patientId}, 콜백: ${callbackId}`);
     console.log('📝 업데이트 데이터:', updateData);
     
-    // 환자 찾기
     const patient = await findPatient(db, patientId);
     
     if (!patient) {
       console.error('❌ 환자를 찾을 수 없음:', patientId);
       
-      // 🔥 에러 로그 기록
       await logActivityToDatabase({
         action: 'callback_update_api_error',
         targetId: patientId,
@@ -128,14 +144,12 @@ export async function PUT(
       return NextResponse.json({ error: '환자를 찾을 수 없습니다.' }, { status: 404 });
     }
     
-    // 콜백 이력에서 해당 콜백 찾기 및 업데이트
     const callbackHistory = patient.callbackHistory || [];
     const callbackIndex = callbackHistory.findIndex((cb: any) => cb.id === callbackId);
     
     if (callbackIndex === -1) {
       console.error('❌ 콜백을 찾을 수 없음:', callbackId);
       
-      // 🔥 에러 로그 기록
       await logActivityToDatabase({
         action: 'callback_update_api_error',
         targetId: patientId,
@@ -153,7 +167,6 @@ export async function PUT(
       return NextResponse.json({ error: '콜백을 찾을 수 없습니다.' }, { status: 404 });
     }
     
-    // 🔥 기존 콜백 데이터 백업 (로깅용)
     const originalCallback = { ...callbackHistory[callbackIndex] };
     
     // 콜백 데이터 업데이트
@@ -161,7 +174,6 @@ export async function PUT(
       ...callbackHistory[callbackIndex],
       ...updateData,
       updatedAt: new Date().toISOString(),
-      // 🔥 완료 처리 시 현재 시간으로 업데이트
       ...(updateData.status === '완료' && {
         date: format(new Date(), 'yyyy-MM-dd'),
         time: format(new Date(), 'HH:mm'),
@@ -178,7 +190,6 @@ export async function PUT(
       isVisitManagementCallback: callbackHistory[callbackIndex].isVisitManagementCallback
     });
     
-    // 환자 정보 업데이트
     const patientUpdateData = {
       callbackHistory,
       updatedAt: new Date().toISOString()
@@ -189,7 +200,6 @@ export async function PUT(
     if (!result) {
       console.error('❌ 환자 정보 업데이트 실패');
       
-      // 🔥 에러 로그 기록
       await logActivityToDatabase({
         action: 'callback_update_api_error',
         targetId: patientId,
@@ -207,7 +217,6 @@ export async function PUT(
       return NextResponse.json({ error: '콜백 업데이트에 실패했습니다.' }, { status: 500 });
     }
     
-    // ObjectId를 문자열로 변환
     const updatedPatient = result;
     if (updatedPatient._id && typeof updatedPatient._id !== 'string') {
       (updatedPatient as any)._id = updatedPatient._id.toString();
@@ -216,7 +225,6 @@ export async function PUT(
       updatedPatient.id = updatedPatient._id;
     }
     
-    // 🔥 성공 로그 기록
     await logActivityToDatabase({
       action: 'callback_update_api_success',
       targetId: patient.id || patient._id,
@@ -241,7 +249,6 @@ export async function PUT(
   } catch (error) {
     console.error('💥 콜백 업데이트 실패:', error);
     
-    // 🔥 예외 로그 기록
     try {
       const currentUser = getCurrentUser(request);
       await logActivityToDatabase({
@@ -268,7 +275,7 @@ export async function PUT(
   }
 }
 
-// 콜백 삭제 (DELETE)
+// 🔥 콜백 삭제 (DELETE) - 수정된 버전 (환자 상태 업데이트 포함)
 export async function DELETE(
   request: NextRequest,
   { params }: { params: { id: string, callbackId: string } }
@@ -280,13 +287,11 @@ export async function DELETE(
     
     console.log(`🗑️ 콜백 삭제 시도 - 환자: ${patientId}, 콜백: ${callbackId}`);
     
-    // 환자 찾기
     const patient = await findPatient(db, patientId);
     
     if (!patient) {
       console.error('❌ 환자를 찾을 수 없음:', patientId);
       
-      // 🔥 에러 로그 기록
       await logActivityToDatabase({
         action: 'callback_delete_api_error',
         targetId: patientId,
@@ -303,14 +308,12 @@ export async function DELETE(
       return NextResponse.json({ error: '환자를 찾을 수 없습니다.' }, { status: 404 });
     }
     
-    // 콜백 이력에서 해당 콜백 찾기
     const callbackHistory = patient.callbackHistory || [];
     const callbackIndex = callbackHistory.findIndex((cb: any) => cb.id === callbackId);
     
     if (callbackIndex === -1) {
       console.error('❌ 콜백을 찾을 수 없음:', callbackId);
       
-      // 🔥 에러 로그 기록
       await logActivityToDatabase({
         action: 'callback_delete_api_error',
         targetId: patientId,
@@ -331,7 +334,7 @@ export async function DELETE(
     // 🔥 삭제될 콜백 정보 백업 (로깅용)
     const deletedCallback = { ...callbackHistory[callbackIndex] };
     
-    // 콜백 삭제
+    // 🔥 콜백 삭제
     callbackHistory.splice(callbackIndex, 1);
     
     console.log('🗑️ 콜백 삭제 완료:', {
@@ -342,18 +345,43 @@ export async function DELETE(
       remainingCallbacks: callbackHistory.length
     });
     
-    // 환자 정보 업데이트
-    const patientUpdateData = {
+    // 🔥 환자 정보 업데이트 데이터 준비
+    const patientUpdateData: any = {
       callbackHistory,
       updatedAt: new Date().toISOString()
     };
+    
+    // 🔥 내원 후 상태 초기화 여부 확인
+    if (shouldResetPostVisitStatus(callbackHistory, deletedCallback)) {
+      console.log('🔄 내원 관리 콜백이 모두 삭제됨 - 내원 후 상태 초기화');
+      
+      // 내원 후 상태를 "상태 미설정"으로 변경
+      patientUpdateData.postVisitStatus = '';
+      
+      // 내원 후 상담 정보에서 다음 콜백 관련 정보 제거
+      if (patient.postVisitConsultation) {
+        patientUpdateData.postVisitConsultation = {
+          ...patient.postVisitConsultation,
+          nextCallbackDate: undefined,
+          nextConsultationPlan: undefined
+        };
+      }
+      
+      // 다른 관련 필드들도 초기화
+      patientUpdateData.nextCallbackDate = '';
+      patientUpdateData.nextVisitDate = '';
+      
+      console.log('🔄 환자 상태 초기화 완료:', {
+        postVisitStatus: '상태 미설정',
+        clearedFields: ['nextCallbackDate', 'nextVisitDate', 'postVisitConsultation.nextCallbackDate']
+      });
+    }
     
     const result = await updatePatientData(db, patient, patientId, patientUpdateData);
     
     if (!result) {
       console.error('❌ 환자 정보 업데이트 실패');
       
-      // 🔥 에러 로그 기록
       await logActivityToDatabase({
         action: 'callback_delete_api_error',
         targetId: patientId,
@@ -371,7 +399,6 @@ export async function DELETE(
       return NextResponse.json({ error: '콜백 삭제에 실패했습니다.' }, { status: 500 });
     }
     
-    // ObjectId를 문자열로 변환
     const updatedPatient = result;
     if (updatedPatient._id && typeof updatedPatient._id !== 'string') {
       (updatedPatient as any)._id = updatedPatient._id.toString();
@@ -394,6 +421,7 @@ export async function DELETE(
         isVisitManagementCallback: deletedCallback.isVisitManagementCallback || false,
         visitManagementReason: deletedCallback.visitManagementReason,
         remainingCallbacksCount: callbackHistory.length,
+        patientStatusReset: shouldResetPostVisitStatus(callbackHistory, deletedCallback),
         apiEndpoint: '/api/patients/[id]/callbacks/[callbackId]',
         userAgent: request.headers.get('user-agent')?.substring(0, 100)
       }
@@ -410,13 +438,13 @@ export async function DELETE(
         status: deletedCallback.status,
         date: deletedCallback.date,
         isVisitManagementCallback: deletedCallback.isVisitManagementCallback
-      }
+      },
+      patientStatusReset: shouldResetPostVisitStatus(callbackHistory, deletedCallback)
     }, { status: 200 });
     
   } catch (error) {
     console.error('💥 콜백 삭제 실패:', error);
     
-    // 🔥 예외 로그 기록
     try {
       const currentUser = getCurrentUser(request);
       await logActivityToDatabase({
@@ -443,7 +471,7 @@ export async function DELETE(
   }
 }
 
-// 🔥 콜백 조회 (GET) - 선택적 기능
+// 🔥 콜백 조회 (GET) - 기존 로직 유지
 export async function GET(
   request: NextRequest,
   { params }: { params: { id: string, callbackId: string } }
@@ -454,14 +482,12 @@ export async function GET(
     
     console.log(`🔍 콜백 조회 시도 - 환자: ${patientId}, 콜백: ${callbackId}`);
     
-    // 환자 찾기
     const patient = await findPatient(db, patientId);
     
     if (!patient) {
       return NextResponse.json({ error: '환자를 찾을 수 없습니다.' }, { status: 404 });
     }
     
-    // 콜백 찾기
     const callback = patient.callbackHistory?.find((cb: any) => cb.id === callbackId);
     
     if (!callback) {
