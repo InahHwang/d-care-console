@@ -1,4 +1,6 @@
-// src/utils/patientUtils.ts - 새 파일 생성
+// src/utils/patientUtils.ts - 완전한 수정된 버전
+
+import { Patient } from '@/types/patient'
 
 export interface PatientIdDebugInfo {
   patient: any;
@@ -116,4 +118,117 @@ export const validatePatientForAPI = (patient: any, actionName: string): string 
   });
   
   return safeId;
+};
+
+// 🆕 콜백 처리 후 미조치 환자 판별 함수 (부재중 + 완료 모두 포함)
+/**
+ * 콜백이 처리(완료 또는 부재중)되었으면서 그 이후 새로운 예정 콜백이 없는 환자인지 확인
+ * (재콜백필요 상태이면서 완료/부재중 이력이 있지만 추가 조치가 없는 환자)
+ */
+export const isUnprocessedAfterCallback = (patient: Patient): boolean => {
+  // 재콜백필요 상태가 아니면 false
+  if (patient.postVisitStatus !== '재콜백필요') {
+    return false;
+  }
+  
+  // 콜백 이력이 없으면 false
+  if (!patient.callbackHistory || patient.callbackHistory.length === 0) {
+    return false;
+  }
+  
+  // 내원 콜백 중 처리된 것들 찾기 (완료 또는 부재중)
+  const processedVisitCallbacks = patient.callbackHistory.filter(cb => 
+    cb.isVisitManagementCallback === true && 
+    (cb.status === '완료' || cb.status === '부재중') &&
+    cb.type && cb.type.startsWith('내원') && 
+    cb.type.match(/\d+차$/) // 숫자차로 끝나는 것만
+  );
+  
+  // 처리된 콜백이 없으면 false
+  if (processedVisitCallbacks.length === 0) {
+    return false;
+  }
+  
+  // 가장 최근 처리된 콜백 찾기
+  const latestProcessedCallback = processedVisitCallbacks.sort((a, b) => {
+    const dateA = new Date(a.completedAt || a.createdAt || a.date);
+    const dateB = new Date(b.completedAt || b.createdAt || b.date);
+    return dateB.getTime() - dateA.getTime();
+  })[0];
+  
+  if (!latestProcessedCallback) {
+    return false;
+  }
+  
+  const latestProcessedDate = new Date(
+    latestProcessedCallback.completedAt || 
+    latestProcessedCallback.createdAt || 
+    latestProcessedCallback.date
+  );
+  
+  // 가장 최근 처리된 콜백 이후에 생성된 예정 콜백이 있는지 확인
+  const pendingCallbacksAfterProcessed = patient.callbackHistory.filter(cb => {
+    if (!cb.isVisitManagementCallback || cb.status !== '예정') {
+      return false;
+    }
+    
+    const callbackDate = new Date(cb.createdAt || cb.date);
+    return callbackDate > latestProcessedDate;
+  });
+  
+  // 처리된 콜백 이후 새로운 예정 콜백이 없으면 미조치 상태
+  return pendingCallbacksAfterProcessed.length === 0;
+};
+
+// 🆕 기존 함수명도 호환성을 위해 유지 (내부적으로 새 함수 호출)
+export const isUnprocessedAfterMissed = (patient: Patient): boolean => {
+  return isUnprocessedAfterCallback(patient);
+};
+
+// 🆕 콜백 처리 후 경과 시간 계산 함수 (완료/부재중 모두 포함)
+/**
+ * 가장 최근 처리된 콜백(완료 또는 부재중)으로부터 경과된 시간을 계산 (일 단위)
+ */
+export const getDaysSinceProcessed = (patient: Patient): { days: number; status: '완료' | '부재중' } | null => {
+  if (!isUnprocessedAfterCallback(patient)) {
+    return null;
+  }
+  
+  const processedVisitCallbacks = patient.callbackHistory?.filter(cb => 
+    cb.isVisitManagementCallback === true && 
+    (cb.status === '완료' || cb.status === '부재중') &&
+    cb.type && cb.type.startsWith('내원') && 
+    cb.type.match(/\d+차$/)
+  ) || [];
+  
+  if (processedVisitCallbacks.length === 0) {
+    return null;
+  }
+  
+  const latestProcessedCallback = processedVisitCallbacks.sort((a, b) => {
+    const dateA = new Date(a.completedAt || a.createdAt || a.date);
+    const dateB = new Date(b.completedAt || b.createdAt || b.date);
+    return dateB.getTime() - dateA.getTime();
+  })[0];
+  
+  const latestProcessedDate = new Date(
+    latestProcessedCallback.completedAt || 
+    latestProcessedCallback.createdAt || 
+    latestProcessedCallback.date
+  );
+  
+  const today = new Date();
+  const diffTime = today.getTime() - latestProcessedDate.getTime();
+  const diffDays = Math.floor(diffTime / (1000 * 60 * 60 * 24));
+  
+  return {
+    days: diffDays,
+    status: latestProcessedCallback.status as '완료' | '부재중'
+  };
+};
+
+// 🆕 기존 함수명도 호환성을 위해 유지 (내부적으로 새 함수 호출)
+export const getDaysSinceMissed = (patient: Patient): number | null => {
+  const result = getDaysSinceProcessed(patient);
+  return result?.days || null;
 };

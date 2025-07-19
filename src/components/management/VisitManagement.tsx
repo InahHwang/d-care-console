@@ -26,6 +26,9 @@ import PatientDetailModal from './PatientDetailModal'
 import { format, addDays } from 'date-fns'
 import { selectPatientWithContext } from '@/store/slices/patientsSlice' 
 
+// 🔧 수정된 import - 새로운 함수만 import
+import { isUnprocessedAfterCallback, getDaysSinceProcessed } from '@/utils/patientUtils'
+
 // 날짜 필터 타입 추가
 type SimpleDateFilterType = 'all' | 'daily' | 'monthly';
 
@@ -2310,71 +2313,94 @@ const handlePatientUpdate = useCallback((updatedPatient: Patient) => {
             </tr>
            </thead>
            
-           <tbody>
-             {isLoading ? (
-               <tr>
-                 <td colSpan={10} className="px-4 py-8 text-center text-gray-500">
-                   불러오는 중...
-                 </td>
-               </tr>
-             ) : filteredPatients.length === 0 ? (
-               <tr>
-                 <td colSpan={10} className="px-4 py-8 text-center text-gray-500">
-                   조건에 맞는 환자가 없습니다.
-                 </td>
-               </tr>
-             ) : (
-               filteredPatients.map((patient) => {
-                 const patientId = patient._id || patient.id || '';
-                 
-                 return (
-                   <tr 
-                     key={patient._id} 
-                     className="border-b border-gray-200 last:border-0 hover:bg-gray-50 transition-colors duration-150"
-                   >
-                     <td className="px-4 py-4">
-                       <ConsultationTypeBadge 
-                         type={getConsultationTypeForBadge(patient.consultationType)} 
-                         inboundPhoneNumber={patient.inboundPhoneNumber}
-                       />
-                     </td>
-                     <td className="px-4 py-4">
-                       <button
-                         onClick={() => handleViewDetails(patient)}
-                         className="text-sm font-medium text-blue-600 hover:text-blue-800 hover:underline"
-                       >
-                         {patient.name}
-                       </button>
-                     </td>
-                     <td className="px-4 py-4 text-sm text-gray-600">
-                       {patient.age || '-'}
-                     </td>
-                     <td className="px-4 py-4 text-sm text-gray-600">
-                       {patient.phoneNumber}
-                     </td>
-                     <td className="px-4 py-4">
-                       <VisitDateBadge patient={patient} />
-                     </td>                   
-                     <td className="px-4 py-4">
-                       <PostVisitStatusBadge status={patient.postVisitStatus} />
-                     </td>
-                     <td className="px-4 py-4">
-                       <FinalTreatmentCostBadge patient={patient} />
-                     </td>
-                     <td className="px-4 py-4">
-                       <TreatmentContentBadge patient={patient} />
-                     </td>
-                     <td className="px-4 py-4">
-                       <VisitCallbackBadge patient={patient} />
-                     </td>
-                     <td className="px-4 py-4">
-                       <NextAppointmentBadge patient={patient} />
-                     </td>
-                   </tr>
-                 )
-               })
-             )}
-           </tbody>
+            <tbody>
+              {isLoading ? (
+                <tr>
+                  <td colSpan={10} className="px-4 py-8 text-center text-gray-500">
+                    불러오는 중...
+                  </td>
+                </tr>
+              ) : filteredPatients.length === 0 ? (
+                <tr>
+                  <td colSpan={10} className="px-4 py-8 text-center text-gray-500">
+                    조건에 맞는 환자가 없습니다.
+                  </td>
+                </tr>
+              ) : (
+                filteredPatients.map((patient) => {
+                  const patientId = patient._id || patient.id || '';
+                  
+                  // 🆕 콜백 처리 후 미조치 환자 여부 확인 (완료/부재중 모두 포함)
+                  const isUnprocessed = isUnprocessedAfterCallback(patient);
+                  const processedInfo = getDaysSinceProcessed(patient);
+                  
+                  return (
+                    <tr 
+                      key={patient._id} 
+                      className="border-b border-gray-200 last:border-0 hover:bg-gray-50 transition-colors duration-150"
+                      title={isUnprocessed && processedInfo ? 
+                        `${processedInfo.status} 처리 후 ${processedInfo.days}일 경과 - 추가 조치 필요` : ''
+                      }
+                    >
+                      <td className="px-4 py-4">
+                        <ConsultationTypeBadge 
+                          type={getConsultationTypeForBadge(patient.consultationType)} 
+                          inboundPhoneNumber={patient.inboundPhoneNumber}
+                        />
+                      </td>
+                      <td className="px-4 py-4">
+                        <div className="flex items-center gap-2">
+                          <button
+                            onClick={() => handleViewDetails(patient)}
+                            className="text-sm font-medium text-blue-600 hover:text-blue-800 hover:underline"
+                          >
+                            {patient.name}
+                          </button>
+                          {/* 🆕 콜백 처리 후 미조치 환자 표시 아이콘 (완료/부재중 구분) */}
+                          {isUnprocessed && (
+                            <span 
+                              className={`inline-flex items-center justify-center w-5 h-5 text-white rounded-full text-xs font-bold ${
+                                processedInfo?.status === '부재중' ? 'bg-red-500' : 'bg-orange-500'
+                              }`}
+                              title={processedInfo ? 
+                                `${processedInfo.status} 처리 후 ${processedInfo.days}일 경과 - 추가 조치 필요` : 
+                                '추가 조치 필요'
+                              }
+                            >
+                              !
+                            </span>
+                          )}
+                        </div>
+                      </td>
+                      <td className="px-4 py-4 text-sm text-gray-600">
+                        {patient.age || '-'}
+                      </td>
+                      <td className="px-4 py-4 text-sm text-gray-600">
+                        {patient.phoneNumber}
+                      </td>
+                      <td className="px-4 py-4">
+                        <VisitDateBadge patient={patient} />
+                      </td>                   
+                      <td className="px-4 py-4">
+                        <PostVisitStatusBadge status={patient.postVisitStatus} />
+                      </td>
+                      <td className="px-4 py-4">
+                        <FinalTreatmentCostBadge patient={patient} />
+                      </td>
+                      <td className="px-4 py-4">
+                        <TreatmentContentBadge patient={patient} />
+                      </td>
+                      <td className="px-4 py-4">
+                        <VisitCallbackBadge patient={patient} />
+                      </td>
+                      <td className="px-4 py-4">
+                        <NextAppointmentBadge patient={patient} />
+                      </td>
+                    </tr>
+                  )
+                })
+              )}
+            </tbody>
          </table>
        </div>
      </div>

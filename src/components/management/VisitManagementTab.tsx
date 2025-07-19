@@ -19,6 +19,7 @@ import {
 } from 'react-icons/hi'
 import { Icon } from '../common/Icon'
 import EventTargetSection from './EventTargetSection'
+import { PatientDataSync } from '@/utils/dataSync'
 
 interface VisitManagementTabProps {
   patient: Patient
@@ -53,14 +54,13 @@ export default function VisitManagementTab({ patient }: VisitManagementTabProps)
   const [nextCallbackDate, setNextCallbackDate] = useState('')
   const [nextCallbackTime, setNextCallbackTime] = useState('')
   const [nextCallbackNotes, setNextCallbackNotes] = useState('')
-  const [refreshTrigger, setRefreshTrigger] = useState(0)
   
   const [isLoading, setIsLoading] = useState(false)
 
   // 🆕 각 상태별 기록 존재 여부 확인 함수들
   const hasRecallbackRecord = useCallback(() => {
     return getVisitCallbacks().length > 0
-  }, [patient?.callbackHistory, refreshTrigger])
+  }, [patient?.callbackHistory])
 
   const hasTreatmentConsentRecord = useCallback(() => {
     return !!(patient?.postVisitConsultation?.treatmentConsentInfo?.treatmentStartDate ||
@@ -91,7 +91,7 @@ export default function VisitManagementTab({ patient }: VisitManagementTabProps)
         latestCallback.notes ? `내용: ${latestCallback.notes.substring(0, 50)}${latestCallback.notes.length > 50 ? '...' : ''}` : ''
       ].filter(Boolean)
     }
-  }, [patient?.callbackHistory, refreshTrigger])
+  }, [patient?.callbackHistory])
 
   const getTreatmentConsentRecordSummary = useCallback(() => {
     const consentInfo = patient?.postVisitConsultation?.treatmentConsentInfo
@@ -220,7 +220,7 @@ export default function VisitManagementTab({ patient }: VisitManagementTabProps)
     setTreatmentTiming('immediate')
     setReminderCallbackDate('')
     setReminderNotes('')
-  }, [patient, refreshTrigger])
+  }, [patient])
 
   // 유효성 검사 (기존 코드)
   const isFormValid = () => {
@@ -246,7 +246,7 @@ export default function VisitManagementTab({ patient }: VisitManagementTabProps)
       cb.type && cb.type.startsWith('내원') && 
       cb.type.match(/\d+차$/) // 숫자차로 끝나는 것만
     ) || []
-  }, [patient?.callbackHistory, refreshTrigger])
+  }, [patient?.callbackHistory])
 
   // 다음 내원 콜백 타입 결정 함수 (무제한)
   const getNextVisitCallbackType = useCallback(() => {
@@ -291,14 +291,23 @@ export default function VisitManagementTab({ patient }: VisitManagementTabProps)
       
       alert(`${callback.type} 콜백이 완료 처리되었습니다.`)
       
-      setRefreshTrigger(prev => prev + 1)
+      // 🔧 기존 코드 제거
+      // setRefreshTrigger(prev => prev + 1)
+      
+      // 🆕 dataSync 적용
+      PatientDataSync.onCallbackUpdate(
+        patient._id || patient.id, 
+        callback.id, 
+        'VisitManagementTab'
+      )
+      
       setShowNextCallbackForm(true) // 다음 콜백 폼 표시
       
     } catch (error) {
       console.error('콜백 완료 처리 실패:', error)
       alert('콜백 완료 처리에 실패했습니다.')
     }
-  }
+    }
 
   // 콜백 부재중 처리 - 개선된 버전
   const handleMissedCallback = async (callback: any) => {
@@ -325,7 +334,13 @@ export default function VisitManagementTab({ patient }: VisitManagementTabProps)
       
       alert(`${callback.type} 콜백이 부재중 처리되었습니다.`)
       
-      setRefreshTrigger(prev => prev + 1)
+      // 🆕 dataSync 적용
+      PatientDataSync.onCallbackUpdate(
+        patient._id || patient.id, 
+        callback.id, 
+        'VisitManagementTab'
+      )
+
       setShowNextCallbackForm(true) // 다음 콜백 폼 표시
       
     } catch (error) {
@@ -367,8 +382,13 @@ export default function VisitManagementTab({ patient }: VisitManagementTabProps)
       setIsEditingCallback(false)
       setEditingCallbackId('')
       
-      setRefreshTrigger(prev => prev + 1)
-      
+      // 🆕 dataSync 적용
+      PatientDataSync.onCallbackUpdate(
+        patient._id || patient.id, 
+        editingCallbackId, 
+        'VisitManagementTab'
+      )
+
     } catch (error) {
       console.error('콜백 수정 실패:', error)
       alert('콜백 수정에 실패했습니다.')
@@ -390,7 +410,12 @@ export default function VisitManagementTab({ patient }: VisitManagementTabProps)
       
       alert(`${callback.type} 콜백이 삭제되었습니다.`)
       
-      setRefreshTrigger(prev => prev + 1)
+      // 🆕 dataSync 적용
+      PatientDataSync.onCallbackDelete(
+        patient._id || patient.id, 
+        callback.id, 
+        'VisitManagementTab'
+      )
       
     } catch (error) {
       console.error('콜백 삭제 실패:', error)
@@ -430,7 +455,12 @@ export default function VisitManagementTab({ patient }: VisitManagementTabProps)
       setNextCallbackNotes('')
       setNextCallbackTime('')
       
-      setRefreshTrigger(prev => prev + 1)
+      // 🆕 dataSync 적용
+      PatientDataSync.onCallbackAdd(
+        patient._id || patient.id, 
+        nextType, 
+        'VisitManagementTab'
+      )
       
     } catch (error) {
       console.error('다음 콜백 등록 실패:', error)
@@ -523,7 +553,12 @@ export default function VisitManagementTab({ patient }: VisitManagementTabProps)
 
       alert('내원 후 상태가 저장되었습니다.')
       
-      setRefreshTrigger(prev => prev + 1)
+      // 🆕 dataSync 적용
+      PatientDataSync.onPostVisitUpdate(
+        patient._id || patient.id, 
+        postVisitStatus, 
+        'VisitManagementTab'
+      )
       
     } catch (error) {
       console.error('내원 후 상태 저장 실패:', error)
@@ -730,39 +765,44 @@ export default function VisitManagementTab({ patient }: VisitManagementTabProps)
                               </div>
                             )}
                             
-                            {/* 콜백 처리 버튼들 */}
-                            {callback.status === '예정' && (
-                              <div className="flex items-center gap-1">
-                                <button
-                                  onClick={() => handleMissedCallback(callback)}
-                                  className="px-2 py-1 text-xs text-white bg-orange-600 rounded hover:bg-orange-700"
-                                  title="부재중 처리"
-                                >
-                                  부재중
-                                </button>
-                                <button
-                                  onClick={() => handleCompleteCallback(callback)}
-                                  className="px-2 py-1 text-xs text-white bg-green-600 rounded hover:bg-green-700"
-                                  title="완료 처리"
-                                >
-                                  완료
-                                </button>
-                                <button
-                                  onClick={() => handleEditCallback(callback)}
-                                  className="p-1 text-blue-600 hover:bg-blue-100 rounded"
-                                  title="수정"
-                                >
-                                  <Icon icon={HiOutlinePencil} size={12} />
-                                </button>
-                                <button
-                                  onClick={() => handleDeleteCallback(callback)}
-                                  className="p-1 text-red-600 hover:bg-red-100 rounded"
-                                  title="삭제"
-                                >
-                                  <Icon icon={HiOutlineTrash} size={12} />
-                                </button>
-                              </div>
-                            )}
+                            {/* 🔧 수정된 콜백 처리 버튼들 */}
+                            <div className="flex items-center gap-1">
+                              {/* 예정 상태일 때만 완료/부재중 처리 버튼 표시 */}
+                              {callback.status === '예정' && (
+                                <>
+                                  <button
+                                    onClick={() => handleMissedCallback(callback)}
+                                    className="px-2 py-1 text-xs text-white bg-orange-600 rounded hover:bg-orange-700"
+                                    title="부재중 처리"
+                                  >
+                                    부재중
+                                  </button>
+                                  <button
+                                    onClick={() => handleCompleteCallback(callback)}
+                                    className="px-2 py-1 text-xs text-white bg-green-600 rounded hover:bg-green-700"
+                                    title="완료 처리"
+                                  >
+                                    완료
+                                  </button>
+                                </>
+                              )}
+                              
+                              {/* 🆕 모든 상태에 대해 편집/삭제 버튼 표시 */}
+                              <button
+                                onClick={() => handleEditCallback(callback)}
+                                className="p-1 text-blue-600 hover:bg-blue-100 rounded"
+                                title="수정"
+                              >
+                                <Icon icon={HiOutlinePencil} size={12} />
+                              </button>
+                              <button
+                                onClick={() => handleDeleteCallback(callback)}
+                                className="p-1 text-red-600 hover:bg-red-100 rounded"
+                                title="삭제"
+                              >
+                                <Icon icon={HiOutlineTrash} size={12} />
+                              </button>
+                            </div>
                           </div>
                         </div>
                         
