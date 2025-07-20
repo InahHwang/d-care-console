@@ -1,4 +1,4 @@
-// src/components/management/PatientManagement.tsx - 박스 형태 필터 적용
+// src/components/management/PatientManagement.tsx - 탭 메뉴 제거, 환자목록만 단독 사용
 
 'use client'
 
@@ -13,12 +13,9 @@ import { setCurrentMenuItem, openPatientForm } from '@/store/slices/uiSlice'
 // 🔥 데이터 동기화 유틸리티 import 추가
 import { setupDataSyncListener, PatientDataSync } from '@/utils/dataSync'
 import PatientList from './PatientList'
-import CallHistory from './CallHistory'
-import ScheduledCalls from './ScheduledCalls'
-import OngoingConsultations from './OngoingConsultations'
 import PatientFormModal from './PatientFormModal'
 import PatientDetailModal from './PatientDetailModal'
-import MessageLogModal from './MessageLogModal'
+import DeleteConfirmModal from './DeleteConfirmModal'
 import { 
   HiOutlineSearch, 
   HiOutlineAdjustments, 
@@ -29,8 +26,6 @@ import {
 } from 'react-icons/hi'
 import { FiPhone, FiPhoneCall } from 'react-icons/fi'
 import { Icon } from '../common/Icon'
-import EventTargetList from './EventTargetList'
-import DeleteConfirmModal from './DeleteConfirmModal'
 import { selectPatientWithContext } from '@/store/slices/patientsSlice'
 
 // 🔥 간소화된 날짜 필터 타입
@@ -81,7 +76,7 @@ export default function PatientManagement() {
     }
   } = patientsState
   
-  const [activeTab, setActiveTab] = useState('환자 목록')
+  // 🔥 탭 관련 상태 제거 - activeTab 삭제
   
   const [searchTerm, setSearchTerm] = useState('')
   const [interestFilter, setInterestFilter] = useState('all')
@@ -383,24 +378,8 @@ export default function PatientManagement() {
     )
   }
 
-  // URL 파라미터에서 탭 정보 가져오기 (기존 코드 유지)
-  useEffect(() => {
-    const tabParam = searchParams.get('tab')
-    if (tabParam) {
-      const tabMap: Record<string, string> = {
-        'patients': '환자 목록',
-        'calls': '콜 기록',
-        'scheduled': '예정된 콜',
-        'ongoing': '진행중 상담',
-        'event-targets': '이벤트 타겟',
-        'message-logs': '문자발송 내역',
-      }
-      const tab = tabMap[tabParam] || '환자 목록'
-      dispatch(setCurrentMenuItem(tab))
-      setActiveTab(tab)
-    }
-  }, [searchParams, dispatch])
-
+  // 🔥 URL 파라미터 관련 코드 제거 - 탭이 없으므로 필요 없음
+  
   // 초기 데이터 로드 최적화 (기존 코드 유지)
   useEffect(() => {
     console.log('PatientManagement - 초기화 시작');
@@ -442,24 +421,7 @@ export default function PatientManagement() {
     return () => clearTimeout(debounceTimer)
   }, [searchTerm, interestFilter, consultationTypeFilter, selectedBoxFilter, dateFilterType, dailyStartDate, dailyEndDate, selectedYear, selectedMonth, dispatch])
 
-  // 탭 변경 핸들러 최적화 (기존 코드 유지)
-  const handleTabChange = useCallback((tab: string) => {
-    setActiveTab(tab)
-    dispatch(setCurrentMenuItem(tab))
-    
-    if (tab === '환자 목록') {
-      const queryState = queryClient.getQueryState(['patients']);
-      const isStale = !queryState?.data || Date.now() - (queryState.dataUpdatedAt || 0) > 5 * 60 * 1000;
-      
-      if (isStale && (!queryPatients || queryPatients.length === 0)) {
-        refetchPatients();
-      }
-      console.log('🎯 탭 변경: 환자 목록 - 캐시 상태 확인됨');
-    } else if (tab === '이벤트 타겟') {
-      dispatch(initializeEventTargets());
-      console.log('🎯 탭 변경: 이벤트 타겟');
-    }
-  }, [dispatch, queryPatients?.length, refetchPatients, queryClient]);
+  // 🔥 탭 변경 핸들러 제거 - 더 이상 탭이 없음
 
   // 기존 핸들러들 (유지)
   const handleSearchChange = useCallback((e: React.ChangeEvent<HTMLInputElement>) => {
@@ -583,24 +545,6 @@ export default function PatientManagement() {
       <div className="flex items-center justify-between mb-6">
         <div>
           <h1 className="text-2xl font-bold text-text-primary">상담 관리</h1>
-          {/* 🔥 요약 텍스트 제거 - 아래 div 전체를 삭제 */}
-          {/* <div className="flex items-center space-x-4 mt-1">
-            <span className="text-sm text-gray-600">
-              전체: <strong>{totalCount}명</strong>
-            </span>
-            <span className="text-sm text-green-600">
-              인바운드: <strong>{inboundCount}명</strong>
-            </span>
-            <span className="text-sm text-blue-600">
-              아웃바운드: <strong>{outboundCount}명</strong>
-            </span>
-            <span className="text-sm text-indigo-600">
-              내원확정: <strong>{visitConfirmedCount}명</strong>
-            </span>
-            <span className="text-sm text-yellow-600">
-              추가콜백필요: <strong>{postVisitNeededCount}명</strong>
-            </span>
-          </div> */}
         </div>
         
         <div className="flex items-center space-x-3">
@@ -625,278 +569,224 @@ export default function PatientManagement() {
         </div>
       </div>
 
-      {/* 탭 메뉴 (기존 코드 유지) */}
-      <div className="card p-0 mb-6">
-        <div className="flex items-center overflow-x-auto">
-          <button
-            className={`px-6 py-3 text-sm font-medium transition-colors relative ${
-              activeTab === '이벤트 타겟'
-                ? 'text-primary bg-primary/10 rounded-t-lg'
-                : 'text-text-secondary hover:bg-light-bg'
-            }`}
-            onClick={() => handleTabChange('이벤트 타겟')}
-          >
-            이벤트 타겟
-            {activeTab === '이벤트 타겟' && (
-              <div className="absolute bottom-0 left-0 right-0 h-0.5 bg-primary"></div>
-            )}
-          </button>
-          <button
-            className={`px-6 py-3 text-sm font-medium transition-colors relative ${
-              activeTab === '환자 목록'
-                ? 'text-primary bg-primary/10 rounded-t-lg'
-                : 'text-text-secondary hover:bg-light-bg'
-            }`}
-            onClick={() => handleTabChange('환자 목록')}
-          >
-            환자 목록
-            {activeTab === '환자 목록' && (
-              <div className="absolute bottom-0 left-0 right-0 h-0.5 bg-primary"></div>
-            )}
-          </button>
-          <button
-            className={`px-6 py-3 text-sm font-medium transition-colors relative ${
-              activeTab === '문자발송 내역'
-                ? 'text-primary bg-primary/10 rounded-t-lg'
-                : 'text-text-secondary hover:bg-light-bg'
-            }`}
-            onClick={() => handleTabChange('문자발송 내역')}
-          >
-            문자발송 내역
-            {activeTab === '문자발송 내역' && (
-              <div className="absolute bottom-0 left-0 right-0 h-0.5 bg-primary"></div>
-            )}
-          </button>
-        </div>
-      </div>
+      {/* 🔥 탭 메뉴 완전 제거 */}
 
       {/* 🔥 수정된 필터 영역 - 상태/내원상태 필터 제거 */}
-      {activeTab === '환자 목록' && (
-        <div className="card mb-6">
-          <div className="flex flex-col gap-4">
-            {/* 첫 번째 줄: 검색, 상담타입, 관심분야 */}
-            <div className="flex flex-col md:flex-row items-start md:items-center gap-4">
-              <div className="relative flex-1">
-                <input
-                  type="text"
-                  placeholder="환자명, 연락처 또는 메모 검색"
-                  className="pl-10 pr-4 py-2 w-full bg-light-bg rounded-full text-sm focus:outline-none"
-                  value={searchTerm}
-                  onChange={handleSearchChange}
-                />
-                <Icon 
-                  icon={HiOutlineSearch} 
-                  size={18} 
-                  className="absolute left-3 top-1/2 transform -translate-y-1/2 text-text-muted" 
-                />
-              </div>
+      <div className="card mb-6">
+        <div className="flex flex-col gap-4">
+          {/* 첫 번째 줄: 검색, 상담타입, 관심분야 */}
+          <div className="flex flex-col md:flex-row items-start md:items-center gap-4">
+            <div className="relative flex-1">
+              <input
+                type="text"
+                placeholder="환자명, 연락처 또는 메모 검색"
+                className="pl-10 pr-4 py-2 w-full bg-light-bg rounded-full text-sm focus:outline-none"
+                value={searchTerm}
+                onChange={handleSearchChange}
+              />
+              <Icon 
+                icon={HiOutlineSearch} 
+                size={18} 
+                className="absolute left-3 top-1/2 transform -translate-y-1/2 text-text-muted" 
+              />
+            </div>
 
-              <select
-                className="px-4 py-2 bg-light-bg rounded-full text-sm focus:outline-none text-text-secondary md:w-40"
-                value={consultationTypeFilter}
-                onChange={handleConsultationTypeFilterChange}
-              >
-                <option value="all">상담 타입 ▼</option>
-                <option value="inbound">🟢 인바운드</option>
-                <option value="outbound">🔵 아웃바운드</option>
-              </select>
+            <select
+              className="px-4 py-2 bg-light-bg rounded-full text-sm focus:outline-none text-text-secondary md:w-40"
+              value={consultationTypeFilter}
+              onChange={handleConsultationTypeFilterChange}
+            >
+              <option value="all">상담 타입 ▼</option>
+              <option value="inbound">🟢 인바운드</option>
+              <option value="outbound">🔵 아웃바운드</option>
+            </select>
 
-              <select
-                className="px-4 py-2 bg-light-bg rounded-full text-sm focus:outline-none text-text-secondary md:w-36"
-                value={interestFilter}
-                onChange={handleInterestFilterChange}
-              >
-                <option value="all">관심 분야 ▼</option>
-                <option value="단일 임플란트">단일 임플란트</option>
-                <option value="다수 임플란트">다수 임플란트</option>
-                <option value="무치악 임플란트">무치악 임플란트</option>
-                <option value="틀니">틀니</option>
-                <option value="라미네이트">라미네이트</option>
-                <option value="충치치료">충치치료</option>
-                <option value="기타">기타</option>
-              </select>
+            <select
+              className="px-4 py-2 bg-light-bg rounded-full text-sm focus:outline-none text-text-secondary md:w-36"
+              value={interestFilter}
+              onChange={handleInterestFilterChange}
+            >
+              <option value="all">관심 분야 ▼</option>
+              <option value="단일 임플란트">단일 임플란트</option>
+              <option value="다수 임플란트">다수 임플란트</option>
+              <option value="무치악 임플란트">무치악 임플란트</option>
+              <option value="틀니">틀니</option>
+              <option value="라미네이트">라미네이트</option>
+              <option value="충치치료">충치치료</option>
+              <option value="기타">기타</option>
+            </select>
 
+            <button
+              className="px-6 py-2 bg-primary rounded-full text-sm font-medium text-white hover:bg-primary/90 transition-colors flex items-center gap-2"
+              onClick={() => dispatch(openPatientForm())}
+            >
+              <Icon icon={HiOutlineUserAdd} size={16} />
+              <span>+ 신규 환자</span>
+            </button>
+          </div>
+
+          {/* 두 번째 줄: 간소화된 날짜 필터 */}
+          <div className="flex flex-col md:flex-row items-start md:items-center gap-4">
+            <div className="flex items-center gap-2">
+              <Icon icon={HiOutlineCalendar} size={18} className="text-text-muted" />
+              <span className="text-sm text-text-secondary">콜 유입날짜:</span>
+            </div>
+
+            {/* 날짜 필터 타입 선택 버튼들 */}
+            <div className="flex items-center gap-2">
               <button
-                className="px-6 py-2 bg-primary rounded-full text-sm font-medium text-white hover:bg-primary/90 transition-colors flex items-center gap-2"
-                onClick={() => dispatch(openPatientForm())}
+                onClick={() => handleDateFilterTypeChange('all')}
+                className={`px-4 py-2 rounded-full text-sm font-medium transition-colors ${
+                  dateFilterType === 'all'
+                    ? 'bg-blue-500 text-white'
+                    : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
+                }`}
               >
-                <Icon icon={HiOutlineUserAdd} size={16} />
-                <span>+ 신규 환자</span>
+                전체
+              </button>
+              <button
+                onClick={() => handleDateFilterTypeChange('daily')}
+                className={`px-4 py-2 rounded-full text-sm font-medium transition-colors ${
+                  dateFilterType === 'daily'
+                    ? 'bg-blue-500 text-white'
+                    : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
+                }`}
+              >
+                일별 선택
+              </button>
+              <button
+                onClick={() => handleDateFilterTypeChange('monthly')}
+                className={`px-4 py-2 rounded-full text-sm font-medium transition-colors ${
+                  dateFilterType === 'monthly'
+                    ? 'bg-blue-500 text-white'
+                    : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
+                }`}
+              >
+                월별 선택
               </button>
             </div>
 
-            {/* 두 번째 줄: 간소화된 날짜 필터 */}
-            <div className="flex flex-col md:flex-row items-start md:items-center gap-4">
-              <div className="flex items-center gap-2">
-                <Icon icon={HiOutlineCalendar} size={18} className="text-text-muted" />
-                <span className="text-sm text-text-secondary">콜 유입날짜:</span>
+            {/* 일별 선택시 날짜 입력 필드 */}
+            {dateFilterType === 'daily' && (
+              <>
+                <input
+                  type="date"
+                  value={dailyStartDate}
+                  onChange={(e) => setDailyStartDate(e.target.value)}
+                  className="px-4 py-2 bg-light-bg rounded-full text-sm focus:outline-none text-text-secondary"
+                />
+                <span className="text-text-muted">~</span>
+                <input
+                  type="date"
+                  value={dailyEndDate}
+                  onChange={(e) => setDailyEndDate(e.target.value)}
+                  className="px-4 py-2 bg-light-bg rounded-full text-sm focus:outline-none text-text-secondary"
+                />
+              </>
+            )}
+
+            {/* 월별 선택시 연/월 선택 필드 */}
+            {dateFilterType === 'monthly' && (
+              <>
+                <select
+                  value={selectedYear}
+                  onChange={(e) => setSelectedYear(parseInt(e.target.value))}
+                  className="px-4 py-2 bg-light-bg rounded-full text-sm focus:outline-none text-text-secondary"
+                >
+                  {availableYears.map(year => (
+                    <option key={year} value={year}>{year}년</option>
+                  ))}
+                </select>
+                <select
+                  value={selectedMonth}
+                  onChange={(e) => setSelectedMonth(parseInt(e.target.value))}
+                  className="px-4 py-2 bg-light-bg rounded-full text-sm focus:outline-none text-text-secondary"
+                >
+                  {months.map(month => (
+                    <option key={month.value} value={month.value}>{month.label}</option>
+                  ))}
+                </select>
+              </>
+            )}
+          </div>
+        </div>
+
+        {/* 🔥 수정된 필터 결과 요약 표시 */}
+        {(consultationTypeFilter !== 'all' || interestFilter !== 'all' || dateFilterType !== 'all' || searchTerm || selectedBoxFilter !== 'all') && (
+          <div className="mt-4 p-3 bg-blue-50 rounded-lg">
+            <div className="flex items-center justify-between">
+              <div className="flex items-center space-x-2 text-sm text-blue-800 flex-wrap">
+                <span>🔍 필터링 결과: <strong>{totalCount}명</strong></span>
+                
+                {/* 🔥 박스 필터 표시 */}
+                {selectedBoxFilter !== 'all' && (
+                  <span className="inline-flex items-center px-2 py-1 rounded-full text-xs bg-blue-200 text-blue-800">
+                    {statusBoxes.find(b => b.key === selectedBoxFilter)?.label}
+                  </span>
+                )}
+                
+                {getDateFilterDisplayText() && (
+                  <span className="inline-flex items-center px-2 py-1 rounded-full text-xs bg-blue-200 text-blue-800">
+                    {getDateFilterDisplayText()}
+                  </span>
+                )}
+                
+                {consultationTypeFilter !== 'all' && (
+                  <span className="inline-flex items-center px-2 py-1 rounded-full text-xs bg-blue-200 text-blue-800">
+                    {consultationTypeFilter === 'inbound' ? '🟢 인바운드' : '🔵 아웃바운드'}
+                  </span>
+                )}
+                
+                {interestFilter !== 'all' && (
+                  <span className="inline-flex items-center px-2 py-1 rounded-full text-xs bg-blue-200 text-blue-800">
+                    {interestFilter}
+                  </span>
+                )}
+                
+                {searchTerm && (
+                  <span className="inline-flex items-center px-2 py-1 rounded-full text-xs bg-blue-200 text-blue-800">
+                    "{searchTerm}"
+                  </span>
+                )}
               </div>
-
-              {/* 날짜 필터 타입 선택 버튼들 */}
-              <div className="flex items-center gap-2">
-                <button
-                  onClick={() => handleDateFilterTypeChange('all')}
-                  className={`px-4 py-2 rounded-full text-sm font-medium transition-colors ${
-                    dateFilterType === 'all'
-                      ? 'bg-blue-500 text-white'
-                      : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
-                  }`}
-                >
-                  전체
-                </button>
-                <button
-                  onClick={() => handleDateFilterTypeChange('daily')}
-                  className={`px-4 py-2 rounded-full text-sm font-medium transition-colors ${
-                    dateFilterType === 'daily'
-                      ? 'bg-blue-500 text-white'
-                      : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
-                  }`}
-                >
-                  일별 선택
-                </button>
-                <button
-                  onClick={() => handleDateFilterTypeChange('monthly')}
-                  className={`px-4 py-2 rounded-full text-sm font-medium transition-colors ${
-                    dateFilterType === 'monthly'
-                      ? 'bg-blue-500 text-white'
-                      : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
-                  }`}
-                >
-                  월별 선택
-                </button>
-              </div>
-
-              {/* 일별 선택시 날짜 입력 필드 */}
-              {dateFilterType === 'daily' && (
-                <>
-                  <input
-                    type="date"
-                    value={dailyStartDate}
-                    onChange={(e) => setDailyStartDate(e.target.value)}
-                    className="px-4 py-2 bg-light-bg rounded-full text-sm focus:outline-none text-text-secondary"
-                  />
-                  <span className="text-text-muted">~</span>
-                  <input
-                    type="date"
-                    value={dailyEndDate}
-                    onChange={(e) => setDailyEndDate(e.target.value)}
-                    className="px-4 py-2 bg-light-bg rounded-full text-sm focus:outline-none text-text-secondary"
-                  />
-                </>
-              )}
-
-              {/* 월별 선택시 연/월 선택 필드 */}
-              {dateFilterType === 'monthly' && (
-                <>
-                  <select
-                    value={selectedYear}
-                    onChange={(e) => setSelectedYear(parseInt(e.target.value))}
-                    className="px-4 py-2 bg-light-bg rounded-full text-sm focus:outline-none text-text-secondary"
-                  >
-                    {availableYears.map(year => (
-                      <option key={year} value={year}>{year}년</option>
-                    ))}
-                  </select>
-                  <select
-                    value={selectedMonth}
-                    onChange={(e) => setSelectedMonth(parseInt(e.target.value))}
-                    className="px-4 py-2 bg-light-bg rounded-full text-sm focus:outline-none text-text-secondary"
-                  >
-                    {months.map(month => (
-                      <option key={month.value} value={month.value}>{month.label}</option>
-                    ))}
-                  </select>
-                </>
-              )}
+              <button
+                onClick={handleResetFilters}
+                className="text-xs text-blue-600 hover:text-blue-800 underline"
+              >
+                전체 보기
+              </button>
             </div>
           </div>
-
-          {/* 🔥 수정된 필터 결과 요약 표시 */}
-          {(consultationTypeFilter !== 'all' || interestFilter !== 'all' || dateFilterType !== 'all' || searchTerm || selectedBoxFilter !== 'all') && (
-            <div className="mt-4 p-3 bg-blue-50 rounded-lg">
-              <div className="flex items-center justify-between">
-                <div className="flex items-center space-x-2 text-sm text-blue-800 flex-wrap">
-                  <span>🔍 필터링 결과: <strong>{totalCount}명</strong></span>
-                  
-                  {/* 🔥 박스 필터 표시 */}
-                  {selectedBoxFilter !== 'all' && (
-                    <span className="inline-flex items-center px-2 py-1 rounded-full text-xs bg-blue-200 text-blue-800">
-                      {statusBoxes.find(b => b.key === selectedBoxFilter)?.label}
-                    </span>
-                  )}
-                  
-                  {getDateFilterDisplayText() && (
-                    <span className="inline-flex items-center px-2 py-1 rounded-full text-xs bg-blue-200 text-blue-800">
-                      {getDateFilterDisplayText()}
-                    </span>
-                  )}
-                  
-                  {consultationTypeFilter !== 'all' && (
-                    <span className="inline-flex items-center px-2 py-1 rounded-full text-xs bg-blue-200 text-blue-800">
-                      {consultationTypeFilter === 'inbound' ? '🟢 인바운드' : '🔵 아웃바운드'}
-                    </span>
-                  )}
-                  
-                  {interestFilter !== 'all' && (
-                    <span className="inline-flex items-center px-2 py-1 rounded-full text-xs bg-blue-200 text-blue-800">
-                      {interestFilter}
-                    </span>
-                  )}
-                  
-                  {searchTerm && (
-                    <span className="inline-flex items-center px-2 py-1 rounded-full text-xs bg-blue-200 text-blue-800">
-                      "{searchTerm}"
-                    </span>
-                  )}
-                </div>
-                <button
-                  onClick={handleResetFilters}
-                  className="text-xs text-blue-600 hover:text-blue-800 underline"
-                >
-                  전체 보기
-                </button>
-              </div>
-            </div>
-          )}
-        </div>
-      )}
+        )}
+      </div>
 
       {/* 🔥 박스 형태 상태 카드 (검색창 섹션 아래로 이동) */}
-      {activeTab === '환자 목록' && (
-        <div className="grid grid-cols-2 md:grid-cols-6 gap-4 mb-6">
-          {statusBoxes.map((box) => (
-            <div 
-              key={box.key}
-              className={`p-4 rounded-lg border cursor-pointer transition-all duration-200 ${
-                selectedBoxFilter === box.key 
-                  ? 'ring-2 ring-blue-500 shadow-lg' 
-                  : 'hover:shadow-lg'
-              } ${box.color}`}
-              onClick={() => handleBoxClick(box.key)}
-            >
-              <div className={`text-2xl font-bold ${box.textColor}`}>
-                {box.count}
-              </div>
-              <div className="text-sm text-gray-600">{box.label}</div>
+      <div className="grid grid-cols-2 md:grid-cols-6 gap-4 mb-6">
+        {statusBoxes.map((box) => (
+          <div 
+            key={box.key}
+            className={`p-4 rounded-lg border cursor-pointer transition-all duration-200 ${
+              selectedBoxFilter === box.key 
+                ? 'ring-2 ring-blue-500 shadow-lg' 
+                : 'hover:shadow-lg'
+            } ${box.color}`}
+            onClick={() => handleBoxClick(box.key)}
+          >
+            <div className={`text-2xl font-bold ${box.textColor}`}>
+              {box.count}
             </div>
-          ))}
-        </div>
-      )}
+            <div className="text-sm text-gray-600">{box.label}</div>
+          </div>
+        ))}
+      </div>
 
-      {/* 콘텐츠 영역 (기존 코드 유지) */}
+      {/* 🔥 콘텐츠 영역 - 환자목록만 표시 */}
       <div>
-        {activeTab === '환자 목록' && (
-          <PatientList 
-            isLoading={queryLoading && (!queryPatients || queryPatients.length === 0)}
-            filteredPatients={filteredPatients}
-            onSelectPatient={handleSelectPatient} // 🆕 핸들러 전달
-          />
-        )}
-        {activeTab === '이벤트 타겟' && <EventTargetList />}
-        {activeTab === '문자발송 내역' && <MessageLogModal isOpen={true} onClose={() => {}} embedded={true} />}
-        {activeTab === '콜 기록' && <CallHistory />}
-        {activeTab === '예정된 콜' && <ScheduledCalls />}
-        {activeTab === '진행중 상담' && <OngoingConsultations />}
+        <PatientList 
+          isLoading={queryLoading && (!queryPatients || queryPatients.length === 0)}
+          filteredPatients={filteredPatients}
+          onSelectPatient={handleSelectPatient}
+        />
       </div>
 
       <PatientFormModal />

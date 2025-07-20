@@ -1,20 +1,22 @@
-//src/app/settings/page.tsx
+// src/app/settings/page.tsx
 
 'use client'
 
 import { useState } from 'react'
 import AppLayout from '@/components/layout/AppLayout'
-import TemplateSettings from '@/components/settings/TemplateSettings'
 import GoalSettings from '@/components/settings/GoalSettings'
 import { 
-  HiOutlineTemplate, 
   HiOutlineUserCircle, 
   HiOutlineOfficeBuilding, 
   HiOutlineTag
 } from 'react-icons/hi'
 import { Icon } from '@/components/common/Icon'
 
-type SettingsTab = 'account' | 'clinic' | 'goals' | 'templates'
+// 🔥 메시지 템플릿 관련 import 제거
+// import TemplateSettings from '@/components/settings/TemplateSettings'
+// import { HiOutlineTemplate } from 'react-icons/hi'
+
+type SettingsTab = 'account' | 'clinic' | 'goals' // 🔥 'templates' 제거
 
 export default function SettingsPage() {
   const [activeTab, setActiveTab] = useState<SettingsTab>('goals')
@@ -24,7 +26,7 @@ export default function SettingsPage() {
       <div className="card p-6">
         <h2 className="text-xl font-bold text-text-primary mb-6">설정</h2>
         
-        {/* 탭 네비게이션 */}
+        {/* 탭 네비게이션 - 메시지 템플릿 탭 제거 */}
         <div className="flex border-b border-border mb-6 overflow-x-auto">
           <button
             className={`px-4 py-2 font-medium text-sm border-b-2 -mb-px flex items-center gap-1.5 whitespace-nowrap ${
@@ -59,20 +61,10 @@ export default function SettingsPage() {
             <Icon icon={HiOutlineTag} size={16} />
             목표 설정
           </button>
-          <button
-            className={`px-4 py-2 font-medium text-sm border-b-2 -mb-px flex items-center gap-1.5 whitespace-nowrap ${
-              activeTab === 'templates' 
-                ? 'border-primary text-primary' 
-                : 'border-transparent text-text-secondary hover:text-text-primary'
-            }`}
-            onClick={() => setActiveTab('templates')}
-          >
-            <Icon icon={HiOutlineTemplate} size={16} />
-            메시지 템플릿
-          </button>
+          {/* 🔥 메시지 템플릿 탭 완전 제거 */}
         </div>
         
-        {/* 탭 내용 */}
+        {/* 탭 내용 - 메시지 템플릿 관련 제거 */}
         <div>
           {activeTab === 'account' && (
             <div className="flex items-center justify-center h-64">
@@ -98,7 +90,7 @@ export default function SettingsPage() {
           
           {activeTab === 'goals' && <GoalSettings />}
           
-          {activeTab === 'templates' && <TemplateSettings />}
+          {/* 🔥 메시지 템플릿 탭 내용 완전 제거 */}
         </div>
       </div>
     </AppLayout>

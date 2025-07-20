@@ -1,4 +1,4 @@
-// src/components/management/PatientList.tsx - 미처리 콜백 강조표시 추가
+// src/components/management/PatientList.tsx - 이벤트 타겟 표시 추가 완전한 버전
 
 'use client'
 import { useSelector, useDispatch } from 'react-redux'
@@ -7,7 +7,7 @@ import { Patient } from '@/types/patient'
 import { setPage, selectPatient, toggleVisitConfirmation, fetchPatients, selectPatientWithContext } from '@/store/slices/patientsSlice'
 import { openDeleteConfirm, toggleHideCompletedVisits } from '@/store/slices/uiSlice'
 import { IconType } from 'react-icons'
-import { HiOutlineChevronLeft, HiOutlineChevronRight, HiOutlineArrowUp, HiOutlineTrash, HiOutlineCheck, HiOutlineEyeOff, HiOutlineEye, HiOutlineUser, HiOutlineRefresh  } from 'react-icons/hi'
+import { HiOutlineChevronLeft, HiOutlineChevronRight, HiOutlineArrowUp, HiOutlineTrash, HiOutlineCheck, HiOutlineEyeOff, HiOutlineEye, HiOutlineUser, HiOutlineRefresh, HiOutlineTag  } from 'react-icons/hi'
 import { FiPhone, FiPhoneCall } from 'react-icons/fi'
 import { Icon } from '../common/Icon'
 import { useState, useEffect, useMemo } from 'react'
@@ -17,6 +17,57 @@ import ReservationDateModal from './ReservationDateModal'
 import CancelVisitConfirmationModal from './CancelVisitConfirmationModal'
 import { useQueryClient } from '@tanstack/react-query'
 
+// 🔥 이벤트 타겟 표시 컴포넌트
+const EventTargetBadge = ({ patient, context = 'management' }: { 
+  patient: Patient; 
+  context?: 'management' | 'visit-management' 
+}) => {
+  // 이벤트 타겟이 아니면 아무것도 표시하지 않음
+  if (!patient.eventTargetInfo?.isEventTarget) {
+    return null;
+  }
+
+  // 상담관리 메뉴에서의 구분
+  if (context === 'management') {
+    const hasVisitCompleted = patient.visitConfirmed === true;
+    
+    if (hasVisitCompleted) {
+      // 내원완료 후 이벤트 타겟 - 파란색
+      return (
+        <span 
+          className="inline-flex items-center justify-center w-4 h-4 ml-1 text-blue-600"
+          title="내원완료 후 이벤트 타겟 관리 대상"
+        >
+          <HiOutlineTag size={14} />
+        </span>
+      );
+    } else {
+      // 일반 이벤트 타겟 - 주황색  
+      return (
+        <span 
+          className="inline-flex items-center justify-center w-4 h-4 ml-1 text-orange-600"
+          title="전화상담 단계 이벤트 타겟 관리 대상"
+        >
+          <HiOutlineTag size={14} />
+        </span>
+      );
+    }
+  }
+
+  // 내원관리 메뉴에서의 표시 (내원완료 후 이벤트 타겟과 동일한 색상)
+  if (context === 'visit-management') {
+    return (
+      <span 
+        className="inline-flex items-center justify-center w-4 h-4 ml-1 text-blue-600"
+        title="이벤트 타겟 관리 대상"
+      >
+        <HiOutlineTag size={14} />
+      </span>
+    );
+  }
+
+  return null;
+};
 
 interface PatientListProps {
   isLoading: boolean;
@@ -707,10 +758,12 @@ export default function PatientList({ isLoading = false, filteredPatients, onSel
                         refreshTrigger={tooltipRefreshTrigger}
                       >
                         <button 
-                          onClick={() => handlePatientClick(patientId)} // 🔧 handlePatientClick 사용
-                          className="hover:underline"
+                          onClick={() => handlePatientClick(patientId)}
+                          className="hover:underline flex items-center"
                         >
-                          {patient.name}
+                          <span>{patient.name}</span>
+                          {/* 🔥 이벤트 타겟 표시 추가 */}
+                          <EventTargetBadge patient={patient} context="management" />
                         </button>
                       </PatientTooltip>
                     </td>
@@ -780,7 +833,7 @@ export default function PatientList({ isLoading = false, filteredPatients, onSel
                       <div className="flex items-center justify-center gap-2">
                         <button
                           className="inline-flex items-center justify-center w-8 h-8 rounded-full bg-primary text-white hover:bg-primary/90 transition-colors duration-150"
-                          onClick={() => handlePatientClick(patientId)} // 🔧 handlePatientClick 사용
+                          onClick={() => handlePatientClick(patientId)}
                           title="상세 정보"
                         >
                           <Icon 

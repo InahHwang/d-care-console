@@ -15,7 +15,7 @@ import FloatingMemoManager from '../admin/FloatingMemoManager'; // 🔥 추가
 
 interface AppLayoutProps {
   children: ReactNode
-  currentPage?: 'dashboard' | 'management' | 'statistics' | 'settings' | 'reports' // 🔥 reports 추가
+  currentPage?: 'dashboard' | 'management' | 'statistics' | 'settings' | 'reports' | 'event-target-management' // 🔥 reports 추가
 }
 
 const getMenuItemFromPage = (page?: string) => {

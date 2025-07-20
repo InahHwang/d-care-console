@@ -15,7 +15,8 @@ import {
   HiOutlineCog,
   HiOutlineDocumentReport,
   HiOutlineClipboardCheck, // 🔥 내원 관리 아이콘 추가
-  HiOutlineLightBulb // 🔥 스마트 보고서 아이콘 추가
+  HiOutlineLightBulb, // 🔥 스마트 보고서 아이콘 추가
+  HiOutlineVolumeUp // 🆕 이벤트타겟관리 아이콘 추가
 } from 'react-icons/hi'
 import { Icon } from '../common/Icon'
 import { useMemo } from 'react'
@@ -132,6 +133,14 @@ export default function Sidebar() {
           href="/visit-management"
           badge={visitManagementBadge}
         />
+        {/* 🆕 이벤트타겟관리 메뉴 추가 */}
+        <SidebarItem 
+          icon={HiOutlineVolumeUp} 
+          text="이벤트 타겟 관리" 
+          isActive={getIsActive('/event-target-management', '이벤트타겟관리')} 
+          href="/event-target-management"
+        />
+
        {/* 임시 비활성화
        <SidebarItem 
           icon={HiOutlineChartBar} 

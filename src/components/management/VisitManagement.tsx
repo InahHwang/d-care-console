@@ -18,13 +18,15 @@ import {
   HiOutlinePlus,
   HiOutlinePencil,
   HiOutlineTrash,
-  HiOutlineUser
+  HiOutlineUser,
+  HiOutlineTag
 } from 'react-icons/hi'
 import { FiPhone, FiPhoneCall } from 'react-icons/fi'
 import { Icon } from '../common/Icon'
 import PatientDetailModal from './PatientDetailModal'
 import { format, addDays } from 'date-fns'
 import { selectPatientWithContext } from '@/store/slices/patientsSlice' 
+
 
 // 🔧 수정된 import - 새로운 함수만 import
 import { isUnprocessedAfterCallback, getDaysSinceProcessed } from '@/utils/patientUtils'
@@ -1250,6 +1252,24 @@ const ConsultationTypeBadge = ({ type, inboundPhoneNumber }: {
   );
 };
 
+// 🔥 이벤트 타겟 표시 컴포넌트 추가
+const EventTargetBadge = ({ patient }: { patient: Patient }) => {
+  // 이벤트 타겟이 아니면 아무것도 표시하지 않음
+  if (!patient.eventTargetInfo?.isEventTarget) {
+    return null;
+  }
+
+  // 내원관리에서는 내원완료 후 이벤트 타겟과 동일한 색상 사용
+  return (
+    <span 
+      className="inline-flex items-center justify-center w-4 h-4 ml-1 text-blue-600"
+      title="이벤트 타겟 관리 대상"
+    >
+      <HiOutlineTag size={14} />
+    </span>
+  );
+};
+
 // 🔥 내원일자 표시 컴포넌트 추가 (새로 추가)
 const VisitDateBadge = ({ patient }: { patient: Patient }) => {
   // 우선순위: visitDate > reservationDate
@@ -2352,11 +2372,13 @@ const handlePatientUpdate = useCallback((updatedPatient: Patient) => {
                         <div className="flex items-center gap-2">
                           <button
                             onClick={() => handleViewDetails(patient)}
-                            className="text-sm font-medium text-blue-600 hover:text-blue-800 hover:underline"
+                            className="text-sm font-medium text-blue-600 hover:text-blue-800 hover:underline flex items-center"
                           >
-                            {patient.name}
+                            <span>{patient.name}</span>
+                            {/* 🔥 이벤트 타겟 표시 추가 */}
+                            <EventTargetBadge patient={patient} />
                           </button>
-                          {/* 🆕 콜백 처리 후 미조치 환자 표시 아이콘 (완료/부재중 구분) */}
+                          {/* 🆕 콜백 처리 후 미조치 환자 표시 아이콘 (기존 코드 유지) */}
                           {isUnprocessed && (
                             <span 
                               className={`inline-flex items-center justify-center w-5 h-5 text-white rounded-full text-xs font-bold ${
