@@ -261,7 +261,8 @@ export async function GET(request: NextRequest) {
           status: patient.status,
           visitConfirmed,
           postVisitStatus: patient.postVisitStatus,
-          isCompleted
+          isCompleted,
+          consultationType: patient.consultationType || 'outbound' 
         };
       })
       .sort((a, b) => {

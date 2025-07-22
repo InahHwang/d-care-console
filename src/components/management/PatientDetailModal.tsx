@@ -789,7 +789,7 @@ export default function PatientDetailModal() {
                 </>
               ) : selectedPatient.consultationType === 'returning' ? (
                 <>
-                  <FiPhoneCall className="w-3 h-3 mr-1" />
+                  <HiOutlineRefresh className="w-3 h-3 mr-1" />  {/* 순환아이콘으로 변경 */}
                   구신환
                 </>
               ) : (
@@ -928,7 +928,8 @@ export default function PatientDetailModal() {
                   {/* 상담 타입 정보 */}
                   <div className="flex items-start gap-2">
                     <Icon 
-                      icon={(selectedPatient.consultationType || 'outbound') === 'inbound' ? FiPhone : FiPhoneCall} 
+                      icon={(selectedPatient.consultationType || 'outbound') === 'inbound' ? FiPhone : 
+                            selectedPatient.consultationType === 'returning' ? HiOutlineRefresh : FiPhoneCall} 
                       size={18} 
                       className="text-text-muted mt-0.5" 
                     />
@@ -936,7 +937,8 @@ export default function PatientDetailModal() {
                       <p className="text-sm text-text-secondary">상담 타입</p>
                       <div className="flex items-center gap-2">
                         <p className="text-text-primary">
-                          {(selectedPatient.consultationType || 'outbound') === 'inbound' ? '인바운드' : '아웃바운드'}
+                          {(selectedPatient.consultationType || 'outbound') === 'inbound' ? '인바운드' : 
+                            selectedPatient.consultationType === 'returning' ? '구신환' : '아웃바운드'}
                         </p>
                         <button
                           className="text-xs text-primary hover:text-primary-dark underline"
@@ -1008,7 +1010,7 @@ export default function PatientDetailModal() {
                       className="text-text-muted mt-0.5" 
                     />
                     <div>
-                      <p className="text-sm text-text-secondary">콜 유입 날짜</p>
+                      <p className="text-sm text-text-secondary">DB 유입 날짜</p>
                       <p className="text-text-primary">{selectedPatient.callInDate}</p>
                     </div>
                   </div>

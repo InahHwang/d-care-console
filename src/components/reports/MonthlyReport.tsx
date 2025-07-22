@@ -5,6 +5,8 @@ import { MonthlyReportData, PatientConsultationSummary, DirectorFeedback } from 
 import { useAppDispatch, useAppSelector } from '@/hooks/reduxHooks';
 import { saveReport, submitReport, updateCurrentReport, refreshReportData, addDirectorFeedback, updateDirectorFeedback, deleteDirectorFeedback } from '@/store/slices/reportsSlice';
 import { calculatePatientProgress } from '@/utils/patientProgressUtils';
+import { FiPhone, FiPhoneCall } from 'react-icons/fi';
+import { HiOutlineRefresh } from 'react-icons/hi';
 
 const ProgressGuideSection: React.FC = () => {
   const progressStages = [
@@ -1835,6 +1837,10 @@ const PatientConsultationDetailModal: React.FC<{
 }> = ({ patient, onClose }) => {
   if (!patient) return null;
 
+  // 🔥 디버깅: 실제 데이터 확인
+  console.log('모달에서 받은 환자 데이터:', patient);
+  console.log('상담타입:', patient.consultationType);
+
   // 🔥 환자의 진행상황 계산 (테이블과 동일한 로직)
   const calculatePatientProgress = (patient: PatientConsultationSummary) => {
     // 6. 종결 (최우선 - 내원여부 무관)
@@ -1905,6 +1911,43 @@ const PatientConsultationDetailModal: React.FC<{
     }
   };
 
+  // 🔥 상담 타입 배지 컴포넌트 (기존 디자인과 통일)
+  const ConsultationTypeBadge = ({ type }: { type?: string }) => {
+    if (type === 'inbound') {
+      return (
+        <span className="inline-flex items-center px-2 py-1 rounded-full text-xs font-medium bg-green-100 text-green-800">
+          <FiPhone className="w-3 h-3 mr-1" />
+          인바운드
+        </span>
+      );
+    }
+
+    if (type === 'returning') {
+      return (
+        <span className="inline-flex items-center px-2 py-1 rounded-full text-xs font-medium bg-purple-100 text-purple-800">
+          <HiOutlineRefresh className="w-3 h-3 mr-1" />
+          구신환
+        </span>
+      );
+    }
+
+    if (type === 'outbound') {
+      return (
+        <span className="inline-flex items-center px-2 py-1 rounded-full text-xs font-medium bg-blue-100 text-blue-800">
+          <FiPhoneCall className="w-3 h-3 mr-1" />
+          아웃바운드
+        </span>
+      );
+    }
+
+    // 기본값 (미분류)
+    return (
+      <span className="inline-flex items-center px-2 py-1 rounded-full text-xs font-medium bg-gray-100 text-gray-600">
+        미분류
+      </span>
+    );
+  };
+
   const progress = calculatePatientProgress(patient);
 
   return (
@@ -1913,9 +1956,13 @@ const PatientConsultationDetailModal: React.FC<{
         <div className="flex items-center justify-between mb-6">
           <div>
             <h3 className="text-lg font-semibold text-gray-900">상담 내용 상세</h3>
-            <p className="text-sm text-gray-600">
-              {patient.name} {patient.age ? `(${patient.age}세)` : '(나이 정보 없음)'}
-            </p>
+            <div className="flex items-center gap-3 mt-1">
+              <p className="text-sm text-gray-600">
+                {patient.name} {patient.age ? `(${patient.age}세)` : '(나이 정보 없음)'}
+              </p>
+              {/* 🔥 상담타입 배지 추가 */}
+              <ConsultationTypeBadge type={patient.consultationType} />
+            </div>
           </div>
           <button
             onClick={onClose}

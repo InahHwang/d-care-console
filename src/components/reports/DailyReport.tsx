@@ -20,9 +20,12 @@ import {
 } from 'lucide-react';
 import { Patient } from '@/types/patient';
 import PatientListModal from '../management/PatientListModal';
+import { FiPhone, FiPhoneCall } from 'react-icons/fi';
+import { HiOutlineRefresh } from 'react-icons/hi';
 
 // 🔥 일별 환자별 상담 내용 요약 타입 (월보고서 호환)
 interface DailyPatientConsultationSummary {
+  consultationType: string | undefined;
   _id: string;
   name: string;
   age?: number;
@@ -106,6 +109,43 @@ interface DailyConsultationData {
   callInDate: string;
 }
 
+// 🔥 상담 타입 배지 컴포넌트 (월별보고서와 동일)
+const ConsultationTypeBadge = ({ type }: { type?: string }) => {
+  if (type === 'inbound') {
+    return (
+      <span className="inline-flex items-center px-2 py-1 rounded-full text-xs font-medium bg-green-100 text-green-800">
+        <FiPhone className="w-3 h-3 mr-1" />
+        인바운드
+      </span>
+    );
+  }
+
+  if (type === 'returning') {
+    return (
+      <span className="inline-flex items-center px-2 py-1 rounded-full text-xs font-medium bg-purple-100 text-purple-800">
+        <HiOutlineRefresh className="w-3 h-3 mr-1" />
+        구신환
+      </span>
+    );
+  }
+
+  if (type === 'outbound') {
+    return (
+      <span className="inline-flex items-center px-2 py-1 rounded-full text-xs font-medium bg-blue-100 text-blue-800">
+        <FiPhoneCall className="w-3 h-3 mr-1" />
+        아웃바운드
+      </span>
+    );
+  }
+
+  // 기본값 (미분류)
+  return (
+    <span className="inline-flex items-center px-2 py-1 rounded-full text-xs font-medium bg-gray-100 text-gray-600">
+      미분류
+    </span>
+  );
+};
+
 // 🔥 환자별 상담 내용 상세 모달 컴포넌트 (월보고서와 완전 동일)
 const PatientConsultationDetailModal: React.FC<{
   patient: DailyPatientConsultationSummary | null;
@@ -113,15 +153,87 @@ const PatientConsultationDetailModal: React.FC<{
 }> = ({ patient, onClose }) => {
   if (!patient) return null;
 
+  // 🔥 이 부분을 추가해야 합니다!
+  const calculatePatientProgress = (patient: DailyPatientConsultationSummary) => {
+    // 6. 종결 (최우선 - 내원여부 무관)
+    if (patient.isCompleted === true || patient.status === '종결') {
+      return {
+        stage: '종결',
+        color: 'text-gray-800',
+        bgColor: 'bg-gray-100'
+      };
+    }
+
+    // 내원완료 여부로 크게 분기
+    if (patient.visitConfirmed === true) {
+      // 내원완료 환자들
+      switch (patient.postVisitStatus) {
+        case '치료시작':
+          return {
+            stage: '치료시작',
+            color: 'text-green-800',
+            bgColor: 'bg-green-100'
+          };
+        
+        case '치료동의':
+          return {
+            stage: '치료동의',
+            color: 'text-blue-800',
+            bgColor: 'bg-blue-100'
+          };
+        
+        case '재콜백':
+        case '재콜백필요':
+        case '':
+        case null:
+        case undefined:
+          return {
+            stage: '내원완료',
+            color: 'text-purple-800',
+            bgColor: 'bg-purple-100'
+          };
+        
+        default:
+          return {
+            stage: '내원완료',
+            color: 'text-purple-800',
+            bgColor: 'bg-purple-100'
+          };
+      }
+    } else {
+      // 미내원 환자들
+      if (patient.status === '예약확정') {
+        return {
+          stage: '예약완료',
+          color: 'text-orange-800',
+          bgColor: 'bg-orange-100'
+        };
+      } else {
+        return {
+          stage: '전화상담',
+          color: 'text-yellow-800',
+          bgColor: 'bg-yellow-100'
+        };
+      }
+    }
+  };
+
+  // 🔥 progress 변수 정의
+  const progress = calculatePatientProgress(patient);
+
   return (
     <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 no-print">
       <div className="bg-white rounded-lg p-6 w-full max-w-2xl max-h-[80vh] overflow-auto">
         <div className="flex items-center justify-between mb-6">
           <div>
             <h3 className="text-lg font-semibold text-gray-900">상담 내용 상세</h3>
-            <p className="text-sm text-gray-600">
-              {patient.name} {patient.age ? `(${patient.age}세)` : '(나이 정보 없음)'}
-            </p>
+            <div className="flex items-center gap-3 mt-1">
+              <p className="text-sm text-gray-600">
+                {patient.name} {patient.age ? `(${patient.age}세)` : '(나이 정보 없음)'}
+              </p>
+              {/* 🔥 상담타입 배지 추가 */}
+              <ConsultationTypeBadge type={patient.consultationType} />
+            </div>
           </div>
           <button
             onClick={onClose}
@@ -165,13 +277,10 @@ const PatientConsultationDetailModal: React.FC<{
                 </span>
               </div>
               <div>
-                <span className="text-gray-600">동의 여부:</span>
-                <span className={`ml-2 px-2 py-1 rounded-full text-xs font-medium ${
-                  patient.estimateAgreed 
-                    ? 'bg-green-100 text-green-800' 
-                    : 'bg-red-100 text-red-800'
-                }`}>
-                  {patient.estimateAgreed ? '동의' : '거부'}
+                {/* 🔥 "동의 여부" → "진행상황"으로 변경 */}
+                <span className="text-gray-600">진행상황:</span>
+                <span className={`ml-2 px-2 py-1 rounded-full text-xs font-medium ${progress.color} ${progress.bgColor}`}>
+                  {progress.stage}
                 </span>
               </div>
             </div>
@@ -334,7 +443,6 @@ const DailyPatientConsultationSection: React.FC<{
       // 내원완료 환자들
       switch (patient.postVisitStatus) {
         case '치료시작':
-          // 5. 치료시작
           return {
             stage: '치료시작',
             color: 'text-green-800',
@@ -342,7 +450,6 @@ const DailyPatientConsultationSection: React.FC<{
           };
         
         case '치료동의':
-          // 4. 치료동의
           return {
             stage: '치료동의',
             color: 'text-blue-800',
@@ -354,7 +461,6 @@ const DailyPatientConsultationSection: React.FC<{
         case '':
         case null:
         case undefined:
-          // 3. 내원완료 (재콜백 OR 상태미설정)
           return {
             stage: '내원완료',
             color: 'text-purple-800',
@@ -362,7 +468,6 @@ const DailyPatientConsultationSection: React.FC<{
           };
         
         default:
-          // 기타 내원 후 상태들도 내원완료로 분류
           return {
             stage: '내원완료',
             color: 'text-purple-800',
@@ -372,14 +477,12 @@ const DailyPatientConsultationSection: React.FC<{
     } else {
       // 미내원 환자들
       if (patient.status === '예약확정') {
-        // 2. 예약완료
         return {
           stage: '예약완료',
           color: 'text-orange-800',
           bgColor: 'bg-orange-100'
         };
       } else {
-        // 1. 전화상담 (콜백필요, 잠재고객, 미처리콜백 등 모든 미내원 상태)
         return {
           stage: '전화상담',
           color: 'text-yellow-800',
@@ -388,6 +491,7 @@ const DailyPatientConsultationSection: React.FC<{
       }
     }
   };
+  
 
   // 🔥 진행상황별 통계 계산
   const progressStats = consultations.reduce((stats, patient) => {

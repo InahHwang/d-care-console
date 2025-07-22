@@ -379,7 +379,7 @@ function calculateMonthlyStats(patients: any[]) {
     }))
     .sort((a, b) => b.count - a.count);
 
-  // 🔥 환자별 상담 내용 요약 생성 - 견적금액 처리 수정
+  // 🔥 환자별 상담 내용 요약 생성 - 견적금액 처리 수정 + 상담타입 추가
   const patientConsultations = patients
     .filter(p => p.consultation && (p.consultation.treatmentPlan || p.consultation.consultationNotes))
     .map(p => {
@@ -388,16 +388,30 @@ function calculateMonthlyStats(patients: any[]) {
         _id: p._id,
         name: p.name,
         age: p.age,
-        // 🔥 견적금액이 없는 경우 0으로 표시하되 "데이터 없음" 처리
         estimatedAmount: consultation.estimatedAmount || 0,
-        hasValidEstimate: !!(consultation.estimatedAmount && consultation.estimatedAmount > 0), // 🔥 유효한 견적 여부
         estimateAgreed: consultation.estimateAgreed || false,
         discomfort: consultation.treatmentPlan ? 
           consultation.treatmentPlan.substring(0, 50) + (consultation.treatmentPlan.length > 50 ? '...' : '') : '',
         fullDiscomfort: consultation.treatmentPlan || '',
         consultationSummary: consultation.consultationNotes ? 
           consultation.consultationNotes.substring(0, 80) + (consultation.consultationNotes.length > 80 ? '...' : '') : '',
-        fullConsultation: consultation.consultationNotes || ''
+        fullConsultation: consultation.consultationNotes || '',
+        
+        // 🔥 이 부분들이 누락되어 있었을 가능성
+        consultationType: p.consultationType || 'inbound',
+        callInDate: p.callInDate,
+        status: p.status,
+        visitConfirmed: p.visitConfirmed,
+        postVisitStatus: p.postVisitStatus,
+        isCompleted: p.isCompleted,
+        interestedServices: p.interestedServices,
+        
+        // 🔥 추가 필드들
+        hasPhoneConsultation: !!(consultation.consultationNotes),
+        hasVisitConsultation: !!(p.postVisitConsultation),
+        phoneAmount: consultation.estimatedAmount || 0,
+        visitAmount: p.postVisitConsultation?.estimateInfo?.discountPrice || 
+                    p.postVisitConsultation?.estimateInfo?.regularPrice || 0
       };
     });
 

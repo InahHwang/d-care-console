@@ -1,5 +1,7 @@
 // src/types/report.ts - 🔥 일별 상담 요약 타입 추가
 
+import { ConsultationType } from '@/types/patient'; // 🔥 상담 타입 import 추가
+
 // 🔥 새로 추가: 원장님 피드백 타입
 export interface DirectorFeedback {
   updatedAt: any;
@@ -65,7 +67,7 @@ export interface ChannelStat {
   count: number;
 }
 
-// 🔥 기존 구조 유지하면서 확장
+// 🔥 기존 구조 유지하면서 상담타입 필드 추가
 export interface PatientConsultationSummary {
   visitConfirmed: boolean;
   status: string;
@@ -90,6 +92,9 @@ export interface PatientConsultationSummary {
   visitAmount?: number;        // 내원 후 견적금액
   phoneAmount?: number;        // 전화상담 견적금액
   postVisitStatus?: string;    // 내원 후 상태
+  
+  // 🔥 상담타입 필드 추가
+  consultationType?: ConsultationType; // 인바운드/아웃바운드/구신환 구분
   
   // 🔥 상담 단계 정보 (상세 정보용)
   consultationStages?: {
@@ -130,6 +135,8 @@ export interface DailyPatientConsultationSummary {
   visitConfirmed: boolean;
   postVisitStatus?: string;
   isCompleted: boolean;
+  // 🔥 상담타입 필드 추가
+  consultationType?: ConsultationType;
 }
 
 // 🔥 새로 추가: 일별 업무 현황 타입 (환자별 상담 내용 포함)
