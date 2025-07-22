@@ -1,42 +1,29 @@
-// src/utils/dataSync.ts - getEventListeners 에러 수정
+// src/utils/dataSync.ts - 콜백 관련 이벤트 처리 확인
 
 import { QueryClient } from '@tanstack/react-query';
 
-/**
- * 데이터 변경 이벤트 타입 정의
- */
 export type DataChangeType = 
-  | 'patient_create'      // 환자 생성
-  | 'patient_update'      // 환자 정보 수정
-  | 'patient_delete'      // 환자 삭제
-  | 'callback_add'        // 콜백 추가
-  | 'callback_update'     // 콜백 수정
-  | 'callback_delete'     // 콜백 삭제
-  | 'visit_confirmation'  // 내원확정 토글
-  | 'consultation_update' // 상담정보 업데이트
-  | 'event_target_update' // 이벤트타겟 업데이트
-  | 'post_visit_update'   // 내원 후 상태 업데이트
-  | 'patient_complete'    // 환자 종결
-  | 'refresh_all';        // 전체 새로고침
+  | 'patient_create'      
+  | 'patient_update'      
+  | 'patient_delete'      
+  | 'callback_add'        // ✅ 콜백 추가
+  | 'callback_update'     // ✅ 콜백 수정 (완료/부재중 처리 포함)
+  | 'callback_delete'     // ✅ 콜백 삭제
+  | 'visit_confirmation'  
+  | 'consultation_update' 
+  | 'event_target_update' 
+  | 'post_visit_update'   // ✅ 내원 후 상태 업데이트
+  | 'patient_complete'    
+  | 'refresh_all';        
 
-/**
- * 데이터 변경 이벤트 상세 정보
- */
 export interface DataChangeDetail {
   patientId?: string;
   type: DataChangeType;
   timestamp: number;
-  source?: string; // 변경을 트리거한 컴포넌트 식별
-  metadata?: any;  // 추가 메타데이터
+  source?: string; 
+  metadata?: any;  
 }
 
-/**
- * 데이터 새로고침 트리거 함수
- * @param patientId 변경된 환자 ID (선택)
- * @param type 변경 타입
- * @param source 변경을 트리거한 컴포넌트 (선택)
- * @param metadata 추가 메타데이터 (선택)
- */
 export const triggerDataRefresh = (
   patientId?: string, 
   type: DataChangeType = 'refresh_all',
@@ -61,11 +48,6 @@ export const triggerDataRefresh = (
   }
 };
 
-/**
- * 데이터 동기화 리스너 설정
- * @param queryClient React Query 클라이언트
- * @returns cleanup 함수
- */
 export const setupDataSyncListener = (queryClient: QueryClient) => {
   const handleDataChange = (event: CustomEvent<DataChangeDetail>) => {
     const { patientId, type, source, timestamp } = event.detail;
@@ -88,13 +70,13 @@ export const setupDataSyncListener = (queryClient: QueryClient) => {
         break;
         
       case 'patient_update':
-      case 'callback_add':
-      case 'callback_update':
-      case 'callback_delete':
+      case 'callback_add':        // ✅ 콜백 추가 시 즉시 반영
+      case 'callback_update':     // ✅ 콜백 수정 시 즉시 반영
+      case 'callback_delete':     // ✅ 콜백 삭제 시 즉시 반영
       case 'visit_confirmation':
       case 'consultation_update':
       case 'event_target_update':
-      case 'post_visit_update':
+      case 'post_visit_update':   // ✅ 내원 후 상태 업데이트 시 즉시 반영
       case 'patient_complete':
         // 전체 목록과 특정 환자 모두 새로고침
         queryClient.invalidateQueries({ queryKey: ['patients'] });
@@ -114,9 +96,9 @@ export const setupDataSyncListener = (queryClient: QueryClient) => {
     setTimeout(() => {
       queryClient.invalidateQueries({ 
         queryKey: ['patients'],
-        refetchType: 'inactive' // 비활성 쿼리도 재검증
+        refetchType: 'inactive' 
       });
-    }, 100); // 100ms 후 한번 더 확인
+    }, 100); 
   };
 
   if (typeof window !== 'undefined') {
@@ -131,12 +113,9 @@ export const setupDataSyncListener = (queryClient: QueryClient) => {
     };
   }
   
-  return () => {}; // SSR 환경에서는 빈 함수 반환
+  return () => {}; 
 };
 
-/**
- * 컴포넌트에서 사용할 데이터 새로고침 훅
- */
 export const useDataRefresh = () => {
   const refresh = (
     patientId?: string, 
@@ -150,9 +129,6 @@ export const useDataRefresh = () => {
   return { refresh };
 };
 
-/**
- * 환자 관련 데이터 변경 시 사용할 특화된 함수들
- */
 export const PatientDataSync = {
   // 환자 생성
   onCreate: (patientId: string, source?: string) => 
@@ -166,15 +142,15 @@ export const PatientDataSync = {
   onDelete: (patientId: string, source?: string) => 
     triggerDataRefresh(patientId, 'patient_delete', source),
     
-  // 콜백 추가
+  // 🔥 콜백 추가 - 내원관리에서 새 콜백 등록 시 즉시 UI 반영
   onCallbackAdd: (patientId: string, callbackType?: string, source?: string) => 
     triggerDataRefresh(patientId, 'callback_add', source, { callbackType }),
     
-  // 콜백 수정
+  // 🔥 콜백 수정 - 내원관리에서 콜백 완료/부재중/수정 시 즉시 UI 반영
   onCallbackUpdate: (patientId: string, callbackId?: string, source?: string) => 
     triggerDataRefresh(patientId, 'callback_update', source, { callbackId }),
     
-  // 콜백 삭제
+  // 🔥 콜백 삭제 - 내원관리에서 콜백 삭제 시 즉시 UI 반영
   onCallbackDelete: (patientId: string, callbackId?: string, source?: string) => 
     triggerDataRefresh(patientId, 'callback_delete', source, { callbackId }),
     
@@ -190,7 +166,7 @@ export const PatientDataSync = {
   onEventTargetUpdate: (patientId: string, isEventTarget: boolean, source?: string) => 
     triggerDataRefresh(patientId, 'event_target_update', source, { isEventTarget }),
     
-  // 내원 후 상태 업데이트
+  // 🔥 내원 후 상태 업데이트 - 내원관리에서 상태 변경 시 즉시 UI 반영
   onPostVisitUpdate: (patientId: string, postVisitStatus?: string, source?: string) => 
     triggerDataRefresh(patientId, 'post_visit_update', source, { postVisitStatus }),
     
@@ -203,16 +179,11 @@ export const PatientDataSync = {
     triggerDataRefresh(undefined, 'refresh_all', source)
 };
 
-/**
- * 디버깅용 함수 - getEventListeners 타입 에러 수정
- */
 export const debugDataSync = {
-  // 현재 등록된 리스너 확인 - 🔥 타입 에러 해결
   checkListeners: () => {
     if (typeof window !== 'undefined') {
       console.log('🔍 데이터 동기화 리스너 상태 확인');
       
-      // 🔥 getEventListeners는 개발자 도구에서만 사용 가능한 함수이므로 안전하게 처리
       try {
         // @ts-ignore - 개발자 도구 전용 함수
         const listeners = (window as any).getEventListeners?.(window);
@@ -227,7 +198,6 @@ export const debugDataSync = {
     }
   },
   
-  // 테스트 이벤트 발생
   testEvent: (patientId?: string) => {
     triggerDataRefresh(patientId, 'refresh_all', 'debug_test', { 
       message: '디버깅 테스트 이벤트' 

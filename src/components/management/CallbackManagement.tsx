@@ -301,6 +301,14 @@ export default function CallbackManagement({ patient }: CallbackManagementProps)
       setEditCallbackNotes('');
 
       alert(`${editingCallback.type} 콜백이 수정되었습니다.`);
+
+      // 🔥 데이터 동기화 적용 - 이 부분만 추가
+      PatientDataSync.onCallbackUpdate(
+        patient._id || patient.id, 
+        editingCallback.id, 
+        'CallbackManagement'
+      );
+
     } catch (error) {
       console.error('콜백 수정 실패:', error);
       alert('콜백 수정에 실패했습니다.');
@@ -433,6 +441,7 @@ export default function CallbackManagement({ patient }: CallbackManagementProps)
         console.error('❌ 환자 종결 처리 실패:', error);
       }
 
+      // 🔥 데이터 동기화 적용 - 이 부분만 추가
       PatientDataSync.onCallbackUpdate(
         patient._id || patient.id, 
         callback.id, 
@@ -608,6 +617,7 @@ export default function CallbackManagement({ patient }: CallbackManagementProps)
         })).unwrap();
       }
 
+      // 🔥 데이터 동기화 적용 - 이 부분만 추가
       PatientDataSync.onCallbackUpdate(
         patient._id || patient.id, 
         callback.id, 
@@ -777,6 +787,7 @@ export default function CallbackManagement({ patient }: CallbackManagementProps)
         }
       })).unwrap();
 
+      // 🔥 데이터 동기화 적용 - 이 부분만 추가
       PatientDataSync.onUpdate(
         patient._id || patient.id, 
         'CallbackManagement', 
@@ -912,10 +923,11 @@ export default function CallbackManagement({ patient }: CallbackManagementProps)
         updateData
       })).unwrap();
 
+      // 🔥 데이터 동기화 적용 - 이 부분만 추가
       PatientDataSync.onCallbackUpdate(
         patient._id || patient.id, 
         callback.id, 
-        'CallbackManagement', 
+        'CallbackManagement'
       );
 
       resetCallbackFollowupForm();
@@ -953,6 +965,7 @@ export default function CallbackManagement({ patient }: CallbackManagementProps)
         callbackData
       })).unwrap();
 
+      // 🔥 데이터 동기화 적용 - 이 부분만 추가
       PatientDataSync.onCallbackAdd(
         patient._id || patient.id, 
         currentCallbackType, 
@@ -1010,6 +1023,7 @@ export default function CallbackManagement({ patient }: CallbackManagementProps)
         callbackId: callback.id
       })).unwrap();
 
+      // 🔥 데이터 동기화 적용 - 이 부분만 추가
       PatientDataSync.onCallbackDelete(
         patient._id || patient.id, 
         callback.id, 

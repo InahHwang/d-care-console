@@ -291,16 +291,12 @@ export default function VisitManagementTab({ patient }: VisitManagementTabProps)
       
       alert(`${callback.type} 콜백이 완료 처리되었습니다.`)
       
-      // 🔧 기존 코드 제거
-      // setRefreshTrigger(prev => prev + 1)
-      
-      // 🆕 dataSync 적용
+      // 🔥 데이터 동기화 적용
       PatientDataSync.onCallbackUpdate(
         patient._id || patient.id, 
         callback.id, 
         'VisitManagementTab'
-      )
-      
+      )      
       setShowNextCallbackForm(true) // 다음 콜백 폼 표시
       
     } catch (error) {
@@ -334,13 +330,12 @@ export default function VisitManagementTab({ patient }: VisitManagementTabProps)
       
       alert(`${callback.type} 콜백이 부재중 처리되었습니다.`)
       
-      // 🆕 dataSync 적용
+      // 🔥 데이터 동기화 적용
       PatientDataSync.onCallbackUpdate(
         patient._id || patient.id, 
         callback.id, 
         'VisitManagementTab'
       )
-
       setShowNextCallbackForm(true) // 다음 콜백 폼 표시
       
     } catch (error) {
@@ -382,7 +377,7 @@ export default function VisitManagementTab({ patient }: VisitManagementTabProps)
       setIsEditingCallback(false)
       setEditingCallbackId('')
       
-      // 🆕 dataSync 적용
+      // 🔥 데이터 동기화 적용
       PatientDataSync.onCallbackUpdate(
         patient._id || patient.id, 
         editingCallbackId, 
@@ -410,13 +405,13 @@ export default function VisitManagementTab({ patient }: VisitManagementTabProps)
       
       alert(`${callback.type} 콜백이 삭제되었습니다.`)
       
-      // 🆕 dataSync 적용
+      // 🔥 데이터 동기화 적용
       PatientDataSync.onCallbackDelete(
         patient._id || patient.id, 
         callback.id, 
         'VisitManagementTab'
-      )
-      
+      )      
+
     } catch (error) {
       console.error('콜백 삭제 실패:', error)
       alert('콜백 삭제에 실패했습니다.')
@@ -455,7 +450,7 @@ export default function VisitManagementTab({ patient }: VisitManagementTabProps)
       setNextCallbackNotes('')
       setNextCallbackTime('')
       
-      // 🆕 dataSync 적용
+      // 🔥 데이터 동기화 적용
       PatientDataSync.onCallbackAdd(
         patient._id || patient.id, 
         nextType, 
@@ -553,7 +548,7 @@ export default function VisitManagementTab({ patient }: VisitManagementTabProps)
 
       alert('내원 후 상태가 저장되었습니다.')
       
-      // 🆕 dataSync 적용
+      // 🔥 데이터 동기화 적용
       PatientDataSync.onPostVisitUpdate(
         patient._id || patient.id, 
         postVisitStatus, 

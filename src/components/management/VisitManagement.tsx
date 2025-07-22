@@ -26,6 +26,7 @@ import { Icon } from '../common/Icon'
 import PatientDetailModal from './PatientDetailModal'
 import { format, addDays } from 'date-fns'
 import { selectPatientWithContext } from '@/store/slices/patientsSlice' 
+import { PatientDataSync } from '@/utils/dataSync'
 
 
 // 🔧 수정된 import - 새로운 함수만 import
@@ -178,11 +179,13 @@ const PostVisitStatusModal = ({
      });
 
      alert(`${callback.type} 내원 콜백이 삭제되었습니다.`);
-     
-     // 🔥 모달을 닫지 않고 데이터 새로고침
-     if (onRefreshData) {
-       await onRefreshData();
-     }
+
+     // 🔥 데이터 동기화 적용 - 즉시 UI 반영
+    PatientDataSync.onCallbackDelete(
+      patientId,
+      callback.id,
+      'VisitManagement'
+    );
      
      // 🔥 UI 강제 새로고침
      setRefreshKey(prev => prev + 1);
@@ -195,59 +198,61 @@ const PostVisitStatusModal = ({
 
  // 🔥 내원 콜백 수정 저장 핸들러
  const handleSaveVisitCallbackEdit = async () => {
-   try {
-     if (!patient || !editingCallbackId) return;
-     
-     const patientId = patient._id || patient.id;
-     
-     // 수정된 콜백 데이터 준비
-     const updateData = {
-       type: visitCallbackType,
-       date: visitCallbackDate,
-       visitManagementReason: visitCallbackReason,
-       notes: `[내원 후 ${visitCallbackType} 콜백]\n사유: ${visitCallbackReason}\n\n상담 계획:\n${visitCallbackNotes}`,
-       isVisitManagementCallback: true,
-       updatedAt: new Date().toISOString()
-     };
+    try {
+      if (!patient || !editingCallbackId) return;
+      
+      const patientId = patient._id || patient.id;
+      
+      // 수정된 콜백 데이터 준비
+      const updateData = {
+        type: visitCallbackType,
+        date: visitCallbackDate,
+        visitManagementReason: visitCallbackReason,
+        notes: `[내원 후 ${visitCallbackType} 콜백]\n사유: ${visitCallbackReason}\n\n상담 계획:\n${visitCallbackNotes}`,
+        isVisitManagementCallback: true,
+        updatedAt: new Date().toISOString()
+      };
 
-     // API 호출로 콜백 수정
-     const response = await fetch(`/api/patients/${patientId}/callbacks/${editingCallbackId}`, {
-       method: 'PUT',
-       headers: {
-         'Content-Type': 'application/json',
-       },
-       body: JSON.stringify(updateData),
-     });
+      // API 호출로 콜백 수정
+      const response = await fetch(`/api/patients/${patientId}/callbacks/${editingCallbackId}`, {
+        method: 'PUT',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify(updateData),
+      });
 
-     if (!response.ok) {
-       const errorData = await response.json();
-       throw new Error(errorData.error || '콜백 수정에 실패했습니다.');
-     }
+      if (!response.ok) {
+        const errorData = await response.json();
+        throw new Error(errorData.error || '콜백 수정에 실패했습니다.');
+      }
 
-     console.log('내원 콜백 수정 성공:', {
-       callbackId: editingCallbackId,
-       type: visitCallbackType
-     });
+      console.log('내원 콜백 수정 성공:', {
+        callbackId: editingCallbackId,
+        type: visitCallbackType
+      });
 
-     alert(`${visitCallbackType} 내원 콜백이 수정되었습니다.`);
-     
-     // 수정 모드 해제
-     setIsEditingVisitCallback(false);
-     setEditingCallbackId('');
-     
-     // 🔥 모달을 닫지 않고 데이터 새로고침
-     if (onRefreshData) {
-       await onRefreshData();
-     }
-     
-     // 🔥 UI 강제 새로고침
-     setRefreshKey(prev => prev + 1);
-     
-   } catch (error) {
-     console.error('내원 콜백 수정 실패:', error);
-     alert('내원 콜백 수정에 실패했습니다.');
-   }
- };
+      alert(`${visitCallbackType} 내원 콜백이 수정되었습니다.`);
+      
+      // 수정 모드 해제
+      setIsEditingVisitCallback(false);
+      setEditingCallbackId('');
+      
+      // 🔥 데이터 동기화 적용 - 즉시 UI 반영
+      PatientDataSync.onCallbackUpdate(
+        patientId,
+        editingCallbackId,
+        'VisitManagement'
+      );
+      
+      // 🔥 UI 강제 새로고침
+      setRefreshKey(prev => prev + 1);
+      
+    } catch (error) {
+      console.error('내원 콜백 수정 실패:', error);
+      alert('내원 콜백 수정에 실패했습니다.');
+    }
+  };
 
  // 🔥 수정 취소 핸들러
  const handleCancelVisitCallbackEdit = () => {
@@ -299,25 +304,14 @@ const handleMissedVisitCallback = async (callback: any) => {
     });
 
     alert(`${callback.type} 내원 콜백이 부재중 처리되었습니다.`);    
-    
-    // 🔥 즉시 부모 데이터 새로고침
-    if (onRefreshData) {
-      await onRefreshData();
-    }
-    
-    // 🔥 환자 정보 다시 가져오기
-    try {
-      const patientResponse = await fetch(`/api/patients/${patientId}`);
-      if (patientResponse.ok) {
-        const updatedPatientData = await patientResponse.json();
-        if (onPatientUpdate) {
-          onPatientUpdate(updatedPatientData);
-        }
-      }
-    } catch (refreshError) {
-      console.warn('환자 데이터 새로고침 실패:', refreshError);
-    }
 
+    // 🔥 데이터 동기화 적용 - 즉시 UI 반영
+    PatientDataSync.onCallbackUpdate(
+      patientId,
+      callback.id,
+      'VisitManagement'
+    );
+    
     // 🔥 UI 강제 새로고침
     setRefreshKey(prev => prev + 1);
     
@@ -374,23 +368,12 @@ const handleCompleteVisitCallback = async (callback: any) => {
 
     alert(`${callback.type} 내원 콜백이 완료 처리되었습니다.`);    
     
-    // 🔥 즉시 부모 데이터 새로고침
-    if (onRefreshData) {
-      await onRefreshData();
-    }
-    
-    // 🔥 환자 정보 다시 가져오기
-    try {
-      const patientResponse = await fetch(`/api/patients/${patientId}`);
-      if (patientResponse.ok) {
-        const updatedPatientData = await patientResponse.json();
-        if (onPatientUpdate) {
-          onPatientUpdate(updatedPatientData);
-        }
-      }
-    } catch (refreshError) {
-      console.warn('환자 데이터 새로고침 실패:', refreshError);
-    }
+    // 🔥 데이터 동기화 적용 - 즉시 UI 반영
+    PatientDataSync.onCallbackUpdate(
+      patientId,
+      callback.id,
+      'VisitManagement'
+    );
 
     // 🔥 UI 강제 새로고침
     setRefreshKey(prev => prev + 1);
@@ -1968,92 +1951,52 @@ const handlePatientUpdate = useCallback((updatedPatient: Patient) => {
 
      console.log('🔥 API 응답 상태:', response.status);
      
-     // 🔥 500 에러나 기타 에러가 발생해도 데이터는 저장되었을 가능성이 높으므로 성공으로 처리
      if (!response.ok) {
-       console.warn('⚠️ API 응답이 실패했지만 데이터가 저장되었을 수 있습니다. Redux 상태 업데이트 시도');
+       console.warn('⚠️ API 응답이 실패했지만 데이터가 저장되었을 수 있습니다.');
        
-       // Redux 상태 즉시 업데이트 시도
-       try {
-         await dispatch(updatePostVisitStatus({
-           patientId,
-           postVisitStatus: statusData.selectedStatus || '재콜백필요',
-           postVisitConsultation: statusData,
-         }));
-         
-         alert(`${selectedPatientForUpdate.name} 환자의 내원 후 상태가 업데이트되었습니다.`);
-         setIsStatusModalOpen(false);
-         setSelectedPatientForUpdate(null);
-         
-         // 추가 데이터 새로고침
-         await Promise.all([
-           dispatch(fetchPostVisitPatients()),
-           dispatch(fetchPatients())
-         ]);
-         return;
-       } catch (reduxError) {
-         console.error('Redux 상태 업데이트 실패:', reduxError);
-         // Redux 업데이트가 실패해도 데이터 새로고침은 시도
-         alert(`${selectedPatientForUpdate.name} 환자의 내원 후 상태가 업데이트되었습니다.`);
-         setIsStatusModalOpen(false);
-         setSelectedPatientForUpdate(null);
-         await dispatch(fetchPostVisitPatients());
-         return;
-       }
+       const errorData = await response.json();
+       console.error('API 응답 에러:', errorData);
      }
 
-     // 정상 응답인 경우
-     try {
-       const result = await response.json();
-       console.log('🔥 API 성공 응답:', result);
-       
-       // Redux 상태 업데이트
-       await dispatch(updatePostVisitStatus({
-         patientId,
-         postVisitStatus: statusData.selectedStatus || '재콜백필요',
-         postVisitConsultation: statusData,
-       }));
-       
-       const successMessage = statusData.visitCallbackData 
-         ? `${selectedPatientForUpdate.name} 환자의 내원 후 상태 및 내원 콜백이 업데이트되었습니다.`
-         : `${selectedPatientForUpdate.name} 환자의 내원 후 상태가 업데이트되었습니다.`;
-       
-       alert(successMessage);
-       
-       setIsStatusModalOpen(false);
-       setSelectedPatientForUpdate(null);
-       
-       // 데이터 새로고침
-       await Promise.all([
-         dispatch(fetchPostVisitPatients()),
-         dispatch(fetchPatients())
-       ]);
-     } catch (parseError) {
-       console.warn('JSON 파싱 실패하지만 성공으로 처리:', parseError);
-       
-       // JSON 파싱이 실패해도 성공으로 처리
-       alert(`${selectedPatientForUpdate.name} 환자의 내원 후 상태가 업데이트되었습니다.`);
-       setIsStatusModalOpen(false);
-       setSelectedPatientForUpdate(null);
-       
-       await Promise.all([
-         dispatch(fetchPostVisitPatients()),
-         dispatch(fetchPatients())
-       ]);
-     }
+     // 🔥 데이터 동기화 적용 - API 성공/실패와 무관하게 적용
+     PatientDataSync.onPostVisitUpdate(
+       patientId,
+       statusData.selectedStatus || '재콜백필요',
+       'VisitManagement'
+     );
+
+     const successMessage = statusData.visitCallbackData 
+       ? `${selectedPatientForUpdate.name} 환자의 내원 후 상태 및 내원 콜백이 업데이트되었습니다.`
+       : `${selectedPatientForUpdate.name} 환자의 내원 후 상태가 업데이트되었습니다.`;
+     
+     alert(successMessage);
+     
+     setIsStatusModalOpen(false);
+     setSelectedPatientForUpdate(null);
+     
+     // 🔥 추가 데이터 새로고침 (안전장치)
+     setTimeout(() => {
+       handleRefreshData();
+     }, 100);
      
    } catch (error) {
      console.error('🔥 내원 후 상태 업데이트 네트워크 에러:', error);
      
-     // 네트워크 에러도 데이터가 저장되었을 가능성을 고려하여 성공으로 처리
+     // 🔥 네트워크 에러도 데이터가 저장되었을 가능성을 고려하여 동기화 적용
+     if (selectedPatientForUpdate) {
+       PatientDataSync.onPostVisitUpdate(
+         selectedPatientForUpdate._id || selectedPatientForUpdate.id,
+         statusData.selectedStatus || '재콜백필요',
+         'VisitManagement'
+       );
+     }
+     
      alert(`${selectedPatientForUpdate.name} 환자의 내원 후 상태가 업데이트되었습니다.`);
      setIsStatusModalOpen(false);
      setSelectedPatientForUpdate(null);
      
-     // 데이터 새로고침으로 실제 상태 확인
-     await Promise.all([
-       dispatch(fetchPostVisitPatients()),
-       dispatch(fetchPatients())
-     ]);
+     // 🔥 데이터 새로고침으로 실제 상태 확인
+     handleRefreshData();
    } finally {
      setIsUpdating(false);
    }
