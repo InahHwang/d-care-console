@@ -1,6 +1,6 @@
 // src/utils/patientUtils.ts - 완전한 수정된 버전
 
-import { Patient } from '@/types/patient'
+import { Patient, PatientStatus } from '@/types/patient'
 
 export interface PatientIdDebugInfo {
   patient: any;
@@ -231,4 +231,75 @@ export const getDaysSinceProcessed = (patient: Patient): { days: number; status:
 export const getDaysSinceMissed = (patient: Patient): number | null => {
   const result = getDaysSinceProcessed(patient);
   return result?.days || null;
+};
+
+/**
+ * 환자의 콜백 히스토리를 기반으로 최종 상태를 계산하는 함수
+ * 우선순위: 예정된 콜백이 있으면 '콜백필요', 마지막 콜백이 부재중이면 '부재중'
+ */
+export const calculatePatientStatus = (patient: Patient): PatientStatus => {
+  console.log('🔥 calculatePatientStatus 시작:', {
+    patientName: patient.name,
+    currentStatus: patient.status,
+    isCompleted: patient.isCompleted,
+    visitConfirmed: patient.visitConfirmed,
+    callbackCount: patient.callbackHistory?.length
+  });
+
+  // 이미 종결된 환자는 종결 상태 유지
+  if (patient.isCompleted || patient.status === '종결') {
+    return '종결';
+  }
+  
+  // 예약확정/재예약확정 상태는 유지
+  if (patient.status === '예약확정' || patient.status === '재예약확정') {
+    return patient.status;
+  }
+  
+  // 내원완료 환자는 현재 상태 유지
+  if (patient.visitConfirmed) {
+    return patient.status;
+  }
+  
+  // 콜백 히스토리가 없으면 기본 상태 유지
+  if (!patient.callbackHistory || patient.callbackHistory.length === 0) {
+    return patient.status || '잠재고객';
+  }
+  
+  // 예정된 콜백이 있는지 확인
+  const hasScheduledCallback = patient.callbackHistory.some(
+    cb => cb.status === '예정' && !cb.isCompletionRecord
+  );
+
+  console.log('🔥 예정된 콜백 확인:', {
+    hasScheduledCallback,
+    scheduledCallbacks: patient.callbackHistory?.filter(
+      cb => cb.status === '예정' && !cb.isCompletionRecord
+    )
+  });
+  
+  if (hasScheduledCallback) {
+    return '콜백필요';
+  }
+  
+  // 가장 최근의 유효한 콜백 찾기 (종결 기록 제외)
+  const validCallbacks = patient.callbackHistory
+    .filter(cb => !cb.isCompletionRecord)
+    .sort((a, b) => {
+      const dateA = new Date(a.createdAt || a.date).getTime();
+      const dateB = new Date(b.createdAt || b.date).getTime();
+      return dateB - dateA;
+    });
+  
+  if (validCallbacks.length > 0) {
+    const latestCallback = validCallbacks[0];
+    
+    // 마지막 콜백이 부재중이면 부재중 상태
+    if (latestCallback.status === '부재중') {
+      return '부재중';
+    }
+  }
+  
+  // 기본값
+  return patient.status || '잠재고객';
 };

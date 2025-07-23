@@ -4,6 +4,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { connectToDatabase } from '@/utils/mongodb';
 import { ObjectId } from 'mongodb';
 import { format } from 'date-fns';
+import { calculatePatientStatus } from '@/utils/patientUtils';
 
 // 🔥 활동 로깅을 위한 함수
 async function logActivityToDatabase(activityData: any) {
@@ -180,7 +181,7 @@ export async function PUT(
         completedAt: new Date().toISOString()
       })
     };
-    
+
     console.log('🔄 콜백 업데이트 완료:', {
       callbackId,
       originalType: originalCallback.type,
@@ -189,11 +190,41 @@ export async function PUT(
       newStatus: callbackHistory[callbackIndex].status,
       isVisitManagementCallback: callbackHistory[callbackIndex].isVisitManagementCallback
     });
-    
+
+    // 🔥 콜백 업데이트 후 환자 상태 재계산
+    const tempPatient = {
+      ...patient,
+      callbackHistory: callbackHistory
+    } as any;  // 타입 에러 회피를 위한 임시 처리
+
+    console.log('🔥 상태 재계산 전 콜백 히스토리:', {
+      patientName: patient.name,
+      totalCallbacks: callbackHistory.length,
+      callbackDetails: callbackHistory.map((cb: { id: any; type: any; status: any; date: any; isCompletionRecord: any; }, idx: any) => ({
+        index: idx,
+        id: cb.id,
+        type: cb.type,
+        status: cb.status,
+        date: cb.date,
+        isCompletionRecord: cb.isCompletionRecord
+      }))
+    });
+
+    const newStatus = calculatePatientStatus(tempPatient);
+
     const patientUpdateData = {
       callbackHistory,
+      status: newStatus, // 🔥 재계산된 상태 추가
       updatedAt: new Date().toISOString()
     };
+
+    console.log('🔥 calculatePatientStatus 결과:', {
+      patientName: patient.name,
+      previousStatus: patient.status,
+      calculatedStatus: newStatus,
+      hasScheduledCallbacks: callbackHistory.some((cb: { status: string; isCompletionRecord: any; }) => cb.status === '예정' && !cb.isCompletionRecord),
+      scheduledCallbacks: callbackHistory.filter((cb: { status: string; isCompletionRecord: any; }) => cb.status === '예정' && !cb.isCompletionRecord)
+    });
     
     const result = await updatePatientData(db, patient, patientId, patientUpdateData);
     

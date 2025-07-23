@@ -790,8 +790,8 @@ export async function GET(request: NextRequest) {
           .toArray();
         
         patients = allPatients.filter((patient: any) => {
-          return patient.status === '콜백필요' || 
-                patient.postVisitStatus === '재콜백필요';
+          // 🔥 수정: 상담관리의 콜백필요만 (내원완료 전 환자만)
+          return patient.status === '콜백필요' && patient.visitConfirmed !== true;
         });
         
         patients.sort((a: any, b: any) => {
@@ -800,7 +800,7 @@ export async function GET(request: NextRequest) {
           return dateB.getTime() - dateA.getTime();
         });
         
-        console.log(`[API] 콜백 필요 환자 ${patients.length}명 조회 완료 (상담관리 + 내원관리)`);
+        console.log(`[API] 콜백 필요 환자 ${patients.length}명 조회 완료 (상담관리만)`);
         break;
         
       case 'absent':

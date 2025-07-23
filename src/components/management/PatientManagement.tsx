@@ -282,7 +282,7 @@ export default function PatientManagement() {
           case 'visit_confirmed':
             return patient.visitConfirmed === true;
           case 'additional_callback_needed':
-            return patient.visitConfirmed === true && patient.postVisitStatus === '재콜백필요';
+            return patient.visitConfirmed !== true && patient.status === '콜백필요';
           case 'potential_customer': // 🔥 "오늘 예약" → "잠재고객"으로 변경
             return patient.status === '잠재고객';
           default:
@@ -340,7 +340,7 @@ export default function PatientManagement() {
     const postReservationUnvisited = dateFilteredPatients.filter(p => p.hasBeenPostReservationPatient === true).length;
     const visitConfirmed = dateFilteredPatients.filter(p => p.visitConfirmed === true).length;
     const additionalCallbackNeeded = dateFilteredPatients.filter(p => 
-      p.visitConfirmed === true && p.postVisitStatus === '재콜백필요'
+      p.visitConfirmed !== true && p.status === '콜백필요'  // 상담단계 콜백만
     ).length;
     const potentialCustomers = dateFilteredPatients.filter(p => p.status === '잠재고객').length; // 🔥 "오늘 예약" → "잠재고객"으로 변경
     

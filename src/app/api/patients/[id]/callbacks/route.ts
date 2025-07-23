@@ -3,6 +3,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { connectToDatabase } from '@/utils/mongodb';
 import { ObjectId } from 'mongodb';
+import { calculatePatientStatus } from '@/utils/patientUtils';
 
 // 🔥 활동 로깅을 위한 함수 추가
 async function logActivityToDatabase(activityData: any) {
@@ -113,6 +114,10 @@ export async function POST(
     
     // 콜백 ID 생성
     const callbackId = `cb-${Date.now()}`;
+
+    // 기존 콜백 이력 가져오기
+    const callbackHistory = patient.callbackHistory || [];
+
     
     // 🔥 콜백 데이터 처리 - notes 중복 제거
     let processedNotes = callbackData.notes || '';
@@ -226,34 +231,59 @@ export async function POST(
           
         case '부재중':
         case '상담진행중':
-          updateData.status = result.status === '부재중' ? '부재중' : '콜백필요';
+          // 🔥 수정: 부재중이어도 다음 콜백이 예정되어 있으면 콜백필요 상태로 설정
+          const newCallbackHistory = [...callbackHistory, newCallback];
+          const hasScheduledCallback = newCallbackHistory.some(
+            cb => cb.status === '예정' && !cb.isCompletionRecord
+          );
+          
+          if (hasScheduledCallback) {
+            updateData.status = '콜백필요';
+            console.log('🔥 부재중이지만 예정된 콜백이 있어 콜백필요 상태로 설정');
+          } else {
+            updateData.status = result.status === '부재중' ? '부재중' : '콜백필요';
+          }
+          
           updateData.nextCallbackDate = result.nextCallbackDate;
           updateData.currentConsultationStage = 'callback';
           break;
       }
     }
     
-    // 기본 콜백 상태에 따른 업데이트 (기존 로직 유지)
+    // 기본 콜백 상태에 따른 업데이트 - 상태 재계산 로직으로 변경
     if (!callbackData.firstConsultationResult && !callbackData.postReservationResult && !callbackData.callbackFollowupResult) {
-      if (callbackData.status === '부재중') {
-        updateData.status = '부재중';
-      } else if (callbackData.status === '예정') {
-        updateData.status = '콜백필요';
-      } else if (callbackData.status === '완료') {
-        updateData.status = '콜백필요';
-        updateData.reminderStatus = callbackData.type;
-        
-        // 첫 상담 날짜가 없는 경우만 설정
-        if (!patient.firstConsultDate || patient.firstConsultDate === '') {
-          updateData.firstConsultDate = callbackData.date;
-        }
-        
-        updateData.lastConsultation = callbackData.date;
+      // 🔥 기존 콜백 이력을 먼저 가져오기
+      const existingCallbackHistory = patient.callbackHistory || [];
+      
+      // 🔥 새 콜백을 추가한 후의 전체 콜백 히스토리로 상태 재계산
+      const tempPatient = {
+        ...patient,
+        callbackHistory: [...existingCallbackHistory, newCallback]
+      } as any;  // 타입 에러 회피
+      
+      const calculatedStatus = calculatePatientStatus(tempPatient);
+      updateData.status = calculatedStatus;
+      
+      console.log('🔥 콜백 추가 후 환자 상태 재계산:', {
+      patientName: patient.name,
+      previousStatus: patient.status,
+      newStatus: calculatedStatus,
+      callbackType: callbackData.type,
+      callbackStatus: callbackData.status
+    });
+
+    // 기존 로직 중 일부는 유지 (첫 상담 날짜, 리마인더 상태 등)
+    if (callbackData.status === '완료') {
+      updateData.reminderStatus = callbackData.type;
+      
+      // 첫 상담 날짜가 없는 경우만 설정
+      if (!patient.firstConsultDate || patient.firstConsultDate === '') {
+        updateData.firstConsultDate = callbackData.date;
       }
+      
+      updateData.lastConsultation = callbackData.date;
     }
-    
-    // 기존 콜백 이력 가져오기
-    const callbackHistory = patient.callbackHistory || [];
+  }    
     
     // 환자 정보 업데이트
     let result;
@@ -553,9 +583,23 @@ export async function PUT(
           
         case '부재중':
         case '상담진행중':
-          patientUpdateData.status = result.status === '부재중' ? '부재중' : '콜백필요';
+          // 🔥 수정: calculatePatientStatus를 사용하여 상태 재계산
+          const tempPatient = {
+            ...patient,
+            callbackHistory: callbackHistory
+          } as any;
+          
+          patientUpdateData.status = calculatePatientStatus(tempPatient);
           patientUpdateData.nextCallbackDate = result.nextCallbackDate;
           patientUpdateData.currentConsultationStage = 'callback';
+          
+          console.log('🔥 PUT - 콜백 후속 처리 상태 재계산:', {
+            patientName: patient.name,
+            resultStatus: result.status,
+            calculatedStatus: patientUpdateData.status,
+            totalCallbacks: callbackHistory.length,
+            scheduledCallbacks: callbackHistory.filter((cb: { status: string; }) => cb.status === '예정').length
+          });
           break;
       }
     }

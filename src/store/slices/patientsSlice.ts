@@ -1598,6 +1598,13 @@ const patientsSlice = createSlice({
       // extraReducers 섹션에 추가
       .addCase(updateCallback.fulfilled, (state, action) => {
         const { patientId, updatedPatient } = action.payload;
+
+        console.log('🔥 Redux: updateCallback.fulfilled - 환자 상태 업데이트:', {
+          patientId: patientId,
+          patientName: updatedPatient.name,
+          newStatus: updatedPatient.status,
+          callbackCount: updatedPatient.callbackHistory?.length
+        });
         
         const patientIndex = state.patients.findIndex(p => 
           p._id === patientId || p.id === patientId
