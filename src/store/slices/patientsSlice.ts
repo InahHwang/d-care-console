@@ -1311,7 +1311,28 @@ const patientsSlice = createSlice({
       state.filteredPatientsForModal = [];
       state.modalFilterType = null;
     },
-  },
+
+    updatePatientField: (state, action: PayloadAction<{
+      id: string;
+      field: string;
+      value: any;
+    }>) => {
+      const { id, field, value } = action.payload;
+      const updatePatientInArray = (patients: Patient[]) => {
+        const patient = patients.find(p => p._id === id || p.id === id);
+        if (patient) {
+          // 중첩된 필드 업데이트 지원 (예: 'postVisitConsultation.firstVisitConsultationContent')
+          const fieldPath = field.split('.');
+          let target: any = patient;
+          for (let i = 0; i < fieldPath.length - 1; i++) {
+            if (!target[fieldPath[i]]) target[fieldPath[i]] = {};
+            target = target[fieldPath[i]];
+          }
+          target[fieldPath[fieldPath.length - 1]] = value;
+          }
+        };
+      }
+    },
   
   extraReducers: (builder) => {
     builder
@@ -1801,6 +1822,6 @@ export const selectPatientWithContext = (
   context?: 'management' | 'visit-management'
 ) => selectPatient({ patientId, context });
 
-export const { selectPatient, setSelectedPatient, clearSelectedPatient, setFilters, setPage, clearFilteredPatients } = patientsSlice.actions;
+export const { selectPatient, setSelectedPatient, clearSelectedPatient, setFilters, setPage, clearFilteredPatients, updatePatientField } = patientsSlice.actions;
 export default patientsSlice.reducer;
 
