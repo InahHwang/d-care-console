@@ -1491,34 +1491,37 @@ const PostVisitStatusBadge = ({ status }: { status?: string }) => {
 
 // 🔥 내원 콜백 이력 표시 컴포넌트 - 통합된 버전
 const VisitCallbackBadge = ({ patient }: { patient: Patient }) => {
- const visitCallbacks = patient.callbackHistory?.filter(cb => 
-   cb.isVisitManagementCallback === true
- ) || [];
+  const visitCallbacks = patient.callbackHistory?.filter(cb => 
+    cb.isVisitManagementCallback === true
+  ) || [];
 
- if (visitCallbacks.length === 0) {
-   return <span className="text-xs text-gray-400">-</span>;
- }
+  if (visitCallbacks.length === 0) {
+    return <span className="text-xs text-gray-400">-</span>;
+  }
 
- const pendingCallbacks = visitCallbacks.filter(cb => cb.status === '예정');
- const completedCallbacks = visitCallbacks.filter(cb => cb.status === '완료');
+  const completedCount = visitCallbacks.filter(cb => cb.status === '완료').length;
+  const pendingCount = visitCallbacks.filter(cb => cb.status === '예정').length;
+  const missedCount = visitCallbacks.filter(cb => cb.status === '부재중').length;
 
- return (
-   <div className="flex flex-col space-y-1">
-     <div className="flex items-center space-x-1">
-       <Icon icon={HiOutlinePhone} size={12} />
-       <span className="text-xs text-gray-600">
-         완료: {completedCallbacks.length}건
-       </span>
-     </div>
-     {pendingCallbacks.length > 0 && (
-       <div className="flex items-center space-x-1">
-         <span className="inline-flex items-center px-2 py-1 rounded-full text-xs font-medium bg-orange-100 text-orange-800">
-           예정: {pendingCallbacks.length}건
-         </span>
-       </div>
-     )}
-   </div>
- );
+  return (
+    <div className="flex items-center space-x-2">
+      <Icon icon={HiOutlinePhone} size={12} />
+      <div className="text-xs space-x-2">
+        {/* 🔥 1순위: 예정 (배지로 강조) */}
+        {pendingCount > 0 && (
+          <span className="inline-flex items-center px-1.5 py-0.5 rounded-full bg-orange-100 text-orange-700 font-medium">
+            예정 {pendingCount}
+          </span>
+        )}
+        {/* 🔥 2순위: 완료 (텍스트) */}
+        <span className="text-gray-600">완료 {completedCount}</span>
+        {/* 🔥 3순위: 부재중 (텍스트, 있을 때만) */}
+        {missedCount > 0 && (
+          <span className="text-red-600">부재중 {missedCount}</span>
+        )}
+      </div>
+    </div>
+  );
 };
 
 export default function VisitManagement() {
