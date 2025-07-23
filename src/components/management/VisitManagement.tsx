@@ -1370,11 +1370,11 @@ const NextAppointmentBadge = ({ patient }: { patient: Patient }) => {
   const treatmentStartDate = patient.postVisitConsultation?.treatmentConsentInfo?.treatmentStartDate;
   const fallbackNextVisitDate = patient.nextVisitDate;
   
-  // 🔥 내원 콜백 정보 가져오기 (새로 추가)
+  // 🔥 내원 콜백 정보 가져오기 - 예정 상태만 필터링
   const getNextVisitCallback = () => {
     const visitCallbacks = patient.callbackHistory?.filter(cb => 
       cb.isVisitManagementCallback === true && 
-      cb.status === '예정'
+      cb.status === '예정'  // 🔥 예정 상태만 필터링
     ) || [];
     
     if (visitCallbacks.length === 0) return null;
@@ -1399,9 +1399,9 @@ const NextAppointmentBadge = ({ patient }: { patient: Patient }) => {
           nextVisitCallback.type === '내원1차' ? 'bg-orange-100 text-orange-800' :
           nextVisitCallback.type === '내원2차' ? 'bg-yellow-100 text-yellow-800' :
           nextVisitCallback.type === '내원3차' ? 'bg-red-100 text-red-800' :
-          nextVisitCallback.type === '내원4차' ? 'bg-purple-100 text-purple-800' :  // 🔥 추가
-          nextVisitCallback.type === '내원5차' ? 'bg-indigo-100 text-indigo-800' :  // 🔥 추가
-          nextVisitCallback.type === '내원6차' ? 'bg-pink-100 text-pink-800' :      // 🔥 추가
+          nextVisitCallback.type === '내원4차' ? 'bg-purple-100 text-purple-800' :
+          nextVisitCallback.type === '내원5차' ? 'bg-indigo-100 text-indigo-800' :
+          nextVisitCallback.type === '내원6차' ? 'bg-pink-100 text-pink-800' :
           'bg-gray-100 text-gray-800'
         } mr-1`}>
           {nextVisitCallback.type}
@@ -1412,6 +1412,8 @@ const NextAppointmentBadge = ({ patient }: { patient: Patient }) => {
   }
  
  // 2순위: nextVisitDate (치료 시작 시 다음 내원일)
+ /*
+
   if (nextVisitDate) {
     return (
       <div className="flex items-center space-x-1">
@@ -1461,6 +1463,7 @@ const NextAppointmentBadge = ({ patient }: { patient: Patient }) => {
   }
   
   return <span className="text-sm text-gray-400">-</span>;
+  */
 };
 
 // 내원 후 상태 배지 컴포넌트 - 치료 동의 상태 추가
