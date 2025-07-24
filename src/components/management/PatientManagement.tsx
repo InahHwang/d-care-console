@@ -232,6 +232,10 @@ export default function PatientManagement() {
   // 🔥 미처리 콜백 체크 헬퍼 함수
   const hasOverdueCallbacks = useCallback((patient: any): boolean => {
     const today = new Date().toISOString().split('T')[0];
+    // 🔥 핵심 수정: 내원완료 환자는 제외
+    if (patient.visitConfirmed === true) {
+      return false;
+    }
     return (patient.callbackHistory || []).some((callback: any) => 
       callback.status === '예정' &&
       callback.date < today
@@ -285,15 +289,22 @@ export default function PatientManagement() {
       if (selectedBoxFilter !== 'all') {
         switch (selectedBoxFilter) {
           case 'unprocessed_callback':
+            // 🔥 수정: hasOverdueCallbacks 함수가 이미 내원완료 체크를 포함
             return hasOverdueCallbacks(patient);
+            
           case 'post_reservation_unvisited':
             return patient.hasBeenPostReservationPatient === true;
+            
           case 'visit_confirmed':
             return patient.visitConfirmed === true;
+            
           case 'additional_callback_needed':
+            // 🔥 핵심 수정: 내원완료되지 않은 환자만 (상담단계 콜백만)
             return patient.visitConfirmed !== true && patient.status === '콜백필요';
-          case 'potential_customer': // 🔥 "오늘 예약" → "잠재고객"으로 변경
+            
+          case 'potential_customer':
             return patient.status === '잠재고객';
+            
           default:
             return true;
         }
@@ -341,17 +352,26 @@ export default function PatientManagement() {
       postReservationUnvisited: 0,
       visitConfirmed: 0,
       additionalCallbackNeeded: 0,
-      potentialCustomers: 0 // 🔥 "todayReservations" → "potentialCustomers"로 변경
+      potentialCustomers: 0
     };
     
     const total = dateFilteredPatients.length;
-    const unprocessedCallbacks = dateFilteredPatients.filter(p => hasOverdueCallbacks(p)).length;
+    
+    // 🔥 수정: 내원완료 환자 제외한 미처리 콜백 카운트
+    const unprocessedCallbacks = dateFilteredPatients
+      .filter(p => p.visitConfirmed !== true) // 내원완료 제외
+      .filter(p => hasOverdueCallbacks(p))
+      .length;
+      
     const postReservationUnvisited = dateFilteredPatients.filter(p => p.hasBeenPostReservationPatient === true).length;
     const visitConfirmed = dateFilteredPatients.filter(p => p.visitConfirmed === true).length;
+    
+    // 🔥 수정: 상담단계 콜백만 카운트
     const additionalCallbackNeeded = dateFilteredPatients.filter(p => 
-      p.visitConfirmed !== true && p.status === '콜백필요'  // 상담단계 콜백만
+      p.visitConfirmed !== true && p.status === '콜백필요'
     ).length;
-    const potentialCustomers = dateFilteredPatients.filter(p => p.status === '잠재고객').length; // 🔥 "오늘 예약" → "잠재고객"으로 변경
+    
+    const potentialCustomers = dateFilteredPatients.filter(p => p.status === '잠재고객').length;
     
     return {
       total,
@@ -359,7 +379,7 @@ export default function PatientManagement() {
       postReservationUnvisited,
       visitConfirmed,
       additionalCallbackNeeded,
-      potentialCustomers // 🔥 "todayReservations" → "potentialCustomers"로 변경
+      potentialCustomers
     };
   }, [dateFilteredPatients, hasOverdueCallbacks]);
 

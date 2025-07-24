@@ -376,7 +376,7 @@ export async function GET(request: NextRequest) {
           .toArray();
         
         patients = allPatients.filter((patient: any) => {
-          // 내원확정된 환자는 제외 (상담환자만)
+          // 🔥 핵심 수정: 내원확정된 환자는 제외
           if (patient.visitConfirmed === true) {
             return false;
           }
@@ -395,8 +395,11 @@ export async function GET(request: NextRequest) {
             return false;
           }
           
+          // 🔥 추가: 상담관리 콜백만 체크 (내원관리 콜백 제외)
           return patient.callbackHistory.some((callback: any) => {
             if (callback.status !== '예정') return false;
+            if (callback.isVisitManagementCallback === true) return false; // 내원관리 콜백 제외
+            
             const callbackDate = new Date(callback.date);
             callbackDate.setHours(0, 0, 0, 0);
             return callbackDate < todayStart;
