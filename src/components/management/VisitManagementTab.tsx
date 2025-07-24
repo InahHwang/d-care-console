@@ -457,8 +457,10 @@ export default function VisitManagementTab({ patient }: VisitManagementTabProps)
         body: JSON.stringify({
           status: '완료',
           completedAt: now.toISOString(),
-          completedDate,
-          completedTime
+          // 🔥 수정: actualCompletedDate/Time 사용 (date/time은 변경하지 않음)
+          actualCompletedDate: completedDate,
+          actualCompletedTime: completedTime
+          // ❌ 제거: completedDate, completedTime 필드 제거
         }),
       })
       
@@ -479,6 +481,7 @@ export default function VisitManagementTab({ patient }: VisitManagementTabProps)
     }
   }
 
+  // handleMissedCallback 함수도 동일하게 수정 (약 502행)
   const handleMissedCallback = async (callback: any) => {
     if (!confirm(`${callback.type} 콜백을 부재중 처리하시겠습니까?`)) return
     
@@ -489,32 +492,33 @@ export default function VisitManagementTab({ patient }: VisitManagementTabProps)
       const completedTime = now.toTimeString().split(' ')[0].substring(0, 5)
       
       const response = await fetch(`/api/patients/${patientId}/callbacks/${callback.id}`, {
-        method: 'PUT',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          status: '부재중',
-          completedAt: now.toISOString(),
-          completedDate,
-          completedTime
-        }),
-      })
-      
-      if (!response.ok) throw new Error('콜백 부재중 처리에 실패했습니다.')
-      
-      alert(`${callback.type} 콜백이 부재중 처리되었습니다.`)
-      
-      PatientDataSync.onCallbackUpdate(
-        patient._id || patient.id, 
-        callback.id, 
-        'VisitManagementTab'
-      )
-      setShowNextCallbackForm(true)
-      
-    } catch (error) {
-      console.error('콜백 부재중 처리 실패:', error)
-      alert('콜백 부재중 처리에 실패했습니다.')
-    }
+      method: 'PUT',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        status: '부재중',
+        completedAt: now.toISOString(),
+        // 🔥 수정: actualCompletedDate/Time 사용
+        actualCompletedDate: completedDate,
+        actualCompletedTime: completedTime
+      }),
+    })
+    
+    if (!response.ok) throw new Error('콜백 부재중 처리에 실패했습니다.')
+    
+    alert(`${callback.type} 콜백이 부재중 처리되었습니다.`)
+    
+    PatientDataSync.onCallbackUpdate(
+      patient._id || patient.id, 
+      callback.id, 
+      'VisitManagementTab'
+    )
+    setShowNextCallbackForm(true)
+    
+  } catch (error) {
+    console.error('콜백 부재중 처리 실패:', error)
+    alert('콜백 부재중 처리에 실패했습니다.')
   }
+}
 
   const handleEditCallback = (callback: any) => {
     setVisitCallbackReason(callback.visitManagementReason || '')

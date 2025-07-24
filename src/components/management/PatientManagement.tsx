@@ -1,4 +1,4 @@
-// src/components/management/PatientManagement.tsx - 탭 메뉴 제거, 환자목록만 단독 사용
+// src/components/management/PatientManagement.tsx - 내원완료 환자 편집 제한 추가
 
 'use client'
 
@@ -35,11 +35,20 @@ type SimpleDateFilterType = 'all' | 'daily' | 'monthly';
 type BoxFilterType = 'all' | 'unprocessed_callback' | 'post_reservation_unvisited' | 'visit_confirmed' | 'additional_callback_needed' | 'potential_customer';
 
 export default function PatientManagement() {
-  // 🔧 환자 선택 함수 수정 (기존 selectPatient 사용하는 모든 곳)
+  // 🔧 환자 선택 함수 수정 - 내원완료 체크 추가
   const handleSelectPatient = (patientId: string) => {
+    const patient = patientsState.patients.find(p => p._id === patientId || p.id === patientId);
+    
+    // 🔥 내원완료 환자 선택 시 경고 표시
+    if (patient?.visitConfirmed) {
+      alert('내원완료 된 환자의 콜백은 \'내원관리\'에서 관리해주세요.');
+      // 여전히 조회는 가능하도록 선택은 허용
+    }
+    
     // 🔧 management 컨텍스트와 함께 환자 선택  
     dispatch(selectPatientWithContext(patientId, 'management'));
   };
+  
   const dispatch = useDispatch<AppDispatch>()
   const queryClient = useQueryClient()
   const searchParams = useSearchParams()

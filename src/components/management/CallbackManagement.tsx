@@ -48,7 +48,8 @@ import {
   HiOutlineBan,
   HiOutlineExclamation,
   HiOutlineRefresh,
-  HiOutlineMinus
+  HiOutlineMinus,
+  HiOutlineExclamationCircle
 } from 'react-icons/hi'
 import { Icon } from '../common/Icon'
 import { RootState } from '@/store';
@@ -80,6 +81,9 @@ export default function CallbackManagement({ patient }: CallbackManagementProps)
   const { categories } = useAppSelector((state: RootState) => state.categories)
   const { logCallbackAction, logPatientCompleteAction } = useActivityLogger()
   const [customTerminationReason, setCustomTerminationReason] = useState('');
+
+  // 🔥 추가: 내원완료 환자 편집 제한 체크
+  const isEditRestricted = patient?.visitConfirmed === true;
 
   // 임시 사용자 정보
   const effectiveUser = currentUser || {
@@ -1069,6 +1073,22 @@ export default function CallbackManagement({ patient }: CallbackManagementProps)
         </div>
       </div>
 
+      {/* 🔥 내원완료 환자 안내 메시지 추가 */}
+      {isEditRestricted && (
+        <div className="bg-yellow-50 p-4 rounded-lg border border-yellow-200 flex items-center gap-2">
+          <Icon icon={HiOutlineExclamationCircle} size={20} className="text-yellow-600 flex-shrink-0" />
+          <div>
+            <p className="text-sm text-yellow-800 font-medium">
+              내원완료 된 환자입니다.
+            </p>
+            <p className="text-xs text-yellow-700 mt-1">
+              콜백 추가 및 수정은 '내원관리' 메뉴에서 진행해주세요. 기존 콜백 이력은 확인 가능합니다.
+            </p>
+          </div>
+        </div>
+      )}
+
+
       {/* 예약 후 미내원 환자 처리 섹션 */}
       {currentStage === 'post_reservation' && (
         <div className="card border-orange-200 bg-orange-50">
@@ -1306,23 +1326,33 @@ export default function CallbackManagement({ patient }: CallbackManagementProps)
                     
                     {/* 수정/삭제 버튼 - 예정 상태이고 재예약완료가 아닌 경우에만 표시 */}
                     {!patient.isCompleted && callback.status === '예정' && !callback.isReReservationRecord && (
-                      <div className="flex items-center gap-1">
-                        <button
-                          onClick={() => handleEditCallback(callback)}
-                          className="p-1 text-blue-600 hover:bg-blue-100 rounded"
-                          title="수정"
-                        >
-                          <Icon icon={HiOutlinePencil} size={16} />
-                        </button>
-                        <button
-                          onClick={() => handleDeleteCallback(callback)}
-                          className="p-1 text-red-600 hover:bg-red-100 rounded"
-                          title="삭제"
-                        >
-                          <Icon icon={HiOutlineTrash} size={16} />
-                        </button>
-                      </div>
-                    )}
+                                    <div className="flex items-center gap-1">
+                                      <button
+                                        onClick={() => handleEditCallback(callback)}
+                                        disabled={isEditRestricted}
+                                        className={`p-1 rounded ${
+                                          isEditRestricted
+                                            ? 'text-gray-400 bg-gray-100 cursor-not-allowed'
+                                            : 'text-blue-600 hover:bg-blue-100'
+                                        }`}
+                                        title={isEditRestricted ? "내원완료 환자는 내원관리에서 수정" : "수정"}
+                                      >
+                                        <Icon icon={HiOutlinePencil} size={16} />
+                                      </button>
+                                      <button
+                                        onClick={() => handleDeleteCallback(callback)}
+                                        disabled={isEditRestricted}
+                                        className={`p-1 rounded ${
+                                          isEditRestricted
+                                            ? 'text-gray-400 bg-gray-100 cursor-not-allowed'
+                                            : 'text-red-600 hover:bg-red-100'
+                                        }`}
+                                        title={isEditRestricted ? "내원완료 환자는 내원관리에서 삭제" : "삭제"}
+                                      >
+                                        <Icon icon={HiOutlineTrash} size={16} />
+                                      </button>
+                                    </div>
+                                  )}
                   </div>
                 </div>
                 
@@ -1376,8 +1406,11 @@ export default function CallbackManagement({ patient }: CallbackManagementProps)
                 )}
 
                 {/* 🔥 통일된 콜백 상태별 처리 UI - 모든 케이스에서 동일하게 표시 */}
-                {unifiedDisplayData.showPatientStatusSection && (
+                {unifiedDisplayData.showPatientStatusSection && !isEditRestricted && (
                   <div className="border-t pt-3 mt-3">
+                    <div className="text-sm text-gray-500 italic">
+                    내원완료 환자의 콜백 처리는 '내원관리'에서 진행해주세요.
+                    </div>
                     {callback.type === '1차' && currentStage === 'first' ? (
                       // 1차 상담 후 환자 상태 처리
                       <div className="space-y-4">
@@ -1665,10 +1698,14 @@ export default function CallbackManagement({ patient }: CallbackManagementProps)
       {!patient.isCompleted && !isAddingCallback && currentStage !== 'post_reservation' && (
         <div className="flex justify-start">
           <button
-            onClick={() => {
-              setIsAddingCallback(true);
-            }}
-            className="px-4 py-2 bg-primary text-white rounded-md hover:bg-primary/90 transition-colors flex items-center gap-2"
+            onClick={() => setIsAddingCallback(true)}
+            disabled={isEditRestricted}
+            className={`px-4 py-2 rounded-md transition-colors flex items-center gap-2 ${
+              isEditRestricted
+                ? 'bg-gray-300 text-gray-500 cursor-not-allowed'
+                : 'bg-primary text-white hover:bg-primary/90'
+            }`}
+            title={isEditRestricted ? "내원완료 환자는 내원관리에서 콜백 추가" : `${getNextCallbackType} 콜백 추가`}
           >
             <Icon icon={HiOutlinePlus} size={18} />
             <span>{getNextCallbackType} 콜백 추가</span>

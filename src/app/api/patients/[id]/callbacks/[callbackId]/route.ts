@@ -170,16 +170,19 @@ export async function PUT(
     
     const originalCallback = { ...callbackHistory[callbackIndex] };
     
-    // 콜백 데이터 업데이트
+    // 🔥 수정된 부분: 콜백 데이터 업데이트
     callbackHistory[callbackIndex] = {
       ...callbackHistory[callbackIndex],
       ...updateData,
       updatedAt: new Date().toISOString(),
-      ...(updateData.status === '완료' && {
-        date: format(new Date(), 'yyyy-MM-dd'),
-        time: format(new Date(), 'HH:mm'),
+      // 🔥 중요: 완료 상태일 때 예정일(date)과 예정시간(time)은 유지하고
+      // 실제 처리일시만 별도 필드에 저장
+      ...(updateData.status === '완료' && !updateData.actualCompletedDate && {
+        actualCompletedDate: format(new Date(), 'yyyy-MM-dd'),
+        actualCompletedTime: format(new Date(), 'HH:mm'),
         completedAt: new Date().toISOString()
       })
+      // ❌ 제거: date와 time 필드를 덮어쓰지 않음
     };
 
     console.log('🔄 콜백 업데이트 완료:', {
@@ -188,14 +191,18 @@ export async function PUT(
       originalStatus: originalCallback.status,
       newType: callbackHistory[callbackIndex].type,
       newStatus: callbackHistory[callbackIndex].status,
-      isVisitManagementCallback: callbackHistory[callbackIndex].isVisitManagementCallback
+      isVisitManagementCallback: callbackHistory[callbackIndex].isVisitManagementCallback,
+      // 🔥 디버깅: 날짜 정보 확인
+      originalDate: originalCallback.date,
+      updatedDate: callbackHistory[callbackIndex].date,
+      actualCompletedDate: callbackHistory[callbackIndex].actualCompletedDate
     });
 
     // 🔥 콜백 업데이트 후 환자 상태 재계산
     const tempPatient = {
       ...patient,
       callbackHistory: callbackHistory
-    } as any;  // 타입 에러 회피를 위한 임시 처리
+    } as any;
 
     console.log('🔥 상태 재계산 전 콜백 히스토리:', {
       patientName: patient.name,
@@ -214,7 +221,7 @@ export async function PUT(
 
     const patientUpdateData = {
       callbackHistory,
-      status: newStatus, // 🔥 재계산된 상태 추가
+      status: newStatus,
       updatedAt: new Date().toISOString()
     };
 
