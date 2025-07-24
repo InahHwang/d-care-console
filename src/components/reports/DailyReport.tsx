@@ -10,7 +10,6 @@ import {
   AlertCircle,
   FileText,
   DollarSign,
-  Phone,
   CheckCircle,
   Clock,
   Target,
@@ -60,17 +59,17 @@ interface DailyWorkSummary {
       processed: number;
       processingRate: number;
     };
+    todayScheduled: {  // 순서 변경
+      total: number;
+      processed: number;
+      processingRate: number;
+    };
     callbackUnregistered: {
       total: number;
       processed: number;
       processingRate: number;
     };
-    absent: {
-      total: number;
-      processed: number;
-      processingRate: number;
-    };
-    todayScheduled: {
+    reminderCallbacks: {  // absent 대신 reminderCallbacks
       total: number;
       processed: number;
       processingRate: number;
@@ -776,7 +775,7 @@ const DailyReport: React.FC = () => {
   // 🔥 모달 상태 추가 - PatientFilterType 사용
   const [modalState, setModalState] = useState<{
     isOpen: boolean;
-    filterType: 'overdueCallbacks' | 'callbackUnregistered' | 'absent' | 'todayScheduled' | null;
+    filterType: 'overdueCallbacks' | 'callbackUnregistered' | 'todayScheduled' | 'reminderCallbacks_registrationNeeded' | null;
     title: string;
   }>({
     isOpen: false,
@@ -788,7 +787,7 @@ const DailyReport: React.FC = () => {
   const { patients } = useAppSelector((state) => state.patients);
 
   // 🔥 모달 핸들러 수정 - 타입 안전성 확보
-  const handleOpenModal = (filterType: 'overdueCallbacks' | 'callbackUnregistered' | 'absent' | 'todayScheduled', title: string) => {
+  const handleOpenModal = (filterType: 'overdueCallbacks' | 'callbackUnregistered' | 'todayScheduled' | 'reminderCallbacks_registrationNeeded', title: string) => {
     setModalState({
       isOpen: true,
       filterType,
@@ -1049,6 +1048,41 @@ const DailyReport: React.FC = () => {
                   {dailyWorkSummary.callbackSummary.overdueCallbacks.processed}건 처리완료
                 </div>
               </div>
+              
+              {/* 오늘 예정된 콜백 */}
+              <div 
+                className="bg-white/70 rounded-lg p-4 border border-blue-200 cursor-pointer hover:bg-blue-50 transition-colors"
+                onClick={() => handleOpenModal('todayScheduled', '오늘 예정된 콜백')}
+              >
+                <div className="flex items-center justify-between mb-2">
+                  <div className="flex items-center gap-2">
+                    <div className="w-6 h-6 bg-blue-100 rounded-full flex items-center justify-center">
+                      <Calendar className="w-3 h-3 text-blue-600" />
+                    </div>
+                    <span className="text-sm font-medium text-blue-700">오늘 예정된 콜</span>
+                  </div>
+                  <span className="text-xs text-blue-600">클릭하여 보기</span>
+                </div>
+                
+                <div className="flex items-center justify-between">
+                  <span className="text-lg font-bold text-blue-900">
+                    {dailyWorkSummary.callbackSummary.todayScheduled.total}건
+                  </span>
+                  <span className={`text-sm font-medium px-2 py-1 rounded-full ${
+                    dailyWorkSummary.callbackSummary.todayScheduled.processingRate === 100 
+                      ? 'bg-green-100 text-green-800' 
+                      : dailyWorkSummary.callbackSummary.todayScheduled.processingRate >= 80 
+                        ? 'bg-yellow-100 text-yellow-800' 
+                        : 'bg-red-100 text-red-800'
+                  }`}>
+                    처리율 {dailyWorkSummary.callbackSummary.todayScheduled.processingRate}%
+                  </span>
+                </div>
+                
+                <div className="text-xs text-blue-600 mt-1">
+                  {dailyWorkSummary.callbackSummary.todayScheduled.processed}건 처리완료
+                </div>
+              </div>
 
               {/* 콜백 미등록 */}
               <div 
@@ -1085,73 +1119,38 @@ const DailyReport: React.FC = () => {
                 </div>
               </div>
 
-              {/* 부재중 */}
+               {/* 🔥 네 번째: 리마인더 콜백 (새로 추가!) */}
               <div 
-                className="bg-white/70 rounded-lg p-4 border border-gray-200 cursor-pointer hover:bg-gray-50 transition-colors"
-                onClick={() => handleOpenModal('absent', '부재중 환자')}
+                className="bg-white/70 rounded-lg p-4 border border-purple-200 cursor-pointer hover:bg-purple-50 transition-colors"
+                onClick={() => handleOpenModal('reminderCallbacks_registrationNeeded', '⚠️ 리마인더 콜백 - 등록필요')}
               >
                 <div className="flex items-center justify-between mb-2">
                   <div className="flex items-center gap-2">
-                    <div className="w-6 h-6 bg-gray-100 rounded-full flex items-center justify-center">
-                      <Phone className="w-3 h-3 text-gray-600" />
+                    <div className="w-6 h-6 bg-purple-100 rounded-full flex items-center justify-center">
+                      <Clock className="w-3 h-3 text-purple-600" />
                     </div>
-                    <span className="text-sm font-medium text-gray-700">부재중</span>
+                    <span className="text-sm font-medium text-purple-700">⏰ 리마인더 콜백</span>
                   </div>
                   <span className="text-xs text-blue-600">클릭하여 보기</span>
                 </div>
                 
                 <div className="flex items-center justify-between">
-                  <span className="text-lg font-bold text-gray-900">
-                    {dailyWorkSummary.callbackSummary.absent.total}명
+                  <span className="text-lg font-bold text-purple-900">
+                    {dailyWorkSummary.callbackSummary.reminderCallbacks.total}건
                   </span>
                   <span className={`text-sm font-medium px-2 py-1 rounded-full ${
-                    dailyWorkSummary.callbackSummary.absent.processingRate === 100 
+                    dailyWorkSummary.callbackSummary.reminderCallbacks.processingRate === 100 
                       ? 'bg-green-100 text-green-800' 
-                      : dailyWorkSummary.callbackSummary.absent.processingRate >= 80 
+                      : dailyWorkSummary.callbackSummary.reminderCallbacks.processingRate >= 80 
                         ? 'bg-yellow-100 text-yellow-800' 
                         : 'bg-red-100 text-red-800'
                   }`}>
-                    처리율 {dailyWorkSummary.callbackSummary.absent.processingRate}%
+                    처리율 {dailyWorkSummary.callbackSummary.reminderCallbacks.processingRate}%
                   </span>
                 </div>
                 
-                <div className="text-xs text-gray-600 mt-1">
-                  {dailyWorkSummary.callbackSummary.absent.processed}명 처리완료
-                </div>
-              </div>
-
-              {/* 오늘 예정된 콜백 */}
-              <div 
-                className="bg-white/70 rounded-lg p-4 border border-blue-200 cursor-pointer hover:bg-blue-50 transition-colors"
-                onClick={() => handleOpenModal('todayScheduled', '오늘 예정된 콜백')}
-              >
-                <div className="flex items-center justify-between mb-2">
-                  <div className="flex items-center gap-2">
-                    <div className="w-6 h-6 bg-blue-100 rounded-full flex items-center justify-center">
-                      <Calendar className="w-3 h-3 text-blue-600" />
-                    </div>
-                    <span className="text-sm font-medium text-blue-700">오늘 예정된 콜</span>
-                  </div>
-                  <span className="text-xs text-blue-600">클릭하여 보기</span>
-                </div>
-                
-                <div className="flex items-center justify-between">
-                  <span className="text-lg font-bold text-blue-900">
-                    {dailyWorkSummary.callbackSummary.todayScheduled.total}건
-                  </span>
-                  <span className={`text-sm font-medium px-2 py-1 rounded-full ${
-                    dailyWorkSummary.callbackSummary.todayScheduled.processingRate === 100 
-                      ? 'bg-green-100 text-green-800' 
-                      : dailyWorkSummary.callbackSummary.todayScheduled.processingRate >= 80 
-                        ? 'bg-yellow-100 text-yellow-800' 
-                        : 'bg-red-100 text-red-800'
-                  }`}>
-                    처리율 {dailyWorkSummary.callbackSummary.todayScheduled.processingRate}%
-                  </span>
-                </div>
-                
-                <div className="text-xs text-blue-600 mt-1">
-                  {dailyWorkSummary.callbackSummary.todayScheduled.processed}건 처리완료
+                <div className="text-xs text-purple-600 mt-1">
+                  {dailyWorkSummary.callbackSummary.reminderCallbacks.processed}건 처리완료
                 </div>
               </div>
             </div>

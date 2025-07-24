@@ -701,9 +701,9 @@ export async function GET(request: NextRequest) {
 
       // 🔥 기존 필터 타입들 (호환성 유지)
       case 'callbackUnregistered': {
+        // 모든 활성 환자 가져오기
         const allPatients = await db.collection('patients')
           .find({
-            status: '잠재고객',
             $or: [
               { isCompleted: { $ne: true } },
               { isCompleted: { $exists: false } }
@@ -712,7 +712,65 @@ export async function GET(request: NextRequest) {
           .toArray();
         
         patients = allPatients.filter((patient: any) => {
-          return !patient.callbackHistory || patient.callbackHistory.length === 0;
+          // 예약 후 미내원 상태 계산
+          const calculatePostReservationStatus = (p: any): boolean => {
+            if (p.status === '예약확정' && 
+                !p.visitConfirmed && 
+                p.reservationDate) {
+              return p.reservationDate < todayStr;
+            }
+            return false;
+          };
+
+          // 상담환자 콜백 미등록
+          if (patient.visitConfirmed !== true) {
+            // 예약확정/재예약확정 상태인 환자는 제외
+            if (patient.status === '예약확정' || patient.status === '재예약확정') {
+              return false;
+            }
+            
+            const isPostReservationPatient = calculatePostReservationStatus(patient);
+            
+            // 잠재고객, 부재중, 예약 후 미내원 상태
+            const isTargetStatus = patient.status === '부재중' || 
+                                patient.status === '잠재고객' || 
+                                isPostReservationPatient === true;
+            
+            if (!isTargetStatus) {
+              return false;
+            }
+            
+            // 콜백 기록이 없거나 예정된 콜백이 없는 경우
+            if (!patient.callbackHistory || patient.callbackHistory.length === 0) {
+              return true;
+            }
+            
+            const hasScheduledCallback = patient.callbackHistory.some((callback: any) => 
+              callback.status === '예정'
+            );
+            
+            return !hasScheduledCallback;
+          }
+          
+          // 내원환자 콜백 미등록 (상태미설정)
+          if (patient.visitConfirmed === true) {
+            // postVisitStatus가 없거나 undefined인 경우
+            if (!patient.postVisitStatus) {
+              // 내원관리 콜백만 체크
+              if (!patient.callbackHistory || patient.callbackHistory.length === 0) {
+                return true;
+              }
+              
+              const hasVisitManagementCallback = patient.callbackHistory.some((callback: any) => 
+                callback.status === '예정' && 
+                callback.isVisitManagementCallback === true
+              );
+              
+              return !hasVisitManagementCallback;
+            }
+          }
+          
+          return false;
         });
         
         console.log(`[API] 콜백 미등록 환자 ${patients.length}명 조회 완료`);
