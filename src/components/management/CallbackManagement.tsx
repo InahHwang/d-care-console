@@ -1326,33 +1326,33 @@ export default function CallbackManagement({ patient }: CallbackManagementProps)
                     
                     {/* 수정/삭제 버튼 - 예정 상태이고 재예약완료가 아닌 경우에만 표시 */}
                     {!patient.isCompleted && callback.status === '예정' && !callback.isReReservationRecord && (
-                                    <div className="flex items-center gap-1">
-                                      <button
-                                        onClick={() => handleEditCallback(callback)}
-                                        disabled={isEditRestricted}
-                                        className={`p-1 rounded ${
-                                          isEditRestricted
-                                            ? 'text-gray-400 bg-gray-100 cursor-not-allowed'
-                                            : 'text-blue-600 hover:bg-blue-100'
-                                        }`}
-                                        title={isEditRestricted ? "내원완료 환자는 내원관리에서 수정" : "수정"}
-                                      >
-                                        <Icon icon={HiOutlinePencil} size={16} />
-                                      </button>
-                                      <button
-                                        onClick={() => handleDeleteCallback(callback)}
-                                        disabled={isEditRestricted}
-                                        className={`p-1 rounded ${
-                                          isEditRestricted
-                                            ? 'text-gray-400 bg-gray-100 cursor-not-allowed'
-                                            : 'text-red-600 hover:bg-red-100'
-                                        }`}
-                                        title={isEditRestricted ? "내원완료 환자는 내원관리에서 삭제" : "삭제"}
-                                      >
-                                        <Icon icon={HiOutlineTrash} size={16} />
-                                      </button>
-                                    </div>
-                                  )}
+                      <div className="flex items-center gap-1">
+                        <button
+                          onClick={() => handleEditCallback(callback)}
+                          disabled={isEditRestricted}
+                          className={`p-1 rounded ${
+                            isEditRestricted
+                              ? 'text-gray-400 bg-gray-100 cursor-not-allowed'
+                              : 'text-blue-600 hover:bg-blue-100'
+                          }`}
+                          title={isEditRestricted ? "내원완료 환자는 내원관리에서 수정" : "수정"}
+                        >
+                          <Icon icon={HiOutlinePencil} size={16} />
+                        </button>
+                        <button
+                          onClick={() => handleDeleteCallback(callback)}
+                          disabled={isEditRestricted}
+                          className={`p-1 rounded ${
+                            isEditRestricted
+                              ? 'text-gray-400 bg-gray-100 cursor-not-allowed'
+                              : 'text-red-600 hover:bg-red-100'
+                          }`}
+                          title={isEditRestricted ? "내원완료 환자는 내원관리에서 삭제" : "삭제"}
+                        >
+                          <Icon icon={HiOutlineTrash} size={16} />
+                        </button>
+                      </div>
+                    )}
                   </div>
                 </div>
                 
