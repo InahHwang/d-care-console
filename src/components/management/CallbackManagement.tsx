@@ -1233,16 +1233,16 @@ export default function CallbackManagement({ patient }: CallbackManagementProps)
               const unifiedDisplayData = getUnifiedCallbackDisplayData(callback);
               
               return (
-              <div 
-                key={callback.id}
-                className={`p-4 border rounded-lg ${
-                  callback.status === '완료' 
-                    ? 'border-green-200 bg-green-50' 
-                    : callback.status === '예정'
-                      ? 'border-blue-200 bg-blue-50'
-                      : 'border-orange-200 bg-orange-50'
-                }`}
-              >
+                <div 
+                  key={callback.id}
+                  className={`p-4 border rounded-lg ${
+                    callback.status === '완료' 
+                      ? 'border-green-200 bg-green-50' 
+                      : callback.status === '예정'
+                        ? 'border-blue-200 bg-blue-50'
+                        : 'border-orange-200 bg-orange-50'
+                  }`}
+                >
                 <div className="flex items-center justify-between mb-3">
                   <div className="flex items-center gap-3">
                     <span className={`px-3 py-1 rounded-full text-sm font-medium ${
@@ -1326,33 +1326,33 @@ export default function CallbackManagement({ patient }: CallbackManagementProps)
                     
                     {/* 수정/삭제 버튼 - 예정 상태이고 재예약완료가 아닌 경우에만 표시 */}
                     {!patient.isCompleted && callback.status === '예정' && !callback.isReReservationRecord && (
-                      <div className="flex items-center gap-1">
-                        <button
-                          onClick={() => handleEditCallback(callback)}
-                          disabled={isEditRestricted}
-                          className={`p-1 rounded ${
-                            isEditRestricted
-                              ? 'text-gray-400 bg-gray-100 cursor-not-allowed'
-                              : 'text-blue-600 hover:bg-blue-100'
-                          }`}
-                          title={isEditRestricted ? "내원완료 환자는 내원관리에서 수정" : "수정"}
-                        >
-                          <Icon icon={HiOutlinePencil} size={16} />
-                        </button>
-                        <button
-                          onClick={() => handleDeleteCallback(callback)}
-                          disabled={isEditRestricted}
-                          className={`p-1 rounded ${
-                            isEditRestricted
-                              ? 'text-gray-400 bg-gray-100 cursor-not-allowed'
-                              : 'text-red-600 hover:bg-red-100'
-                          }`}
-                          title={isEditRestricted ? "내원완료 환자는 내원관리에서 삭제" : "삭제"}
-                        >
-                          <Icon icon={HiOutlineTrash} size={16} />
-                        </button>
-                      </div>
-                    )}
+                  <div className="flex items-center gap-1">
+                    <button
+                      onClick={() => handleEditCallback(callback)}
+                      disabled={isEditRestricted}
+                      className={`p-1 rounded ${
+                        isEditRestricted
+                          ? 'text-gray-400 bg-gray-100 cursor-not-allowed'
+                          : 'text-blue-600 hover:bg-blue-100'
+                      }`}
+                      title={isEditRestricted ? "내원완료 환자는 내원관리에서 수정" : "수정"}
+                    >
+                      <Icon icon={HiOutlinePencil} size={16} />
+                    </button>
+                    <button
+                      onClick={() => handleDeleteCallback(callback)}
+                      disabled={isEditRestricted}
+                      className={`p-1 rounded ${
+                        isEditRestricted
+                          ? 'text-gray-400 bg-gray-100 cursor-not-allowed'
+                          : 'text-red-600 hover:bg-red-100'
+                      }`}
+                      title={isEditRestricted ? "내원완료 환자는 내원관리에서 삭제" : "삭제"}
+                    >
+                      <Icon icon={HiOutlineTrash} size={16} />
+                    </button>
+                  </div>
+                )}
                   </div>
                 </div>
                 
@@ -1408,9 +1408,6 @@ export default function CallbackManagement({ patient }: CallbackManagementProps)
                 {/* 🔥 통일된 콜백 상태별 처리 UI - 모든 케이스에서 동일하게 표시 */}
                 {unifiedDisplayData.showPatientStatusSection && !isEditRestricted && (
                   <div className="border-t pt-3 mt-3">
-                    <div className="text-sm text-gray-500 italic">
-                    내원완료 환자의 콜백 처리는 '내원관리'에서 진행해주세요.
-                    </div>
                     {callback.type === '1차' && currentStage === 'first' ? (
                       // 1차 상담 후 환자 상태 처리
                       <div className="space-y-4">
