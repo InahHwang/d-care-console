@@ -1383,6 +1383,8 @@ export default function PatientDetailModal() {
           patientName={selectedPatient.name}
           existingConsultation={selectedPatient.consultation}
           patientCallbackHistory={selectedPatient.callbackHistory}
+          patientReservationDate={selectedPatient.reservationDate}  // 🔥 이름 수정
+          patientReservationTime={selectedPatient.reservationTime}  // 🔥 이름 수정
           onSave={handleConsultationUpdate}
         />
       )}

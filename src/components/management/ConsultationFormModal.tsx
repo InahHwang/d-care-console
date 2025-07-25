@@ -21,6 +21,8 @@ interface ConsultationFormModalProps {
   patientName: string
   existingConsultation?: ConsultationInfo
   patientCallbackHistory?: CallbackItem[]
+  patientReservationDate?: string  // 🔥 추가: 환자의 예약 날짜
+  patientReservationTime?: string  // 🔥 추가: 환자의 예약 시간
   onSave: (consultationData: Partial<ConsultationInfo>, additionalData?: {
     reservationDate?: string
     reservationTime?: string
@@ -39,6 +41,8 @@ export default function ConsultationFormModal({
   patientName,
   existingConsultation,
   patientCallbackHistory = [],
+  patientReservationDate,  // 🔥 추가
+  patientReservationTime,  // 🔥 추가
   onSave
 }: ConsultationFormModalProps) {
   const [formData, setFormData] = useState<Partial<ConsultationInfo>>({
@@ -91,10 +95,22 @@ export default function ConsultationFormModal({
 
       // 동의한 경우 - 환자의 예약 정보에서 복원
       if (existingConsultation.estimateAgreed === true) {
-        const tomorrow = new Date()
-        tomorrow.setDate(tomorrow.getDate() + 1)
-        setReservationDate(tomorrow.toISOString().split('T')[0])
-        setReservationTime('10:00')
+        // 🔥 props로 전달받은 예약 정보가 있으면 사용
+        if (patientReservationDate && patientReservationTime) {
+          setReservationDate(patientReservationDate)
+          setReservationTime(patientReservationTime)
+          console.log('🔥 환자 예약 정보 복원:', {
+            date: patientReservationDate,
+            time: patientReservationTime
+          })
+        } else {
+          // 예약 정보가 없으면 기본값 설정
+          const tomorrow = new Date()
+          tomorrow.setDate(tomorrow.getDate() + 1)
+          setReservationDate(tomorrow.toISOString().split('T')[0])
+          setReservationTime('10:00')
+          console.log('🔥 예약 정보가 없어 기본값 설정')
+        }
       }
 
       // 거부한 경우 - 기존 1차 콜백 정보에서 복원
