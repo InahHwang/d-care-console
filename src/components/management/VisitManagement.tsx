@@ -1680,6 +1680,11 @@ const handlePatientUpdate = useCallback((updatedPatient: Patient) => {
     case 'unprocessed_callback':
       // 미처리 콜백: 콜백 예정일이 지났는데 아직 추가콜백등록이나 치료동의, 치료 시작 및 종결과 같은 그 이후 팔로업이 되지 않고 방치된 환자
       filtered = filtered.filter(patient => {
+        // 🔥 치료시작 상태는 제외
+        if (patient.postVisitStatus === '치료시작') {
+          return false;
+        }
+        
         if (!patient.callbackHistory || patient.callbackHistory.length === 0) {
           return false;
         }
@@ -1763,6 +1768,11 @@ const handlePatientUpdate = useCallback((updatedPatient: Patient) => {
   
   // 미처리 콜백 계산
   const unprocessedCallback = allVisitConfirmed.filter(patient => {
+    // 🔥 치료시작 상태는 제외
+    if (patient.postVisitStatus === '치료시작') {
+      return false;
+    }
+    
     if (!patient.callbackHistory || patient.callbackHistory.length === 0) {
       return false;
     }

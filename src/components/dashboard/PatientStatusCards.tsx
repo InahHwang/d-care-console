@@ -1,6 +1,7 @@
-// src/components/dashboard/PatientStatusCards.tsx - 새로운 구조로 완전 개편
+// src/components/dashboard/PatientStatusCards.tsx - 전체 수정된 코드
 import React, { useState } from 'react';
 import PatientListModal from '../management/PatientListModal';
+import { useAppSelector } from '@/hooks/reduxHooks';
 
 // 🔥 새로운 상태 카운트 타입 정의
 interface StatusCardData {
@@ -36,6 +37,80 @@ export type NewPatientFilterType =
 const PatientStatusCards: React.FC<PatientStatusCardsProps> = ({ statusCounts }) => {
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [selectedFilter, setSelectedFilter] = useState<NewPatientFilterType | null>(null);
+  
+  // 🔥 추가: Redux에서 환자 데이터 가져오기
+  const patients = useAppSelector((state) => state.patients.patients);
+  
+  // 🔥 미처리 콜백 계산 로직 수정 (대시보드 페이지에서 계산)
+  const calculateOverdueCallbacks = () => {
+    const today = new Date();
+    const todayStart = new Date(today.getFullYear(), today.getMonth(), today.getDate());
+    
+    let consultationCount = 0;
+    let visitCount = 0;
+    
+    patients.forEach((patient) => {
+      if (!patient.callbackHistory || patient.callbackHistory.length === 0) {
+        return;
+      }
+      
+      // 상담환자 (내원확정되지 않은 환자)
+      if (patient.visitConfirmed !== true) {
+        // 예약확정/재예약확정 상태인 환자는 제외
+        if (patient.status === '예약확정' || patient.status === '재예약확정') {
+          return;
+        }
+        
+        // 환자상태가 "콜백필요"이고 콜백 예정 날짜가 오늘 이전인 경우
+        if (patient.status !== '콜백필요') {
+          return;
+        }
+        
+        const hasOverdueCallback = patient.callbackHistory.some((callback) => {
+          if (callback.status !== '예정') return false;
+          if (callback.isVisitManagementCallback === true) return false; // 상담관리 콜백만
+          
+          const callbackDate = new Date(callback.date);
+          callbackDate.setHours(0, 0, 0, 0);
+          return callbackDate < todayStart;
+        });
+        
+        if (hasOverdueCallback) {
+          consultationCount++;
+        }
+      }
+      
+      // 내원환자 (내원확정된 환자)
+      if (patient.visitConfirmed === true) {
+        // 🔥 핵심 수정: 치료시작 상태는 제외
+        if (patient.postVisitStatus === '치료시작') {
+          return;
+        }
+        
+        const hasOverdueVisitCallback = patient.callbackHistory.some((callback) => {
+          if (callback.status !== '예정') return false;
+          if (callback.isVisitManagementCallback !== true) return false; // 내원관리 콜백만
+          
+          const callbackDate = new Date(callback.date);
+          callbackDate.setHours(0, 0, 0, 0);
+          return callbackDate < todayStart;
+        });
+        
+        if (hasOverdueVisitCallback) {
+          visitCount++;
+        }
+      }
+    });
+    
+    return { consultation: consultationCount, visit: visitCount };
+  };
+  
+  // 🔥 실제 계산된 값 사용 (props로 받은 값 대신)
+  const calculatedCounts = calculateOverdueCallbacks();
+  const overdueCallbacksCounts = {
+    consultation: calculatedCounts.consultation,
+    visit: calculatedCounts.visit
+  };
 
   const handleCardClick = (filterType: NewPatientFilterType) => {
     setSelectedFilter(filterType);
@@ -99,7 +174,7 @@ const PatientStatusCards: React.FC<PatientStatusCardsProps> = ({ statusCounts })
                   onClick={() => handleCardClick('overdueCallbacks_consultation')}
                 >
                   <span className="text-2xl font-bold text-red-600 hover:text-red-700">
-                    {statusCounts.overdueCallbacks.consultation}건
+                    {overdueCallbacksCounts.consultation}건
                   </span>
                 </div>
                 <div 
@@ -107,7 +182,7 @@ const PatientStatusCards: React.FC<PatientStatusCardsProps> = ({ statusCounts })
                   onClick={() => handleCardClick('overdueCallbacks_visit')}
                 >
                   <span className="text-2xl font-bold text-red-600 hover:text-red-700">
-                    {statusCounts.overdueCallbacks.visit}건
+                    {overdueCallbacksCounts.visit}건
                   </span>
                 </div>
               </div>
@@ -116,7 +191,7 @@ const PatientStatusCards: React.FC<PatientStatusCardsProps> = ({ statusCounts })
           
           <div className="mt-3 text-xs text-red-600">
             <div>상담환자: 환자상태가 "콜백필요"로 구분되어있고, 콜백 예정 날짜가 오늘 이전인 경우</div>
-            <div>내원환자: 내원 후 상태가 "재콜백필요"로 구분되어 있는 경우</div>
+            <div>내원환자: 내원 후 미처리 콜백이 있는 모든 환자 (치료시작 제외)</div>
           </div>
         </div>
 
