@@ -391,6 +391,14 @@ const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement 
   
   // 🔥 나이 필드 처리 개선 - 빈 값을 명확하게 undefined로 설정
   if (name === 'age') {
+    console.log('🔍 프론트엔드: 나이 입력 상세 분석:', {
+        originalValue: value,
+        trimmedValue: value.trim(),
+        isEmpty: value === '' || value.trim() === '',
+        environment: process.env.NODE_ENV,
+        timestamp: new Date().toISOString()
+      });
+
     let ageValue: number | undefined;
     
     // 🔥 더 엄격한 검증 추가

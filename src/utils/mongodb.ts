@@ -16,6 +16,7 @@ const getDatabaseName = () => {
   }
 };
 
+
 // 연결 캐싱을 위한 변수
 let cachedClient: MongoClient | null = null;
 let cachedDb: Db | null = null;
@@ -351,3 +352,162 @@ export async function clearTestData() {
 
 // 기본 export (기존 호환성 유지)
 export default clientPromise;
+
+// mongodb.ts 파일에 추가할 디버깅 함수들
+
+// 🔥 환자 컬렉션의 나이 필드 분석 함수
+export async function analyzeAgeField() {
+  try {
+    const { db } = await connectToDatabase();
+    const patientsCollection = db.collection('patients');
+    
+    console.log('🔍 나이 필드 분석 시작...');
+    
+    // 모든 환자의 나이 필드 타입 분석
+    const ageAnalysis = await patientsCollection.aggregate([
+      {
+        $project: {
+          name: 1,
+          age: 1,
+          ageType: { $type: "$age" },
+          ageExists: { $ifNull: ["$age", "NOT_EXISTS"] }
+        }
+      },
+      {
+        $group: {
+          _id: "$ageType",
+          count: { $sum: 1 },
+          examples: { 
+            $push: { 
+              name: "$name", 
+              age: "$age",
+              ageExists: "$ageExists"
+            } 
+          }
+        }
+      }
+    ]).toArray();
+    
+    console.log('📊 나이 필드 타입별 분석:', ageAnalysis);
+    
+    // 나이가 1인 환자들 특별 조회
+    const ageOnePatients = await patientsCollection.find(
+      { age: 1 },
+      { projection: { name: 1, age: 1, createdAt: 1, createdBy: 1 } }
+    ).toArray();
+    
+    console.log('🔍 나이가 1인 환자들:', ageOnePatients);
+    
+    // 나이 필드가 없는 환자들
+    const noAgePatients = await patientsCollection.find(
+      { age: { $exists: false } },
+      { projection: { name: 1, createdAt: 1, createdBy: 1 } }
+    ).limit(5).toArray();
+    
+    console.log('🔍 나이 필드가 없는 환자들 (샘플 5명):', noAgePatients);
+    
+    return {
+      ageAnalysis,
+      ageOnePatients,
+      noAgePatients
+    };
+    
+  } catch (error) {
+    console.error('❌ 나이 필드 분석 실패:', error);
+    throw error;
+  }
+}
+
+// 🔥 컬렉션 스키마 검증 규칙 확인
+export async function checkCollectionValidation() {
+  try {
+    const { db } = await connectToDatabase();
+    
+    const collections = await db.listCollections({ name: 'patients' }).toArray();
+    
+    if (collections.length > 0) {
+      const collectionInfo = collections[0] as any; // 타입 안전성을 위해 any로 캐스팅
+      console.log('📋 Patients 컬렉션 정보:', JSON.stringify(collectionInfo, null, 2));
+      
+      // 스키마 검증 규칙이 있는지 확인
+      if (collectionInfo.options && collectionInfo.options.validator) {
+        console.log('⚠️ 스키마 검증 규칙 발견:', collectionInfo.options.validator);
+        return collectionInfo.options.validator;
+      } else {
+        console.log('✅ 스키마 검증 규칙 없음');
+        return null;
+      }
+    } else {
+      console.log('📋 Patients 컬렉션을 찾을 수 없습니다.');
+      return null;
+    }
+    
+  } catch (error) {
+    console.error('❌ 컬렉션 검증 확인 실패:', error);
+    throw error;
+  }
+}
+
+// 🔥 문제가 있는 나이 필드 수정 함수
+export async function fixAgeFieldIssues() {
+  const envInfo = getEnvironmentInfo();
+  
+  if (envInfo.isProduction) {
+    console.log('❌ 프로덕션에서는 데이터 수정을 할 수 없습니다.');
+    return;
+  }
+  
+  try {
+    const { db } = await connectToDatabase();
+    const patientsCollection = db.collection('patients');
+    
+    console.log('🔧 나이 필드 문제 수정 시작...');
+    
+    // 1. 나이가 1인 환자들 찾기 (의도하지 않은 값일 가능성)
+    const ageOnePatients = await patientsCollection.find({ age: 1 }).toArray();
+    console.log(`🔍 나이가 1인 환자 ${ageOnePatients.length}명 발견`);
+    
+    // 2. 나이가 1인 환자들의 나이 필드 제거 (개발 환경에서만)
+    if (ageOnePatients.length > 0) {
+      const result = await patientsCollection.updateMany(
+        { age: 1 },
+        { $unset: { age: "" } }
+      );
+      
+      console.log(`✅ ${result.modifiedCount}명의 환자에서 나이 필드 제거 완료`);
+    }
+    
+    // 3. 잘못된 타입의 나이 필드 수정
+    const invalidAgePatients = await patientsCollection.find({
+      age: { 
+        $exists: true,
+        $not: { $type: "number" }
+      }
+    }).toArray();
+    
+    console.log(`🔍 잘못된 타입의 나이 필드 ${invalidAgePatients.length}개 발견`);
+    
+    for (const patient of invalidAgePatients) {
+      const numAge = parseInt(patient.age);
+      if (isNaN(numAge) || numAge < 1 || numAge > 120) {
+        // 유효하지 않은 나이는 필드 제거
+        await patientsCollection.updateOne(
+          { _id: patient._id },
+          { $unset: { age: "" } }
+        );
+      } else {
+        // 유효한 나이는 숫자로 변환
+        await patientsCollection.updateOne(
+          { _id: patient._id },
+          { $set: { age: numAge } }
+        );
+      }
+    }
+    
+    console.log('✅ 나이 필드 문제 수정 완료');
+    
+  } catch (error) {
+    console.error('❌ 나이 필드 수정 실패:', error);
+    throw error;
+  }
+}
