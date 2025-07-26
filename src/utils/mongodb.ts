@@ -131,6 +131,46 @@ async function createIndexesSafely(db: Db) {
       await db.collection('patients').createIndex({ status: 1 });
       await db.collection('patients').createIndex({ createdBy: 1 });
       await db.collection('patients').createIndex({ lastModifiedAt: -1 });
+
+      // 🔥 나이 필드 스키마 검증 규칙 추가
+      try {
+        await db.command({
+          collMod: 'patients',
+          validator: {
+            $jsonSchema: {
+              bsonType: 'object',
+              properties: {
+                age: {
+                  bsonType: ['int', 'null'],
+                  minimum: 2,
+                  maximum: 120,
+                  description: '나이는 2-120 사이의 정수여야 하며, 1은 허용되지 않습니다.'
+                },
+                name: {
+                  bsonType: 'string',
+                  description: '환자 이름은 필수입니다.'
+                },
+                phoneNumber: {
+                  bsonType: 'string',
+                  description: '전화번호는 필수입니다.'
+                }
+              },
+              required: ['name', 'phoneNumber']
+            }
+          },
+          validationLevel: 'moderate', // 기존 데이터는 영향 없음, 새 데이터만 검증
+          validationAction: 'error' // 검증 실패 시 에러 발생
+        });
+        
+        console.log('✅ Patients 컬렉션 스키마 검증 규칙 적용 완료');
+      } catch (validationError: any) {
+        if (validationError.code === 26) {
+          console.log('📋 스키마 검증 규칙이 이미 존재합니다.');
+        } else {
+          console.warn('⚠️ 스키마 검증 규칙 적용 실패:', validationError.message);
+        }
+      }
+      
     } catch (patientIndexError) {
       console.warn('Patients 인덱스 생성 중 오류:', patientIndexError);
     }
@@ -446,6 +486,110 @@ export async function checkCollectionValidation() {
     console.error('❌ 컬렉션 검증 확인 실패:', error);
     throw error;
   }
+}
+
+// mongodb.ts에 추가할 새로운 함수
+
+// 🔥 나이가 1인 환자들의 나이 필드 제거 (프로덕션에서도 안전하게 실행 가능)
+export async function fixAgeOnePatients() {
+  try {
+    const { db } = await connectToDatabase();
+    const patientsCollection = db.collection('patients');
+    const envInfo = getEnvironmentInfo();
+    
+    console.log(`🔧 나이가 1인 환자들 수정 시작... (${envInfo.database})`);
+    
+    // 1. 나이가 1인 환자들 찾기
+    const ageOnePatients = await patientsCollection.find({ age: 1 }).toArray();
+    console.log(`🔍 나이가 1인 환자 ${ageOnePatients.length}명 발견:`, 
+      ageOnePatients.map(p => ({ name: p.name, age: p.age, id: p._id }))
+    );
+    
+    if (ageOnePatients.length === 0) {
+      console.log('✅ 나이가 1인 환자가 없습니다.');
+      return { fixed: 0, patients: [] };
+    }
+    
+    // 2. 나이 필드 제거 (undefined로 만들어 "데이터 없음" 처리)
+    const result = await patientsCollection.updateMany(
+      { age: 1 },
+      { 
+        $unset: { age: "" },
+        $set: { 
+          lastModifiedAt: new Date().toISOString(),
+          lastModifiedBy: 'system_fix',
+          lastModifiedByName: 'Age Bug Fix'
+        }
+      }
+    );
+    
+    console.log(`✅ ${result.modifiedCount}명의 환자 나이 필드 수정 완료`);
+    
+    // 3. 수정 후 확인
+    const verifyResult = await patientsCollection.find({ age: 1 }).toArray();
+    
+    return {
+      fixed: result.modifiedCount,
+      beforeFix: ageOnePatients.map(p => ({ 
+        name: p.name, 
+        age: p.age, 
+        id: p._id.toString() 
+      })),
+      remainingAgeOnePatients: verifyResult.length,
+      timestamp: new Date().toISOString()
+    };
+    
+  } catch (error) {
+    console.error('❌ 나이 1 환자 수정 실패:', error);
+    throw error;
+  }
+}
+
+// 🔥 강화된 나이 검증 함수 (API에서 사용할 수 있도록)
+export function validateAge(age: any): { isValid: boolean; cleanedAge?: number; shouldRemove: boolean } {
+  console.log('🔍 나이 검증:', {
+    age,
+    type: typeof age,
+    isUndefined: age === undefined,
+    isNull: age === null,
+    isEmpty: age === '',
+    isOne: age === 1,
+    isNaN: isNaN(age),
+    stringified: JSON.stringify(age)
+  });
+
+  // 🚨 나이 필드 제거 조건들
+  const shouldRemove = (
+    age === undefined ||
+    age === null ||
+    age === '' ||
+    age === 0 ||
+    age === 1 ||  // 🔥 1도 의심스러운 값으로 처리
+    (typeof age === 'string' && age.trim() === '') ||
+    (typeof age === 'string' && age.trim() === '1') ||
+    isNaN(Number(age)) ||
+    Number(age) < 2 ||  // 🔥 최소 나이를 2세로 상향
+    Number(age) > 120
+  );
+
+  if (shouldRemove) {
+    console.log('🚨 나이 필드 제거 대상:', {
+      originalValue: age,
+      reason: age === 1 ? 'AGE_ONE_BLOCKED' : 'INVALID_VALUE'
+    });
+    return { isValid: false, shouldRemove: true };
+  }
+
+  // 유효한 나이 값으로 변환
+  const validAge = parseInt(String(age), 10);
+  
+  if (validAge === 1) {
+    console.log('🚨 변환 후에도 1이므로 제거');
+    return { isValid: false, shouldRemove: true };
+  }
+
+  console.log('✅ 유효한 나이 값:', validAge);
+  return { isValid: true, cleanedAge: validAge, shouldRemove: false };
 }
 
 // 🔥 문제가 있는 나이 필드 수정 함수

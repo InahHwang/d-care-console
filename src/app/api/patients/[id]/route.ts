@@ -3,6 +3,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { connectToDatabase } from '@/utils/mongodb';
 import { ObjectId } from 'mongodb';
+import { validateAge } from '@/utils/mongodb';
 
 /**
  * 환자 객체의 ID 필드들을 정규화하는 헬퍼 함수
@@ -97,10 +98,22 @@ export async function PUT(
       consultationType: data.consultationType || 'outbound'
     };
     
-    // 🔥 나이가 undefined인 경우 updateData에서 제거 (기존 DB 값 유지)
-    if (data.age === undefined) {
+    // 🔥 나이 필드 검증 및 처리
+    const ageValidation = validateAge(data.age);
+
+    if (ageValidation.shouldRemove) {
+      console.log('🚨 API: 나이 필드 완전 제거 (의심스러운 값)', {
+        originalValue: data.age,
+        reason: data.age === 1 ? 'AGE_ONE_BLOCKED' : 'INVALID_VALUE'
+      });
       delete updateData.age;
-      console.log('🔥 API: 나이 필드가 undefined이므로 업데이트에서 제외 (기존 값 유지)');
+      
+      // 🔥 기존 DB에서도 나이 필드 제거
+      if (!updateData.$unset) updateData.$unset = {};
+      updateData.$unset.age = "";
+    } else if (ageValidation.isValid && ageValidation.cleanedAge) {
+      updateData.age = ageValidation.cleanedAge;
+      console.log('✅ API: 유효한 나이 값 설정:', ageValidation.cleanedAge);
     }
     
     // 🔥 지역이 undefined인 경우 updateData에서 제거 (기존 DB 값 유지)
@@ -129,21 +142,34 @@ export async function PUT(
       regionValue: updateData.region,
       updateDataKeys: Object.keys(updateData)
     });
-    
-    // 🔥 MongoDB 업데이트 - $set만 사용 (필드 제거 없음)
+
+    // MongoDB 업데이트 처리
+    const mongoUpdate = updateData.$unset 
+      ? { 
+          $set: (() => {
+            const { $unset, ...setData } = updateData;
+            return setData;
+          })(),
+          $unset: updateData.$unset 
+        }
+      : { $set: updateData };
+
+    console.log('🔍 API: MongoDB 업데이트 쿼리:', JSON.stringify(mongoUpdate, null, 2));
+
+    // 🔥 MongoDB 업데이트 - ObjectId 또는 patientId로 업데이트
     let result;
     if (ObjectId.isValid(id)) {
       console.log('🔍 API: ObjectId로 업데이트 시도', id);
       result = await db.collection('patients').findOneAndUpdate(
         { _id: new ObjectId(id) },
-        { $set: updateData }, // 🔥 $set만 사용, undefined 필드는 제외됨
+        mongoUpdate,
         { returnDocument: 'after' }
       );
     } else {
       console.log('🔍 API: patientId로 업데이트 시도', id);
       result = await db.collection('patients').findOneAndUpdate(
         { patientId: id },
-        { $set: updateData }, // 🔥 $set만 사용, undefined 필드는 제외됨
+        mongoUpdate,
         { returnDocument: 'after' }
       );
     }
