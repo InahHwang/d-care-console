@@ -146,18 +146,59 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: '필수 입력값이 누락되었습니다.' }, { status: 400 });
     }
 
-    // 🔥 여기에 나이 검증 로직 추가 ⬇️
-    if (data.age !== undefined) {
-      // 나이가 제공된 경우에만 검증
-      if (typeof data.age !== 'number' || data.age < 1 || data.age > 120) {
-        console.warn('🚨 유효하지 않은 나이 값 제거:', data.age);
-        delete data.age; // 유효하지 않은 나이 값 제거
-      } else {
-        console.log('✅ 유효한 나이 값:', data.age);
-      }
+    // 🔥 최종 강화된 나이 검증 로직
+    console.log('🔍 API: 나이 필드 원본 값:', {
+      age: data.age,
+      type: typeof data.age,
+      isUndefined: data.age === undefined,
+      isNull: data.age === null,
+      isEmpty: data.age === '',
+      isOne: data.age === 1,  // 🔥 1 값 특별 확인
+      isNaN: isNaN(data.age),
+      stringified: JSON.stringify(data.age)
+    });
+
+    // 🚨 나이 필드 완전 제거 조건들 (1 추가)
+    const shouldRemoveAge = (
+      data.age === undefined ||
+      data.age === null ||
+      data.age === '' ||
+      data.age === 0 ||
+      data.age === 1 ||  // 🔥 1도 의심스러운 값으로 처리
+      (typeof data.age === 'string' && data.age.trim() === '') ||
+      (typeof data.age === 'string' && data.age.trim() === '1') ||  // 🔥 문자열 "1"도 차단
+      isNaN(Number(data.age)) ||
+      Number(data.age) < 2 ||  // 🔥 최소 나이를 2세로 상향
+      Number(data.age) > 120
+    );
+
+    if (shouldRemoveAge) {
+      console.log('🚨 API: 나이 필드 완전 제거 (의심스러운 값)', {
+        originalValue: data.age,
+        reason: data.age === 1 ? 'AGE_ONE_BLOCKED' : 'INVALID_VALUE'
+      });
+      delete data.age;
     } else {
-      console.log('ℹ️ 나이 필드 없음 (정상)');
+      // 유효한 나이 값으로 변환
+      const validAge = parseInt(String(data.age), 10);
+      
+      // 🔥 한 번 더 검증
+      if (validAge === 1) {
+        console.log('🚨 API: 변환 후에도 1이므로 제거');
+        delete data.age;
+      } else {
+        data.age = validAge;
+        console.log('✅ API: 유효한 나이 값 설정:', validAge);
+      }
     }
+
+    // 🔥 최종 데이터 확인
+    console.log('🔍 API: 최종 저장 데이터:', {
+      hasAge: 'age' in data,
+      ageValue: data.age,
+      ageType: typeof data.age,
+      patientName: data.name
+    });
 
     // 중복 번호 확인
     const existingPatient = await db.collection('patients').findOne({ phoneNumber: data.phoneNumber });
