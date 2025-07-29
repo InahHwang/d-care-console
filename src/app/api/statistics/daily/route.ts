@@ -1,4 +1,4 @@
-// src/app/api/statistics/daily/route.ts - 🔥 status-filter와 완전 동기화된 버전
+// src/app/api/statistics/daily/route.ts - 🔥 개선된 미처리 콜백 로직 적용
 
 export const dynamic = 'force-dynamic'
 export const revalidate = 0
@@ -55,7 +55,73 @@ export async function GET(request: NextRequest) {
 
     console.log(`📊 전체 활성 환자 수: ${allPatients.length}명`);
 
-    // 🔥 1. 미처리 콜백 - status-filter/route.ts의 overdueCallbacks 로직과 완전 동일
+    // 🔥 1. 미처리 콜백 - 개선된 로직 적용 (상담환자 + 내원환자)
+    interface OverdueCallbackCount {
+      consultation: number;
+      visit: number;
+    }
+
+    /**
+     * 미처리 콜백 환자 수 계산 (상담환자 / 내원환자)
+     */
+    const calculateOverdueCallbacks = (patients: any[]): OverdueCallbackCount => {
+      const today = new Date(selectedDate);
+      const todayStart = new Date(today.getFullYear(), today.getMonth(), today.getDate());
+      let consultationCount = 0;
+      let visitCount = 0;
+      
+      patients.forEach((patient) => {
+        if (!patient.callbackHistory || patient.callbackHistory.length === 0) {
+          return;
+        }
+        
+        // 상담환자 (내원 전)
+        if (patient.visitConfirmed !== true) {
+          if (['예약확정', '재예약확정'].includes(patient.status)) return;
+          if (patient.status !== '콜백필요') return;
+          
+          const hasOverdueCallback = patient.callbackHistory.some((callback: any) => {
+            if (callback.status !== '예정') return false;
+            if (callback.isVisitManagementCallback === true) return false;
+            const callbackDate = new Date(callback.date);
+            callbackDate.setHours(0, 0, 0, 0);
+            return callbackDate < todayStart;
+          });
+          
+          if (hasOverdueCallback) {
+            consultationCount++;
+          }
+        }
+        
+        // 내원환자
+        if (patient.visitConfirmed === true) {
+          if (patient.postVisitStatus === '치료시작') return;
+          
+          const hasOverdueVisitCallback = patient.callbackHistory.some((callback: any) => {
+            if (callback.status !== '예정') return false;
+            if (callback.isVisitManagementCallback !== true) return false;
+            const callbackDate = new Date(callback.date);
+            callbackDate.setHours(0, 0, 0, 0);
+            return callbackDate < todayStart;
+          });
+          
+          if (hasOverdueVisitCallback) {
+            visitCount++;
+          }
+        }
+      });
+      
+      return {
+        consultation: consultationCount,
+        visit: visitCount
+      };
+    };
+
+    // 미처리 콜백 계산
+    const overdueCallbackCounts = calculateOverdueCallbacks(allPatients);
+    const totalOverdueCallbacks = overdueCallbackCounts.consultation + overdueCallbackCounts.visit;
+    
+    // 미처리 콜백 환자 목록 (기존 필터링 유지 - 처리율 계산용)
     const overdueCallbackPatients = allPatients.filter((patient: any) => {
       if (!patient.callbackHistory || patient.callbackHistory.length === 0) {
         return false;
@@ -66,19 +132,12 @@ export async function GET(request: NextRequest) {
       
       // 상담환자 (내원확정되지 않은 환자)
       if (patient.visitConfirmed !== true) {
-        // 예약확정/재예약확정 상태인 환자는 제외
-        if (patient.status === '예약확정' || patient.status === '재예약확정') {
-          return false;
-        }
-        
-        // 환자상태가 "콜백필요"이고 콜백 예정 날짜가 오늘 이전인 경우
-        if (patient.status !== '콜백필요') {
-          return false;
-        }
+        if (['예약확정', '재예약확정'].includes(patient.status)) return false;
+        if (patient.status !== '콜백필요') return false;
         
         return patient.callbackHistory.some((callback: any) => {
           if (callback.status !== '예정') return false;
-          if (callback.isVisitManagementCallback === true) return false; // 내원관리 콜백 제외
+          if (callback.isVisitManagementCallback === true) return false;
           
           const callbackDate = new Date(callback.date);
           callbackDate.setHours(0, 0, 0, 0);
@@ -88,21 +147,12 @@ export async function GET(request: NextRequest) {
       
       // 내원환자 (내원확정된 환자)
       if (patient.visitConfirmed === true) {
-        // 치료시작 상태는 제외
-        if (patient.postVisitStatus === '치료시작') {
-          return false;
-        }
+        if (patient.postVisitStatus === '치료시작') return false;
         
-        // 내원관리 콜백만 체크
-        const visitCallbacks = patient.callbackHistory.filter((cb: any) => 
-          cb.isVisitManagementCallback === true && cb.status === '예정'
-        );
-        
-        if (visitCallbacks.length === 0) {
-          return false;
-        }
-        
-        return visitCallbacks.some((callback: any) => {
+        return patient.callbackHistory.some((callback: any) => {
+          if (callback.status !== '예정') return false;
+          if (callback.isVisitManagementCallback !== true) return false;
+          
           const callbackDate = new Date(callback.date);
           callbackDate.setHours(0, 0, 0, 0);
           return callbackDate < todayStart;
@@ -262,7 +312,11 @@ export async function GET(request: NextRequest) {
     const callbackUnregisteredResult = calculateProcessingRate(callbackUnregisteredPatients);
     const reminderCallbacksResult = calculateProcessingRate(reminderCallbackPatients);
 
-    console.log(`🔥 미처리 콜백 환자 수: ${overdueCallbackPatients.length}명 (status-filter와 동일한 로직)`);
+    console.log(`🔥 미처리 콜백 세부 현황:`, {
+      상담환자: overdueCallbackCounts.consultation,
+      내원환자: overdueCallbackCounts.visit,
+      총계: totalOverdueCallbacks
+    });
     console.log(`🔥 오늘 예정된 콜백 환자 수: ${todayScheduledPatients.length}명`);
     console.log(`🔥 콜백 미등록 환자 수: ${callbackUnregisteredPatients.length}명`);
     console.log(`🔥 리마인더 콜백 환자 수: ${reminderCallbackPatients.length}명`);
@@ -487,7 +541,7 @@ export async function GET(request: NextRequest) {
       selectedDate,
       callbackSummary: {
         overdueCallbacks: {
-          total: overdueCallbackPatients.length,
+          total: totalOverdueCallbacks, // 🔥 상담환자 + 내원환자 합계
           processed: overdueResult.processed,
           processingRate: overdueResult.rate
         },
@@ -518,7 +572,7 @@ export async function GET(request: NextRequest) {
 
     console.log(`✅ 일별 업무 현황 조회 완료 (status-filter와 동기화): ${selectedDate}`);
     console.log(`📊 콜백 처리 요약:`, {
-      미처리콜백: `${overdueResult.processed}/${overdueCallbackPatients.length}건 (${overdueResult.rate}%)`,
+      미처리콜백: `${overdueResult.processed}/${totalOverdueCallbacks}건 (${overdueResult.rate}%) [상담:${overdueCallbackCounts.consultation} + 내원:${overdueCallbackCounts.visit}]`,
       오늘예정: `${todayScheduledResult.processed}/${todayScheduledPatients.length}건 (${todayScheduledResult.rate}%)`,
       콜백미등록: `${callbackUnregisteredResult.processed}/${callbackUnregisteredPatients.length}건 (${callbackUnregisteredResult.rate}%)`,
       리마인더: `${reminderCallbacksResult.processed}/${reminderCallbackPatients.length}건 (${reminderCallbacksResult.rate}%)`
