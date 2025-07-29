@@ -1,4 +1,4 @@
-// src/app/api/patients/status-filter/route.ts - 완전한 수정된 버전
+// src/app/api/patients/status-filter/route.ts - 미처리 콜백 로직 통일
 
 export const dynamic = 'force-dynamic';
 
@@ -363,30 +363,25 @@ export async function GET(request: NextRequest) {
         break;
       }
 
-      // 🔥 새로운 필터 타입들 (대시보드 로직과 동기화)
+      // 🔥 미처리 콜백 로직 - statistics/daily/route.ts와 완전 동일하게 수정
       case 'overdueCallbacks_consultation': {
-        // 미처리 콜백 - 상담환자
-        const allPatients = await db.collection('patients')
-          .find({
-            $or: [
-              { isCompleted: { $ne: true } },
-              { isCompleted: { $exists: false } }
-            ]
-          })
-          .toArray();
+        console.log(`🔥 [API] overdueCallbacks_consultation 필터링 시작 - statistics/daily/route.ts 로직 적용`);
+        
+        // 🔥 statistics/daily/route.ts와 동일한 환자풀 사용: 모든 환자 데이터
+        const allPatients = await db.collection('patients').find({}).toArray();
         
         patients = allPatients.filter((patient: any) => {
-          // 🔥 핵심 수정: 내원확정된 환자는 제외
+          // 🔥 내원확정된 환자는 제외 (상담환자만)
           if (patient.visitConfirmed === true) {
             return false;
           }
           
           // 🔥 예약확정/재예약확정 상태인 환자도 제외
-          if (patient.status === '예약확정' || patient.status === '재예약확정') {
+          if (['예약확정', '재예약확정'].includes(patient.status)) {
             return false;
           }
           
-          // 환자상태가 "콜백필요"이고 콜백 예정 날짜가 오늘 이전인 경우
+          // 콜백필요 상태가 아니면 제외
           if (patient.status !== '콜백필요') {
             return false;
           }
@@ -395,7 +390,7 @@ export async function GET(request: NextRequest) {
             return false;
           }
           
-          // 🔥 추가: 상담관리 콜백만 체크 (내원관리 콜백 제외)
+          // 🔥 상담관리 콜백만 체크 (내원관리 콜백 제외)
           return patient.callbackHistory.some((callback: any) => {
             if (callback.status !== '예정') return false;
             if (callback.isVisitManagementCallback === true) return false; // 내원관리 콜백 제외
@@ -406,67 +401,43 @@ export async function GET(request: NextRequest) {
           });
         });
         
-        console.log(`[API] 미처리 콜백 - 상담환자 ${patients.length}명 조회 완료`);
+        console.log(`🔥 [API] 미처리 콜백 - 상담환자 ${patients.length}명 조회 완료 (statistics/daily/route.ts 로직)`);
         break;
       }
 
       case 'overdueCallbacks_visit': {
-        // 미처리 콜백 - 내원환자 (치료시작 상태 제외)
-        console.log('[API] overdueCallbacks_visit 필터링 시작');
+        console.log(`🔥 [API] overdueCallbacks_visit 필터링 시작 - statistics/daily/route.ts 로직 적용`);
         
-        // 🔥 수정: 종결 상태 환자도 포함하기 위해 isCompleted 조건 제거
-        const allPatients = await db.collection('patients')
-          .find({
-            visitConfirmed: true
-          })
-          .toArray();
-        
-        console.log(`[API] 내원확정 환자 ${allPatients.length}명 조회`);
+        // 🔥 statistics/daily/route.ts와 동일한 환자풀 사용: 모든 환자 데이터
+        const allPatients = await db.collection('patients').find({}).toArray();
         
         patients = allPatients.filter((patient: any) => {
-          // 🔥 치료시작 상태 제외 (JavaScript에서 처리)
+          // 내원확정된 환자만
+          if (patient.visitConfirmed !== true) {
+            return false;
+          }
+          
+          // 🔥 치료시작 상태 제외 (statistics/daily/route.ts와 동일)
           if (patient.postVisitStatus === '치료시작') {
-            console.log(`[API] ${patient.name} - 치료시작 상태로 제외`);
             return false;
           }
           
           if (!patient.callbackHistory || patient.callbackHistory.length === 0) {
-            console.log(`[API] ${patient.name} - 콜백 이력 없음`);
             return false;
           }
           
           // 🔥 내원관리 콜백만 체크
-          const visitCallbacks = patient.callbackHistory.filter((cb: any) => 
-            cb.isVisitManagementCallback === true && cb.status === '예정'
-          );
-          
-          if (visitCallbacks.length === 0) {
-            console.log(`[API] ${patient.name} - 예정된 내원관리 콜백 없음`);
-            return false;
-          }
-          
-          // 예정일이 지났는지 확인
-          const today = new Date();
-          const todayString = today.toISOString().split('T')[0];
-          
-          const hasOverdueCallback = visitCallbacks.some((callback: any) => {
-            const isOverdue = callback.date < todayString;
-            if (isOverdue) {
-              console.log(`[API] ${patient.name} - 미처리 콜백 발견: ${callback.type} (${callback.date})`);
-            }
-            return isOverdue;
+          return patient.callbackHistory.some((callback: any) => {
+            if (callback.status !== '예정') return false;
+            if (callback.isVisitManagementCallback !== true) return false; // 내원관리 콜백만
+            
+            const callbackDate = new Date(callback.date);
+            callbackDate.setHours(0, 0, 0, 0);
+            return callbackDate < todayStart;
           });
-          
-          return hasOverdueCallback;
         });
         
-        console.log(`[API] 미처리 콜백 - 내원환자 ${patients.length}명 조회 완료 (치료시작 제외)`);
-        
-        // 🔥 디버깅: 처음 3명의 환자 정보 출력
-        patients.slice(0, 3).forEach((patient: any, index: number) => {
-          console.log(`[API] 환자 ${index + 1}: ${patient.name}, 상태: ${patient.postVisitStatus}, 콜백수: ${patient.callbackHistory?.length || 0}`);
-        });
-        
+        console.log(`🔥 [API] 미처리 콜백 - 내원환자 ${patients.length}명 조회 완료 (statistics/daily/route.ts 로직)`);
         break;
       }
 
@@ -811,72 +782,63 @@ export async function GET(request: NextRequest) {
       }
 
       case 'overdueCallbacks': {
-      // 🔥 미처리 콜백 - 대시보드 로직과 완전 동기화
-      const allPatients = await db.collection('patients')
-        .find({
-          $or: [
-            { isCompleted: { $ne: true } },
-            { isCompleted: { $exists: false } }
-          ]
-        })
-        .toArray();
-      
-      patients = allPatients.filter((patient: any) => {
-        if (!patient.callbackHistory || patient.callbackHistory.length === 0) {
+        console.log(`🔥 [API] overdueCallbacks 필터링 시작 - statistics/daily/route.ts 로직 완전 적용`);
+        
+        // 🔥 statistics/daily/route.ts와 동일한 환자풀 사용: 모든 환자 데이터
+        const allPatients = await db.collection('patients').find({}).toArray();
+        
+        patients = allPatients.filter((patient: any) => {
+          if (!patient.callbackHistory || patient.callbackHistory.length === 0) {
+            return false;
+          }
+          
+          // 🔥 statistics/daily/route.ts와 동일한 로직: 상담환자와 내원환자 구분
+          
+          // 상담환자 (내원확정되지 않은 환자)
+          if (patient.visitConfirmed !== true) {
+            // 예약확정/재예약확정 상태인 환자는 제외
+            if (['예약확정', '재예약확정'].includes(patient.status)) {
+              return false;
+            }
+            
+            // 콜백필요 상태가 아니면 제외
+            if (patient.status !== '콜백필요') {
+              return false;
+            }
+            
+            return patient.callbackHistory.some((callback: any) => {
+              if (callback.status !== '예정') return false;
+              if (callback.isVisitManagementCallback === true) return false; // 내원관리 콜백 제외
+              
+              const callbackDate = new Date(callback.date);
+              callbackDate.setHours(0, 0, 0, 0);
+              return callbackDate < todayStart;
+            });
+          }
+          
+          // 내원환자 (내원확정된 환자)
+          if (patient.visitConfirmed === true) {
+            // 🔥 핵심 수정: 치료시작 상태는 제외
+            if (patient.postVisitStatus === '치료시작') {
+              return false;
+            }
+            
+            return patient.callbackHistory.some((callback: any) => {
+              if (callback.status !== '예정') return false;
+              if (callback.isVisitManagementCallback !== true) return false; // 내원관리 콜백만
+              
+              const callbackDate = new Date(callback.date);
+              callbackDate.setHours(0, 0, 0, 0);
+              return callbackDate < todayStart;
+            });
+          }
+          
           return false;
-        }
+        });
         
-        // 🔥 대시보드와 동일한 로직: 상담환자와 내원환자 구분
-        
-        // 상담환자 (내원확정되지 않은 환자)
-        if (patient.visitConfirmed !== true) {
-          // 예약확정/재예약확정 상태인 환자는 제외
-          if (patient.status === '예약확정' || patient.status === '재예약확정') {
-            return false;
-          }
-          
-          // 환자상태가 "콜백필요"이고 콜백 예정 날짜가 오늘 이전인 경우
-          if (patient.status !== '콜백필요') {
-            return false;
-          }
-          
-          return patient.callbackHistory.some((callback: any) => {
-            if (callback.status !== '예정') return false;
-            const callbackDate = new Date(callback.date);
-            callbackDate.setHours(0, 0, 0, 0);
-            return callbackDate < todayStart;
-          });
-        }
-        
-        // 내원환자 (내원확정된 환자)
-        if (patient.visitConfirmed === true) {
-          // 🔥 핵심 수정: 치료시작 상태는 제외
-          if (patient.postVisitStatus === '치료시작') {
-            return false;
-          }
-          
-          // 내원관리 콜백만 체크
-          const visitCallbacks = patient.callbackHistory.filter((cb: any) => 
-            cb.isVisitManagementCallback === true && cb.status === '예정'
-          );
-          
-          if (visitCallbacks.length === 0) {
-            return false;
-          }
-          
-          return visitCallbacks.some((callback: any) => {
-            const callbackDate = new Date(callback.date);
-            callbackDate.setHours(0, 0, 0, 0);
-            return callbackDate < todayStart;
-          });
-        }
-        
-        return false;
-      });
-      
-      console.log(`[API] 미처리 콜백 환자 ${patients.length}명 조회 완료 (수정된 로직)`);
-      break;
-    }
+        console.log(`🔥 [API] 미처리 콜백 환자 ${patients.length}명 조회 완료 (statistics/daily/route.ts 로직 완전 적용)`);
+        break;
+      }
       
       case 'callbackNeeded':
         const allPatients = await db.collection('patients')
