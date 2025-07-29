@@ -46,14 +46,9 @@ export async function GET(request: NextRequest) {
     const patientsCollection = db.collection('patients');
 
     // 모든 환자 데이터를 한 번만 가져오기
-    const allPatients = await patientsCollection.find({
-      $or: [
-        { isCompleted: { $ne: true } },
-        { isCompleted: { $exists: false } }
-      ]
-    }).toArray();
+    const allPatients = await patientsCollection.find({}).toArray();
 
-    console.log(`📊 전체 활성 환자 수: ${allPatients.length}명`);
+    console.log(`📊 전체 환자 수: ${allPatients.length}명`);
 
     // 🔥 1. 미처리 콜백 - 개선된 로직 적용 (상담환자 + 내원환자)
     interface OverdueCallbackCount {
@@ -84,8 +79,8 @@ export async function GET(request: NextRequest) {
             if (callback.status !== '예정') return false;
             if (callback.isVisitManagementCallback === true) return false;
             const callbackDate = new Date(callback.date);
-            const callbackDay = new Date(callbackDate.getFullYear(), callbackDate.getMonth(), callbackDate.getDate());
-            return callbackDay < todayStart;
+            callbackDate.setHours(0, 0, 0, 0);
+            return callbackDate < todayStart;
           });
           
           if (hasOverdueCallback) {
@@ -570,7 +565,7 @@ export async function GET(request: NextRequest) {
       patientConsultations
     };
 
-    console.log(`✅ 일별 업무 현황 조회 완료 (status-filter와 동기화): ${selectedDate}`);
+    console.log(`✅ 일별 업무 현황 조회 완료 (전체 환자 기준): ${selectedDate}`);
     console.log(`📊 콜백 처리 요약:`, {
       미처리콜백: `${overdueResult.processed}/${totalOverdueCallbacks}건 (${overdueResult.rate}%) [상담:${overdueCallbackCounts.consultation} + 내원:${overdueCallbackCounts.visit}]`,
       오늘예정: `${todayScheduledResult.processed}/${todayScheduledPatients.length}건 (${todayScheduledResult.rate}%)`,
