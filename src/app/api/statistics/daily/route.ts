@@ -285,42 +285,54 @@ export async function GET(request: NextRequest) {
     const calculateProcessingRateForOverdueCallbacks = (patients: any[]): { processed: number; rate: number } => {
       if (patients.length === 0) return { processed: 0, rate: 0 };
       
+      console.log(`🔥 미처리 콜백 처리완료 계산 시작 - 총 ${patients.length}명`);
+      
       const today = new Date(selectedDate);
       
-      const processedCount = patients.filter(patient => {
+      const processedCount = patients.filter((patient, index) => {
+        console.log(`\n=== ${index + 1}. ${patient.name} 처리완료 체크 ===`);
+        console.log(`visitConfirmed: ${patient.visitConfirmed}, status: ${patient.status}, postVisitStatus: ${patient.postVisitStatus}`);
+        
         // 🔹 상담관리 환자 (visitConfirmed !== true)
         if (patient.visitConfirmed !== true) {
+          console.log(`📱 상담관리 환자로 분류`);
+          
           // 1. status가 처리완료 상태인 경우
           if (['예약완료', '종결', '부재중'].includes(patient.status)) {
+            console.log(`   ✅ status(${patient.status})로 처리완료`);
             return true;
           }
           
-          // 2. 내원완료된 경우 (visitConfirmed === true)
+          // 2. 내원완료된 경우 (visitConfirmed === true) - 이 조건은 논리적으로 불가능
           if (patient.visitConfirmed === true) {
+            console.log(`   ✅ 내원완료로 처리완료 (논리적 오류 - 이미 위에서 걸러짐)`);
             return true;
           }
           
           // 3. 오늘 이후 예정된 콜백이 있는 경우
           if (patient.callbackHistory && patient.callbackHistory.length > 0) {
-            const hasFutureCallback = patient.callbackHistory.some((callback: any) => {
+            const futureCallbacks = patient.callbackHistory.filter((callback: any) => {
               if (callback.status !== '예정') return false;
               if (callback.isVisitManagementCallback === true) return false;
               const callbackDate = new Date(callback.date);
-              return callbackDate >= today;
+              const isFuture = callbackDate >= today;
+              console.log(`     콜백 ${callback.type} (${callback.date}): 예정=${callback.status === '예정'}, 상담관리=${!callback.isVisitManagementCallback}, 미래=${isFuture}`);
+              return isFuture;
             });
             
-            if (hasFutureCallback) {
+            if (futureCallbacks.length > 0) {
+              console.log(`   ✅ 오늘 이후 예정된 상담관리 콜백 ${futureCallbacks.length}개로 처리완료`);
               return true;
             }
           }
           
+          console.log(`   ❌ 상담관리 환자 처리미완료`);
           return false;
         }
         
         // 🔹 내원관리 환자 (visitConfirmed === true)
         if (patient.visitConfirmed === true) {
-          console.log(`🔍 내원관리 환자 처리완료 체크: ${patient.name}`);
-          console.log(`   - postVisitStatus: ${patient.postVisitStatus}`);
+          console.log(`🏥 내원관리 환자로 분류`);
           
           // 1. 콜백 status가 처리완료 상태인 경우 (우선 체크)
           if (patient.callbackHistory && patient.callbackHistory.length > 0) {
@@ -329,14 +341,18 @@ export async function GET(request: NextRequest) {
             const processedCallbacks = patient.callbackHistory.filter((callback: any) => {
               const isVisitCallback = callback.isVisitManagementCallback === true;
               const isProcessed = ['완료', '부재중'].includes(callback.status);
-              console.log(`     콜백: ${callback.type}, 내원관리: ${isVisitCallback}, 상태: ${callback.status}, 처리됨: ${isProcessed}`);
+              console.log(`     콜백 ${callback.type} (${callback.date}): 내원관리=${isVisitCallback}, 상태=${callback.status}, 처리됨=${isProcessed}`);
               return isVisitCallback && isProcessed;
             });
             
             if (processedCallbacks.length > 0) {
               console.log(`   ✅ 처리완료된 내원관리 콜백 ${processedCallbacks.length}개 발견 - 처리완료`);
               return true;
+            } else {
+              console.log(`   - 처리완료된 내원관리 콜백 없음`);
             }
+          } else {
+            console.log(`   - 콜백 히스토리 없음`);
           }
           
           // 2. postVisitStatus가 '치료시작'인 경우 (콜백 처리 없이도 실질적 완료)
@@ -346,12 +362,15 @@ export async function GET(request: NextRequest) {
           }
           
           // 🔥 종결처리 되었지만 콜백이 완료/부재중 처리되지 않은 경우는 처리완료 아님
-          console.log(`   ❌ 미처리 콜백이 완료/부재중 처리되지 않았거나 치료시작이 아님 - 처리미완료`);
+          console.log(`   ❌ 내원관리 환자 처리미완료 (postVisitStatus: ${patient.postVisitStatus})`);
           return false;
         }
         
+        console.log(`   ❓ 분류되지 않은 환자`);
         return false;
       }).length;
+      
+      console.log(`🔥 미처리 콜백 처리완료 계산 완료: ${processedCount}/${patients.length}명 (${Math.round((processedCount / patients.length) * 100)}%)`);
       
       return {
         processed: processedCount,
