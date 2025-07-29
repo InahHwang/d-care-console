@@ -1,4 +1,4 @@
-// src/app/api/statistics/daily/route.ts - 🔥 개선된 미처리 콜백 로직 적용
+// src/app/api/statistics/daily/route.ts - 🔥 미처리 콜백 처리완료 기준 정교화
 
 export const dynamic = 'force-dynamic'
 export const revalidate = 0
@@ -279,7 +279,74 @@ export async function GET(request: NextRequest) {
       return treatmentStartDate < selectedDate;
     });
 
-    // 🔥 처리율 계산 로직 - 간단하게 수정
+    // 🔥 처리율 계산 로직 - 카테고리별로 정교화된 기준 적용
+    const calculateProcessingRateForOverdueCallbacks = (patients: any[]): { processed: number; rate: number } => {
+      if (patients.length === 0) return { processed: 0, rate: 0 };
+      
+      const today = new Date(selectedDate);
+      
+      const processedCount = patients.filter(patient => {
+        // 🔹 상담관리 환자 (visitConfirmed !== true)
+        if (patient.visitConfirmed !== true) {
+          // 1. status가 처리완료 상태인 경우
+          if (['예약완료', '종결', '부재중'].includes(patient.status)) {
+            return true;
+          }
+          
+          // 2. 내원완료된 경우 (visitConfirmed === true)
+          if (patient.visitConfirmed === true) {
+            return true;
+          }
+          
+          // 3. 오늘 이후 예정된 콜백이 있는 경우
+          if (patient.callbackHistory && patient.callbackHistory.length > 0) {
+            const hasFutureCallback = patient.callbackHistory.some((callback: any) => {
+              if (callback.status !== '예정') return false;
+              if (callback.isVisitManagementCallback === true) return false;
+              const callbackDate = new Date(callback.date);
+              return callbackDate >= today;
+            });
+            
+            if (hasFutureCallback) {
+              return true;
+            }
+          }
+          
+          return false;
+        }
+        
+        // 🔹 내원관리 환자 (visitConfirmed === true)
+        if (patient.visitConfirmed === true) {
+          // 1. 콜백 status가 처리완료 상태인 경우
+          if (patient.callbackHistory && patient.callbackHistory.length > 0) {
+            const hasProcessedCallback = patient.callbackHistory.some((callback: any) => {
+              if (callback.isVisitManagementCallback !== true) return false;
+              return ['완료', '부재중'].includes(callback.status);
+            });
+            
+            if (hasProcessedCallback) {
+              return true;
+            }
+          }
+          
+          // 2. postVisitStatus가 '치료시작'인 경우
+          if (patient.postVisitStatus === '치료시작') {
+            return true;
+          }
+          
+          return false;
+        }
+        
+        return false;
+      }).length;
+      
+      return {
+        processed: processedCount,
+        rate: Math.round((processedCount / patients.length) * 100)
+      };
+    };
+
+    // 🔥 기존 처리율 계산 로직 (다른 카테고리용 - 일단 유지)
     const calculateProcessingRate = (patients: any[]): { processed: number; rate: number } => {
       if (patients.length === 0) return { processed: 0, rate: 0 };
       
@@ -302,7 +369,7 @@ export async function GET(request: NextRequest) {
     };
 
     // 각 카테고리별 처리 현황 계산
-    const overdueResult = calculateProcessingRate(overdueCallbackPatients);
+    const overdueResult = calculateProcessingRateForOverdueCallbacks(overdueCallbackPatients); // 🔥 미처리 콜백은 정교화된 기준 적용
     const todayScheduledResult = calculateProcessingRate(todayScheduledPatients);
     const callbackUnregisteredResult = calculateProcessingRate(callbackUnregisteredPatients);
     const reminderCallbacksResult = calculateProcessingRate(reminderCallbackPatients);
@@ -312,6 +379,7 @@ export async function GET(request: NextRequest) {
       내원환자: overdueCallbackCounts.visit,
       총계: totalOverdueCallbacks
     });
+    console.log(`🔥 미처리 콜백 처리완료 (정교화된 기준): ${overdueResult.processed}/${totalOverdueCallbacks}건 (${overdueResult.rate}%)`);
     console.log(`🔥 오늘 예정된 콜백 환자 수: ${todayScheduledPatients.length}명`);
     console.log(`🔥 콜백 미등록 환자 수: ${callbackUnregisteredPatients.length}명`);
     console.log(`🔥 리마인더 콜백 환자 수: ${reminderCallbackPatients.length}명`);
@@ -567,7 +635,7 @@ export async function GET(request: NextRequest) {
 
     console.log(`✅ 일별 업무 현황 조회 완료 (전체 환자 기준): ${selectedDate}`);
     console.log(`📊 콜백 처리 요약:`, {
-      미처리콜백: `${overdueResult.processed}/${totalOverdueCallbacks}건 (${overdueResult.rate}%) [상담:${overdueCallbackCounts.consultation} + 내원:${overdueCallbackCounts.visit}]`,
+      미처리콜백: `${overdueResult.processed}/${totalOverdueCallbacks}건 (${overdueResult.rate}%) [상담:${overdueCallbackCounts.consultation} + 내원:${overdueCallbackCounts.visit}] 🔥정교화된 기준 적용`,
       오늘예정: `${todayScheduledResult.processed}/${todayScheduledPatients.length}건 (${todayScheduledResult.rate}%)`,
       콜백미등록: `${callbackUnregisteredResult.processed}/${callbackUnregisteredPatients.length}건 (${callbackUnregisteredResult.rate}%)`,
       리마인더: `${reminderCallbacksResult.processed}/${reminderCallbackPatients.length}건 (${reminderCallbacksResult.rate}%)`
