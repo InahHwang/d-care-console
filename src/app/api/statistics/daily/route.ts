@@ -84,8 +84,8 @@ export async function GET(request: NextRequest) {
             if (callback.status !== '예정') return false;
             if (callback.isVisitManagementCallback === true) return false;
             const callbackDate = new Date(callback.date);
-            callbackDate.setHours(0, 0, 0, 0);
-            return callbackDate < todayStart;
+            const callbackDay = new Date(callbackDate.getFullYear(), callbackDate.getMonth(), callbackDate.getDate());
+            return callbackDay < todayStart;
           });
           
           if (hasOverdueCallback) {
