@@ -702,7 +702,21 @@ export async function GET(request: NextRequest) {
             }
             
             return false;
-          }).map(p => p.name)
+          }).map(p => p.name),
+          // 🔥 디버깅용: 각 환자별 상세 정보
+          debugInfo: overdueCallbackPatients.map(p => ({
+            name: p.name,
+            visitConfirmed: p.visitConfirmed,
+            status: p.status,
+            postVisitStatus: p.postVisitStatus,
+            callbackHistoryCount: p.callbackHistory?.length || 0,
+            callbackHistory: p.callbackHistory?.map((cb: any) => ({
+              type: cb.type,
+              date: cb.date,
+              status: cb.status,
+              isVisitManagementCallback: cb.isVisitManagementCallback
+            })) || []
+          }))
         },
         todayScheduled: {
           total: todayScheduledPatients.length,
