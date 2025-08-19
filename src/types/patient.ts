@@ -292,6 +292,13 @@ export type CallbackStatus =
   | '부재중'  
   | '예약확정';  // 이 부분을 추가
 
+  export interface CallbackConsultationRecord {
+  consultationContent: string;    // 상담 내용
+  consultationDate: string;       // 상담 날짜 (YYYY-MM-DD)
+  consultationTime: string;       // 상담 시간 (HH:mm)
+  createdAt: string;             // 기록 생성 시간
+}
+
 // 🔥 콜백 아이템 타입 정의 - 재예약 기록 필드 추가
 export interface CallbackItem {
   isDirectVisitCompletion?: boolean;
@@ -340,6 +347,8 @@ export interface CallbackItem {
   delayReason?: string;
   isVisitManagementCallback?: boolean;
   visitManagementReason?: string;
+
+  consultationRecord?: CallbackConsultationRecord;
 }
 
 // 🔥 콜백 완료 처리를 위한 헬퍼 함수들도 추가

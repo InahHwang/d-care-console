@@ -78,6 +78,11 @@ export default function VisitManagementTab({ patient }: VisitManagementTabProps)
     patient?.postVisitStatus
   )
   
+  // 콜백 완료 상담내용 모달 상태 추가
+  const [showConsultationModal, setShowConsultationModal] = useState(false)
+  const [consultationContent, setConsultationContent] = useState('')
+  const [completingCallback, setCompletingCallback] = useState<any>(null)
+
   const isEditMode = hasExistingData
   const isNewMode = !hasExistingData
 
@@ -191,6 +196,13 @@ export default function VisitManagementTab({ patient }: VisitManagementTabProps)
       setIsSavingCost(false)
     }
   }
+
+  const handleCompleteCallback = async (callback: any) => {
+  // 상담내용 입력 모달 표시
+  setCompletingCallback(callback)
+  setConsultationContent('')
+  setShowConsultationModal(true)
+}
 
   const handleSavePostVisitStatusOnly = async () => {
     if (!postVisitStatus) {
@@ -442,44 +454,61 @@ export default function VisitManagementTab({ patient }: VisitManagementTabProps)
   }, [getVisitCallbacks])
 
   // 기존 콜백 관리 함수들 (모두 그대로 유지)
-  const handleCompleteCallback = async (callback: any) => {
-    if (!confirm(`${callback.type} 콜백을 완료 처리하시겠습니까?`)) return
-    
-    try {
-      const patientId = patient._id || patient.id
-      const now = new Date()
-      const completedDate = now.toISOString().split('T')[0]
-      const completedTime = now.toTimeString().split(' ')[0].substring(0, 5)
-      
-      const response = await fetch(`/api/patients/${patientId}/callbacks/${callback.id}`, {
-        method: 'PUT',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          status: '완료',
-          completedAt: now.toISOString(),
-          // 🔥 수정: actualCompletedDate/Time 사용 (date/time은 변경하지 않음)
-          actualCompletedDate: completedDate,
-          actualCompletedTime: completedTime
-          // ❌ 제거: completedDate, completedTime 필드 제거
-        }),
-      })
-      
-      if (!response.ok) throw new Error('콜백 완료 처리에 실패했습니다.')
-      
-      alert(`${callback.type} 콜백이 완료 처리되었습니다.`)
-      
-      PatientDataSync.onCallbackUpdate(
-        patient._id || patient.id, 
-        callback.id, 
-        'VisitManagementTab'
-      )      
-      setShowNextCallbackForm(true)
-      
-    } catch (error) {
-      console.error('콜백 완료 처리 실패:', error)
-      alert('콜백 완료 처리에 실패했습니다.')
-    }
+  const handleConfirmComplete = async () => {
+  if (!consultationContent.trim()) {
+    alert('상담 내용을 입력해주세요.')
+    return
   }
+
+  if (!completingCallback) return
+
+  try {
+    const patientId = patient._id || patient.id
+    const now = new Date()
+    const completedDate = now.toISOString().split('T')[0]
+    const completedTime = now.toTimeString().split(' ')[0].substring(0, 5)
+    
+    const response = await fetch(`/api/patients/${patientId}/callbacks/${completingCallback.id}`, {
+      method: 'PUT',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        status: '완료',
+        completedAt: now.toISOString(),
+        actualCompletedDate: completedDate,
+        actualCompletedTime: completedTime,
+        // 🆕 상담내용 기록 추가
+        consultationRecord: {
+          consultationContent: consultationContent,
+          consultationDate: completedDate,
+          consultationTime: completedTime,
+          createdAt: now.toISOString()
+        }
+      }),
+    })
+    
+    if (!response.ok) throw new Error('콜백 완료 처리에 실패했습니다.')
+    
+    alert(`${completingCallback.type} 콜백이 완료 처리되었습니다.`)
+    
+    // 모달 닫기
+    setShowConsultationModal(false)
+    setCompletingCallback(null)
+    setConsultationContent('')
+    
+    // 데이터 동기화
+    PatientDataSync.onCallbackUpdate(
+      patient._id || patient.id, 
+      completingCallback.id, 
+      'VisitManagementTab'
+    )
+    
+    setShowNextCallbackForm(true)
+    
+  } catch (error) {
+    console.error('콜백 완료 처리 실패:', error)
+    alert('콜백 완료 처리에 실패했습니다.')
+  }
+}
 
   // handleMissedCallback 함수도 동일하게 수정 (약 502행)
   const handleMissedCallback = async (callback: any) => {
@@ -969,6 +998,7 @@ export default function VisitManagementTab({ patient }: VisitManagementTabProps)
                           }`}
                         >
                           <div className="flex items-center justify-between mb-2">
+                            {/* 기존 헤더 부분은 그대로 유지 */}
                             <div className="flex items-center gap-2">
                               <span className={`px-2 py-1 rounded-full text-xs font-medium ${
                                 callback.type?.includes('1차') ? 'bg-orange-100 text-orange-800' :
@@ -1039,6 +1069,24 @@ export default function VisitManagementTab({ patient }: VisitManagementTabProps)
                               </div>
                             </div>
                           </div>
+
+                          {/* 🆕 상담내용 표시 추가 */}
+                          {callback.consultationRecord && (
+                            <div className="text-gray-700 text-xs mt-2 p-2 bg-white rounded border border-green-200">
+                              <div className="flex items-center justify-between mb-1">
+                                <span className="font-medium text-green-800 flex items-center">
+                                  <Icon icon={HiOutlineDocumentText} size={12} className="mr-1" />
+                                  상담 내용
+                                </span>
+                                <span className="text-gray-500 text-xs">
+                                  {callback.consultationRecord.consultationDate} {callback.consultationRecord.consultationTime}
+                                </span>
+                              </div>
+                              <div className="text-gray-700">
+                                {callback.consultationRecord.consultationContent}
+                              </div>
+                            </div>
+                          )}
                           
                           {callback.notes && (
                             <div className="text-gray-700 text-xs mt-2 p-2 bg-white rounded border">
@@ -1047,6 +1095,74 @@ export default function VisitManagementTab({ patient }: VisitManagementTabProps)
                           )}
                         </div>
                       ))}
+
+                      {/* 🆕 콜백 완료 상담내용 입력 모달 */}
+                      {showConsultationModal && (
+                        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+                          <div className="bg-white rounded-lg shadow-xl max-w-md w-full mx-4">
+                            <div className="p-6">
+                              <div className="flex items-center justify-between mb-4">
+                                <h3 className="text-lg font-semibold text-gray-900 flex items-center">
+                                  <Icon icon={HiOutlineDocumentText} size={20} className="mr-2 text-green-600" />
+                                  상담 내용 기록
+                                </h3>
+                                <button
+                                  onClick={() => {
+                                    setShowConsultationModal(false)
+                                    setCompletingCallback(null)
+                                    setConsultationContent('')
+                                  }}
+                                  className="text-gray-400 hover:text-gray-600"
+                                >
+                                  <Icon icon={HiOutlineX} size={20} />
+                                </button>
+                              </div>
+
+                              <div className="mb-4">
+                                <div className="text-sm text-gray-600 mb-2">
+                                  <strong>{completingCallback?.type}</strong> 콜백을 완료 처리합니다.
+                                </div>
+                                <div className="text-xs text-gray-500 mb-4">
+                                  통화한 상담 내용을 입력해주세요.
+                                </div>
+                                
+                                <label className="block text-sm font-medium text-gray-700 mb-2">
+                                  상담 내용 <span className="text-red-500">*</span>
+                                </label>
+                                <textarea
+                                  value={consultationContent}
+                                  onChange={(e) => setConsultationContent(e.target.value)}
+                                  className="w-full px-3 py-2 border border-gray-300 rounded-lg resize-none text-sm focus:outline-none focus:ring-2 focus:ring-green-500 focus:border-transparent"
+                                  rows={6}
+                                  placeholder="통화 중 진행된 상담 내용을 자세히 입력하세요...&#10;&#10;예시:&#10;- 환자 현재 상황 문의&#10;- 치료 방법 및 비용 재안내&#10;- 예약 조율 논의&#10;- 기타 특이사항"
+                                  required
+                                />
+                              </div>
+
+                              <div className="flex justify-end gap-3">
+                                <button
+                                  onClick={() => {
+                                    setShowConsultationModal(false)
+                                    setCompletingCallback(null)
+                                    setConsultationContent('')
+                                  }}
+                                  className="px-4 py-2 text-sm text-gray-600 bg-gray-100 rounded-lg hover:bg-gray-200 transition-colors"
+                                >
+                                  취소
+                                </button>
+                                <button
+                                  onClick={handleConfirmComplete}
+                                  disabled={!consultationContent.trim()}
+                                  className="px-4 py-2 text-sm text-white bg-green-600 rounded-lg hover:bg-green-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors flex items-center"
+                                >
+                                  <Icon icon={HiOutlineCheck} size={16} className="mr-1" />
+                                  완료 처리
+                                </button>
+                              </div>
+                            </div>
+                          </div>
+                        </div>
+                      )}
                     </div>
                   )}
                 </div>

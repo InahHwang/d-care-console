@@ -1,4 +1,4 @@
-// src/app/api/reports/route.ts
+// src/app/api/reports/route.ts - 🔥 매출 현황 분석 기능 추가
 import { NextRequest, NextResponse } from 'next/server';
 import { connectToDatabase } from '@/utils/mongodb';
 import jwt from 'jsonwebtoken';
@@ -139,6 +139,9 @@ export async function POST(request: NextRequest) {
         question4: ''
       },
       
+      // 🔥 원장님 피드백 배열 초기화
+      directorFeedbacks: [],
+      
       // 메타데이터
       createdAt: new Date().toISOString(),
       updatedAt: new Date().toISOString()
@@ -171,7 +174,7 @@ export async function POST(request: NextRequest) {
   }
 }
 
-// 🔥 월별 통계 생성 함수 - monthly API와 동일한 로직을 내부에서 처리
+// 🔥 월별 통계 생성 함수 - 매출 현황 분석 기능 추가
 async function generateMonthlyStats(month: number, year: number, token: string) {
   try {
     console.log(`🔍 월별 통계 생성: ${year}년 ${month}월`);
@@ -225,6 +228,7 @@ async function generateMonthlyStats(month: number, year: number, token: string) 
       totalInquiries: calculateChange(currentStats.totalInquiries, prevStats.totalInquiries),
       inboundCalls: calculateChange(currentStats.inboundCalls, prevStats.inboundCalls),
       outboundCalls: calculateChange(currentStats.outboundCalls, prevStats.outboundCalls),
+      returningCalls: calculateChange(currentStats.returningCalls, prevStats.returningCalls),
       appointmentPatients: calculateChange(currentStats.appointmentPatients, prevStats.appointmentPatients),
       appointmentRate: calculateChange(currentStats.appointmentRate, prevStats.appointmentRate),
       visitedPatients: calculateChange(currentStats.visitedPatients, prevStats.visitedPatients),
@@ -249,18 +253,18 @@ async function generateMonthlyStats(month: number, year: number, token: string) 
   }
 }
 
-// 🔥 월별 통계 계산 함수 - 견적금액 처리 수정
+// 🔥 월별 통계 계산 함수 - 매출 현황 분석 추가
 function calculateMonthlyStats(patients: any[]) {
   const totalInquiries = patients.length;
   
   console.log(`🔍 통계 계산 시작 - 총 환자 수: ${totalInquiries}명`);
   
-  // 인바운드/아웃바운드 구분
+  // 인바운드/아웃바운드/구신환 구분
   const inboundCalls = patients.filter(p => p.consultationType === 'inbound').length;
   const outboundCalls = patients.filter(p => p.consultationType === 'outbound').length;
   const returningCalls = patients.filter(p => p.consultationType === 'returning').length;
   
-  console.log(`📞 인바운드: ${inboundCalls}건, 아웃바운드: ${outboundCalls}건`);
+  console.log(`📞 인바운드: ${inboundCalls}건, 아웃바운드: ${outboundCalls}건, 구신환: ${returningCalls}건`);
   
   // 예약 환자 (예약확정 상태)
   const appointmentPatients = patients.filter(p => p.status === '예약확정').length;
@@ -384,11 +388,34 @@ function calculateMonthlyStats(patients: any[]) {
     .filter(p => p.consultation && (p.consultation.treatmentPlan || p.consultation.consultationNotes))
     .map(p => {
       const consultation = p.consultation;
+      
+      // 🔥 견적금액 계산 로직 개선
+      let estimatedAmount = 0;
+      let visitAmount = 0;
+      let phoneAmount = consultation.estimatedAmount || 0;
+      
+      // 내원 후 상담 정보의 견적이 있는 경우 (우선순위 1)
+      if (p.postVisitConsultation?.estimateInfo) {
+        const estimate = p.postVisitConsultation.estimateInfo;
+        
+        if (estimate.discountPrice && estimate.discountPrice > 0) {
+          visitAmount = estimate.discountPrice;
+          estimatedAmount = estimate.discountPrice;
+        } else if (estimate.regularPrice && estimate.regularPrice > 0) {
+          visitAmount = estimate.regularPrice;
+          estimatedAmount = estimate.regularPrice;
+        }
+      }
+      // 기존 상담 정보의 견적이 있는 경우 (우선순위 2)
+      else if (consultation.estimatedAmount) {
+        estimatedAmount = consultation.estimatedAmount;
+      }
+      
       return {
         _id: p._id,
         name: p.name,
         age: p.age,
-        estimatedAmount: consultation.estimatedAmount || 0,
+        estimatedAmount,
         estimateAgreed: consultation.estimateAgreed || false,
         discomfort: consultation.treatmentPlan ? 
           consultation.treatmentPlan.substring(0, 50) + (consultation.treatmentPlan.length > 50 ? '...' : '') : '',
@@ -397,7 +424,7 @@ function calculateMonthlyStats(patients: any[]) {
           consultation.consultationNotes.substring(0, 80) + (consultation.consultationNotes.length > 80 ? '...' : '') : '',
         fullConsultation: consultation.consultationNotes || '',
         
-        // 🔥 이 부분들이 누락되어 있었을 가능성
+        // 🔥 필수 필드들
         consultationType: p.consultationType || 'inbound',
         callInDate: p.callInDate,
         status: p.status,
@@ -409,14 +436,16 @@ function calculateMonthlyStats(patients: any[]) {
         // 🔥 추가 필드들
         hasPhoneConsultation: !!(consultation.consultationNotes),
         hasVisitConsultation: !!(p.postVisitConsultation),
-        phoneAmount: consultation.estimatedAmount || 0,
-        visitAmount: p.postVisitConsultation?.estimateInfo?.discountPrice || 
-                    p.postVisitConsultation?.estimateInfo?.regularPrice || 0
+        phoneAmount,
+        visitAmount
       };
     });
 
-  // 🔥 손실 분석 계산
+  // 🔥 기존 손실 분석 계산 (호환성 유지)
   const lossAnalysis = calculateLossAnalysis(patients);
+  
+  // 🔥 새로운 매출 현황 분석 계산
+  const revenueAnalysis = calculateRevenueAnalysis(patients);
 
   const finalStats = {
     totalInquiries,
@@ -433,8 +462,9 @@ function calculateMonthlyStats(patients: any[]) {
     averageAge: Math.round(averageAge * 10) / 10,
     regionStats,
     channelStats,
-    patientConsultations, // 🔥 환자별 상담 요약 추가
-    lossAnalysis // 🔥 손실 분석 추가
+    patientConsultations, // 환자별 상담 요약
+    lossAnalysis, // 🔥 기존 손실 분석 (호환성 유지)
+    revenueAnalysis // 🔥 새로운 매출 현황 분석
   };
 
   console.log('🎯 통계 계산 결과:', finalStats);
@@ -442,55 +472,193 @@ function calculateMonthlyStats(patients: any[]) {
   return finalStats;
 }
 
-// 🔥 손실 분석 계산 함수 - 견적금액 "데이터 없음" 처리
+// 🔥 매출 현황 분석 계산 함수 - 새로 추가
+function calculateRevenueAnalysis(patients: any[]) {
+  console.log(`🔍 매출 현황 분석 시작 - 총 환자 수: ${patients.length}명`);
+  
+  // 🔥 1. 달성매출군 - 치료시작한 환자들
+  const achievedPatients = patients.filter(p => 
+    p.visitConfirmed === true && p.postVisitStatus === '치료시작'
+  );
+  
+  const achievedAmount = achievedPatients.reduce((sum, p) => {
+    return sum + getPatientEstimatedAmount(p);
+  }, 0);
+  
+  console.log(`✅ 달성매출: ${achievedPatients.length}명, ${achievedAmount.toLocaleString()}원`);
+  
+  // 🔥 2. 잠재매출군 - 아직 진행 중인 환자들
+  // 2-1. 상담진행중: 콜백필요, 잠재고객, 예약확정
+  const consultationOngoingPatients = patients.filter(p => 
+    ['콜백필요', '잠재고객', '예약확정', '재예약확정'].includes(p.status) && 
+    !p.isCompleted
+  );
+  
+  const consultationOngoingAmount = consultationOngoingPatients.reduce((sum, p) => {
+    return sum + getPatientEstimatedAmount(p);
+  }, 0);
+  
+  // 2-2. 내원관리중: 치료동의, 재콜백필요, 상태미설정 (내원확정된 환자 중 치료시작 제외)
+  const visitManagementPatients = patients.filter(p => 
+    p.visitConfirmed === true && 
+    p.postVisitStatus !== '치료시작' && 
+    p.postVisitStatus !== '종결' &&
+    !p.isCompleted
+  );
+  
+  const visitManagementAmount = visitManagementPatients.reduce((sum, p) => {
+    return sum + getPatientEstimatedAmount(p);
+  }, 0);
+  
+  const totalPotentialPatients = consultationOngoingPatients.length + visitManagementPatients.length;
+  const totalPotentialAmount = consultationOngoingAmount + visitManagementAmount;
+  
+  console.log(`⏳ 잠재매출: ${totalPotentialPatients}명 (상담진행중 ${consultationOngoingPatients.length}명 + 내원관리중 ${visitManagementPatients.length}명), ${totalPotentialAmount.toLocaleString()}원`);
+  
+  // 🔥 3. 손실매출군 - 확실히 놓친 환자들
+  // 3-1. 상담단계 손실: 종결, 부재중
+  const consultationLostPatients = patients.filter(p => 
+    (p.status === '종결' || p.status === '부재중') || 
+    (p.isCompleted === true && !p.visitConfirmed)
+  );
+  
+  const consultationLostAmount = consultationLostPatients.reduce((sum, p) => {
+    return sum + getPatientEstimatedAmount(p);
+  }, 0);
+  
+  // 3-2. 내원후 손실: 내원후 종결
+  const visitLostPatients = patients.filter(p => 
+    p.visitConfirmed === true && 
+    (p.postVisitStatus === '종결' || (p.isCompleted === true && p.visitConfirmed))
+  );
+  
+  const visitLostAmount = visitLostPatients.reduce((sum, p) => {
+    return sum + getPatientEstimatedAmount(p);
+  }, 0);
+  
+  const totalLostPatients = consultationLostPatients.length + visitLostPatients.length;
+  const totalLostAmount = consultationLostAmount + visitLostAmount;
+  
+  console.log(`❌ 손실매출: ${totalLostPatients}명 (상담손실 ${consultationLostPatients.length}명 + 내원후손실 ${visitLostPatients.length}명), ${totalLostAmount.toLocaleString()}원`);
+  
+  // 🔥 4. 전체 요약 계산
+  const totalInquiries = patients.length;
+  const totalPotentialAmountAll = achievedAmount + totalPotentialAmount + totalLostAmount;
+  
+  const achievedPercentage = totalInquiries > 0 ? Math.round((achievedPatients.length / totalInquiries) * 100) : 0;
+  const potentialPercentage = totalInquiries > 0 ? Math.round((totalPotentialPatients / totalInquiries) * 100) : 0;
+  const lostPercentage = totalInquiries > 0 ? Math.round((totalLostPatients / totalInquiries) * 100) : 0;
+  
+  const achievementRate = totalPotentialAmountAll > 0 ? Math.round((achievedAmount / totalPotentialAmountAll) * 100) : 0;
+  const potentialGrowth = achievedAmount > 0 ? Math.round((totalPotentialAmount / achievedAmount) * 100) : 0;
+  
+  console.log(`💰 총 잠재매출: ${totalPotentialAmountAll.toLocaleString()}원, 달성률: ${achievementRate}%, 잠재성장률: ${potentialGrowth}%`);
+  
+  return {
+    achievedRevenue: {
+      patients: achievedPatients.length,
+      amount: achievedAmount,
+      percentage: achievedPercentage
+    },
+    potentialRevenue: {
+      consultation: {
+        patients: consultationOngoingPatients.length,
+        amount: consultationOngoingAmount
+      },
+      visitManagement: {
+        patients: visitManagementPatients.length,
+        amount: visitManagementAmount
+      },
+      totalPatients: totalPotentialPatients,
+      totalAmount: totalPotentialAmount,
+      percentage: potentialPercentage
+    },
+    lostRevenue: {
+      consultation: {
+        patients: consultationLostPatients.length,
+        amount: consultationLostAmount
+      },
+      visitManagement: {
+        patients: visitLostPatients.length,
+        amount: visitLostAmount
+      },
+      totalPatients: totalLostPatients,
+      totalAmount: totalLostAmount,
+      percentage: lostPercentage
+    },
+    summary: {
+      totalInquiries,
+      totalPotentialAmount: totalPotentialAmountAll,
+      achievementRate,
+      potentialGrowth
+    }
+  };
+}
+
+// 🔥 환자의 예상 견적 금액 계산 헬퍼 함수
+function getPatientEstimatedAmount(patient: any): number {
+  let estimatedAmount = 0;
+  
+  // 1. 내원 후 상담 정보의 견적이 있는 경우 (우선순위 1)
+  if (patient.postVisitConsultation?.estimateInfo) {
+    const estimate = patient.postVisitConsultation.estimateInfo;
+    
+    // 할인가 > 정가 순서로 적용
+    if (estimate.discountPrice && estimate.discountPrice > 0) {
+      estimatedAmount = estimate.discountPrice;
+    } else if (estimate.regularPrice && estimate.regularPrice > 0) {
+      estimatedAmount = estimate.regularPrice;
+    }
+  }
+  
+  // 2. 기존 상담 정보의 견적이 있는 경우 (우선순위 2, 호환성 유지)
+  else if (patient.consultation?.estimatedAmount) {
+    estimatedAmount = patient.consultation.estimatedAmount;
+  }
+  
+  // 3. 직접 입력된 치료금액이 있는 경우 (우선순위 3, 호환성 유지)
+  else if (patient.treatmentCost && patient.treatmentCost > 0) {
+    estimatedAmount = patient.treatmentCost;
+  }
+  
+  return estimatedAmount;
+}
+
+// 🔥 기존 손실 분석 계산 함수 - 호환성 유지
 function calculateLossAnalysis(patients: any[]) {
   // 상담 관리 손실군 (예약확정 외 환자들)
-  const consultationLossPatients = patients.filter(p => p.status !== '예약확정');
+  const consultationLossPatients = patients.filter(p => 
+    p.status !== '예약확정' && p.status !== 'VIP'
+  );
+  
   const consultationLoss = {
-    totalCount: consultationLossPatients.length,
     terminated: consultationLossPatients.filter(p => p.status === '종결').length,
     missed: consultationLossPatients.filter(p => p.status === '부재중').length,
     potential: consultationLossPatients.filter(p => p.status === '잠재고객').length,
     callback: consultationLossPatients.filter(p => p.status === '콜백필요').length,
-    // 🔥 견적금액 합계 - 데이터 없음 제외
+    totalCount: consultationLossPatients.length,
+    // 견적금액 합계 - 데이터 없음 제외
     estimatedAmount: consultationLossPatients.reduce((sum, p) => {
-      const amount = p.consultation?.estimatedAmount;
-      // null, undefined, 0은 데이터 없음으로 처리하여 합계에서 제외
-      if (amount && amount > 0) {
-        return sum + amount;
-      }
-      return sum;
+      const amount = getPatientEstimatedAmount(p);
+      return sum + amount;
     }, 0)
   };
 
   // 내원 관리 손실군 (내원했지만 치료시작 못한 환자들)
   const visitLossPatients = patients.filter(p => 
-    p.visitConfirmed === true && p.postVisitStatus !== '치료시작'
+    p.visitConfirmed === true && 
+    p.postVisitStatus !== '치료시작'
   );
   
   const visitLoss = {
-    totalCount: visitLossPatients.length,
     terminated: visitLossPatients.filter(p => p.postVisitStatus === '종결').length,
     callbackNeeded: visitLossPatients.filter(p => p.postVisitStatus === '재콜백필요').length,
     agreedButNotStarted: visitLossPatients.filter(p => p.postVisitStatus === '치료동의').length,
-    // 🔥 견적금액 합계 - 데이터 없음 제외
+    totalCount: visitLossPatients.length,
+    // 견적금액 합계
     estimatedAmount: visitLossPatients.reduce((sum, p) => {
-      let amount = 0;
-      
-      // 내원 후 상담 정보에서 견적 추출
-      if (p.postVisitConsultation?.estimateInfo) {
-        const estimate = p.postVisitConsultation.estimateInfo;
-        amount = estimate.discountPrice || estimate.regularPrice || 0;
-      } else if (p.consultation?.estimatedAmount) {
-        // 초기 상담 견적 정보 사용
-        amount = p.consultation.estimatedAmount;
-      }
-      
-      // null, undefined, 0은 데이터 없음으로 처리하여 합계에서 제외
-      if (amount && amount > 0) {
-        return sum + amount;
-      }
-      return sum;
+      const amount = getPatientEstimatedAmount(p);
+      return sum + amount;
     }, 0)
   };
   

@@ -7,6 +7,9 @@ import { saveReport, submitReport, updateCurrentReport, refreshReportData, addDi
 import { calculatePatientProgress } from '@/utils/patientProgressUtils';
 import { FiPhone, FiPhoneCall } from 'react-icons/fi';
 import { HiOutlineRefresh } from 'react-icons/hi';
+import RevenueAnalysisSection from './RevenueAnalysisSection';
+import SimplePatientListModal from './SimplePatientListModal';
+import { Patient } from '@/types/patient';
 
 const ProgressGuideSection: React.FC = () => {
   const progressStages = [
@@ -361,8 +364,7 @@ const LossAnalysisSection: React.FC<{ reportData: MonthlyReportData }> = ({ repo
         <div className="flex items-center justify-between">
           <h2 className="text-lg font-bold text-gray-900 flex items-center gap-2">
             <AlertTriangle className="w-5 h-5 text-red-600" />
-            미예약/미내원 환자 손실 분석
-
+            미예약/미내원 환자 손실 분석 (기존 분석)
           </h2>
           <button
             onClick={() => setShowDetails(!showDetails)}
@@ -437,7 +439,7 @@ const LossAnalysisSection: React.FC<{ reportData: MonthlyReportData }> = ({ repo
         {/* 📋 상세 분석 (토글 가능) */}
         {showDetails && (
           <div className="space-y-6">
-            {/* 🔥 수정된 상담 관리 손실군 */}
+            {/* 수정된 상담 관리 손실군 */}
             <div className="bg-orange-50 border border-orange-200 rounded-lg p-4">
               <h4 className="font-semibold text-orange-900 mb-3 flex items-center gap-2">
                 <Users className="w-5 h-5" />
@@ -447,7 +449,7 @@ const LossAnalysisSection: React.FC<{ reportData: MonthlyReportData }> = ({ repo
                 </span>
               </h4>
               
-              {/* 🔥 4개 상태 + 총 손실금액 = 5개 컬럼으로 확장 */}
+              {/* 4개 상태 + 총 손실금액 = 5개 컬럼으로 확장 */}
               <div className="grid grid-cols-2 md:grid-cols-5 gap-3 text-sm">
                 <div className="text-center">
                   <div className="text-xl font-bold text-orange-900">{consultationLoss.terminated}명</div>
@@ -475,8 +477,6 @@ const LossAnalysisSection: React.FC<{ reportData: MonthlyReportData }> = ({ repo
                 💡 예약확정에 도달하지 못한 모든 환자들입니다. 
               </p>
             </div>
-
-            {/* 내원 관리 손실군은 기존과 동일... */}
 
             {/* 내원 관리 손실군 */}
             <div className="bg-purple-50 border border-purple-200 rounded-lg p-4">
@@ -532,6 +532,7 @@ const LossAnalysisSection: React.FC<{ reportData: MonthlyReportData }> = ({ repo
   );
 };
 
+
 const MonthlyReport: React.FC<MonthlyReportProps> = ({ reportData }) => {
   const dispatch = useAppDispatch();
   const { isSubmitting, isRefreshing } = useAppSelector((state) => state.reports);
@@ -551,6 +552,13 @@ const MonthlyReport: React.FC<MonthlyReportProps> = ({ reportData }) => {
   const [showSubmitModal, setShowSubmitModal] = useState(false);
   // 🔥 환자 상담 내용 상세 모달 상태
   const [selectedPatientConsultation, setSelectedPatientConsultation] = useState<PatientConsultationSummary | null>(null);
+  
+  // 🔥 새로 추가: 환자 목록 모달 관련 상태
+  const [showPatientListModal, setShowPatientListModal] = useState(false);
+  const [patientListData, setPatientListData] = useState<{
+    patients: Patient[];
+    title: string;
+  }>({ patients: [], title: '' });
 
   // 로컬 상태를 Redux 상태와 동기화
   useEffect(() => {
@@ -563,6 +571,12 @@ const MonthlyReport: React.FC<MonthlyReportProps> = ({ reportData }) => {
       question4: reportData.managerAnswers?.question4 || ''
     });
   }, [reportData]);
+
+  // 🔥 새로 추가: 환자 목록 모달 핸들러
+  const handlePatientListClick = (patients: Patient[], title: string) => {
+    setPatientListData({ patients, title });
+    setShowPatientListModal(true);
+  };
 
   // 데이터 새로고침 핸들러
   const handleRefreshData = async () => {
@@ -1040,14 +1054,23 @@ const MonthlyReport: React.FC<MonthlyReportProps> = ({ reportData }) => {
           </div>
         </div>
 
-        {/* 🔥 새로 추가: 환자별 상담 내용 요약 섹션 */}
+        {/* 🔥 환자별 상담 내용 요약 섹션 */}
         <PatientConsultationSection 
           reportData={reportData}
           onPatientClick={handlePatientConsultationClick}
         />
 
-        {/* 🔥 새로 추가: 손실 분석 섹션 */}
+        {/* 🔥 매출 현황 분석 섹션 (새로 추가) */}
+        {reportData.revenueAnalysis && (
+          <RevenueAnalysisSection 
+            reportData={reportData}
+            onPatientListClick={handlePatientListClick}
+          />
+        )}
+
+        {/* 🔥 기존 손실 분석 섹션 (호환성 유지) */}
         <LossAnalysisSection reportData={reportData} />
+
 
         {/* 이슈 및 개선사항 */}
         <div className="bg-white rounded-lg shadow-sm border mb-6">
@@ -1220,6 +1243,7 @@ const MonthlyReport: React.FC<MonthlyReportProps> = ({ reportData }) => {
           </div>
         </div>
 
+
         {/* 매니저 의견 */}
         <div className="bg-white rounded-lg shadow-sm border">
           <div className="flex items-center justify-between p-6 border-b bg-orange-50">
@@ -1302,8 +1326,7 @@ const MonthlyReport: React.FC<MonthlyReportProps> = ({ reportData }) => {
                       </span>
                     )}
                   </div>
-                )}
-                {/* 🔥 피드백 섹션 추가 */}
+                )}{/* 🔥 피드백 섹션 추가 */}
                 <DirectorFeedbackSection
                   targetSection="managerAnswers.question2"
                   sectionTitle="치료 거부 환자 원인 분석"
@@ -1418,6 +1441,15 @@ const MonthlyReport: React.FC<MonthlyReportProps> = ({ reportData }) => {
         patient={selectedPatientConsultation}
         onClose={handleClosePatientConsultationModal}
       />
+
+      {/* 🔥 새로 추가: 환자 목록 모달 */}
+      {showPatientListModal && (
+        <SimplePatientListModal
+          patients={patientListData.patients}
+          title={patientListData.title}
+          onClose={() => setShowPatientListModal(false)}
+        />
+      )}
 
       {/* 🔥 새로 추가: 제출 확인 모달 */}
       {showSubmitModal && (

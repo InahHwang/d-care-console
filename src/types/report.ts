@@ -1,7 +1,6 @@
-// src/types/report.ts - 🔥 일별 상담 요약 타입 추가
+// src/types/report.ts 
 
-import { ConsultationType } from '@/types/patient'; // 🔥 상담 타입 import 추가
-
+import { ConsultationType } from '@/types/patient'; 
 // 🔥 새로 추가: 원장님 피드백 타입
 export interface DirectorFeedback {
   updatedAt: any;
@@ -12,6 +11,62 @@ export interface DirectorFeedback {
   createdByName: string; // 원장님 이름
   targetSection: 'managerComment' | 'improvementSuggestions' | 'managerAnswers.question1' | 'managerAnswers.question2' | 'managerAnswers.question3' | 'managerAnswers.question4'; // 어느 섹션에 대한 피드백인지
 }
+
+// 🔥 새로 추가: 매출 현황 분석 타입
+export interface RevenueAnalysis {
+  achievedRevenue: {
+    patients: number;      // 치료시작한 환자수
+    amount: number;        // 실제 달성 매출
+    percentage: number;    // 전체 대비 비율
+  };
+  potentialRevenue: {
+    consultation: {
+      patients: number;    // 상담진행중 환자수 (콜백필요, 잠재고객, 예약확정)
+      amount: number;      // 상담진행중 예상 매출
+    };
+    visitManagement: {
+      patients: number;    // 내원관리중 환자수 (치료동의, 재콜백필요, 상태미설정)
+      amount: number;      // 내원관리중 예상 매출
+    };
+    totalPatients: number; // 잠재매출 총 환자수
+    totalAmount: number;   // 잠재매출 총 금액
+    percentage: number;    // 전체 대비 비율
+  };
+  lostRevenue: {
+    consultation: {
+      patients: number;    // 상담단계 손실 환자수 (종결, 부재중)
+      amount: number;      // 상담단계 손실 매출
+    };
+    visitManagement: {
+      patients: number;    // 내원후 손실 환자수 (내원후 종결)
+      amount: number;      // 내원후 손실 매출
+    };
+    totalPatients: number; // 손실매출 총 환자수
+    totalAmount: number;   // 손실매출 총 금액
+    percentage: number;    // 전체 대비 비율
+  };
+  summary: {
+    totalInquiries: number;     // 총 문의 환자수
+    totalPotentialAmount: number; // 총 잠재매출 (달성+잠재+손실)
+    achievementRate: number;     // 달성률 (달성매출/총잠재매출 * 100)
+    potentialGrowth: number;     // 잠재 성장률 (잠재매출/달성매출 * 100)
+  };
+}
+
+// 🔥 새로 추가: 매출 현황 환자 상세 정보
+export interface RevenuePatientDetail {
+  _id: string;
+  name: string;
+  phoneNumber: string;
+  callInDate: string;
+  status: string;
+  postVisitStatus?: string;
+  estimatedAmount: number; // 견적 금액
+  revenueType: 'achieved' | 'potential' | 'lost'; // 매출 분류
+  revenueSubType: 'treatment_started' | 'consultation_ongoing' | 'visit_management' | 'consultation_lost' | 'visit_lost'; // 세부 분류
+  category: string; // 분류 설명 (치료시작, 상담진행중, 내원관리중 등)
+}
+
 
 // 🔥 수정된 손실 환자 분석 타입
 export interface LossPatientAnalysis {
@@ -190,11 +245,14 @@ export interface MonthlyStats {
   averageAge: number;
   regionStats: RegionStat[];
   channelStats: ChannelStat[];
-  // 🔥 새로 추가: 손실 분석 데이터
+  // 🔥 새로 추가: 매출 현황 분석 데이터
+  revenueAnalysis: RevenueAnalysis;
+  // 🔥 기존 손실 분석 데이터 유지 (호환성)
   lossAnalysis: LossPatientAnalysis;
   // 🔥 환자별 상담 내용
   patientConsultations: PatientConsultationSummary[];
 }
+
 
 // 🔥 기존 MonthlyReportData 타입에 피드백 필드 추가
 export interface MonthlyReportData {
@@ -238,8 +296,14 @@ export interface MonthlyReportData {
   // 통계 세부 데이터
   regionStats: RegionStat[];
   channelStats: ChannelStat[];
+
+  // 🔥 새로 추가: 매출 현황 분석 데이터
+  revenueAnalysis: RevenueAnalysis;
   
-  // 손실 분석 데이터
+  // 🔥 매출 현황 환자 상세 리스트 (선택적)
+  revenuePatientDetails?: RevenuePatientDetail[];
+  
+  // 기존 손실 분석 데이터 유지 (호환성)
   lossAnalysis: LossPatientAnalysis;
   
   // 손실 환자 상세 리스트 (선택적)

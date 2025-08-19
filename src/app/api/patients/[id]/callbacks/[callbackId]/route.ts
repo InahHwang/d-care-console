@@ -175,14 +175,16 @@ export async function PUT(
       ...callbackHistory[callbackIndex],
       ...updateData,
       updatedAt: new Date().toISOString(),
-      // 🔥 중요: 완료 상태일 때 예정일(date)과 예정시간(time)은 유지하고
-      // 실제 처리일시만 별도 필드에 저장
+      // 🆕 상담내용 기록 처리 추가
+      ...(updateData.consultationRecord && {
+        consultationRecord: updateData.consultationRecord
+      }),
+      // 기존 완료 처리 로직 유지
       ...(updateData.status === '완료' && !updateData.actualCompletedDate && {
         actualCompletedDate: format(new Date(), 'yyyy-MM-dd'),
         actualCompletedTime: format(new Date(), 'HH:mm'),
         completedAt: new Date().toISOString()
       })
-      // ❌ 제거: date와 time 필드를 덮어쓰지 않음
     };
 
     console.log('🔄 콜백 업데이트 완료:', {

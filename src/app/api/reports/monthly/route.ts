@@ -302,6 +302,7 @@ function calculateMonthlyStats(patients: any[]): MonthlyStats {
       visitConfirmed: p.visitConfirmed,
       status: p.status,
       isCompleted: p.isCompleted,
+      consultationType: p.consultationType,
       consultationStages: {
         phone: {
           hasContent: !!(phoneDiscomfort || phoneConsultationNotes),
