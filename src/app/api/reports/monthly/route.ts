@@ -5,6 +5,7 @@ import jwt from 'jsonwebtoken';
 import { MonthlyStats, ChangeIndicator, PatientConsultationSummary } from '@/types/report';
 import { calculateLossAnalysis } from '@/utils/lossAnalysisUtils'; // 🔥 새로 추가
 
+
 // JWT 검증 함수
 function verifyToken(token: string) {
   try {
@@ -126,6 +127,47 @@ export async function POST(request: NextRequest) {
       { status: 500 }
     );
   }
+}
+
+// 🔥 calculateMonthlyStats 함수 내부 또는 외부에 추가
+function calculateRevenueAnalysis(patients: any[]) {
+  // 간단한 기본 구현 (나중에 상세 구현 가능)
+  const totalInquiries = patients.length;
+  const achievedRevenue = patients.filter(p => 
+    p.visitConfirmed === true && p.postVisitStatus === '치료시작'
+  );
+  
+  return {
+    achievedRevenue: {
+      patients: achievedRevenue.length,
+      amount: achievedRevenue.reduce((sum, p) => {
+        const amount = p.postVisitConsultation?.estimateInfo?.discountPrice || 
+                     p.consultation?.estimatedAmount || 0;
+        return sum + amount;
+      }, 0),
+      percentage: totalInquiries > 0 ? (achievedRevenue.length / totalInquiries) * 100 : 0
+    },
+    potentialRevenue: {
+      consultation: { patients: 0, amount: 0 },
+      visitManagement: { patients: 0, amount: 0 },
+      totalPatients: 0,
+      totalAmount: 0,
+      percentage: 0
+    },
+    lostRevenue: {
+      consultation: { patients: 0, amount: 0 },
+      visitManagement: { patients: 0, amount: 0 },
+      totalPatients: 0,
+      totalAmount: 0,
+      percentage: 0
+    },
+    summary: {
+      totalInquiries,
+      totalPotentialAmount: 0,
+      achievementRate: 0,
+      potentialGrowth: 0
+    }
+  };
 }
 
 // 🔥 월별 통계 계산 함수 - 프론트엔드와 동일한 결제금액 계산 로직 적용 + 손실 분석 추가
@@ -419,7 +461,7 @@ function calculateMonthlyStats(patients: any[]): MonthlyStats {
     regionStats,
     channelStats,
     lossAnalysis,
-    // 🔥 새로 추가
+    revenueAnalysis: calculateRevenueAnalysis(patients), // 매출 현황 분석 추가
     patientConsultations
   };
 
