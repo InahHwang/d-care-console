@@ -243,15 +243,15 @@ function calculateMonthlyStats(patients: any[]): MonthlyStats {
       const postVisitConsultation = p.postVisitConsultation;
       const callbackHistory = p.callbackHistory || [];
       
-      // 🔥 전화상담 내용 추출
+      // 🔥 전화상담 내용 추출 - 더 관대한 조건
       const phoneDiscomfort = consultation?.treatmentPlan || '';
       const phoneConsultationNotes = consultation?.consultationNotes || '';
       const visitFirstContent = postVisitConsultation?.firstVisitConsultationContent || '';
       
-      // 🔥 통합된 상담내용 생성 (전화상담 + 콜백기록 + 내원상담)
+      // 🔥 통합된 상담내용 생성
       const combinedContent: string[] = [];
       
-      // 전화상담 내용 추가
+      // 🔥 전화상담 내용 추가 - 기존 로직
       if (phoneDiscomfort || phoneConsultationNotes) {
         const phoneContent = [];
         if (phoneConsultationNotes) phoneContent.push(`[상담메모] ${phoneConsultationNotes}`);
@@ -262,14 +262,14 @@ function calculateMonthlyStats(patients: any[]): MonthlyStats {
       }
 
     // 🔥 콜백 기록 추가 (전화상담 단계의 콜백들)
-    const phoneCallbacks = callbackHistory.filter((cb: { isVisitManagementCallback: any; notes: string; status: string; }) => 
+    const phoneCallbacks = callbackHistory.filter((cb: any) => 
       !cb.isVisitManagementCallback && 
       cb.notes && 
       cb.notes.trim() !== '' &&
       cb.status === '완료'
-    ).sort((a: { date: string | number | Date; }, b: { date: string | number | Date; }) => new Date(a.date).getTime() - new Date(b.date).getTime());
+    ).sort((a: any, b: any) => new Date(a.date).getTime() - new Date(b.date).getTime());
 
-    phoneCallbacks.forEach((callback: { date: string | number | Date; notes: any; }, index: number) => {
+    phoneCallbacks.forEach((callback: any, index: number) => {
       const callbackNum = index + 1;
       const callbackDate = new Date(callback.date).toLocaleDateString('ko-KR', {
         year: '2-digit',
@@ -278,27 +278,26 @@ function calculateMonthlyStats(patients: any[]): MonthlyStats {
       }).replace(/\. /g, '.').replace(/\.$/, '');
       
       if (!combinedContent.length) {
-        combinedContent.push(`📞 전화상담:\n[상담관리 ${callbackNum}차 - ${callbackDate}] ${callback.notes}`); // 🔥 수정: 한 줄로 연결
+        combinedContent.push(`📞 전화상담:\n[상담관리 ${callbackNum}차 - ${callbackDate}] ${callback.notes}`);
       } else {
-        // 기존 전화상담 섹션에 추가
         const lastIndex = combinedContent.length - 1;
-        combinedContent[lastIndex] += `\n[상담관리 ${callbackNum}차 - ${callbackDate}] ${callback.notes}`; // 🔥 수정: 기존 내용에 바로 연결
+        combinedContent[lastIndex] += `\n[상담관리 ${callbackNum}차 - ${callbackDate}] ${callback.notes}`;
       }
     });      
     
-    // 내원상담 내용 추가
+    // 🔥 내원상담 내용 추가 - 기존 로직
     if (visitFirstContent) {
-      combinedContent.push(`🏥 내원상담:\n[첫 상담] ${visitFirstContent}`); // 🔥 수정: 한 줄로 연결
+      combinedContent.push(`🏥 내원상담:\n[첫 상담] ${visitFirstContent}`);
       
-      // 🔥 내원 후 콜백 기록 추가
-      const visitCallbacks = callbackHistory.filter((cb: { isVisitManagementCallback: any; notes: string; status: string; }) => 
+      // 내원 후 콜백 기록 추가
+      const visitCallbacks = callbackHistory.filter((cb: any) => 
         cb.isVisitManagementCallback && 
         cb.notes && 
         cb.notes.trim() !== '' &&
         cb.status === '완료'
-      ).sort((a: { date: string | number | Date; }, b: { date: string | number | Date; }) => new Date(a.date).getTime() - new Date(b.date).getTime());
+      ).sort((a: any, b: any) => new Date(a.date).getTime() - new Date(b.date).getTime());
       
-      visitCallbacks.forEach((callback: { date: string | number | Date; notes: any; }, index: number) => {
+      visitCallbacks.forEach((callback: any, index: number) => {
         const callbackNum = index + 1;
         const callbackDate = new Date(callback.date).toLocaleDateString('ko-KR', {
           year: '2-digit',
@@ -307,11 +306,11 @@ function calculateMonthlyStats(patients: any[]): MonthlyStats {
         }).replace(/\. /g, '.').replace(/\.$/, '');
         
         const lastIndex = combinedContent.length - 1;
-        combinedContent[lastIndex] += `\n[내원관리 ${callbackNum}차 - ${callbackDate}] ${callback.notes}`; // 🔥 수정: 기존 내용에 바로 연결
+        combinedContent[lastIndex] += `\n[내원관리 ${callbackNum}차 - ${callbackDate}] ${callback.notes}`;
       });
     }
     
-    // 최종 통합 내용
+    // 🔥 핵심 수정: 상담내용이 없어도 환자 정보는 표시
     const fullCombinedContent = combinedContent.join('\n\n');
     const summarizedContent = fullCombinedContent.length > 100 ? 
       fullCombinedContent.substring(0, 100) + '...' : 
@@ -323,18 +322,19 @@ function calculateMonthlyStats(patients: any[]): MonthlyStats {
     const phoneAmount = consultation?.estimatedAmount || 0;
     const finalAmount = visitAmount || phoneAmount;
     
-    // 🔥 진행상황 계산을 위한 필드들을 포함한 객체 반환
     const result: PatientConsultationSummary = {
       _id: p._id,
       name: p.name,
       age: p.age,
       interestedServices: p.interestedServices || [],
       discomfort: truncateText(phoneDiscomfort, 50),
+      // 🔥 핵심: 빈 내용이어도 "상담내용 없음"으로 표시하여 환자 포함
       consultationSummary: summarizedContent || '상담내용 없음',
       estimatedAmount: finalAmount,
       estimateAgreed: consultation?.estimateAgreed || false,
       fullDiscomfort: phoneDiscomfort,
-      fullConsultation: fullCombinedContent || '상담내용 없음', // 🔥 콜백 포함된 전체 내용
+      // 🔥 핵심: 빈 내용이어도 "상담내용 없음"으로 표시
+      fullConsultation: fullCombinedContent || '상담내용 없음',
       callInDate: p.callInDate,
       hasPhoneConsultation: !!(phoneDiscomfort || phoneConsultationNotes),
       hasVisitConsultation: !!visitFirstContent,
@@ -366,7 +366,7 @@ function calculateMonthlyStats(patients: any[]): MonthlyStats {
     
     return result;
   })
-  .sort((a, b) => new Date(b.callInDate || '').getTime() - new Date(a.callInDate || '').getTime());
+   .sort((a, b) => new Date(b.callInDate || '').getTime() - new Date(a.callInDate || '').getTime());
 
   
   // 결제 전환율 계산 (신규문의 기준)
