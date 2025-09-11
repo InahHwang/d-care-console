@@ -239,7 +239,8 @@ function calculateRevenueAnalysis(patients: any[]) {
       },
       visitManagement: {
         patients: visitLostPatients.length,
-        amount: visitLostAmount
+        amount: visitLostAmount,
+        hasUnestimatedPatients: false 
       },
       totalPatients: totalLostPatients,
       totalAmount: totalLostAmount,
