@@ -38,6 +38,7 @@ export interface RevenueAnalysis {
       amount: number;      // 상담단계 손실 매출
     };
     visitManagement: {
+      hasUnestimatedPatients: any;
       patients: number;    // 내원후 손실 환자수 (내원후 종결)
       amount: number;      // 내원후 손실 매출
     };

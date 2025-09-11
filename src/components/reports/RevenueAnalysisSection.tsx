@@ -249,7 +249,7 @@ const RevenueAnalysisSection: React.FC<RevenueAnalysisSectionProps> = ({
                   <span className="font-bold"> {summary.potentialGrowth}%</span>에 해당합니다.
                 </p>
                 <p className="text-sm">
-                  • 전체 목표매출: <span className="font-bold">{formatRevenueAmount(achievedRevenue.amount + potentialRevenue.totalAmount)}</span>
+                  • 전체 잠재매출: <span className="font-bold">{formatRevenueAmount(achievedRevenue.amount + potentialRevenue.totalAmount)}</span>
                 </p>
               </div>
             </div>
@@ -317,7 +317,10 @@ const RevenueAnalysisSection: React.FC<RevenueAnalysisSectionProps> = ({
                 >
                   <div className="text-xl font-bold text-red-900">{lostRevenue.visitManagement.patients}명</div>
                   <div className="text-red-700 text-xs mb-1">내원후 손실</div>
-                  <div className="text-red-800 font-medium">{formatRevenueAmount(lostRevenue.visitManagement.amount)}</div>
+                  <div className="text-red-800 font-medium">
+                    {formatRevenueAmount(lostRevenue.visitManagement.amount)}
+                    {lostRevenue.visitManagement.hasUnestimatedPatients && <span className="text-xs ml-1">+ α</span>}
+                  </div>
                   <div className="text-xs text-gray-600 mt-1">내원후 종결</div>
                 </div>
               </div>

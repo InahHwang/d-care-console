@@ -121,7 +121,7 @@ export async function GET(request: NextRequest) {
         };
         break;
 
-      // 🔥 새로 추가: 손실매출 - 상담단계만
+      // 🔥 새로 추가: 손실매출 - 상담단계만 (내원 안한 환자만)
       case 'lost_consultation':
         query = {
           callInDate: {
@@ -129,10 +129,13 @@ export async function GET(request: NextRequest) {
             $lte: endOfMonthString
           },
           $or: [
-            { status: { $in: ['종결', '부재중'] } },
+            { 
+              status: { $in: ['종결', '부재중'] },
+              visitConfirmed: { $ne: true } // 🔥 내원 안한 환자만
+            },
             { 
               isCompleted: true,
-              visitConfirmed: { $ne: true }
+              visitConfirmed: { $ne: true } // 🔥 내원 안한 완료 환자만
             }
           ]
         };
