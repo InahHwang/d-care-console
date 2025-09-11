@@ -101,7 +101,7 @@ export function calculateRevenueAnalysis(patients: Patient[]): RevenueAnalysis {
       },
       visitManagement: {
         patients: visitManagementPatients.length,
-        amount: visitManagementAmount
+        amount: visitManagementAmount,
       },
       totalPatients: totalPotentialPatients,
       totalAmount: totalPotentialAmount,
@@ -114,7 +114,8 @@ export function calculateRevenueAnalysis(patients: Patient[]): RevenueAnalysis {
       },
       visitManagement: {
         patients: visitLostPatients.length,
-        amount: visitLostAmount
+        amount: visitLostAmount,
+        hasUnestimatedPatients: undefined
       },
       totalPatients: totalLostPatients,
       totalAmount: totalLostAmount,
