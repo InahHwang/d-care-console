@@ -227,14 +227,6 @@ const RevenueAnalysisSection: React.FC<RevenueAnalysisSectionProps> = ({
                   💰 총 잠재매출: {formatRevenueAmount(summary.totalPotentialAmount)} (100% 성공 시)
                 </span>
               </div>
-              <div className="text-sm text-indigo-700">
-                달성률: <span className="font-bold">{summary.achievementRate}%</span>
-                {summary.potentialGrowth > 0 && (
-                  <>
-                    {' '}• 잠재성장률: <span className="font-bold">+{summary.potentialGrowth}%</span>
-                  </>
-                )}
-              </div>
             </div>
           </div>
         </div>
@@ -333,31 +325,6 @@ const RevenueAnalysisSection: React.FC<RevenueAnalysisSectionProps> = ({
               <p className="text-xs text-red-600 mt-3">
                 💡 이 환자들은 확실히 놓친 케이스로, 개선 포인트 분석이 필요합니다.
               </p>
-            </div>
-
-            {/* 개선 포인트 제안 */}
-            <div className="bg-gray-50 border rounded-lg p-4">
-              <h4 className="font-semibold text-gray-900 mb-3">🎯 매출 증대 포인트</h4>
-              <div className="space-y-2 text-sm text-gray-700">
-                <div className="flex items-start gap-2">
-                  <span className="w-4 h-4 bg-blue-100 text-blue-600 rounded-full flex items-center justify-center text-xs font-bold mt-0.5">1</span>
-                  <span><strong>상담진행중 환자 집중 관리:</strong> {potentialRevenue.consultation.patients}명의 콜백/잠재고객 예약 전환율 향상</span>
-                </div>
-                <div className="flex items-start gap-2">
-                  <span className="w-4 h-4 bg-purple-100 text-purple-600 rounded-full flex items-center justify-center text-xs font-bold mt-0.5">2</span>
-                  <span><strong>내원관리중 환자 치료 유도:</strong> {potentialRevenue.visitManagement.patients}명의 치료 결정 촉진</span>
-                </div>
-                <div className="flex items-start gap-2">
-                  <span className="w-4 h-4 bg-red-100 text-red-600 rounded-full flex items-center justify-center text-xs font-bold mt-0.5">3</span>
-                  <span><strong>손실 원인 분석:</strong> {lostRevenue.totalPatients}명의 손실 패턴 파악으로 동일 사례 재발 방지</span>
-                </div>
-                {summary.potentialGrowth > 50 && (
-                  <div className="flex items-start gap-2">
-                    <span className="w-4 h-4 bg-green-100 text-green-600 rounded-full flex items-center justify-center text-xs font-bold mt-0.5">🚀</span>
-                    <span><strong>높은 성장 잠재력:</strong> 잠재매출이 달성매출의 {summary.potentialGrowth}%이므로 집중 관리 시 큰 효과 기대</span>
-                  </div>
-                )}
-              </div>
             </div>
           </div>
         )}
