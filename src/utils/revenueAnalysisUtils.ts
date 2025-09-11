@@ -20,11 +20,12 @@ export function calculateRevenueAnalysis(patients: Patient[]): RevenueAnalysis {
   
   console.log(`✅ 달성매출: ${achievedPatients.length}명, ${achievedAmount.toLocaleString()}원`);
   
-  // 🔥 2. 잠재매출군 - 아직 진행 중인 환자들
-  // 2-1. 상담진행중: 콜백필요, 잠재고객, 예약확정
+  // 🔥 2. 잠재매출군 - 아직 진행 중인 환자들 (치료시작 제외)
+  // 2-1. 상담진행중: 콜백필요, 잠재고객, 예약확정 (치료시작 제외)
   const consultationOngoingPatients = patients.filter(p => 
     ['콜백필요', '잠재고객', '예약확정', '재예약확정'].includes(p.status) && 
-    !p.isCompleted
+    !p.isCompleted &&
+    !(p.visitConfirmed === true && p.postVisitStatus === '치료시작') // 🔥 치료시작 제외
   );
   
   const consultationOngoingAmount = consultationOngoingPatients.reduce((sum, p) => {
@@ -34,7 +35,7 @@ export function calculateRevenueAnalysis(patients: Patient[]): RevenueAnalysis {
   // 2-2. 내원관리중: 치료동의, 재콜백필요, 상태미설정 (내원확정된 환자 중 치료시작 제외)
   const visitManagementPatients = patients.filter(p => 
     p.visitConfirmed === true && 
-    p.postVisitStatus !== '치료시작' && 
+    p.postVisitStatus !== '치료시작' && // 🔥 치료시작 제외 (이미 있지만 명확히)
     p.postVisitStatus !== '종결' &&
     !p.isCompleted
   );
@@ -48,8 +49,8 @@ export function calculateRevenueAnalysis(patients: Patient[]): RevenueAnalysis {
   
   console.log(`⏳ 잠재매출: ${totalPotentialPatients}명 (상담진행중 ${consultationOngoingPatients.length}명 + 내원관리중 ${visitManagementPatients.length}명), ${totalPotentialAmount.toLocaleString()}원`);
   
-  // 🔥 3. 손실매출군 - 확실히 놓친 환자들
-  // 3-1. 상담단계 손실: 종결, 부재중
+  // 🔥 3. 손실매출군 - 확실히 놓친 환자들 (치료시작 제외)
+  // 3-1. 상담단계 손실: 종결, 부재중 (치료시작 제외)
   const consultationLostPatients = patients.filter(p => 
     (p.status === '종결' || p.status === '부재중') || 
     (p.isCompleted === true && !p.visitConfirmed)
@@ -59,10 +60,10 @@ export function calculateRevenueAnalysis(patients: Patient[]): RevenueAnalysis {
     return sum + getPatientEstimatedAmount(p);
   }, 0);
   
-  // 3-2. 내원후 손실: 내원후 종결
+  // 3-2. 내원후 손실: 내원후 종결 (치료시작 제외)
   const visitLostPatients = patients.filter(p => 
     p.visitConfirmed === true && 
-    (p.postVisitStatus === '종결' || (p.isCompleted === true && p.visitConfirmed))
+    p.postVisitStatus === '종결'
   );
   
   const visitLostAmount = visitLostPatients.reduce((sum, p) => {
@@ -73,7 +74,7 @@ export function calculateRevenueAnalysis(patients: Patient[]): RevenueAnalysis {
   const totalLostAmount = consultationLostAmount + visitLostAmount;
   
   console.log(`❌ 손실매출: ${totalLostPatients}명 (상담손실 ${consultationLostPatients.length}명 + 내원후손실 ${visitLostPatients.length}명), ${totalLostAmount.toLocaleString()}원`);
-  
+
   // 🔥 4. 전체 요약 계산
   const totalInquiries = patients.length;
   const totalPotentialAmountAll = achievedAmount + totalPotentialAmount + totalLostAmount;
@@ -153,20 +154,22 @@ export function getRevenuePatientDetails(patients: Patient[]): RevenuePatientDet
       });
     }
     // 🔥 2. 잠재매출 - 상담진행중
-    else if (['콜백필요', '잠재고객', '예약확정', '재예약확정'].includes(p.status) && !p.isCompleted) {
-      revenuePatients.push({
-        _id: p._id,
-        name: p.name,
-        phoneNumber: p.phoneNumber,
-        callInDate: p.callInDate,
-        status: p.status,
-        postVisitStatus: p.postVisitStatus,
-        estimatedAmount,
-        revenueType: 'potential',
-        revenueSubType: 'consultation_ongoing',
-        category: '상담진행중'
-      });
-    }
+    else if (['콜백필요', '잠재고객', '예약확정', '재예약확정'].includes(p.status) && 
+         !p.isCompleted &&
+         p.postVisitStatus !== '치료시작') { // 🔥 치료시작 제외 추가
+    revenuePatients.push({
+      _id: p._id,
+      name: p.name,
+      phoneNumber: p.phoneNumber,
+      callInDate: p.callInDate,
+      status: p.status,
+      postVisitStatus: p.postVisitStatus,
+      estimatedAmount,
+      revenueType: 'potential',
+      revenueSubType: 'consultation_ongoing',
+      category: '상담진행중'
+    });
+  }
     // 🔥 3. 잠재매출 - 내원관리중
     else if (p.visitConfirmed === true && 
              p.postVisitStatus !== '치료시작' && 
@@ -240,7 +243,9 @@ export function filterPatientsByRevenueType(
     case 'potential':
       if (subType === 'consultation_ongoing') {
         return patients.filter(p => 
-          ['콜백필요', '잠재고객', '예약확정', '재예약확정'].includes(p.status) && !p.isCompleted
+          ['콜백필요', '잠재고객', '예약확정', '재예약확정'].includes(p.status) && 
+          !p.isCompleted
+          // 치료시작 제외 조건 불필요 (이미 다른 status임)
         );
       } else if (subType === 'visit_management') {
         return patients.filter(p => 
@@ -265,19 +270,20 @@ export function filterPatientsByRevenueType(
         return patients.filter(p => 
           (p.status === '종결' || p.status === '부재중') || 
           (p.isCompleted === true && !p.visitConfirmed)
+          // 치료시작 제외 조건 불필요
         );
       } else if (subType === 'visit_lost') {
         return patients.filter(p => 
           p.visitConfirmed === true && 
-          (p.postVisitStatus === '종결' || (p.isCompleted === true && p.visitConfirmed))
+          p.postVisitStatus === '종결'
+          // 치료시작 제외 조건 불필요 (이미 '종결'로 필터링됨)
         );
       } else {
         // 전체 손실매출
         return patients.filter(p => 
           ((p.status === '종결' || p.status === '부재중') || 
            (p.isCompleted === true && !p.visitConfirmed)) ||
-          (p.visitConfirmed === true && 
-           (p.postVisitStatus === '종결' || (p.isCompleted === true && p.visitConfirmed)))
+          (p.visitConfirmed === true && p.postVisitStatus === '종결')
         );
       }
       

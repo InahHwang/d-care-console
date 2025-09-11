@@ -1,4 +1,4 @@
-// src/components/reports/RevenueAnalysisSection.tsx - 🔥 매출 현황 분석 섹션 컴포넌트
+// src/components/reports/RevenueAnalysisSection.tsx - 🔥 세부 분류 API 호출 수정
 
 import React, { useState } from 'react';
 import { 
@@ -44,18 +44,61 @@ const RevenueAnalysisSection: React.FC<RevenueAnalysisSectionProps> = ({
   // 진행 상황별 요약 데이터
   const progressSummary = getRevenueProgressSummary(revenueAnalysis);
 
-  // 환자 목록 클릭 핸들러
-  const handlePatientListClick = (
+  // 🔥 환자 목록 클릭 핸들러 - 세부 분류 API 호출 추가
+  const handlePatientListClick = async (
     revenueType: 'achieved' | 'potential' | 'lost',
     subType?: 'consultation_ongoing' | 'visit_management' | 'consultation_lost' | 'visit_lost',
     title?: string
   ) => {
-    if (!onPatientListClick || patients.length === 0) return;
+    if (!onPatientListClick) return;
     
-    const filteredPatients = filterPatientsByRevenueType(patients, revenueType, subType);
-    const displayTitle = title || getRevenueTypeTitle(revenueType, subType);
-    
-    onPatientListClick(filteredPatients, displayTitle);
+    try {
+      // 🔥 API 호출 타입 결정 - 세부 분류 포함
+      let filterType: string;
+      
+      switch (revenueType) {
+        case 'achieved':
+          filterType = 'treatment_rate'; // 치료시작 환자들
+          break;
+        case 'potential':
+          if (subType === 'consultation_ongoing') {
+            filterType = 'potential_consultation_ongoing'; // 🔥 상담진행중만
+          } else if (subType === 'visit_management') {
+            filterType = 'potential_visit_management'; // 🔥 내원관리중만
+          } else {
+            filterType = 'potential_revenue'; // 전체 잠재매출
+          }
+          break;
+        case 'lost':
+          if (subType === 'consultation_lost') {
+            filterType = 'lost_consultation'; // 🔥 상담단계 손실만
+          } else if (subType === 'visit_lost') {
+            filterType = 'lost_visit'; // 🔥 내원후 손실만
+          } else {
+            filterType = 'lost_revenue'; // 전체 손실매출
+          }
+          break;
+        default:
+          return;
+      }
+      
+      console.log(`🔍 환자 목록 요청: ${filterType} (${revenueType}/${subType})`);
+      
+      const response = await fetch(`/api/patients/filtered?type=${filterType}`);
+      
+      if (response.ok) {
+        const data = await response.json();
+        const displayTitle = title || getRevenueTypeTitle(revenueType, subType);
+        console.log(`✅ 환자 목록 조회 성공: ${data.patients.length}명 (${displayTitle})`);
+        onPatientListClick(data.patients, displayTitle);
+      } else {
+        console.error('환자 목록 조회 실패:', response.status, response.statusText);
+        alert('환자 목록을 불러오는데 실패했습니다.');
+      }
+    } catch (error) {
+      console.error('환자 목록 조회 중 오류:', error);
+      alert('환자 목록 조회 중 오류가 발생했습니다.');
+    }
   };
 
   // 타이틀 생성 헬퍼
@@ -224,7 +267,7 @@ const RevenueAnalysisSection: React.FC<RevenueAnalysisSectionProps> = ({
         {/* 📋 상세 분석 (토글 가능) */}
         {showDetails && (
           <div className="space-y-6">
-            {/* 🔥 잠재매출 세부 분석 */}
+            {/* 🔥 잠재매출 세부 분석 - 수정된 클릭 핸들러 */}
             <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
               <h4 className="font-semibold text-blue-900 mb-3 flex items-center gap-2">
                 <Clock className="w-5 h-5" />
@@ -234,7 +277,7 @@ const RevenueAnalysisSection: React.FC<RevenueAnalysisSectionProps> = ({
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4 text-sm">
                 <div 
                   className="text-center p-3 bg-white rounded border cursor-pointer hover:bg-blue-50 transition-colors"
-                  onClick={() => handlePatientListClick('potential', 'consultation_ongoing', '잠재매출 - 상담진행중')}
+                  onClick={() => handlePatientListClick('potential', 'consultation_ongoing')}
                 >
                   <div className="text-xl font-bold text-blue-900">{potentialRevenue.consultation.patients}명</div>
                   <div className="text-blue-700 text-xs mb-1">상담진행중</div>
@@ -244,7 +287,7 @@ const RevenueAnalysisSection: React.FC<RevenueAnalysisSectionProps> = ({
                 
                 <div 
                   className="text-center p-3 bg-white rounded border cursor-pointer hover:bg-blue-50 transition-colors"
-                  onClick={() => handlePatientListClick('potential', 'visit_management', '잠재매출 - 내원관리중')}
+                  onClick={() => handlePatientListClick('potential', 'visit_management')}
                 >
                   <div className="text-xl font-bold text-blue-900">{potentialRevenue.visitManagement.patients}명</div>
                   <div className="text-blue-700 text-xs mb-1">내원관리중</div>
@@ -258,7 +301,7 @@ const RevenueAnalysisSection: React.FC<RevenueAnalysisSectionProps> = ({
               </p>
             </div>
 
-            {/* 🔥 손실매출 세부 분석 */}
+            {/* 🔥 손실매출 세부 분석 - 수정된 클릭 핸들러 */}
             <div className="bg-red-50 border border-red-200 rounded-lg p-4">
               <h4 className="font-semibold text-red-900 mb-3 flex items-center gap-2">
                 <TrendingDown className="w-5 h-5" />
@@ -268,7 +311,7 @@ const RevenueAnalysisSection: React.FC<RevenueAnalysisSectionProps> = ({
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4 text-sm">
                 <div 
                   className="text-center p-3 bg-white rounded border cursor-pointer hover:bg-red-50 transition-colors"
-                  onClick={() => handlePatientListClick('lost', 'consultation_lost', '손실매출 - 상담단계')}
+                  onClick={() => handlePatientListClick('lost', 'consultation_lost')}
                 >
                   <div className="text-xl font-bold text-red-900">{lostRevenue.consultation.patients}명</div>
                   <div className="text-red-700 text-xs mb-1">상담단계 손실</div>
@@ -278,7 +321,7 @@ const RevenueAnalysisSection: React.FC<RevenueAnalysisSectionProps> = ({
                 
                 <div 
                   className="text-center p-3 bg-white rounded border cursor-pointer hover:bg-red-50 transition-colors"
-                  onClick={() => handlePatientListClick('lost', 'visit_lost', '손실매출 - 내원후')}
+                  onClick={() => handlePatientListClick('lost', 'visit_lost')}
                 >
                   <div className="text-xl font-bold text-red-900">{lostRevenue.visitManagement.patients}명</div>
                   <div className="text-red-700 text-xs mb-1">내원후 손실</div>

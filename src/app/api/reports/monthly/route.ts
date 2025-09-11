@@ -1,10 +1,9 @@
-// src/app/api/reports/monthly/route.ts - 🔥 JWT 검증 및 에러 핸들링 개선, 손실 분석 추가
+// src/app/api/reports/monthly/route.ts - 🔥 filtered API 연동으로 로직 통일
 import { NextRequest, NextResponse } from 'next/server';
 import { connectToDatabase } from '@/utils/mongodb';
 import jwt from 'jsonwebtoken';
 import { MonthlyStats, ChangeIndicator, PatientConsultationSummary } from '@/types/report';
-import { calculateLossAnalysis } from '@/utils/lossAnalysisUtils'; // 🔥 새로 추가
-
+import { calculateLossAnalysis } from '@/utils/lossAnalysisUtils';
 
 // JWT 검증 함수
 function verifyToken(token: string) {
@@ -81,9 +80,9 @@ export async function POST(request: NextRequest) {
 
     console.log(`📊 이전월 환자 수: ${prevMonthPatients.length}명`);
 
-    // 현재 월 통계 계산
-    const currentStats = calculateMonthlyStats(currentMonthPatients);
-    const prevStats = calculateMonthlyStats(prevMonthPatients);
+    // 🔥 현재 월 통계 계산 - filtered API 연동 방식으로 변경
+    const currentStats = await calculateMonthlyStatsWithFiltered(currentMonthPatients, year, month);
+    const prevStats = await calculateMonthlyStatsWithFiltered(prevMonthPatients, prevYear, prevMonth);
 
     console.log('📈 현재월 통계:', currentStats);
     console.log('📈 이전월 통계:', prevStats);
@@ -106,7 +105,7 @@ export async function POST(request: NextRequest) {
     const result = {
       ...currentStats,
       changes,
-      // 🔥 환자별 상담 내용도 함께 반환
+      // 환자별 상담 내용도 함께 반환
       patientConsultations: currentStats.patientConsultations
     };
 
@@ -129,54 +128,166 @@ export async function POST(request: NextRequest) {
   }
 }
 
-// 🔥 calculateMonthlyStats 함수 내부 또는 외부에 추가
-function calculateRevenueAnalysis(patients: any[]) {
-  // 간단한 기본 구현 (나중에 상세 구현 가능)
-  const totalInquiries = patients.length;
-  const achievedRevenue = patients.filter(p => 
-    p.visitConfirmed === true && p.postVisitStatus === '치료시작'
-  );
+// 🔥 filtered API를 활용한 매출 현황 분석 - 기존 로직 완전 제거하고 API 호출로 대체
+async function calculateRevenueAnalysisWithFiltered(year: number, month: number) {
+  console.log(`🔍 매출 현황 분석 시작 - filtered API 활용 방식`);
   
-  return {
-    achievedRevenue: {
-      patients: achievedRevenue.length,
-      amount: achievedRevenue.reduce((sum, p) => {
-        const amount = p.postVisitConsultation?.estimateInfo?.discountPrice || 
-                     p.consultation?.estimatedAmount || 0;
-        return sum + amount;
-      }, 0),
-      percentage: totalInquiries > 0 ? (achievedRevenue.length / totalInquiries) * 100 : 0
-    },
-    potentialRevenue: {
-      consultation: { patients: 0, amount: 0 },
-      visitManagement: { patients: 0, amount: 0 },
-      totalPatients: 0,
-      totalAmount: 0,
-      percentage: 0
-    },
-    lostRevenue: {
-      consultation: { patients: 0, amount: 0 },
-      visitManagement: { patients: 0, amount: 0 },
-      totalPatients: 0,
-      totalAmount: 0,
-      percentage: 0
-    },
-    summary: {
-      totalInquiries,
-      totalPotentialAmount: 0,
-      achievementRate: 0,
-      potentialGrowth: 0
+  try {
+    // 🔥 해당 월의 날짜 범위 설정을 위해 환경변수나 요청 헤더에서 기간 정보 사용
+    const baseUrl = process.env.NEXTAUTH_URL || process.env.NEXT_PUBLIC_BASE_URL || 'http://localhost:3000';
+    
+    console.log(`🔍 filtered API 호출 시작 - baseUrl: ${baseUrl}, year: ${year}, month: ${month}`);
+
+    const [achievedResponse, potentialResponse, lostResponse] = await Promise.all([
+      fetch(`${baseUrl}/api/patients/filtered?type=treatment_rate&year=${year}&month=${month}`),
+      fetch(`${baseUrl}/api/patients/filtered?type=potential_revenue&year=${year}&month=${month}`), 
+      fetch(`${baseUrl}/api/patients/filtered?type=lost_revenue&year=${year}&month=${month}`)
+    ]);
+
+    console.log('🔍 API 응답 상태:', {
+      achieved: achievedResponse.status,
+      potential: potentialResponse.status, 
+      lost: lostResponse.status
+    });
+
+    if (!achievedResponse.ok || !potentialResponse.ok || !lostResponse.ok) {
+      throw new Error('filtered API 호출 실패');
     }
-  };
+
+    const [achievedData, potentialData, lostData] = await Promise.all([
+      achievedResponse.json(),
+      potentialResponse.json(), 
+      lostResponse.json()
+    ]);
+
+    console.log('🔍 각 API 응답 데이터:', {
+      achieved: { count: achievedData.patients?.length, dateRange: achievedData.dateRange },
+      potential: { count: potentialData.patients?.length, dateRange: potentialData.dateRange },
+      lost: { count: lostData.patients?.length, dateRange: lostData.dateRange }
+    });
+
+    // 🔥 각 그룹의 환자 수와 매출 계산
+    const achievedPatients = achievedData.patients || [];
+    const potentialPatients = potentialData.patients || [];
+    const lostPatients = lostData.patients || [];
+
+    const achievedAmount = achievedPatients.reduce((sum: number, p: any) => sum + getPatientEstimatedAmount(p), 0);
+    const potentialAmount = potentialPatients.reduce((sum: number, p: any) => sum + getPatientEstimatedAmount(p), 0);
+    const lostAmount = lostPatients.reduce((sum: number, p: any) => sum + getPatientEstimatedAmount(p), 0);
+
+    console.log(`✅ filtered API 결과 - 달성: ${achievedPatients.length}명(${achievedAmount.toLocaleString()}원), 잠재: ${potentialPatients.length}명(${potentialAmount.toLocaleString()}원), 손실: ${lostPatients.length}명(${lostAmount.toLocaleString()}원)`);
+
+    // 🔥 세부 분류 (잠재매출의 상담진행중/내원관리중 구분)
+    const consultationOngoingPatients = potentialPatients.filter((p: any) => 
+      ['콜백필요', '잠재고객', '예약확정', '재예약확정'].includes(p.status) && 
+      !p.isCompleted &&
+      (p.visitConfirmed !== true || p.postVisitStatus !== '치료시작')
+    );
+    
+    const visitManagementPatients = potentialPatients.filter((p: any) => 
+      p.visitConfirmed === true && 
+      p.postVisitStatus !== '치료시작' && 
+      p.postVisitStatus !== '종결' &&
+      !p.isCompleted
+    );
+
+    const consultationOngoingAmount = consultationOngoingPatients.reduce((sum: number, p: any) => sum + getPatientEstimatedAmount(p), 0);
+    const visitManagementAmount = visitManagementPatients.reduce((sum: number, p: any) => sum + getPatientEstimatedAmount(p), 0);
+
+    // 🔥 손실매출 세부 분류
+    const consultationLostPatients = lostPatients.filter((p: any) => 
+      (p.status === '종결' || p.status === '부재중') || 
+      (p.isCompleted === true && !p.visitConfirmed)
+    );
+    
+    const visitLostPatients = lostPatients.filter((p: any) => 
+      p.visitConfirmed === true && 
+      p.postVisitStatus === '종결'
+    );
+
+    const consultationLostAmount = consultationLostPatients.reduce((sum: number, p: any) => sum + getPatientEstimatedAmount(p), 0);
+    const visitLostAmount = visitLostPatients.reduce((sum: number, p: any) => sum + getPatientEstimatedAmount(p), 0);
+
+    // 🔥 전체 문의 수 계산 (filtered API로는 전체 수를 구할 수 없으므로 합계로 계산)
+    const totalInquiries = achievedPatients.length + potentialPatients.length + lostPatients.length;
+    const totalPotentialAmountAll = achievedAmount + potentialAmount + lostAmount;
+    
+    const achievedPercentage = totalInquiries > 0 ? Math.round((achievedPatients.length / totalInquiries) * 100) : 0;
+    const potentialPercentage = totalInquiries > 0 ? Math.round((potentialPatients.length / totalInquiries) * 100) : 0;
+    const lostPercentage = totalInquiries > 0 ? Math.round((lostPatients.length / totalInquiries) * 100) : 0;
+    
+    const achievementRate = totalPotentialAmountAll > 0 ? Math.round((achievedAmount / totalPotentialAmountAll) * 100) : 0;
+    const potentialGrowth = achievedAmount > 0 ? Math.round((potentialAmount / achievedAmount) * 100) : 0;
+    
+    console.log(`💰 filtered API 기반 총 잠재매출: ${totalPotentialAmountAll.toLocaleString()}원, 달성률: ${achievementRate}%, 잠재성장률: ${potentialGrowth}%`);
+    
+    return {
+      achievedRevenue: {
+        patients: achievedPatients.length,
+        amount: achievedAmount,
+        percentage: achievedPercentage
+      },
+      potentialRevenue: {
+        consultation: {
+          patients: consultationOngoingPatients.length,
+          amount: consultationOngoingAmount
+        },
+        visitManagement: {
+          patients: visitManagementPatients.length,
+          amount: visitManagementAmount
+        },
+        totalPatients: potentialPatients.length,
+        totalAmount: potentialAmount,
+        percentage: potentialPercentage
+      },
+      lostRevenue: {
+        consultation: {
+          patients: consultationLostPatients.length,
+          amount: consultationLostAmount
+        },
+        visitManagement: {
+          patients: visitLostPatients.length,
+          amount: visitLostAmount
+        },
+        totalPatients: lostPatients.length,
+        totalAmount: lostAmount,
+        percentage: lostPercentage
+      },
+      summary: {
+        totalInquiries,
+        totalPotentialAmount: totalPotentialAmountAll,
+        achievementRate,
+        potentialGrowth
+      }
+    };
+    
+  } catch (error) {
+    console.error('❌ filtered API 호출 실패:', error);
+    // 🔥 API 호출 실패 시 빈 데이터 반환 (기존 방식으로 폴백하지 않음)
+    return {
+      achievedRevenue: { patients: 0, amount: 0, percentage: 0 },
+      potentialRevenue: {
+        consultation: { patients: 0, amount: 0 },
+        visitManagement: { patients: 0, amount: 0 },
+        totalPatients: 0, totalAmount: 0, percentage: 0
+      },
+      lostRevenue: {
+        consultation: { patients: 0, amount: 0 },
+        visitManagement: { patients: 0, amount: 0 },
+        totalPatients: 0, totalAmount: 0, percentage: 0
+      },
+      summary: { totalInquiries: 0, totalPotentialAmount: 0, achievementRate: 0, potentialGrowth: 0 }
+    };
+  }
 }
 
-// 🔥 월별 통계 계산 함수 - 프론트엔드와 동일한 결제금액 계산 로직 적용 + 손실 분석 추가
-function calculateMonthlyStats(patients: any[]): MonthlyStats {
+// 🔥 기존 calculateMonthlyStats 함수를 filtered API 방식으로 수정
+async function calculateMonthlyStatsWithFiltered(patients: any[], year: number, month: number): Promise<MonthlyStats> {
   const totalInquiries = patients.length;
   
-  console.log(`🔍 통계 계산 시작 - 총 환자 수: ${totalInquiries}명`);
+  console.log(`🔍 통계 계산 시작 (filtered API 방식) - 총 환자 수: ${totalInquiries}명`);
   
-  // 인바운드/아웃바운드 구분
+  // 🔥 기본 통계는 기존 방식 유지 (단순 집계이므로 API 호출 불필요)
   const inboundCalls = patients.filter(p => p.consultationType === 'inbound').length;
   const outboundCalls = patients.filter(p => p.consultationType === 'outbound').length;
   const returningCalls = patients.filter(p => p.consultationType === 'returning').length;
@@ -191,13 +302,11 @@ function calculateMonthlyStats(patients: any[]): MonthlyStats {
   
   // 내원 환자 (visitConfirmed가 true인 환자)
   const visitedPatients = patients.filter(p => p.visitConfirmed === true).length;
-  
-  // 내원 전환율 계산 (신규문의 기준)
   const visitRate = totalInquiries > 0 ? (visitedPatients / totalInquiries) * 100 : 0;
   
   console.log(`🏥 내원 환자: ${visitedPatients}명, 내원전환율: ${visitRate.toFixed(1)}%`);
   
-  // 🔥 결제 정보 계산 - 프론트엔드와 동일한 로직 적용
+  // 🔥 결제 정보는 기존 방식 유지 (치료시작 환자 필터링)
   const treatmentStartedPatients = patients.filter(p => {
     const isTreatmentStarted = p.visitConfirmed === true && p.postVisitStatus === '치료시작';
     
@@ -209,49 +318,37 @@ function calculateMonthlyStats(patients: any[]): MonthlyStats {
   });
   
   const paymentPatients = treatmentStartedPatients.length;
-  
-  // 🔥 🔥 🔥 총 치료금액 계산 - 프론트엔드와 완전히 동일한 로직
+
+  // 🔥 총 치료금액 계산
   const totalPayment = treatmentStartedPatients.reduce((sum, p) => {
     let finalAmount = 0;
     
     if (p.postVisitConsultation && p.postVisitConsultation.estimateInfo) {
       const estimate = p.postVisitConsultation.estimateInfo;
       
-      // 🔥 할인가 > 정가 > 0 순서로 우선순위 적용 (프론트엔드와 동일)
       if (estimate.discountPrice && estimate.discountPrice > 0) {
-        // 할인가가 있으면 할인가 사용
         finalAmount = estimate.discountPrice;
-        console.log(`💰 ${p.name} - 할인가 적용: ${finalAmount.toLocaleString()}원`);
       } else if (estimate.regularPrice && estimate.regularPrice > 0) {
-        // 할인가가 없고 정가가 있으면 정가 사용
         finalAmount = estimate.regularPrice;
-        console.log(`💰 ${p.name} - 정가 적용: ${finalAmount.toLocaleString()}원`);
-      } else {
-        console.log(`⚠️ ${p.name} - 치료금액 정보 없음`);
       }
-    } else {
-      console.log(`⚠️ ${p.name} - 견적 정보 없음`);
     }
     
     return sum + finalAmount;
   }, 0);
 
-  // 🔥 환자별 상담 내용 요약 생성 - 기존 타입 호환성 유지하면서 새 기능 추가
+  // 환자별 상담 내용 요약 생성 (기존 로직 유지)
   const patientConsultations: PatientConsultationSummary[] = patients
     .map(p => {
       const consultation = p.consultation;
       const postVisitConsultation = p.postVisitConsultation;
       const callbackHistory = p.callbackHistory || [];
       
-      // 🔥 전화상담 내용 추출 - 더 관대한 조건
       const phoneDiscomfort = consultation?.treatmentPlan || '';
       const phoneConsultationNotes = consultation?.consultationNotes || '';
       const visitFirstContent = postVisitConsultation?.firstVisitConsultationContent || '';
       
-      // 🔥 통합된 상담내용 생성
       const combinedContent: string[] = [];
       
-      // 🔥 전화상담 내용 추가 - 기존 로직
       if (phoneDiscomfort || phoneConsultationNotes) {
         const phoneContent = [];
         if (phoneConsultationNotes) phoneContent.push(`[상담메모] ${phoneConsultationNotes}`);
@@ -261,138 +358,127 @@ function calculateMonthlyStats(patients: any[]): MonthlyStats {
         }
       }
 
-    // 🔥 콜백 기록 추가 (전화상담 단계의 콜백들)
-    const phoneCallbacks = callbackHistory.filter((cb: any) => 
-      !cb.isVisitManagementCallback && 
-      cb.notes && 
-      cb.notes.trim() !== '' &&
-      cb.status === '완료'
-    ).sort((a: any, b: any) => new Date(a.date).getTime() - new Date(b.date).getTime());
-
-    phoneCallbacks.forEach((callback: any, index: number) => {
-      const callbackNum = index + 1;
-      const callbackDate = new Date(callback.date).toLocaleDateString('ko-KR', {
-        year: '2-digit',
-        month: '2-digit', 
-        day: '2-digit'
-      }).replace(/\. /g, '.').replace(/\.$/, '');
-      
-      if (!combinedContent.length) {
-        combinedContent.push(`📞 전화상담:\n[상담관리 ${callbackNum}차 - ${callbackDate}] ${callback.notes}`);
-      } else {
-        const lastIndex = combinedContent.length - 1;
-        combinedContent[lastIndex] += `\n[상담관리 ${callbackNum}차 - ${callbackDate}] ${callback.notes}`;
-      }
-    });      
-    
-    // 🔥 내원상담 내용 추가 - 기존 로직
-    if (visitFirstContent) {
-      combinedContent.push(`🏥 내원상담:\n[첫 상담] ${visitFirstContent}`);
-      
-      // 내원 후 콜백 기록 추가
-      const visitCallbacks = callbackHistory.filter((cb: any) => 
-        cb.isVisitManagementCallback && 
+      const phoneCallbacks = callbackHistory.filter((cb: any) => 
+        !cb.isVisitManagementCallback && 
         cb.notes && 
         cb.notes.trim() !== '' &&
         cb.status === '완료'
       ).sort((a: any, b: any) => new Date(a.date).getTime() - new Date(b.date).getTime());
-      
-      visitCallbacks.forEach((callback: any, index: number) => {
+
+      phoneCallbacks.forEach((callback: any, index: number) => {
         const callbackNum = index + 1;
         const callbackDate = new Date(callback.date).toLocaleDateString('ko-KR', {
           year: '2-digit',
-          month: '2-digit',
+          month: '2-digit', 
           day: '2-digit'
         }).replace(/\. /g, '.').replace(/\.$/, '');
         
-        const lastIndex = combinedContent.length - 1;
-        combinedContent[lastIndex] += `\n[내원관리 ${callbackNum}차 - ${callbackDate}] ${callback.notes}`;
-      });
-    }
-    
-    // 🔥 핵심 수정: 상담내용이 없어도 환자 정보는 표시
-    const fullCombinedContent = combinedContent.join('\n\n');
-    const summarizedContent = fullCombinedContent.length > 100 ? 
-      fullCombinedContent.substring(0, 100) + '...' : 
-      fullCombinedContent;
-    
-    // 🔥 견적금액 우선순위: 내원상담 > 전화상담
-    const visitAmount = postVisitConsultation?.estimateInfo?.discountPrice || 
-                      postVisitConsultation?.estimateInfo?.regularPrice || 0;
-    const phoneAmount = consultation?.estimatedAmount || 0;
-    const finalAmount = visitAmount || phoneAmount;
-    
-    const result: PatientConsultationSummary = {
-      _id: p._id,
-      name: p.name,
-      age: p.age,
-      interestedServices: p.interestedServices || [],
-      discomfort: truncateText(phoneDiscomfort, 50),
-      // 🔥 핵심: 빈 내용이어도 "상담내용 없음"으로 표시하여 환자 포함
-      consultationSummary: summarizedContent || '상담내용 없음',
-      estimatedAmount: finalAmount,
-      estimateAgreed: consultation?.estimateAgreed || false,
-      fullDiscomfort: phoneDiscomfort,
-      // 🔥 핵심: 빈 내용이어도 "상담내용 없음"으로 표시
-      fullConsultation: fullCombinedContent || '상담내용 없음',
-      callInDate: p.callInDate,
-      hasPhoneConsultation: !!(phoneDiscomfort || phoneConsultationNotes),
-      hasVisitConsultation: !!visitFirstContent,
-      visitAmount: visitAmount,
-      phoneAmount: phoneAmount,
-      postVisitStatus: p.postVisitStatus,
-      visitConfirmed: p.visitConfirmed,
-      status: p.status,
-      isCompleted: p.isCompleted,
-      consultationType: p.consultationType,
-      consultationStages: {
-        phone: {
-          hasContent: !!(phoneDiscomfort || phoneConsultationNotes),
-          discomfort: phoneDiscomfort,
-          notes: phoneConsultationNotes,
-          amount: phoneAmount,
-          agreed: consultation?.estimateAgreed || false
-        },
-        visit: {
-          hasContent: !!visitFirstContent,
-          firstVisitContent: visitFirstContent,
-          amount: visitAmount,
-          status: p.postVisitStatus
+        if (!combinedContent.length) {
+          combinedContent.push(`📞 전화상담:\n[상담관리 ${callbackNum}차 - ${callbackDate}] ${callback.notes}`);
+        } else {
+          const lastIndex = combinedContent.length - 1;
+          combinedContent[lastIndex] += `\n[상담관리 ${callbackNum}차 - ${callbackDate}] ${callback.notes}`;
         }
-      },
-      visitConsultation: undefined,
-      phoneConsultation: undefined
-    };
-    
-    return result;
-  })
-   .sort((a, b) => new Date(b.callInDate || '').getTime() - new Date(a.callInDate || '').getTime());
+      });      
+      
+      if (visitFirstContent) {
+        combinedContent.push(`🏥 내원상담:\n[첫 상담] ${visitFirstContent}`);
+        
+        const visitCallbacks = callbackHistory.filter((cb: any) => 
+          cb.isVisitManagementCallback && 
+          cb.notes && 
+          cb.notes.trim() !== '' &&
+          cb.status === '완료'
+        ).sort((a: any, b: any) => new Date(a.date).getTime() - new Date(b.date).getTime());
+        
+        visitCallbacks.forEach((callback: any, index: number) => {
+          const callbackNum = index + 1;
+          const callbackDate = new Date(callback.date).toLocaleDateString('ko-KR', {
+            year: '2-digit',
+            month: '2-digit',
+            day: '2-digit'
+          }).replace(/\. /g, '.').replace(/\.$/, '');
+          
+          const lastIndex = combinedContent.length - 1;
+          combinedContent[lastIndex] += `\n[내원관리 ${callbackNum}차 - ${callbackDate}] ${callback.notes}`;
+        });
+      }
+      
+      const fullCombinedContent = combinedContent.join('\n\n');
+      const summarizedContent = fullCombinedContent.length > 100 ? 
+        fullCombinedContent.substring(0, 100) + '...' : 
+        fullCombinedContent;
+      
+      const visitAmount = postVisitConsultation?.estimateInfo?.discountPrice || 
+                        postVisitConsultation?.estimateInfo?.regularPrice || 0;
+      const phoneAmount = consultation?.estimatedAmount || 0;
+      const finalAmount = visitAmount || phoneAmount;
+      
+      const result: PatientConsultationSummary = {
+        _id: p._id,
+        name: p.name,
+        age: p.age,
+        interestedServices: p.interestedServices || [],
+        discomfort: truncateText(phoneDiscomfort, 50),
+        consultationSummary: summarizedContent || '상담내용 없음',
+        estimatedAmount: finalAmount,
+        estimateAgreed: consultation?.estimateAgreed || false,
+        fullDiscomfort: phoneDiscomfort,
+        fullConsultation: fullCombinedContent || '상담내용 없음',
+        callInDate: p.callInDate,
+        hasPhoneConsultation: !!(phoneDiscomfort || phoneConsultationNotes),
+        hasVisitConsultation: !!visitFirstContent,
+        visitAmount: visitAmount,
+        phoneAmount: phoneAmount,
+        postVisitStatus: p.postVisitStatus,
+        visitConfirmed: p.visitConfirmed,
+        status: p.status,
+        isCompleted: p.isCompleted,
+        consultationType: p.consultationType,
+        consultationStages: {
+          phone: {
+            hasContent: !!(phoneDiscomfort || phoneConsultationNotes),
+            discomfort: phoneDiscomfort,
+            notes: phoneConsultationNotes,
+            amount: phoneAmount,
+            agreed: consultation?.estimateAgreed || false
+          },
+          visit: {
+            hasContent: !!visitFirstContent,
+            firstVisitContent: visitFirstContent,
+            amount: visitAmount,
+            status: p.postVisitStatus
+          }
+        },
+        visitConsultation: undefined,
+        phoneConsultation: undefined
+      };
+      
+      return result;
+    })
+    .sort((a, b) => new Date(b.callInDate || '').getTime() - new Date(a.callInDate || '').getTime());
 
-  
-  // 결제 전환율 계산 (신규문의 기준)
   const paymentRate = totalInquiries > 0 ? (paymentPatients / totalInquiries) * 100 : 0;
   
   console.log(`💰 치료시작 환자: ${paymentPatients}명, 총 치료금액: ${totalPayment.toLocaleString()}원`);
   console.log(`📊 결제전환율: ${paymentRate.toFixed(1)}%`);
   
-  // 평균 연령 계산 (age 필드 활용)
+  // 평균 연령 계산
   const patientsWithAge = patients.filter(p => p.age && p.age > 0);
   const averageAge = patientsWithAge.length > 0 
     ? patientsWithAge.reduce((sum, p) => sum + p.age, 0) / patientsWithAge.length 
-    : 34.2; // 기본값
+    : 34.2;
   
-  // 🔥 지역별 통계 수정 - 휴대폰 번호는 지역 추정에서 제외
+  // 지역별 통계
   const regionCounts: { [key: string]: number } = {};
   patients.forEach(p => {
     let region: string;
     
     if (p.region && p.region.province) {
-      // region 필드가 있는 경우 (완벽한 케이스)
       region = p.region.city 
         ? `${p.region.province} ${p.region.city}`
         : p.region.province;
     } else if (p.phoneNumber && !p.phoneNumber.replace(/[^0-9]/g, '').startsWith('010')) {
-      // 🔥 휴대폰 번호(010)가 아닌 경우만 지역 추정
       const estimatedRegion = estimateRegionFromPhone(p.phoneNumber);
       if (estimatedRegion === '기타 지역') {
         region = '지역정보 없음';
@@ -400,7 +486,6 @@ function calculateMonthlyStats(patients: any[]): MonthlyStats {
         region = estimatedRegion;
       }
     } else {
-      // 휴대폰 번호이거나 전화번호가 없는 경우
       region = '지역정보 없음';
     }
     
@@ -414,18 +499,16 @@ function calculateMonthlyStats(patients: any[]): MonthlyStats {
       percentage: totalInquiries > 0 ? (count / totalInquiries) * 100 : 0
     }))
     .sort((a, b) => b.count - a.count)
-    .slice(0, 5); // 상위 5개
+    .slice(0, 5);
   
-  // 🔥 유입경로 통계 수정 - 실제 데이터 기반으로 처리
+  // 유입경로 통계
   const channelCounts: { [key: string]: number } = {};
   patients.forEach(p => {
     let channel: string;
     
     if (p.referralSource && p.referralSource.trim() !== '') {
-      // referralSource가 있는 경우 (완벽한 케이스)
       channel = p.referralSource.trim();
     } else {
-      // referralSource가 없는 경우 "유입경로 정보 없음"으로 처리
       channel = '유입경로 정보 없음';
     }
     
@@ -440,10 +523,11 @@ function calculateMonthlyStats(patients: any[]): MonthlyStats {
     }))
     .sort((a, b) => b.count - a.count);
 
-  // 🔥 새로 추가: 손실 분석 계산
+  // 손실 분석 계산
   const lossAnalysis = calculateLossAnalysis(patients);
   
-  console.log('🔥 손실 분석 결과:', lossAnalysis);
+  // 🔥 매출 현황 분석은 filtered API 방식으로 호출
+  const revenueAnalysis = await calculateRevenueAnalysisWithFiltered(year, month);
 
   const finalStats = {
     totalInquiries,
@@ -461,13 +545,36 @@ function calculateMonthlyStats(patients: any[]): MonthlyStats {
     regionStats,
     channelStats,
     lossAnalysis,
-    revenueAnalysis: calculateRevenueAnalysis(patients), // 매출 현황 분석 추가
+    revenueAnalysis, // 🔥 filtered API 기반 매출 분석 결과
     patientConsultations
   };
 
-  console.log('🎯 최종 통계 결과 (손실 분석 포함):', finalStats);
+  console.log('🎯 최종 통계 결과 (filtered API 연동):', finalStats);
   
   return finalStats;
+}
+
+// 🔥 환자 견적 금액 계산 헬퍼 함수
+function getPatientEstimatedAmount(patient: any): number {
+  let estimatedAmount = 0;
+  
+  if (patient.postVisitConsultation?.estimateInfo) {
+    const estimate = patient.postVisitConsultation.estimateInfo;
+    
+    if (estimate.discountPrice && estimate.discountPrice > 0) {
+      estimatedAmount = estimate.discountPrice;
+    } else if (estimate.regularPrice && estimate.regularPrice > 0) {
+      estimatedAmount = estimate.regularPrice;
+    }
+  }
+  else if (patient.consultation?.estimatedAmount) {
+    estimatedAmount = patient.consultation.estimatedAmount;
+  }
+  else if (patient.treatmentCost && patient.treatmentCost > 0) {
+    estimatedAmount = patient.treatmentCost;
+  }
+  
+  return estimatedAmount;
 }
 
 // 텍스트 자르기 헬퍼 함수
@@ -477,12 +584,11 @@ function truncateText(text: string, maxLength: number): string {
   return text.substring(0, maxLength) + '...';
 }
 
-// 🔥 전화번호로 지역 추정 함수 수정 - 휴대폰 번호(010) 케이스 제거
+// 전화번호로 지역 추정 함수
 function estimateRegionFromPhone(phoneNumber: string): string {
   const areaCode = phoneNumber.replace(/[^0-9]/g, '').slice(0, 3);
   
   switch (areaCode) {
-    // 010 케이스 삭제 - 휴대폰은 지역과 무관
     case '02': return '서울특별시';
     case '031': return '경기도';
     case '032': return '인천광역시';
