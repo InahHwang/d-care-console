@@ -202,12 +202,10 @@ export async function PUT(
     // 🔥 성능 최적화를 위한 헤더 추가
     const response = NextResponse.json(normalizedPatient, { status: 200 });
     
-    // 🔥 강력한 캐시 제어 헤더 설정
-    response.headers.set('Cache-Control', 'no-cache, no-store, must-revalidate, max-age=0');
+    // 🔥 캐시 제어 헤더 설정 (속도개선 2 버전)
+    response.headers.set('Cache-Control', 'no-cache, no-store, must-revalidate');
     response.headers.set('Pragma', 'no-cache');
     response.headers.set('Expires', '0');
-    response.headers.set('Last-Modified', new Date().toUTCString());
-    response.headers.set('ETag', `"${Date.now()}"`);
     
     return response;
   } catch (error) {

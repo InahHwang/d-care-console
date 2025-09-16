@@ -176,15 +176,15 @@ export default function PatientManagement() {
       
       return result;
     },
-    staleTime: 0, // 🔥 즉시 stale 처리 (캐시 무효화)
-    gcTime: 30 * 1000, // 🔥 매우 짧은 캐시 시간 (2분 → 30초)
+    staleTime: 5 * 60 * 1000, // 5분간 fresh 유지 (속도개선 2 버전)
+    gcTime: 10 * 60 * 1000, // 10분간 캐시 유지 (속도개선 2 버전)
     refetchOnWindowFocus: false,
-    refetchOnMount: false, // 🔥 마운트 시 자동 새로고침 비활성화
-    refetchInterval: false, // 🔥 자동 새로고침 완전 비활성화
+    refetchOnMount: true, // 마운트 시 자동 새로고침 활성화
+    refetchInterval: false, // 자동 새로고침 비활성화
     refetchIntervalInBackground: false,
     enabled: true,
-    retry: 1, // 🔥 재시도 횟수 최소화
-    retryDelay: 200, // 🔥 매우 빠른 재시도 (0.5초 → 0.2초)
+    retry: 1, // 실패시 1번만 재시도
+    retryDelay: 1000, // 1초 후 재시도
   });
 
   // 🔥 데이터 동기화 리스너 설정

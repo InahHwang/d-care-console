@@ -769,16 +769,13 @@ export const createPatient = createAsyncThunk(
         headers: {
           'Content-Type': 'application/json',
           'X-User-Info': userInfoHeader,
-          // 🔥 강력한 성능 최적화 헤더 추가
-          'Cache-Control': 'no-cache, no-store, must-revalidate',
-          'Pragma': 'no-cache',
-          'Expires': '0'
+          // 🔥 성능 최적화 헤더 (속도개선 2 버전)
+          'Cache-Control': 'no-cache',
+          'Pragma': 'no-cache'
         },
         body: JSON.stringify(patientData),
         // 🔥 네트워크 최적화 옵션
-        keepalive: true,
-        // 🔥 추가 최적화 옵션
-        priority: 'high'
+        keepalive: true
       });
 
       if (!response.ok) {
@@ -826,15 +823,13 @@ export const updatePatient = createAsyncThunk(
         headers: {
           'Content-Type': 'application/json',
           'X-Skip-Activity-Log': 'true',
-          // 🔥 강력한 성능 최적화 헤더 추가
-          'Cache-Control': 'no-cache, no-store, must-revalidate',
-          'Pragma': 'no-cache',
-          'Expires': '0'
+          // 🔥 성능 최적화 헤더 (속도개선 2 버전)
+          'Cache-Control': 'no-cache',
+          'Pragma': 'no-cache'
         },
         body: JSON.stringify(patientData),
         // 🔥 네트워크 최적화 옵션
-        keepalive: true,
-        priority: 'high'
+        keepalive: true
       });
       
       if (!response.ok) {

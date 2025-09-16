@@ -92,16 +92,10 @@ export const setupDataSyncListener = (queryClient: QueryClient) => {
         console.log('🔄 기본 전체 캐시 무효화');
     }
     
-    // 🔥 즉시 재검증 (지연 제거)
+    // 🔥 즉시 재검증 (속도개선 2 버전)
     queryClient.invalidateQueries({ 
       queryKey: ['patients'],
-      refetchType: 'active' // 🔥 inactive → active로 변경하여 즉시 실행
-    });
-    
-    // 🔥 추가: 강제 리페치 (즉시 실행)
-    queryClient.refetchQueries({ 
-      queryKey: ['patients'],
-      type: 'active'
+      refetchType: 'active'
     }); 
   };
 

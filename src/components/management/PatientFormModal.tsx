@@ -234,14 +234,9 @@ export default function PatientFormModal() {
         refetchType: 'active'
       });
       
-      // 🚀 5. 즉시 성공 메시지 표시 및 모달 닫기
+      // 🚀 5. 즉시 성공 메시지 표시
       alert(`신규 환자가 등록되었습니다!\n등록자: ${currentUser?.name}`)
       handleClose()
-      
-      // 🔥 강제 UI 새로고침 (즉시 반영 보장)
-      setTimeout(() => {
-        window.location.reload();
-      }, 100);
       
       return { previousPatients, tempPatient }
     },
