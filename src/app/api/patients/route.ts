@@ -278,7 +278,32 @@ export async function POST(request: NextRequest) {
 
     return NextResponse.json(normalizedPatient, { status: 201 });
   } catch (error) {
-    console.error('🚨 API: 환자 등록 실패:', error);
-    return NextResponse.json({ error: '환자 등록에 실패했습니다.' }, { status: 500 });
+    console.error('🚨 API: 환자 등록 실패 상세 정보:', {
+      error: error,
+      errorMessage: error instanceof Error ? error.message : '알 수 없는 오류',
+      errorStack: error instanceof Error ? error.stack : undefined,
+      timestamp: new Date().toISOString(),
+      requestData: data
+    });
+    
+    // 🔥 구체적인 오류 메시지 제공
+    let errorMessage = '환자 등록에 실패했습니다.';
+    
+    if (error instanceof Error) {
+      if (error.message.includes('duplicate key')) {
+        errorMessage = '이미 등록된 전화번호입니다.';
+      } else if (error.message.includes('validation')) {
+        errorMessage = '입력 데이터가 올바르지 않습니다.';
+      } else if (error.message.includes('connection')) {
+        errorMessage = '데이터베이스 연결에 실패했습니다.';
+      } else {
+        errorMessage = `서버 오류: ${error.message}`;
+      }
+    }
+    
+    return NextResponse.json({ 
+      error: errorMessage,
+      details: error instanceof Error ? error.message : '알 수 없는 오류'
+    }, { status: 500 });
   }
 }

@@ -466,6 +466,13 @@ export default function PatientList({ isLoading = false, filteredPatients, onSel
   const handlePatientClick = (patientId: string) => {
     console.log('🔥 PatientList - 환자 클릭:', patientId, 'onSelectPatient 존재:', !!onSelectPatient);
     
+    // 🔥 임시 데이터인 경우 클릭 방지
+    const patient = filteredPatients.find(p => p._id === patientId || p.id === patientId);
+    if (patient?.isTemporary) {
+      console.warn('임시 환자 데이터는 선택할 수 없습니다. 실제 데이터 대기 중...');
+      return;
+    }
+    
     if (onSelectPatient) {
       // 부모 컴포넌트에서 전달된 핸들러 사용 (상담관리 페이지)
       onSelectPatient(patientId);
@@ -759,11 +766,17 @@ export default function PatientList({ isLoading = false, filteredPatients, onSel
                       >
                         <button 
                           onClick={() => handlePatientClick(patientId)}
-                          className="hover:underline flex items-center"
+                          className={`flex items-center ${patient.isTemporary ? 'opacity-50 cursor-not-allowed' : 'hover:underline'}`}
+                          disabled={patient.isTemporary}
+                          title={patient.isTemporary ? '데이터 동기화 중...' : '상세 정보 보기'}
                         >
                           <span>{patient.name}</span>
                           {/* 🔥 이벤트 타겟 표시 추가 */}
                           <EventTargetBadge patient={patient} context="management" />
+                          {/* 🔥 임시 데이터 표시 */}
+                          {patient.isTemporary && (
+                            <span className="ml-1 text-xs text-orange-500">(동기화 중)</span>
+                          )}
                         </button>
                       </PatientTooltip>
                     </td>
@@ -832,9 +845,14 @@ export default function PatientList({ isLoading = false, filteredPatients, onSel
                     <td className="px-4 py-4 text-center">
                       <div className="flex items-center justify-center gap-2">
                         <button
-                          className="inline-flex items-center justify-center w-8 h-8 rounded-full bg-primary text-white hover:bg-primary/90 transition-colors duration-150"
+                          className={`inline-flex items-center justify-center w-8 h-8 rounded-full transition-colors duration-150 ${
+                            patient.isTemporary 
+                              ? 'bg-gray-400 cursor-not-allowed' 
+                              : 'bg-primary text-white hover:bg-primary/90'
+                          }`}
                           onClick={() => handlePatientClick(patientId)}
-                          title="상세 정보"
+                          title={patient.isTemporary ? '데이터 동기화 중...' : '상세 정보'}
+                          disabled={patient.isTemporary}
                         >
                           <Icon 
                             icon={HiOutlineArrowUp} 

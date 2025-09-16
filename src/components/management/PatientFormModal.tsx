@@ -241,25 +241,38 @@ export default function PatientFormModal() {
         
         // 🚨 데이터 구조 처리
         if (oldData.patients && Array.isArray(oldData.patients)) {
+          const updatedPatients = oldData.patients.map((patient: any) => 
+            patient.id === context?.tempPatient.id ? { ...realPatient, isTemporary: false } : patient
+          )
+          
+          console.log('🔄 임시 데이터를 실제 데이터로 교체 완료:', {
+            tempId: context?.tempPatient.id,
+            realId: realPatient.id,
+            updatedCount: updatedPatients.length
+          });
+          
           return {
             ...oldData,
-            patients: oldData.patients.map((patient: any) => 
-              patient.id === context?.tempPatient.id ? realPatient : patient
-            )
+            patients: updatedPatients
           }
         }
         
         if (Array.isArray(oldData)) {
           return oldData.map((patient: any) => 
-            patient.id === context?.tempPatient.id ? realPatient : patient
+            patient.id === context?.tempPatient.id ? { ...realPatient, isTemporary: false } : patient
           )
         }
         
         return oldData
       })
       
-      // 🔥 즉시 데이터 동기화 트리거
-      PatientDataSync.onCreate(realPatient.id, 'PatientFormModal');
+      // 🔥 React Query 캐시 무효화로 데이터 동기화
+      queryClient.invalidateQueries({ queryKey: ['patients'] });
+      
+      // 🔥 즉시 데이터 동기화 트리거 (지연 제거)
+      setTimeout(() => {
+        PatientDataSync.onCreate(realPatient.id, 'PatientFormModal');
+      }, 0);
       
       // 🚀 7. 활동 로그 기록
       try {
@@ -293,8 +306,32 @@ export default function PatientFormModal() {
         queryClient.setQueryData(['patients'], context.previousPatients)
       }
       
-      console.error('환자 등록 오류:', error)
-      alert('환자 등록 중 오류가 발생했습니다.')
+      // 🔥 상세한 오류 정보 로깅
+      console.error('🚨 환자 등록 오류 상세 정보:', {
+        error: error,
+        errorMessage: error?.message || '알 수 없는 오류',
+        errorStack: error?.stack,
+        variables: variables,
+        context: context,
+        timestamp: new Date().toISOString()
+      });
+      
+      // 🔥 구체적인 오류 메시지 제공
+      let errorMessage = '환자 등록 중 오류가 발생했습니다.';
+      
+      if (error?.message) {
+        if (error.message.includes('이미 등록된 전화번호')) {
+          errorMessage = '이미 등록된 전화번호입니다. 다른 번호를 입력해주세요.';
+        } else if (error.message.includes('필수 입력값')) {
+          errorMessage = '필수 입력값이 누락되었습니다. 모든 필드를 확인해주세요.';
+        } else if (error.message.includes('네트워크')) {
+          errorMessage = '네트워크 연결을 확인해주세요.';
+        } else {
+          errorMessage = `오류: ${error.message}`;
+        }
+      }
+      
+      alert(errorMessage);
       
       // 실패 로그 기록
       try {
@@ -304,6 +341,8 @@ export default function PatientFormModal() {
           variables.name,
           {
             patientName: variables.name,
+            errorMessage: error?.message || '알 수 없는 오류',
+            errorDetails: JSON.stringify(error),
             phoneNumber: variables.phoneNumber,
             error: error instanceof Error ? error.message : '알 수 없는 오류',
             attemptedBy: currentUser?.name,
@@ -493,6 +532,12 @@ const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement 
       return;
     }
     
+    // 🔥 전화번호 체크가 진행 중인 경우 대기
+    if (phoneCheckStatus.isChecking) {
+      alert('전화번호 중복 확인이 진행 중입니다. 잠시 후 다시 시도해주세요.');
+      return;
+    }
+    
     // 유효성 검사
     let isValid = true
     const newErrors = { 
@@ -612,6 +657,12 @@ const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement 
     // 🔥 전화번호 중복 체크
     if (phoneCheckStatus.isDuplicate) {
       alert('이미 등록된 전화번호입니다. 다른 번호를 입력해주세요.');
+      return;
+    }
+    
+    // 🔥 전화번호 체크가 진행 중인 경우 대기
+    if (phoneCheckStatus.isChecking) {
+      alert('전화번호 중복 확인이 진행 중입니다. 잠시 후 다시 시도해주세요.');
       return;
     }
     

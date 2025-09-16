@@ -775,6 +775,12 @@ export const createPatient = createAsyncThunk(
 
       if (!response.ok) {
         const errorData = await response.json();
+        console.error('🚨 createPatient: API 오류 응답:', {
+          status: response.status,
+          statusText: response.statusText,
+          errorData: errorData,
+          patientData: patientData
+        });
         return rejectWithValue(errorData.error || '환자 생성에 실패했습니다.');
       }
 
@@ -782,7 +788,12 @@ export const createPatient = createAsyncThunk(
       console.log('🔥 createPatient: 환자 생성 성공:', result);
       return result;
     } catch (error) {
-      console.error('환자 생성 오류:', error);
+      console.error('🚨 createPatient: 네트워크/기타 오류:', {
+        error: error,
+        errorMessage: error instanceof Error ? error.message : '알 수 없는 오류',
+        patientData: patientData,
+        timestamp: new Date().toISOString()
+      });
       return rejectWithValue('환자 생성 중 오류가 발생했습니다.');
     }
   }
@@ -1264,8 +1275,15 @@ const patientsSlice = createSlice({
         
         if (updatedPatient) {
           console.log('환자 찾음:', updatedPatient);
-          state.selectedPatient = updatedPatient;
-          state.modalContext = null; // 기본값
+          // 🔥 임시 데이터인 경우 선택하지 않음 (실제 데이터 대기)
+          if (updatedPatient.isTemporary) {
+            console.warn('임시 환자 데이터는 선택할 수 없습니다. 실제 데이터 대기 중...');
+            state.selectedPatient = null;
+            state.modalContext = null;
+          } else {
+            state.selectedPatient = updatedPatient;
+            state.modalContext = null; // 기본값
+          }
         } else {
           console.error('환자를 찾을 수 없음:', patientId);
           state.selectedPatient = null;
@@ -1282,8 +1300,15 @@ const patientsSlice = createSlice({
         
         if (updatedPatient) {
           console.log('환자 찾음:', updatedPatient);
-          state.selectedPatient = updatedPatient;
-          state.modalContext = context || null;
+          // 🔥 임시 데이터인 경우 선택하지 않음 (실제 데이터 대기)
+          if (updatedPatient.isTemporary) {
+            console.warn('임시 환자 데이터는 선택할 수 없습니다. 실제 데이터 대기 중...');
+            state.selectedPatient = null;
+            state.modalContext = null;
+          } else {
+            state.selectedPatient = updatedPatient;
+            state.modalContext = context || null;
+          }
         } else {
           console.error('환자를 찾을 수 없음:', patientId);
           state.selectedPatient = null;

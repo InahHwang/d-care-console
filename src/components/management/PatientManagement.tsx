@@ -8,7 +8,7 @@ import { useDispatch, useSelector } from 'react-redux'
 import { useSearchParams } from 'next/navigation'
 import { useQuery, useQueryClient } from '@tanstack/react-query'
 import { RootState, AppDispatch } from '@/store'
-import { fetchPatients, setFilters, setPage, initializeEventTargets, fetchPostVisitPatients } from '@/store/slices/patientsSlice'
+import { setFilters, setPage, initializeEventTargets, fetchPostVisitPatients } from '@/store/slices/patientsSlice'
 import { setCurrentMenuItem, openPatientForm } from '@/store/slices/uiSlice'
 // 🔥 데이터 동기화 유틸리티 import 추가
 import { setupDataSyncListener, PatientDataSync } from '@/utils/dataSync'
@@ -169,9 +169,8 @@ export default function PatientManagement() {
       console.log('🚀 React Query: 환자 데이터 로딩 완료', result?.patients?.length || 0, '명');
       
       if (result.success && result.patients) {
-        setTimeout(() => {
-          dispatch(fetchPatients());
-        }, 0);
+        // React Query 캐시 무효화로 데이터 동기화
+        queryClient.invalidateQueries({ queryKey: ['patients'] });
       }
       
       return result;
