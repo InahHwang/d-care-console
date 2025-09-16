@@ -121,9 +121,11 @@ export async function GET(request: NextRequest) {
 }
 
 export async function POST(request: NextRequest) {
+  let data: any = null;
+  
   try {
     const { db } = await connectToDatabase();
-    const data = await request.json();
+    data = await request.json();
 
     console.log('🔍 API: 환자 등록 시작');
 
