@@ -51,7 +51,7 @@ export default function DataSyncProvider({ children }: { children: React.ReactNo
     })
 
     return unsubscribe
-  }, [queryClient, reduxPatients.length, dispatch])
+  }, [queryClient, reduxPatients.length])
 
   return <>{children}</>
 }

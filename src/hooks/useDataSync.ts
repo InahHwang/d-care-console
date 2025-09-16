@@ -50,5 +50,5 @@ export const useDataSync = () => {
     })
 
     return unsubscribe
-  }, [queryClient, reduxPatients.length, dispatch])
+  }, [queryClient, reduxPatients.length])
 }
