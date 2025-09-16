@@ -109,10 +109,16 @@ export async function GET(request: NextRequest) {
     
     console.log('🔍 API: ID 정규화 및 상태 계산 완료');
     
-    return NextResponse.json({ 
+    // 🔥 성능 최적화를 위한 헤더 추가
+    const response = NextResponse.json({ 
       patients: normalizedPatients,
       totalItems: normalizedPatients.length 
     });
+    
+    // 🔥 캐시 제어 헤더 설정 (환자 목록은 짧은 시간만 캐시)
+    response.headers.set('Cache-Control', 'max-age=10, stale-while-revalidate=30');
+    
+    return response;
     
   } catch (error) {
     console.error('🚨 API: 환자 목록 조회 실패:', error);
@@ -278,7 +284,15 @@ export async function POST(request: NextRequest) {
       isPostReservationPatient: normalizedPatient.isPostReservationPatient // 🔥 예약 후 미내원 로그
     });
 
-    return NextResponse.json(normalizedPatient, { status: 201 });
+    // 🔥 성능 최적화를 위한 헤더 추가
+    const response = NextResponse.json(normalizedPatient, { status: 201 });
+    
+    // 🔥 캐시 제어 헤더 설정
+    response.headers.set('Cache-Control', 'no-cache, no-store, must-revalidate');
+    response.headers.set('Pragma', 'no-cache');
+    response.headers.set('Expires', '0');
+    
+    return response;
   } catch (error) {
     console.error('🚨 API: 환자 등록 실패 상세 정보:', {
       error: error,

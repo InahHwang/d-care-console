@@ -175,15 +175,15 @@ export default function PatientManagement() {
       
       return result;
     },
-    staleTime: 30 * 1000,
-    gcTime: 5 * 60 * 1000,
-    refetchOnWindowFocus: true,
+    staleTime: 10 * 1000,  // 🔥 staleTime 단축 (30초 → 10초)
+    gcTime: 2 * 60 * 1000, // 🔥 gcTime 단축 (5분 → 2분)
+    refetchOnWindowFocus: false, // 🔥 포커스 시 자동 새로고침 비활성화
     refetchOnMount: true,
-    refetchInterval: isOptimisticEnabled ? 60 * 1000 : false,
+    refetchInterval: isOptimisticEnabled ? 30 * 1000 : false, // 🔥 간격 단축 (60초 → 30초)
     refetchIntervalInBackground: false,
     enabled: true,
-    retry: 1,
-    retryDelay: 1000,
+    retry: 2, // 🔥 재시도 횟수 증가
+    retryDelay: 500, // 🔥 재시도 지연 시간 단축 (1초 → 0.5초)
   });
 
   // 🔥 데이터 동기화 리스너 설정

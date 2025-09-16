@@ -768,9 +768,14 @@ export const createPatient = createAsyncThunk(
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
-          'X-User-Info': userInfoHeader
+          'X-User-Info': userInfoHeader,
+          // 🔥 성능 최적화 헤더 추가
+          'Cache-Control': 'no-cache',
+          'Pragma': 'no-cache'
         },
-        body: JSON.stringify(patientData)
+        body: JSON.stringify(patientData),
+        // 🔥 네트워크 최적화 옵션
+        keepalive: true
       });
 
       if (!response.ok) {

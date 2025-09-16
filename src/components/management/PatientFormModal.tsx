@@ -205,7 +205,7 @@ export default function PatientFormModal() {
         isTemporary: true // 임시 데이터 표시
       }
       
-      // 🚀 4. UI에 임시 환자 추가
+      // 🚀 4. UI에 임시 환자 추가 (즉시 반영)
       queryClient.setQueryData(['patients'], (oldData: any) => {
         if (!oldData) {
           return { patients: [tempPatient], totalItems: 1 }
@@ -227,6 +227,12 @@ export default function PatientFormModal() {
         
         return oldData
       })
+      
+      // 🔥 즉시 UI 업데이트를 위한 강제 리렌더링
+      queryClient.invalidateQueries({ 
+        queryKey: ['patients'],
+        refetchType: 'active'
+      });
       
       // 🚀 5. 즉시 성공 메시지 표시
       alert(`신규 환자가 등록되었습니다!\n등록자: ${currentUser?.name}`)
@@ -266,13 +272,14 @@ export default function PatientFormModal() {
         return oldData
       })
       
-      // 🔥 React Query 캐시 무효화로 데이터 동기화
-      queryClient.invalidateQueries({ queryKey: ['patients'] });
+      // 🔥 즉시 데이터 동기화 (지연 제거)
+      PatientDataSync.onCreate(realPatient.id, 'PatientFormModal');
       
-      // 🔥 즉시 데이터 동기화 트리거 (지연 제거)
-      setTimeout(() => {
-        PatientDataSync.onCreate(realPatient.id, 'PatientFormModal');
-      }, 0);
+      // 🔥 React Query 캐시 즉시 무효화
+      queryClient.invalidateQueries({ 
+        queryKey: ['patients'],
+        refetchType: 'active' // 🔥 즉시 실행
+      });
       
       // 🚀 7. 활동 로그 기록
       try {
