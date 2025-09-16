@@ -15,7 +15,7 @@ const nextConfig = {
     unoptimized: true, // Vercel에서 이미지 최적화 문제 해결
   },
   
-  // 🔥 API 라우트 최적화
+  // 🔥 API 라우트 최적화 (강력한 캐시 제어)
   async headers() {
     return [
       {
@@ -23,7 +23,7 @@ const nextConfig = {
         headers: [
           {
             key: 'Cache-Control',
-            value: 'no-cache, no-store, must-revalidate',
+            value: 'no-cache, no-store, must-revalidate, max-age=0',
           },
           {
             key: 'Pragma',
@@ -32,6 +32,10 @@ const nextConfig = {
           {
             key: 'Expires',
             value: '0',
+          },
+          {
+            key: 'Last-Modified',
+            value: new Date().toUTCString(),
           },
         ],
       },

@@ -96,6 +96,12 @@ export const setupDataSyncListener = (queryClient: QueryClient) => {
     queryClient.invalidateQueries({ 
       queryKey: ['patients'],
       refetchType: 'active' // 🔥 inactive → active로 변경하여 즉시 실행
+    });
+    
+    // 🔥 추가: 강제 리페치 (즉시 실행)
+    queryClient.refetchQueries({ 
+      queryKey: ['patients'],
+      type: 'active'
     }); 
   };
 

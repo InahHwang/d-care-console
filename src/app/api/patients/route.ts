@@ -115,8 +115,12 @@ export async function GET(request: NextRequest) {
       totalItems: normalizedPatients.length 
     });
     
-    // 🔥 캐시 제어 헤더 설정 (환자 목록은 짧은 시간만 캐시)
-    response.headers.set('Cache-Control', 'max-age=10, stale-while-revalidate=30');
+    // 🔥 강력한 캐시 제어 헤더 설정 (즉시 갱신)
+    response.headers.set('Cache-Control', 'no-cache, no-store, must-revalidate, max-age=0');
+    response.headers.set('Pragma', 'no-cache');
+    response.headers.set('Expires', '0');
+    response.headers.set('Last-Modified', new Date().toUTCString());
+    response.headers.set('ETag', `"${Date.now()}"`);
     
     return response;
     
@@ -287,10 +291,12 @@ export async function POST(request: NextRequest) {
     // 🔥 성능 최적화를 위한 헤더 추가
     const response = NextResponse.json(normalizedPatient, { status: 201 });
     
-    // 🔥 캐시 제어 헤더 설정
-    response.headers.set('Cache-Control', 'no-cache, no-store, must-revalidate');
+    // 🔥 강력한 캐시 제어 헤더 설정
+    response.headers.set('Cache-Control', 'no-cache, no-store, must-revalidate, max-age=0');
     response.headers.set('Pragma', 'no-cache');
     response.headers.set('Expires', '0');
+    response.headers.set('Last-Modified', new Date().toUTCString());
+    response.headers.set('ETag', `"${Date.now()}"`);
     
     return response;
   } catch (error) {

@@ -53,7 +53,8 @@ export default function PatientManagement() {
   const queryClient = useQueryClient()
   const searchParams = useSearchParams()
   
-  const isOptimisticEnabled = true
+  // 🔥 환경별 최적화 설정
+  const isOptimisticEnabled = process.env.NODE_ENV === 'production'
   
   const { currentMenuItem } = useSelector((state: RootState) => state.ui)
   
@@ -175,15 +176,15 @@ export default function PatientManagement() {
       
       return result;
     },
-    staleTime: 10 * 1000,  // 🔥 staleTime 단축 (30초 → 10초)
-    gcTime: 2 * 60 * 1000, // 🔥 gcTime 단축 (5분 → 2분)
-    refetchOnWindowFocus: false, // 🔥 포커스 시 자동 새로고침 비활성화
-    refetchOnMount: true,
-    refetchInterval: isOptimisticEnabled ? 30 * 1000 : false, // 🔥 간격 단축 (60초 → 30초)
+    staleTime: 0, // 🔥 즉시 stale 처리 (캐시 무효화)
+    gcTime: 30 * 1000, // 🔥 매우 짧은 캐시 시간 (2분 → 30초)
+    refetchOnWindowFocus: false,
+    refetchOnMount: false, // 🔥 마운트 시 자동 새로고침 비활성화
+    refetchInterval: false, // 🔥 자동 새로고침 완전 비활성화
     refetchIntervalInBackground: false,
     enabled: true,
-    retry: 2, // 🔥 재시도 횟수 증가
-    retryDelay: 500, // 🔥 재시도 지연 시간 단축 (1초 → 0.5초)
+    retry: 1, // 🔥 재시도 횟수 최소화
+    retryDelay: 200, // 🔥 매우 빠른 재시도 (0.5초 → 0.2초)
   });
 
   // 🔥 데이터 동기화 리스너 설정

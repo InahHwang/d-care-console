@@ -199,7 +199,17 @@ export async function PUT(
       skipLog
     });
     
-    return NextResponse.json(normalizedPatient, { status: 200 });
+    // 🔥 성능 최적화를 위한 헤더 추가
+    const response = NextResponse.json(normalizedPatient, { status: 200 });
+    
+    // 🔥 강력한 캐시 제어 헤더 설정
+    response.headers.set('Cache-Control', 'no-cache, no-store, must-revalidate, max-age=0');
+    response.headers.set('Pragma', 'no-cache');
+    response.headers.set('Expires', '0');
+    response.headers.set('Last-Modified', new Date().toUTCString());
+    response.headers.set('ETag', `"${Date.now()}"`);
+    
+    return response;
   } catch (error) {
     console.error('🚨 API: 환자 정보 업데이트 실패:', error);
     return NextResponse.json({ error: '환자 정보 수정에 실패했습니다.' }, { status: 500 });
