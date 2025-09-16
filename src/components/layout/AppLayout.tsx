@@ -11,7 +11,6 @@ import Sidebar from './Sidebar'
 import Header from './Header'
 import InboundWidget from '../widget/InboundWidget'
 import AuthGuard from '../auth/AuthGuard' // 🔥 AuthGuard 추가
-import FloatingMemoManager from '../admin/FloatingMemoManager'; // 🔥 추가
 
 interface AppLayoutProps {
   children: ReactNode
@@ -85,8 +84,6 @@ export default function AppLayout({ children, currentPage = 'dashboard' }: AppLa
         
         {/* 인바운드 위젯 - 모든 페이지에서 표시 */}
         <InboundWidget isVisible={widget.isVisible} />
-        {/* 🔥 플로팅 메모 매니저 - 마스터 관리자만 */}
-      <FloatingMemoManager />
       </div>
     </AuthGuard>
   )
