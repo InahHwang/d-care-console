@@ -1,0 +1,8 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(git add:*)",
+      "Bash(git commit -m \"$(cat <<''EOF''\n카테고리 관리 기능 추가 및 CTI 패널 개선\n\n- 설정 페이지에 카테고리 관리 탭 추가 (상담타입, 유입경로, 관심분야)\n- 카테고리 설정 API 생성 (/api/settings/categories)\n- 환자 등록/수정 폼에서 커스텀 카테고리 연동\n- CTI 패널 UI 개선: 기본 상태를 작은 버튼으로 변경\n- CTI 패널에서 신규 환자 등록 버튼 추가 (전화번호 자동 입력)\n- PatientFormModal을 전역으로 이동하여 모든 페이지에서 환자 등록 가능\n\n🤖 Generated with [Claude Code](https://claude.com/claude-code)\n\nCo-Authored-By: Claude Opus 4.5 <noreply@anthropic.com>\nEOF\n)\")"
+    ]
+  }
+}

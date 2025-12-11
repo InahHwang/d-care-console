@@ -5,18 +5,16 @@
 import { useState } from 'react'
 import AppLayout from '@/components/layout/AppLayout'
 import GoalSettings from '@/components/settings/GoalSettings'
-import { 
-  HiOutlineUserCircle, 
-  HiOutlineOfficeBuilding, 
-  HiOutlineTag
+import PatientCategorySettings from '@/components/settings/PatientCategorySettings'
+import {
+  HiOutlineUserCircle,
+  HiOutlineOfficeBuilding,
+  HiOutlineTag,
+  HiOutlineCollection
 } from 'react-icons/hi'
 import { Icon } from '@/components/common/Icon'
 
-// 🔥 메시지 템플릿 관련 import 제거
-// import TemplateSettings from '@/components/settings/TemplateSettings'
-// import { HiOutlineTemplate } from 'react-icons/hi'
-
-type SettingsTab = 'account' | 'clinic' | 'goals' // 🔥 'templates' 제거
+type SettingsTab = 'account' | 'clinic' | 'goals' | 'categories'
 
 export default function SettingsPage() {
   const [activeTab, setActiveTab] = useState<SettingsTab>('goals')
@@ -52,8 +50,8 @@ export default function SettingsPage() {
           </button>
           <button
             className={`px-4 py-2 font-medium text-sm border-b-2 -mb-px flex items-center gap-1.5 whitespace-nowrap ${
-              activeTab === 'goals' 
-                ? 'border-primary text-primary' 
+              activeTab === 'goals'
+                ? 'border-primary text-primary'
                 : 'border-transparent text-text-secondary hover:text-text-primary'
             }`}
             onClick={() => setActiveTab('goals')}
@@ -61,7 +59,17 @@ export default function SettingsPage() {
             <Icon icon={HiOutlineTag} size={16} />
             목표 설정
           </button>
-          {/* 🔥 메시지 템플릿 탭 완전 제거 */}
+          <button
+            className={`px-4 py-2 font-medium text-sm border-b-2 -mb-px flex items-center gap-1.5 whitespace-nowrap ${
+              activeTab === 'categories'
+                ? 'border-primary text-primary'
+                : 'border-transparent text-text-secondary hover:text-text-primary'
+            }`}
+            onClick={() => setActiveTab('categories')}
+          >
+            <Icon icon={HiOutlineCollection} size={16} />
+            카테고리 관리
+          </button>
         </div>
         
         {/* 탭 내용 - 메시지 템플릿 관련 제거 */}
@@ -89,8 +97,8 @@ export default function SettingsPage() {
           )}
           
           {activeTab === 'goals' && <GoalSettings />}
-          
-          {/* 🔥 메시지 템플릿 탭 내용 완전 제거 */}
+
+          {activeTab === 'categories' && <PatientCategorySettings />}
         </div>
       </div>
     </AppLayout>

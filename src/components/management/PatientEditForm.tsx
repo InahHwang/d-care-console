@@ -14,17 +14,8 @@ import { provinces, getCitiesByProvince } from '@/constants/regionData'
 import { useActivityLogger } from '@/hooks/useActivityLogger'
 // 🔥 데이터 동기화 유틸리티 import 추가
 import { PatientDataSync } from '@/utils/dataSync'
-
-// 관심 분야 옵션
-const interestAreaOptions = [
-  { value: '단일 임플란트', label: '단일 임플란트' },
-  { value: '다수 임플란트', label: '다수 임플란트' },
-  { value: '무치악 임플란트', label: '무치악 임플란트' },
-  { value: '틀니', label: '틀니' },
-  { value: '라미네이트', label: '라미네이트' },
-  { value: '충치치료', label: '충치치료' },
-  { value: '기타', label: '기타' },
-]
+// 🔥 커스텀 카테고리 훅 import
+import { useCategories } from '@/hooks/useCategories'
 
 // 환자 상태 옵션
 const statusOptions = [
@@ -38,17 +29,6 @@ const statusOptions = [
   { value: '종결', label: '종결' },
 ]
 
-// 🔥 유입경로 옵션
-const referralSourceOptions = [
-  { value: '', label: '선택 안함' },
-  { value: '유튜브', label: '유튜브' },
-  { value: '블로그', label: '블로그' },
-  { value: '홈페이지', label: '홈페이지' },
-  { value: '소개환자', label: '소개환자' },
-  { value: '제휴', label: '제휴' },
-  { value: '기타', label: '기타' },
-]
-
 interface PatientEditFormProps {
   patient: Patient
   isOpen: boolean
@@ -60,10 +40,18 @@ export default function PatientEditForm({ patient, isOpen, onClose }: PatientEdi
   const queryClient = useQueryClient()
   const currentUser = useAppSelector((state: RootState) => state.auth.user)
   const isLoading = useAppSelector((state: RootState) => state.patients.isLoading)
-  
+
   // 🔥 활동 로깅 훅 추가
   const { logPatientAction } = useActivityLogger()
-  
+
+  // 🔥 커스텀 카테고리 데이터 가져오기
+  const {
+    consultationTypeOptions,
+    referralSourceOptions,
+    interestedServiceOptions,
+    isLoading: categoriesLoading
+  } = useCategories()
+
   // 🚀 Optimistic Update 활성화
   const isOptimisticEnabled = true
   
@@ -698,7 +686,7 @@ export default function PatientEditForm({ patient, isOpen, onClose }: PatientEdi
         {/* 모달 바디 */}
         <form onSubmit={handleSubmit} className="p-6">
           <div className="space-y-5">
-            {/* 🔥 상담 타입 선택 필드 */}
+            {/* 🔥 상담 타입 선택 필드 - 커스텀 카테고리 사용 */}
             <div>
               <label htmlFor="consultationType" className="block text-sm font-medium text-text-primary mb-1">
                 상담 타입
@@ -710,10 +698,13 @@ export default function PatientEditForm({ patient, isOpen, onClose }: PatientEdi
                   value={formValues.consultationType || 'outbound'}
                   onChange={handleChange}
                   className="form-input pl-10 appearance-none"
+                  disabled={categoriesLoading}
                 >
-                  <option value="outbound">아웃바운드</option>
-                  <option value="inbound">인바운드</option>
-                  <option value="returning">구신환</option>
+                  {consultationTypeOptions.map(option => (
+                    <option key={option.value} value={option.value}>
+                      {option.label}
+                    </option>
+                  ))}
                 </select>
                 <span className="absolute left-3 top-1/2 transform -translate-y-1/2 text-text-muted">
                   <Icon icon={FiPhoneCall} size={18} />
@@ -879,7 +870,7 @@ export default function PatientEditForm({ patient, isOpen, onClose }: PatientEdi
               </div>
             </div>
             
-            {/* 🔥 유입경로 필드 */}
+            {/* 🔥 유입경로 필드 - 커스텀 카테고리 사용 */}
             <div>
               <label htmlFor="referralSource" className="block text-sm font-medium text-text-primary mb-1">
                 유입경로
@@ -891,6 +882,7 @@ export default function PatientEditForm({ patient, isOpen, onClose }: PatientEdi
                   value={formValues.referralSource}
                   onChange={handleChange}
                   className="form-input pl-10 appearance-none"
+                  disabled={categoriesLoading}
                 >
                   {referralSourceOptions.map(option => (
                     <option key={option.value} value={option.value}>
@@ -930,22 +922,23 @@ export default function PatientEditForm({ patient, isOpen, onClose }: PatientEdi
               )}
             </div>            
             
-            {/* 관심 분야 */}
+            {/* 관심 분야 - 커스텀 카테고리 사용 */}
             <div>
               <label className="block text-sm font-medium text-text-primary mb-2">
                 관심 분야
               </label>
               <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-3">
-                {interestAreaOptions.map(option => (
+                {interestedServiceOptions.map(option => (
                   <label
                     key={option.value}
                     className="flex items-center gap-2 cursor-pointer"
                   >
                     <input
                       type="checkbox"
-                      checked={formValues.interestedServices.includes(option.value)}
-                      onChange={() => handleInterestChange(option.value)}
+                      checked={formValues.interestedServices.includes(option.label)}
+                      onChange={() => handleInterestChange(option.label)}
                       className="w-4 h-4 accent-primary"
+                      disabled={categoriesLoading}
                     />
                     <span className="text-sm text-text-secondary">{option.label}</span>
                   </label>

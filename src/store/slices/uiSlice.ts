@@ -5,11 +5,12 @@ import { createSlice, PayloadAction } from '@reduxjs/toolkit';
 interface UiState {
   currentMenuItem: string;
   isPatientFormOpen: boolean;
+  prefillPhoneNumber: string | null;  // 🔥 CTI에서 신규 환자 등록 시 미리 채울 전화번호
   isCallFormOpen: boolean;
   isDeleteConfirmOpen: boolean;
   patientToDelete: string | null;
   notificationCount: number;
-  
+
   // 🔥 인바운드 위젯 관련 상태 추가
   widget: {
     isVisible: boolean;
@@ -28,11 +29,12 @@ interface UiState {
 const initialState: UiState = {
   currentMenuItem: '대시보드',
   isPatientFormOpen: false,
+  prefillPhoneNumber: null,  // 🔥 초기값
   isCallFormOpen: false,
   isDeleteConfirmOpen: false,
   patientToDelete: null,
   notificationCount: 3,
-  
+
   // 🔥 위젯 초기 상태
   widget: {
     isVisible: true,
@@ -61,9 +63,16 @@ const uiSlice = createSlice({
     },
     openPatientForm: (state) => {
       state.isPatientFormOpen = true;
+      state.prefillPhoneNumber = null;  // 일반 열기 시에는 전화번호 초기화
+    },
+    // 🔥 CTI에서 전화번호와 함께 환자 등록 모달 열기
+    openPatientFormWithPhone: (state, action: PayloadAction<string>) => {
+      state.isPatientFormOpen = true;
+      state.prefillPhoneNumber = action.payload;
     },
     closePatientForm: (state) => {
       state.isPatientFormOpen = false;
+      state.prefillPhoneNumber = null;  // 닫을 때 전화번호 초기화
     },
     openCallForm: (state) => {
       state.isCallFormOpen = true;
@@ -135,17 +144,18 @@ const uiSlice = createSlice({
   },
 });
 
-export const { 
-  setCurrentMenuItem, 
-  setCurrentTab, 
-  openPatientForm, 
-  closePatientForm, 
-  openCallForm, 
+export const {
+  setCurrentMenuItem,
+  setCurrentTab,
+  openPatientForm,
+  openPatientFormWithPhone,  // 🔥 CTI용 액션 추가
+  closePatientForm,
+  openCallForm,
   closeCallForm,
   openDeleteConfirm,
   closeDeleteConfirm,
   setNotificationCount,
-  
+
   // 🔥 위젯 액션들 내보내기
   toggleWidget,
   openWidget,

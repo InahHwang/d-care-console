@@ -15,40 +15,30 @@ import { provinces, getCitiesByProvince } from '@/constants/regionData'
 import { useActivityLogger } from '@/hooks/useActivityLogger'
 // 🔥 데이터 동기화 유틸리티 import 추가
 import { PatientDataSync } from '@/utils/dataSync'
-
-// 관심 분야 옵션
-const interestAreaOptions = [
-  { value: '단일 임플란트', label: '단일 임플란트' },
-  { value: '다수 임플란트', label: '다수 임플란트' },
-  { value: '무치악 임플란트', label: '무치악 임플란트' },
-  { value: '틀니', label: '틀니' },
-  { value: '라미네이트', label: '라미네이트' },
-  { value: '충치치료', label: '충치치료' },
-  { value: '기타', label: '기타' },
-]
-
-// 🔥 유입경로 옵션 추가
-const referralSourceOptions = [
-  { value: '', label: '선택 안함' },
-  { value: '유튜브', label: '유튜브' },
-  { value: '블로그', label: '블로그' },
-  { value: '홈페이지', label: '홈페이지' },
-  { value: '소개환자', label: '소개환자' },
-  { value: '제휴', label: '제휴' },
-  { value: '기타', label: '기타' },
-]
+// 🔥 커스텀 카테고리 훅 import
+import { useCategories } from '@/hooks/useCategories'
 
 export default function PatientFormModal() {
   const dispatch = useAppDispatch()
   const queryClient = useQueryClient()
   const isOpen = useAppSelector((state: RootState) => state.ui.isPatientFormOpen)
   const isLoading = useAppSelector((state: RootState) => state.patients.isLoading)
-  
+  // 🔥 CTI에서 전달받은 전화번호
+  const prefillPhoneNumber = useAppSelector((state: RootState) => state.ui.prefillPhoneNumber)
+
   // 🔥 현재 로그인한 사용자 정보 가져오기
   const currentUser = useAppSelector((state: RootState) => state.auth.user)
-  
+
   // 🔥 활동 로깅 훅 추가
   const { logPatientAction } = useActivityLogger()
+
+  // 🔥 커스텀 카테고리 데이터 가져오기
+  const {
+    consultationTypeOptions,
+    referralSourceOptions,
+    interestedServiceOptions,
+    isLoading: categoriesLoading
+  } = useCategories()
   
   // 🚀 Optimistic Update 활성화
   const isOptimisticEnabled = true // Vercel 배포용 설정
@@ -176,7 +166,27 @@ export default function PatientFormModal() {
 
     return () => clearTimeout(timeoutId)
   }, [formValues.phoneNumber])
-  
+
+  // 🔥 CTI에서 전화번호가 전달되면 폼에 자동 입력 + 상담타입을 인바운드로 설정
+  useEffect(() => {
+    if (prefillPhoneNumber && isOpen) {
+      // 전화번호 포맷팅 (010-0000-0000 형태로)
+      const numbers = prefillPhoneNumber.replace(/[^\d]/g, '');
+      let formattedPhone = prefillPhoneNumber;
+      if (numbers.length === 11) {
+        formattedPhone = `${numbers.slice(0, 3)}-${numbers.slice(3, 7)}-${numbers.slice(7)}`;
+      } else if (numbers.length === 10) {
+        formattedPhone = `${numbers.slice(0, 3)}-${numbers.slice(3, 6)}-${numbers.slice(6)}`;
+      }
+      console.log('[CTI] 신규 환자 등록 - 전화번호 자동 입력:', formattedPhone);
+      setFormValues(prev => ({
+        ...prev,
+        phoneNumber: formattedPhone,
+        consultationType: 'inbound',  // CTI에서 등록하는 건 인바운드
+      }));
+    }
+  }, [prefillPhoneNumber, isOpen]);
+
   // 🚀 Optimistic Update를 위한 React Query Mutation
   const optimisticCreateMutation = useMutation({
     mutationFn: async (data: CreatePatientData) => {
@@ -794,7 +804,7 @@ const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement 
         {/* 모달 바디 */}
         <form onSubmit={handleSubmit} className="p-6">
           <div className="space-y-5">
-            {/* 🔥 상담 타입 선택 필드 추가 */}
+            {/* 🔥 상담 타입 선택 필드 - 커스텀 카테고리 사용 */}
             <div>
               <label htmlFor="consultationType" className="block text-sm font-medium text-text-primary mb-1">
                 상담 타입
@@ -806,10 +816,13 @@ const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement 
                   value={formValues.consultationType || 'outbound'}
                   onChange={handleChange}
                   className="form-input pl-10 appearance-none"
+                  disabled={categoriesLoading}
                 >
-                  <option value="outbound">아웃바운드</option>
-                  <option value="inbound">인바운드</option>
-                  <option value="returning">구신환</option>
+                  {consultationTypeOptions.map(option => (
+                    <option key={option.value} value={option.value}>
+                      {option.label}
+                    </option>
+                  ))}
                 </select>
                 <span className="absolute left-3 top-1/2 transform -translate-y-1/2 text-text-muted">
                   <Icon icon={FiPhoneCall} size={18} />
@@ -1003,7 +1016,7 @@ const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement 
               </div>
             </div>
             
-            {/* 🔥 유입경로 필드 추가 */}
+            {/* 🔥 유입경로 필드 - 커스텀 카테고리 사용 */}
             <div>
               <label htmlFor="referralSource" className="block text-sm font-medium text-text-primary mb-1">
                 유입경로
@@ -1015,6 +1028,7 @@ const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement 
                   value={formValues.referralSource}
                   onChange={handleChange}
                   className="form-input pl-10 appearance-none"
+                  disabled={categoriesLoading}
                 >
                   {referralSourceOptions.map(option => (
                     <option key={option.value} value={option.value}>
@@ -1054,22 +1068,23 @@ const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement 
               )}
             </div>            
             
-            {/* 관심 분야 */}
+            {/* 관심 분야 - 커스텀 카테고리 사용 */}
             <div>
               <label className="block text-sm font-medium text-text-primary mb-2">
                 관심 분야
               </label>
               <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-3">
-                {interestAreaOptions.map(option => (
+                {interestedServiceOptions.map(option => (
                   <label
                     key={option.value}
                     className="flex items-center gap-2 cursor-pointer"
                   >
                     <input
                       type="checkbox"
-                      checked={formValues.interestedServices.includes(option.value)}
-                      onChange={() => handleInterestChange(option.value)}
+                      checked={formValues.interestedServices.includes(option.label)}
+                      onChange={() => handleInterestChange(option.label)}
                       className="w-4 h-4 accent-primary"
+                      disabled={categoriesLoading}
                     />
                     <span className="text-sm text-text-secondary">{option.label}</span>
                   </label>
