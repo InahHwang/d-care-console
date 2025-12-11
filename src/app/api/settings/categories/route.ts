@@ -41,7 +41,7 @@ export async function GET(request: NextRequest) {
     const { db } = await connectToDatabase();
 
     // settings 컬렉션에서 categories 문서 조회
-    let categories = await db.collection('settings').findOne({ type: 'categories' });
+    let categories: any = await db.collection('settings').findOne({ type: 'categories' });
 
     // 없으면 기본값으로 생성
     if (!categories) {
@@ -59,9 +59,9 @@ export async function GET(request: NextRequest) {
     return NextResponse.json({
       success: true,
       categories: {
-        consultationTypes: categories.consultationTypes || DEFAULT_CATEGORIES.consultationTypes,
-        referralSources: categories.referralSources || DEFAULT_CATEGORIES.referralSources,
-        interestedServices: categories.interestedServices || DEFAULT_CATEGORIES.interestedServices,
+        consultationTypes: categories?.consultationTypes || DEFAULT_CATEGORIES.consultationTypes,
+        referralSources: categories?.referralSources || DEFAULT_CATEGORIES.referralSources,
+        interestedServices: categories?.interestedServices || DEFAULT_CATEGORIES.interestedServices,
       },
     });
   } catch (error) {
@@ -162,7 +162,7 @@ export async function POST(request: NextRequest) {
     const updateResult = await db.collection('settings').updateOne(
       { type: 'categories' },
       {
-        $push: { [categoryType]: newItem },
+        $push: { [categoryType]: newItem } as any,
         $set: { updatedAt: new Date().toISOString() },
       },
       { upsert: true }
