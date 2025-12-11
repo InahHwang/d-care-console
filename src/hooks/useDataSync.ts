@@ -2,12 +2,10 @@
 
 import { useEffect } from 'react'
 import { useQueryClient } from '@tanstack/react-query'
-import { useAppSelector, useAppDispatch } from '@/hooks/reduxHooks'
-import { fetchPatients } from '@/store/slices/patientsSlice'
+import { useAppSelector } from '@/hooks/reduxHooks'
 
 export const useDataSync = () => {
   const queryClient = useQueryClient()
-  const dispatch = useAppDispatch()
   const reduxPatients = useAppSelector(state => state.patients.patients)
 
   // 🚀 Redux 상태가 변경되면 React Query 캐시도 업데이트
@@ -44,15 +42,13 @@ export const useDataSync = () => {
           if (currentReduxCount !== newCount) {
             console.log('🔄 React Query → Redux 동기화 필요:', newCount, '명')
             
-            // Redux 상태가 뒤처져 있으면 새로고침
-            setTimeout(() => {
-              dispatch(fetchPatients())
-            }, 100)
+            // React Query 캐시 무효화로 데이터 동기화
+            queryClient.invalidateQueries({ queryKey: ['patients'] })
           }
         }
       }
     })
 
     return unsubscribe
-  }, [queryClient, reduxPatients.length, dispatch])
+  }, [queryClient, reduxPatients.length])
 }

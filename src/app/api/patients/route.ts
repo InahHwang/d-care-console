@@ -145,10 +145,16 @@ export async function GET(request: NextRequest) {
     
     console.log('🔍 API: ID 정규화 및 상태 계산 완료');
     
-    return NextResponse.json({ 
+    // 🔥 성능 최적화를 위한 헤더 추가
+    const response = NextResponse.json({ 
       patients: normalizedPatients,
       totalItems: normalizedPatients.length 
     });
+    
+    // 🔥 캐시 제어 헤더 설정 (속도개선 2 버전)
+    response.headers.set('Cache-Control', 'max-age=10, stale-while-revalidate=30');
+    
+    return response;
     
   } catch (error) {
     console.error('🚨 API: 환자 목록 조회 실패:', error);
@@ -157,9 +163,11 @@ export async function GET(request: NextRequest) {
 }
 
 export async function POST(request: NextRequest) {
+  let data: any = null;
+  
   try {
     const { db } = await connectToDatabase();
-    const data = await request.json();
+    data = await request.json();
 
     console.log('🔍 API: 환자 등록 시작');
 
@@ -312,9 +320,42 @@ export async function POST(request: NextRequest) {
       isPostReservationPatient: normalizedPatient.isPostReservationPatient // 🔥 예약 후 미내원 로그
     });
 
-    return NextResponse.json(normalizedPatient, { status: 201 });
+    // 🔥 성능 최적화를 위한 헤더 추가
+    const response = NextResponse.json(normalizedPatient, { status: 201 });
+    
+    // 🔥 캐시 제어 헤더 설정 (속도개선 2 버전)
+    response.headers.set('Cache-Control', 'no-cache, no-store, must-revalidate');
+    response.headers.set('Pragma', 'no-cache');
+    response.headers.set('Expires', '0');
+    
+    return response;
   } catch (error) {
-    console.error('🚨 API: 환자 등록 실패:', error);
-    return NextResponse.json({ error: '환자 등록에 실패했습니다.' }, { status: 500 });
+    console.error('🚨 API: 환자 등록 실패 상세 정보:', {
+      error: error,
+      errorMessage: error instanceof Error ? error.message : '알 수 없는 오류',
+      errorStack: error instanceof Error ? error.stack : undefined,
+      timestamp: new Date().toISOString(),
+      requestData: data
+    });
+    
+    // 🔥 구체적인 오류 메시지 제공
+    let errorMessage = '환자 등록에 실패했습니다.';
+    
+    if (error instanceof Error) {
+      if (error.message.includes('duplicate key')) {
+        errorMessage = '이미 등록된 전화번호입니다.';
+      } else if (error.message.includes('validation')) {
+        errorMessage = '입력 데이터가 올바르지 않습니다.';
+      } else if (error.message.includes('connection')) {
+        errorMessage = '데이터베이스 연결에 실패했습니다.';
+      } else {
+        errorMessage = `서버 오류: ${error.message}`;
+      }
+    }
+    
+    return NextResponse.json({ 
+      error: errorMessage,
+      details: error instanceof Error ? error.message : '알 수 없는 오류'
+    }, { status: 500 });
   }
 }

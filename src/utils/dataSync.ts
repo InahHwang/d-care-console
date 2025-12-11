@@ -92,13 +92,11 @@ export const setupDataSyncListener = (queryClient: QueryClient) => {
         console.log('🔄 기본 전체 캐시 무효화');
     }
     
-    // 선택적: 특정 시간 후 자동 재검증
-    setTimeout(() => {
-      queryClient.invalidateQueries({ 
-        queryKey: ['patients'],
-        refetchType: 'inactive' 
-      });
-    }, 100); 
+    // 🔥 즉시 재검증 (속도개선 2 버전)
+    queryClient.invalidateQueries({ 
+      queryKey: ['patients'],
+      refetchType: 'active'
+    }); 
   };
 
   if (typeof window !== 'undefined') {

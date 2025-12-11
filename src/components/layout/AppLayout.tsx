@@ -10,13 +10,12 @@ import { fetchPatients } from '@/store/slices/patientsSlice'
 import Sidebar from './Sidebar'
 import Header from './Header'
 import InboundWidget from '../widget/InboundWidget'
-import AuthGuard from '../auth/AuthGuard' // 🔥 AuthGuard 추가
-import FloatingMemoManager from '../admin/FloatingMemoManager'; // 🔥 추가
+import AuthGuard from '../auth/AuthGuard'
 // FloatingCTIPanel은 layout.tsx에서 전역으로 렌더링됨
 
 interface AppLayoutProps {
   children: ReactNode
-  currentPage?: 'dashboard' | 'management' | 'statistics' | 'settings' | 'reports' | 'event-target-management' // 🔥 reports 추가
+  currentPage?: 'dashboard' | 'management' | 'statistics' | 'settings' | 'reports' | 'event-target-management'
 }
 
 const getMenuItemFromPage = (page?: string) => {
@@ -29,7 +28,7 @@ const getMenuItemFromPage = (page?: string) => {
       return '통계 분석'
     case 'settings':
       return '설정'
-    case 'reports': // 🔥 추가
+    case 'reports':
       return '월말보고서'
     default:
       return '대시보드'
@@ -38,7 +37,7 @@ const getMenuItemFromPage = (page?: string) => {
 
 export default function AppLayout({ children, currentPage = 'dashboard' }: AppLayoutProps) {
   const dispatch = useDispatch<AppDispatch>()
-  
+
   // 🔥 인증 상태 확인
   const { isAuthenticated, isInitialized, user } = useSelector((state: RootState) => state.auth)
   const { widget } = useSelector((state: RootState) => state.ui)
@@ -56,7 +55,7 @@ export default function AppLayout({ children, currentPage = 'dashboard' }: AppLa
       // 메뉴 아이템 설정
       const menuItem = getMenuItemFromPage(currentPage)
       dispatch(setCurrentMenuItem(menuItem))
-      
+
       // 대시보드나 환자 관리 페이지로 이동할 때 환자 데이터 다시 불러오기
       if (currentPage === 'dashboard' || currentPage === 'management') {
         dispatch(fetchPatients());
@@ -72,18 +71,18 @@ export default function AppLayout({ children, currentPage = 'dashboard' }: AppLa
         <div className="w-56 flex-shrink-0">
           <Sidebar />
         </div>
-        
+
         {/* 메인 콘텐츠 영역 */}
         <div className="flex-1 min-h-screen w-0 overflow-hidden">
           {/* 헤더 */}
           <Header />
-          
+
           {/* 메인 콘텐츠 */}
           <main className="p-6 overflow-x-auto">
             {children}
           </main>
         </div>
-        
+
         {/* 인바운드 위젯 - 모든 페이지에서 표시 */}
         <InboundWidget isVisible={widget.isVisible} />
         {/* CTI 플로팅 패널은 layout.tsx에서 전역으로 렌더링됨 */}

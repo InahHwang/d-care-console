@@ -5,10 +5,37 @@ const nextConfig = {
     serverComponentsExternalPackages: ['mongodb', 'sharp'],
   },
   
+  // 🔥 성능 최적화 설정
+  swcMinify: true, // SWC 압축 활성화
+  compress: true,  // gzip 압축 활성화
+  
   // 이미지 처리 설정
   images: {
     domains: ['localhost'],
     unoptimized: true, // Vercel에서 이미지 최적화 문제 해결
+  },
+  
+  // 🔥 API 라우트 최적화 (속도개선 2 버전)
+  async headers() {
+    return [
+      {
+        source: '/api/:path*',
+        headers: [
+          {
+            key: 'Cache-Control',
+            value: 'no-cache, no-store, must-revalidate',
+          },
+          {
+            key: 'Pragma',
+            value: 'no-cache',
+          },
+          {
+            key: 'Expires',
+            value: '0',
+          },
+        ],
+      },
+    ];
   },
   
   // 환경 변수 런타임 설정

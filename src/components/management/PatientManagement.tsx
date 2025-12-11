@@ -8,7 +8,7 @@ import { useDispatch, useSelector } from 'react-redux'
 import { useSearchParams } from 'next/navigation'
 import { useQuery, useQueryClient } from '@tanstack/react-query'
 import { RootState, AppDispatch } from '@/store'
-import { fetchPatients, setFilters, setPage, initializeEventTargets, fetchPostVisitPatients } from '@/store/slices/patientsSlice'
+import { setFilters, setPage, initializeEventTargets, fetchPostVisitPatients } from '@/store/slices/patientsSlice'
 import { setCurrentMenuItem, openPatientForm } from '@/store/slices/uiSlice'
 // 🔥 데이터 동기화 유틸리티 import 추가
 import { setupDataSyncListener, PatientDataSync } from '@/utils/dataSync'
@@ -53,7 +53,8 @@ export default function PatientManagement() {
   const queryClient = useQueryClient()
   const searchParams = useSearchParams()
   
-  const isOptimisticEnabled = true
+  // 🔥 환경별 최적화 설정
+  const isOptimisticEnabled = process.env.NODE_ENV === 'production'
   
   const { currentMenuItem } = useSelector((state: RootState) => state.ui)
   
@@ -173,15 +174,15 @@ export default function PatientManagement() {
 
       return result;
     },
-    staleTime: 2 * 60 * 1000,  // 🔥 2분으로 늘림 (기존 30초)
-    gcTime: 10 * 60 * 1000,    // 🔥 10분으로 늘림 (기존 5분)
-    refetchOnWindowFocus: false, // 🔥 탭 포커스시 자동 새로고침 비활성화
-    refetchOnMount: 'always',    // 컴포넌트 마운트시만 새로고침
-    refetchInterval: isOptimisticEnabled ? 5 * 60 * 1000 : false, // 🔥 5분 (기존 1분)
+    staleTime: 5 * 60 * 1000, // 5분간 fresh 유지
+    gcTime: 10 * 60 * 1000, // 10분간 캐시 유지
+    refetchOnWindowFocus: false,
+    refetchOnMount: true, // 마운트 시 자동 새로고침 활성화
+    refetchInterval: false, // 자동 새로고침 비활성화
     refetchIntervalInBackground: false,
     enabled: true,
-    retry: 1,
-    retryDelay: 1000,
+    retry: 1, // 실패시 1번만 재시도
+    retryDelay: 1000, // 1초 후 재시도
   });
 
   // 🔥 데이터 동기화 리스너 설정

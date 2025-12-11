@@ -494,6 +494,9 @@ export interface Patient {
   postVisitNotes?: string;           // 내원 후 메모 (호환성 유지)
   treatmentStartDate?: string;       // 치료 시작일
   nextVisitDate?: string;           // 다음 내원 예정일
+  
+  // 🔥 임시 데이터 표시용 필드 (Optimistic Update용)
+  isTemporary?: boolean;            // 임시 데이터 여부
 }
 
 // 🔥 환자 생성을 위한 타입 - consultationType, referralSource, 담당자 정보, 결제 정보 추가
