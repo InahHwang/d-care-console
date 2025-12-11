@@ -1,9 +1,20 @@
 // src/app/api/cti/incoming-call/route.ts
 // CTI Bridge로부터 CID 데이터를 수신하는 API 엔드포인트
+// Pusher를 통해 실시간으로 브라우저에 전달
 
 import { NextRequest, NextResponse } from 'next/server';
 import { getCTIEventStore, CTIEvent, PatientInfo } from '@/lib/ctiEventStore';
 import { connectToDatabase } from '@/utils/mongodb';
+import Pusher from 'pusher';
+
+// Pusher 서버 인스턴스
+const pusher = new Pusher({
+  appId: process.env.PUSHER_APP_ID!,
+  key: process.env.PUSHER_KEY!,
+  secret: process.env.PUSHER_SECRET!,
+  cluster: process.env.PUSHER_CLUSTER!,
+  useTLS: true,
+});
 
 // 전화번호 정규화 (숫자만 추출)
 function normalizePhone(phone: string): string {
@@ -94,11 +105,19 @@ export async function POST(request: NextRequest) {
       isNewCustomer: !patient,
     };
 
-    // 이벤트 저장 및 브로드캐스트
+    // 이벤트 저장 및 브로드캐스트 (SSE - 로컬용)
     const store = getCTIEventStore();
     store.addEvent(ctiEvent);
 
-    console.log(`[CTI API] 이벤트 브로드캐스트 완료 (클라이언트: ${store.getClientCount()}개)`);
+    // 🔥 Pusher로 실시간 전송 (Vercel 배포용)
+    try {
+      await pusher.trigger('cti-channel', 'incoming-call', ctiEvent);
+      console.log(`[CTI API] Pusher 전송 성공`);
+    } catch (pusherError) {
+      console.error(`[CTI API] Pusher 전송 실패:`, pusherError);
+    }
+
+    console.log(`[CTI API] 이벤트 브로드캐스트 완료 (SSE 클라이언트: ${store.getClientCount()}개)`);
     if (patient) {
       console.log(`[CTI API] 환자 정보: ${patient.name} (${patient.phoneNumber})`);
     } else {

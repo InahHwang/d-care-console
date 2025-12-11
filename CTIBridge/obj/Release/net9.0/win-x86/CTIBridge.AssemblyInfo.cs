@@ -13,7 +13,7 @@ using System.Reflection;
 [assembly: System.Reflection.AssemblyCompanyAttribute("CTIBridge")]
 [assembly: System.Reflection.AssemblyConfigurationAttribute("Release")]
 [assembly: System.Reflection.AssemblyFileVersionAttribute("1.0.0.0")]
-[assembly: System.Reflection.AssemblyInformationalVersionAttribute("1.0.0+bee1325b9266d11fee6cf680aafd127062fb1981")]
+[assembly: System.Reflection.AssemblyInformationalVersionAttribute("1.0.0+5fbf785c30b25c606d4eb6418ff65589fc442a2a")]
 [assembly: System.Reflection.AssemblyProductAttribute("CTIBridge")]
 [assembly: System.Reflection.AssemblyTitleAttribute("CTIBridge")]
 [assembly: System.Reflection.AssemblyVersionAttribute("1.0.0.0")]

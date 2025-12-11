@@ -4,6 +4,7 @@ using System.Text;
 using System.Threading;
 using System.Net.Http;
 using System.Text.Json;
+using System.IO;
 
 namespace CTIBridge
 {
@@ -68,13 +69,52 @@ namespace CTIBridge
         static string USER_ID   = "dsbrdental";
         static string PASSWORD  = "ektksqkfms1!";
 
-        // Next.js 서버 URL (로컬 개발시 3000, 배포시 변경)
-        static string NEXTJS_URL = "http://localhost:3000";
+        // Next.js 서버 URL - config.txt 파일에서 읽거나 기본값 사용
+        // 로컬 개발시: http://localhost:3000
+        // Vercel 배포시: https://d-care-console.vercel.app
+        static string NEXTJS_URL = "https://d-care-console.vercel.app";
 
         static bool gotLogin   = false;
         static bool gotSvcInfo = false;
         static readonly HttpClient http = new();
         static Encoding Cp949;
+
+        // config.txt에서 URL 읽기
+        static void LoadConfig()
+        {
+            string configPath = Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "config.txt");
+            if (File.Exists(configPath))
+            {
+                try
+                {
+                    string[] lines = File.ReadAllLines(configPath);
+                    foreach (string line in lines)
+                    {
+                        string trimmed = line.Trim();
+                        if (trimmed.StartsWith("URL="))
+                        {
+                            NEXTJS_URL = trimmed.Substring(4).Trim();
+                            Console.WriteLine($"  설정 파일에서 URL 로드: {NEXTJS_URL}");
+                            return;
+                        }
+                    }
+                }
+                catch (Exception ex)
+                {
+                    Console.WriteLine($"  설정 파일 읽기 오류: {ex.Message}");
+                }
+            }
+            else
+            {
+                // config.txt가 없으면 기본값으로 생성
+                try
+                {
+                    File.WriteAllText(configPath, $"URL={NEXTJS_URL}\n# 로컬 개발시: URL=http://localhost:3000\n# Vercel 배포시: URL=https://d-care-console.vercel.app");
+                    Console.WriteLine($"  설정 파일 생성됨: {configPath}");
+                }
+                catch { }
+            }
+        }
 
         static void Main(string[] args)
         {
@@ -90,6 +130,9 @@ namespace CTIBridge
             Console.WriteLine();
             Console.WriteLine($"  실행 경로: {AppDomain.CurrentDomain.BaseDirectory}");
             Console.WriteLine($"  시작 시간: {DateTime.Now:yyyy-MM-dd HH:mm:ss}");
+
+            // 설정 파일에서 URL 로드
+            LoadConfig();
             Console.WriteLine($"  Next.js URL: {NEXTJS_URL}");
             Console.WriteLine();
 
