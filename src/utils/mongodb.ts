@@ -132,6 +132,32 @@ async function createIndexesSafely(db: Db) {
       await db.collection('patients').createIndex({ createdBy: 1 });
       await db.collection('patients').createIndex({ lastModifiedAt: -1 });
 
+      // 🔥 성능 최적화용 복합 인덱스 추가
+      await db.collection('patients').createIndex(
+        { visitConfirmed: 1, postVisitStatus: 1, createdAt: -1 },
+        { name: 'idx_visit_status' }
+      );
+      await db.collection('patients').createIndex(
+        { status: 1, createdAt: -1 },
+        { name: 'idx_status_date' }
+      );
+      await db.collection('patients').createIndex(
+        { callInDate: 1, status: 1, isCompleted: 1 },
+        { name: 'idx_filter_query' }
+      );
+      await db.collection('patients').createIndex(
+        { 'eventTargetInfo.isEventTarget': 1, 'eventTargetInfo.scheduledDate': 1 },
+        { name: 'idx_event_target' }
+      );
+      await db.collection('patients').createIndex(
+        { visitConfirmed: 1, createdAt: -1 },
+        { name: 'idx_visit_created' }
+      );
+      await db.collection('patients').createIndex(
+        { createdAt: -1 },
+        { name: 'idx_created_desc' }
+      );
+
       // 🔥 나이 필드 스키마 검증 규칙 추가
       try {
         await db.command({

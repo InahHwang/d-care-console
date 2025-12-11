@@ -5,21 +5,23 @@
 import { useSelector, useDispatch } from 'react-redux'
 import { RootState, AppDispatch } from '@/store'
 import { Patient, PostVisitStatus, EstimateInfo, PaymentInfo, PostVisitConsultationInfo, PatientReaction, TreatmentConsentInfo, CallbackItem, VisitManagementCallbackType } from '@/types/patient'
-import { selectPatient, updatePostVisitStatus, fetchPostVisitPatients, fetchPatients, resetPostVisitData } from '@/store/slices/patientsSlice'
+import { selectPatient, updatePostVisitStatus, fetchPostVisitPatients, resetPostVisitData } from '@/store/slices/patientsSlice'
 import { useState, useEffect, useMemo, useCallback } from 'react'
-import { 
-  HiOutlinePhone, 
-  HiOutlineCalendar, 
-  HiOutlineClipboardList, 
-  HiOutlineRefresh, 
-  HiOutlineInformationCircle, 
-  HiOutlineClipboard, 
-  HiOutlineSearch, 
+import {
+  HiOutlinePhone,
+  HiOutlineCalendar,
+  HiOutlineClipboardList,
+  HiOutlineRefresh,
+  HiOutlineInformationCircle,
+  HiOutlineClipboard,
+  HiOutlineSearch,
   HiOutlinePlus,
   HiOutlinePencil,
   HiOutlineTrash,
   HiOutlineUser,
-  HiOutlineTag
+  HiOutlineTag,
+  HiOutlineChevronLeft,
+  HiOutlineChevronRight
 } from 'react-icons/hi'
 import { FiPhone, FiPhoneCall } from 'react-icons/fi'
 import { Icon } from '../common/Icon'
@@ -1555,17 +1557,18 @@ export default function VisitManagement() {
  const [isUpdating, setIsUpdating] = useState(false)
  const [isResetting, setIsResetting] = useState(false)
 
- // 🔥 데이터 새로고침 함수
+ // 페이지네이션 상태
+ const [currentPage, setCurrentPage] = useState(1)
+ const ITEMS_PER_PAGE = 10
+
+ // 🔥 데이터 새로고침 함수 - 최적화됨
 const handleRefreshData = useCallback(async () => {
   try {
     console.log('🔄 내원 관리 데이터 새로고침 시작');
-    
-    // Redux를 통한 데이터 새로고침
-    await Promise.all([
-      dispatch(fetchPostVisitPatients()),
-      dispatch(fetchPatients())
-    ]);
-    
+
+    // 🔥 최적화: 내원확정 환자만 새로고침 (전체 환자 로드 제거)
+    await dispatch(fetchPostVisitPatients());
+
     console.log('✅ 내원 관리 데이터 새로고침 완료');
   } catch (error) {
     console.error('❌ 데이터 새로고침 실패:', error);
@@ -1757,6 +1760,19 @@ const handlePatientUpdate = useCallback((updatedPatient: Patient) => {
   return filtered;
 }, [visitConfirmedPatients, selectedFilter, searchTerm, consultationTypeFilter, dateFilterType, dailyStartDate, dailyEndDate, getMonthlyDateRange]);
 
+ // 페이지네이션 계산
+ const totalPages = Math.ceil(filteredPatients.length / ITEMS_PER_PAGE);
+ const paginatedPatients = useMemo(() => {
+   const startIndex = (currentPage - 1) * ITEMS_PER_PAGE;
+   const endIndex = startIndex + ITEMS_PER_PAGE;
+   return filteredPatients.slice(startIndex, endIndex);
+ }, [filteredPatients, currentPage, ITEMS_PER_PAGE]);
+
+ // 필터 변경 시 페이지 리셋
+ useEffect(() => {
+   setCurrentPage(1);
+ }, [searchTerm, selectedFilter, consultationTypeFilter, dateFilterType, dailyStartDate, dailyEndDate, selectedYear, selectedMonth]);
+
  // 수정된 통계 계산 - 전체 내원확정된 환자 기준으로 실제 인원수 표시, 치료 동의 상태 추가
  const stats = useMemo(() => {
   const allVisitConfirmed = visitConfirmedPatients;
@@ -1906,26 +1922,20 @@ const handlePatientUpdate = useCallback((updatedPatient: Patient) => {
        // 성공 메시지 표시
        alert(`${patient.name} 환자의 내원 후 상태 데이터가 초기화되었습니다.`);
        
-       // 데이터 새로고침으로 UI 즉시 반영
-       await Promise.all([
-         dispatch(fetchPostVisitPatients()),
-         dispatch(fetchPatients())
-       ]);
-       
+       // 🔥 최적화: 내원확정 환자만 새로고침
+       await dispatch(fetchPostVisitPatients());
+
        console.log('🔥 데이터 새로고침 완료');
      }
-     
+
    } catch (error) {
      console.error('🔥 초기화 중 예외 발생:', error);
-     
+
      // 예외가 발생해도 일단 성공으로 처리하고 새로고침
      alert(`${patient.name} 환자의 내원 후 상태 데이터가 초기화되었습니다.`);
-     
-     // 데이터 새로고침
-     await Promise.all([
-       dispatch(fetchPostVisitPatients()),
-       dispatch(fetchPatients())
-     ]);
+
+     // 🔥 최적화: 내원확정 환자만 새로고침
+     await dispatch(fetchPostVisitPatients());
    } finally {
      setIsResetting(false);
    }
@@ -2299,14 +2309,14 @@ const handlePatientUpdate = useCallback((updatedPatient: Patient) => {
                     불러오는 중...
                   </td>
                 </tr>
-              ) : filteredPatients.length === 0 ? (
+              ) : paginatedPatients.length === 0 ? (
                 <tr>
                   <td colSpan={10} className="px-4 py-8 text-center text-gray-500">
                     조건에 맞는 환자가 없습니다.
                   </td>
                 </tr>
               ) : (
-                filteredPatients.map((patient) => {
+                paginatedPatients.map((patient) => {
                   const patientId = patient._id || patient.id || '';
                   
                   // 🆕 콜백 처리 후 미조치 환자 여부 확인 (완료/부재중 모두 포함)
@@ -2384,6 +2394,79 @@ const handlePatientUpdate = useCallback((updatedPatient: Patient) => {
             </tbody>
          </table>
        </div>
+
+       {/* 페이지네이션 */}
+       {filteredPatients.length > ITEMS_PER_PAGE && (
+         <div className="flex flex-col sm:flex-row items-center justify-between p-4 border-t border-border">
+           <div className="text-sm text-text-secondary mb-4 sm:mb-0">
+             총 {filteredPatients.length}개 항목 중 {(currentPage - 1) * ITEMS_PER_PAGE + 1}-{Math.min(currentPage * ITEMS_PER_PAGE, filteredPatients.length)} 표시
+           </div>
+
+           <div className="flex items-center gap-2 bg-light-bg px-4 py-1.5 rounded-full">
+             <button
+               className="p-1 text-text-secondary disabled:text-text-muted disabled:cursor-not-allowed"
+               onClick={() => setCurrentPage(prev => Math.max(prev - 1, 1))}
+               disabled={currentPage === 1}
+             >
+               <Icon
+                 icon={HiOutlineChevronLeft}
+                 size={20}
+                 className="text-current"
+               />
+             </button>
+
+             {(() => {
+               const pagesPerGroup = 10;
+               const currentGroup = Math.ceil(currentPage / pagesPerGroup);
+               const startPage = (currentGroup - 1) * pagesPerGroup + 1;
+               const endPage = Math.min(startPage + pagesPerGroup - 1, totalPages);
+
+               const pages = [];
+
+               for (let i = startPage; i <= endPage; i++) {
+                 pages.push(
+                   <button
+                     key={i}
+                     className={`w-6 h-6 flex items-center justify-center rounded-md text-sm ${
+                       currentPage === i ? 'bg-primary text-white' : 'text-text-secondary hover:bg-gray-200'
+                     }`}
+                     onClick={() => setCurrentPage(i)}
+                   >
+                     {i}
+                   </button>
+                 );
+               }
+
+               return pages;
+             })()}
+
+             <button
+               className="p-1 text-text-secondary disabled:text-text-muted disabled:cursor-not-allowed"
+               onClick={() => {
+                 const pagesPerGroup = 10;
+                 const currentGroup = Math.ceil(currentPage / pagesPerGroup);
+                 const nextGroupStartPage = currentGroup * pagesPerGroup + 1;
+
+                 if (nextGroupStartPage <= totalPages) {
+                   setCurrentPage(nextGroupStartPage);
+                 }
+               }}
+               disabled={(() => {
+                 const pagesPerGroup = 10;
+                 const currentGroup = Math.ceil(currentPage / pagesPerGroup);
+                 const nextGroupStartPage = currentGroup * pagesPerGroup + 1;
+                 return nextGroupStartPage > totalPages;
+               })()}
+             >
+               <Icon
+                 icon={HiOutlineChevronRight}
+                 size={20}
+                 className="text-current"
+               />
+             </button>
+           </div>
+         </div>
+       )}
      </div>
 
      {/* 내원 후 상태 업데이트 모달 */}

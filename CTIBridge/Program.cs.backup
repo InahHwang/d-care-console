@@ -1,0 +1,745 @@
+﻿// CTIBridge/Program.cs - SK CID API 실제 연동 버전 (완전 수정본)
+using System;
+using System.Net.Http;
+using System.Text;
+using System.Text.Json;
+using System.Threading;
+using System.Threading.Tasks;
+using System.Runtime.InteropServices;
+using System.Linq;
+
+class Program
+{
+    // ============================================
+    // SK CID API DLL Import (올바른 버전)
+    // ============================================
+    [DllImport("SKB_OpenAPI_IMS.dll", CallingConvention = CallingConvention.StdCall)]
+    public static extern int IMS_Init(string strAppKey);
+
+    [DllImport("SKB_OpenAPI_IMS.dll", CallingConvention = CallingConvention.StdCall)]
+    public static extern int IMS_Login(string strUserId, string strPasswd);
+
+    [DllImport("SKB_OpenAPI_IMS.dll", CallingConvention = CallingConvention.StdCall)]
+    public static extern int IMS_GetEvent(ref _EVTMSG stEvtMsg);
+
+    [DllImport("SKB_OpenAPI_IMS.dll", CallingConvention = CallingConvention.StdCall)]
+    public static extern int IMS_AddMonDn(string strDn);
+
+    [DllImport("SKB_OpenAPI_IMS.dll", CallingConvention = CallingConvention.StdCall)]
+    public static extern int IMS_Close();
+
+    // 이벤트 코드 상수 (샘플 프로그램 분석 기반)
+    public const int IMS_SVC_NORMAL = 30;           // 0x1E - 시스템 이벤트
+    public const int IMS_SVC_CID_NOTIFY = 28;       // 0x1C - CID 알림 ✅
+    public const int IMS_SVC_GET_SERVICE_INFO = 22; // 0x16 - 서비스 정보
+
+    public const int EVT_NORMAL = 1;                // 일반 이벤트
+    public const int EVT_CONNECTED = 257;           // 0x0101 - 연결
+    public const int EVT_LOGIN = 260;               // 0x0104 - 로그인 성공 ✅
+    public const int EVT_AUTH_TTS = 513;            // 0x0201 - 인증
+    public const int EVT_CREATE_USER = 528;         // 0x0210 - 사용자 생성
+
+    // 이벤트 메시지 구조체
+    [StructLayout(LayoutKind.Sequential, CharSet = CharSet.Ansi)]
+    public struct _EVTMSG
+    {
+        public int nService;      // 서비스 유형
+        public int nEvtType;      // 이벤트 유형  
+        public int nResult;       // 결과코드
+        [MarshalAs(UnmanagedType.ByValTStr, SizeConst=32)]
+        public string strDn1;     // 발신번호 또는 이벤트 번호
+        [MarshalAs(UnmanagedType.ByValTStr, SizeConst=32)] 
+        public string strDn2;     // 착신번호
+        [MarshalAs(UnmanagedType.ByValTStr, SizeConst=1024)]
+        public string strExtInfo; // 추가 정보
+    }
+
+    private static HttpClient httpClient = new HttpClient();
+    private static string serverUrl = "http://localhost:3001/api";
+    private static bool isRunning = true;
+    private static CancellationTokenSource cancellationTokenSource = new CancellationTokenSource();
+
+    static async Task Main(string[] args)
+    {
+        Console.WriteLine("=== CTI Bridge SK CID API 연동 버전 ===");
+        Console.WriteLine("Node.js 서버가 http://localhost:3001에서 실행중인지 확인하세요");
+
+        // 1. 서버 연결 테스트
+        await TestServerConnection();
+
+        // 2. 모드 선택
+        Console.WriteLine("\n모드를 선택하세요:");
+        Console.WriteLine("1. 실제 SK CID 모드 (실제 착신 이벤트 수신)");
+        Console.WriteLine("2. 자동 모드 (웹에서 명령 수신 + 시뮬레이션)");
+        Console.WriteLine("3. 수동 모드 (콘솔에서 직접 입력)");
+        Console.Write("선택 (1, 2, 또는 3): ");
+        
+        string choice = Console.ReadLine();
+        
+        switch (choice)
+        {
+            case "1":
+                await StartRealSKCIDMode();
+                break;
+            case "2":
+                await StartAutomaticMode();
+                break;
+            case "3":
+                await StartManualMode();
+                break;
+            default:
+                Console.WriteLine("잘못된 선택입니다. 자동 모드로 시작합니다.");
+                await StartAutomaticMode();
+                break;
+        }
+    }
+
+    // 실제 SK CID API 모드 (완전히 재작성)
+    static async Task StartRealSKCIDMode()
+    {
+        Console.WriteLine("\n=== 실제 SK CID API 모드 시작 ===");
+        
+        // ===== 1단계: 설정 읽기 =====
+        Console.WriteLine("\n[1/4] 설정 파일 읽는 중...");
+        
+        // TODO: 나중에 설정 파일로 교체
+        string appKey = "zeQ4GBTe/n7Of6S0fd3egUfL4QDxsyc9fJWHwRTGUW4woKsHqFYINVBmFGEnCNyc";      // SK에서 받은 값으로 교체 필요
+        string userId = "dsbrdental";     // SK에서 받은 값으로 교체 필요
+        string password = "ektksqkfms1!";   // SK에서 받은 값으로 교체 필요
+        string monitorNumber = "0315672278";      // 치과 전화번호
+        
+        if (appKey == "여기에_APP_KEY_입력")
+        {
+            Console.WriteLine("❌ 경고: 아직 SK 계정 정보가 입력되지 않았습니다!");
+            Console.WriteLine("   일단 시뮬레이션 모드로 전환합니다.\n");
+            await StartSimulationMode();
+            return;
+        }
+        
+        // ===== 2단계: SK API 초기화 =====
+        Console.WriteLine("\n[2/4] SK API 초기화 중...");
+        try
+        {
+            int result = IMS_Init(appKey);
+            if (result != 0)
+            {
+                Console.WriteLine($"❌ 초기화 실패 (코드: 0x{result:X})");
+                Console.WriteLine("   APP-KEY를 확인하세요.");
+                Console.WriteLine("   시뮬레이션 모드로 전환합니다.\n");
+                await StartSimulationMode();
+                return;
+            }
+            Console.WriteLine("✅ 초기화 성공");
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"❌ 초기화 오류: {ex.Message}");
+            Console.WriteLine("   DLL 파일을 확인하세요.");
+            Console.WriteLine("   시뮬레이션 모드로 전환합니다.\n");
+            await StartSimulationMode();
+            return;
+        }
+        
+        // ===== 3단계: SK API 로그인 =====
+        Console.WriteLine("\n[3/4] SK API 로그인 중...");
+        try
+        {
+            int result = IMS_Login(userId, password);
+            if (result != 0)
+            {
+                Console.WriteLine($"❌ 로그인 실패 (코드: 0x{result:X})");
+                Console.WriteLine("   사용자ID/비밀번호를 확인하세요.");
+                IMS_Close();
+                return;
+            }
+            Console.WriteLine("✅ 로그인 요청 전송 완료");
+            Console.WriteLine("   로그인 성공 이벤트 대기 중...");
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"❌ 로그인 오류: {ex.Message}");
+            IMS_Close();
+            return;
+        }
+        
+        // ===== 4단계: 모니터링 번호 등록 =====
+        Console.WriteLine("\n[4/4] 모니터링 번호 등록 중...");
+        try
+        {
+            int result = IMS_AddMonDn(monitorNumber);
+            if (result == 0)
+            {
+                Console.WriteLine($"✅ 모니터링 등록: {monitorNumber}");
+            }
+            else
+            {
+                Console.WriteLine($"⚠️ 모니터링 등록 실패 (코드: 0x{result:X}) - 계속 진행");
+            }
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"⚠️ 모니터링 등록 오류: {ex.Message} - 계속 진행");
+        }
+        
+        Console.WriteLine("\n" + new string('=', 60));
+        Console.WriteLine("✅ 초기화 완료! 이벤트 수신 대기 중...");
+        Console.WriteLine("   실제 전화가 오면 여기에 표시됩니다.");
+        Console.WriteLine("   종료하려면 'q' + Enter");
+        Console.WriteLine(new string('=', 60) + "\n");
+
+        // 백그라운드에서 키 입력 감시
+        Task.Run(() =>
+        {
+            while (isRunning)
+            {
+                var key = Console.ReadLine();
+                if (key?.ToLower() == "q")
+                {
+                    Console.WriteLine("\n종료 중...");
+                    IMS_Close();
+                    isRunning = false;
+                    cancellationTokenSource.Cancel();
+                    break;
+                }
+            }
+        });
+
+        // 웹 명령 polling과 SK API 이벤트 수신을 동시에 실행
+        var pollingTask = StartCommandPolling();
+        var skApiTask = StartSKCIDEventPolling();
+
+        await Task.WhenAny(pollingTask, skApiTask);
+        
+        // 종료 시 정리
+        IMS_Close();
+        Console.WriteLine("SK API 연결 종료 완료");
+    }
+
+    // SK CID API 이벤트 polling
+    static async Task StartSKCIDEventPolling()
+    {
+        Console.WriteLine("[SK CID] API 이벤트 수신 시작...");
+        
+        bool loginSuccessReceived = false;
+        
+        while (isRunning && !cancellationTokenSource.Token.IsCancellationRequested)
+        {
+            try
+            {
+                _EVTMSG eventMsg = new _EVTMSG();
+                int result = IMS_GetEvent(ref eventMsg);
+                
+                // 이벤트가 있는 경우
+                if (result == 0 && eventMsg.nService != 0)
+                {
+                    // 상세 디버깅
+                    Console.WriteLine($"\n========== 이벤트 수신 ==========");
+                    Console.WriteLine($"Service: {eventMsg.nService} (0x{eventMsg.nService:X})");
+                    Console.WriteLine($"EventType: {eventMsg.nEvtType} (0x{eventMsg.nEvtType:X})");
+                    Console.WriteLine($"Result: {eventMsg.nResult}");
+                    Console.WriteLine($"Dn1: [{eventMsg.strDn1}]");
+                    Console.WriteLine($"Dn2: [{eventMsg.strDn2}]");
+                    Console.WriteLine($"==================================\n");
+                    
+                    // 로그인 성공 확인
+                    if (eventMsg.nService == IMS_SVC_NORMAL && eventMsg.nEvtType == EVT_LOGIN)
+                    {
+                        Console.WriteLine("\n✅✅✅ SK API 로그인 성공!");
+                        Console.WriteLine("    이제 실제 착신을 받을 준비가 되었습니다.\n");
+                        loginSuccessReceived = true;
+                    }
+                    
+                    // CID 알림 이벤트 처리
+                    if (eventMsg.nService == IMS_SVC_CID_NOTIFY)
+                    {
+                        Console.WriteLine("📞📞📞 CID 알림 이벤트 감지!");
+                        if (!string.IsNullOrEmpty(eventMsg.strDn1))
+                        {
+                            await ProcessRealCIDEvent(eventMsg);
+                        }
+                        else
+                        {
+                            Console.WriteLine("⚠️ 발신번호(Dn1)가 비어있습니다.");
+                        }
+                    }
+                }}
+            catch (Exception ex)
+            {
+                Console.WriteLine($"[SK CID] API 오류: {ex.Message}");
+                
+                // DLL을 찾을 수 없는 경우 시뮬레이션 모드로 전환
+                if (ex.Message.Contains("SKB_OpenAPI_IMS.dll"))
+                {
+                    Console.WriteLine("[SK CID] DLL을 찾을 수 없어 시뮬레이션 모드로 전환합니다.");
+                    await StartSimulationMode();
+                    break;
+                }
+            }
+
+            // 500ms 간격으로 polling (매뉴얼 권장)
+            try
+            {
+                await Task.Delay(500, cancellationTokenSource.Token);
+            }
+            catch (OperationCanceledException)
+            {
+                break;
+            }
+        }
+    }
+
+    // 실제 CID 이벤트 처리
+    static async Task ProcessRealCIDEvent(_EVTMSG eventMsg)
+    {
+        try
+        {
+            // 전화번호 포맷 정규화
+            string normalizedNumber = NormalizePhoneNumber(eventMsg.strDn1);
+            
+            var eventData = new
+            {
+                EventType = "INCOMING_CALL",
+                PhoneNumber = normalizedNumber,
+                RawPhoneNumber = eventMsg.strDn1,
+                CalledNumber = eventMsg.strDn2,
+                ServiceType = eventMsg.nService,
+                EventTypeCode = eventMsg.nEvtType,
+                ResultCode = eventMsg.nResult,
+                ExtraInfo = eventMsg.strExtInfo,
+                Timestamp = DateTime.Now.ToString("o"),
+                Message = $"실제 착신: {normalizedNumber}",
+                Source = "SK_CID_API"
+            };
+
+            Console.WriteLine($"\n📞📞📞 실제 착신 이벤트!");
+            Console.WriteLine($"        발신: {normalizedNumber}");
+            Console.WriteLine($"        착신: {eventMsg.strDn2}");
+            Console.WriteLine($"        서비스: 0x{eventMsg.nService:X}, 이벤트: 0x{eventMsg.nEvtType:X}\n");
+            
+            await SendEventToServer(eventData);
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"[SK CID] 이벤트 처리 오류: {ex.Message}");
+        }
+    }
+
+    // 전화번호 정규화 함수
+    static string NormalizePhoneNumber(string phoneNumber)
+    {
+        if (string.IsNullOrEmpty(phoneNumber))
+            return "";
+            
+        // 숫자만 추출
+        string numbers = new string(phoneNumber.Where(char.IsDigit).ToArray());
+        
+        // 010-XXXX-XXXX 형태로 변환
+        if (numbers.Length == 11 && numbers.StartsWith("010"))
+        {
+            return $"{numbers.Substring(0, 3)}-{numbers.Substring(3, 4)}-{numbers.Substring(7, 4)}";
+        }
+        
+        // 지역번호 처리 (02-XXXX-XXXX)
+        if (numbers.Length >= 9 && numbers.StartsWith("02"))
+        {
+            if (numbers.Length == 9)
+            {
+                return $"02-{numbers.Substring(2, 3)}-{numbers.Substring(5, 4)}";
+            }
+            else if (numbers.Length == 10)
+            {
+                return $"02-{numbers.Substring(2, 4)}-{numbers.Substring(6, 4)}";
+            }
+        }
+        
+        // 기타 지역번호 (0XX-XXXX-XXXX)
+        if (numbers.Length == 10 && numbers.StartsWith("0"))
+        {
+            return $"{numbers.Substring(0, 3)}-{numbers.Substring(3, 3)}-{numbers.Substring(6, 4)}";
+        }
+        
+        return phoneNumber; // 원본 반환
+    }
+
+    // 시뮬레이션 모드 (DLL이 없을 때)
+    static async Task StartSimulationMode()
+    {
+        Console.WriteLine("[시뮬레이션] 5초마다 가상 착신 이벤트를 생성합니다.");
+        
+        string[] testNumbers = {
+            "010-1234-5678",
+            "010-9876-5432", 
+            "010-7137-6160", // 실제 환자 번호
+            "02-123-4567",
+            "031-456-7890"
+        };
+        
+        int counter = 0;
+        
+        while (isRunning && !cancellationTokenSource.Token.IsCancellationRequested)
+        {
+            try
+            {
+                string testNumber = testNumbers[counter % testNumbers.Length];
+                
+                var simulationEvent = new
+                {
+                    EventType = "INCOMING_CALL_SIMULATION",
+                    PhoneNumber = testNumber,
+                    Timestamp = DateTime.Now.ToString("o"),
+                    Message = $"시뮬레이션 착신: {testNumber}",
+                    Source = "SIMULATION"
+                };
+                
+                Console.WriteLine($"[시뮬레이션] 가상 착신: {testNumber}");
+                await SendEventToServer(simulationEvent);
+                
+                counter++;
+                
+                // 5초 대기
+                await Task.Delay(5000, cancellationTokenSource.Token);
+            }
+            catch (OperationCanceledException)
+            {
+                break;
+            }
+            catch (Exception ex)
+            {
+                Console.WriteLine($"[시뮬레이션] 오류: {ex.Message}");
+                await Task.Delay(1000, cancellationTokenSource.Token);
+            }
+        }
+    }
+
+    // 자동 모드: 웹에서 명령을 수신
+    static async Task StartAutomaticMode()
+    {
+        Console.WriteLine("\n=== 자동 모드 시작 ===");
+        Console.WriteLine("웹에서 명령을 기다리는 중...");
+        Console.WriteLine("종료하려면 'q' + Enter를 누르세요");
+        Console.WriteLine();
+
+        // 백그라운드에서 키 입력 감시
+        Task.Run(() =>
+        {
+            while (isRunning)
+            {
+                var key = Console.ReadLine();
+                if (key?.ToLower() == "q")
+                {
+                    Console.WriteLine("종료 중...");
+                    isRunning = false;
+                    cancellationTokenSource.Cancel();
+                    break;
+                }
+            }
+        });
+
+        // 명령 polling 루프
+        await StartCommandPolling();
+    }
+
+    // 수동 모드: 콘솔에서 직접 명령 입력
+    static async Task StartManualMode()
+    {
+        Console.WriteLine("\n=== 수동 모드 시작 ===");
+        Console.WriteLine("종료하려면 'quit' 입력");
+        Console.WriteLine("사용 가능한 명령: call, stop, test, quit");
+
+        while (isRunning)
+        {
+            Console.Write("명령 입력: ");
+            string command = Console.ReadLine();
+
+            if (command == "quit")
+            {
+                break;
+            }
+
+            await ProcessManualCommand(command);
+        }
+    }
+
+    // 명령 polling 루프
+    static async Task StartCommandPolling()
+    {
+        while (isRunning && !cancellationTokenSource.Token.IsCancellationRequested)
+        {
+            try
+            {
+                // 서버에서 명령 가져오기
+                var response = await httpClient.GetAsync($"{serverUrl}/cti/commands", cancellationTokenSource.Token);
+                
+                if (response.IsSuccessStatusCode)
+                {
+                    var responseBody = await response.Content.ReadAsStringAsync();
+                    
+                    // 명령이 있는지 확인 (빈 배열이 아닌지)
+                    if (!string.IsNullOrEmpty(responseBody) && responseBody.Trim() != "[]")
+                    {
+                        Console.WriteLine($"[{DateTime.Now:HH:mm:ss}] 명령 수신: {responseBody}");
+                        
+                        // 명령 처리
+                        await ProcessReceivedCommand(responseBody);
+                    }
+                }
+                else
+                {
+                    Console.WriteLine($"[{DateTime.Now:HH:mm:ss}] 서버 응답 오류: {response.StatusCode}");
+                }
+            }
+            catch (OperationCanceledException)
+            {
+                break;
+            }
+            catch (Exception ex)
+            {
+                Console.WriteLine($"[{DateTime.Now:HH:mm:ss}] Polling 오류: {ex.Message}");
+            }
+
+            // 2초 대기
+            try
+            {
+                await Task.Delay(2000, cancellationTokenSource.Token);
+            }
+            catch (OperationCanceledException)
+            {
+                break;
+            }
+        }
+    }
+
+    // 수신된 명령 처리
+    static async Task ProcessReceivedCommand(string commandJson)
+    {
+        try
+        {
+            Console.WriteLine($"[CTI] 명령 파싱 시작: {commandJson}");
+            
+            using var document = JsonDocument.Parse(commandJson);
+            
+            // 배열인지 확인
+            if (document.RootElement.ValueKind == JsonValueKind.Array && document.RootElement.GetArrayLength() > 0)
+            {
+                // 배열의 첫 번째 요소 가져오기
+                var firstCommand = document.RootElement[0];
+                Console.WriteLine($"[CTI] 첫 번째 명령 처리 중");
+                
+                await ProcessSingleCommand(firstCommand);
+            }
+            else if (document.RootElement.ValueKind == JsonValueKind.Object)
+            {
+                // 단일 객체 처리
+                Console.WriteLine("[CTI] 단일 객체 명령 처리");
+                await ProcessSingleCommand(document.RootElement);
+            }
+            else
+            {
+                Console.WriteLine($"[CTI] 지원되지 않는 JSON 형식: {document.RootElement.ValueKind}");
+            }
+        }
+        catch (JsonException ex)
+        {
+            Console.WriteLine($"[CTI] JSON 파싱 오류: {ex.Message}");
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"[CTI] 명령 처리 오류: {ex.Message}");
+        }
+    }
+
+    // 단일 명령 처리
+    static async Task ProcessSingleCommand(JsonElement commandElement)
+    {
+        // action 또는 command 필드 찾기
+        string command = null;
+        if (commandElement.TryGetProperty("action", out var actionProperty))
+        {
+            command = actionProperty.GetString();
+        }
+        else if (commandElement.TryGetProperty("command", out var commandProperty))
+        {
+            command = commandProperty.GetString();
+        }
+        
+        if (!string.IsNullOrEmpty(command))
+        {
+            Console.WriteLine($"[CTI] 명령 실행: {command}");
+            
+            // 명령에 따른 처리
+            switch (command)
+            {
+                case "TEST_CONNECTION":
+                    Console.WriteLine("[CTI] 연결 테스트 명령 처리 중...");
+                    await SendEvent("TEST_CONNECTION_RESPONSE", "", "연결 테스트 응답");
+                    break;
+                    
+                case "START_CALL":
+                    await ProcessStartCallCommand(commandElement);
+                    break;
+                    
+                case "END_CALL":
+                    Console.WriteLine("[CTI] 통화 종료");
+                    await SendEvent("CALL_END_REQUESTED", "", "통화 종료 요청");
+                    break;
+                    
+                case "SIMULATE_INCOMING":
+                    await ProcessSimulateIncomingCommand(commandElement);
+                    break;
+                    
+                default:
+                    Console.WriteLine($"[CTI] 알 수 없는 명령: {command}");
+                    await SendEvent("UNKNOWN_COMMAND", "", $"알 수 없는 명령: {command}");
+                    break;
+            }
+        }
+        else
+        {
+            Console.WriteLine("[CTI] 명령 필드(action/command)를 찾을 수 없습니다.");
+        }
+    }
+
+    // START_CALL 명령 처리
+    static async Task ProcessStartCallCommand(JsonElement commandElement)
+    {
+        string phoneNumber = null;
+        
+        // 다양한 방법으로 전화번호 추출
+        if (commandElement.TryGetProperty("phoneNumber", out var phoneProperty))
+        {
+            phoneNumber = phoneProperty.GetString();
+        }
+        else if (commandElement.TryGetProperty("parameters", out var paramsProperty) && 
+                paramsProperty.TryGetProperty("phoneNumber", out var phoneParam))
+        {
+            phoneNumber = phoneParam.GetString();
+        }
+        
+        if (!string.IsNullOrEmpty(phoneNumber))
+        {
+            Console.WriteLine($"[CTI] 통화 시작: {phoneNumber}");
+            await SendEvent("CALL_START_REQUESTED", phoneNumber, $"통화 시작 요청: {phoneNumber}");
+        }
+        else
+        {
+            Console.WriteLine("[CTI] START_CALL 명령에 전화번호가 없습니다.");
+            await SendEvent("CALL_START_ERROR", "", "전화번호가 필요합니다");
+        }
+    }
+
+    // SIMULATE_INCOMING 명령 처리
+    static async Task ProcessSimulateIncomingCommand(JsonElement commandElement)
+    {
+        string phoneNumber = "010-1234-5678"; // 기본값
+        
+        // parameters 안에서 phoneNumber 찾기
+        if (commandElement.TryGetProperty("parameters", out var paramsProperty))
+        {
+            if (paramsProperty.TryGetProperty("phoneNumber", out var phoneParam))
+            {
+                phoneNumber = phoneParam.GetString();
+            }
+        }
+        // 직접 phoneNumber 속성도 확인
+        else if (commandElement.TryGetProperty("phoneNumber", out var phoneProperty))
+        {
+            phoneNumber = phoneProperty.GetString();
+        }
+        
+        // 전화번호 정규화
+        string normalizedPhoneNumber = NormalizePhoneNumber(phoneNumber);
+        
+        var simulationEvent = new
+        {
+            EventType = "INCOMING_CALL",
+            PhoneNumber = normalizedPhoneNumber,
+            RawPhoneNumber = phoneNumber,
+            CalledNumber = "031-567-2278",
+            Timestamp = DateTime.Now.ToString("o"),
+            Message = $"시뮬레이션 착신: {normalizedPhoneNumber}",
+            Source = "WEB_SIMULATION"
+        };
+        
+        Console.WriteLine($"[CTI] 착신 시뮬레이션: {normalizedPhoneNumber}");
+        await SendEventToServer(simulationEvent);
+    }
+
+    // 수동 명령 처리
+    static async Task ProcessManualCommand(string command)
+    {
+        switch (command)
+        {
+            case "call":
+                Console.Write("전화번호 입력: ");
+                string phoneNumber = Console.ReadLine();
+                await SendEvent("CALL_START_REQUESTED", phoneNumber, $"통화 시작 요청: {phoneNumber}");
+                break;
+            case "stop":
+                await SendEvent("CALL_END_REQUESTED", "", "통화 종료 요청");
+                break;
+            case "test":
+                await SendEvent("MANUAL_TEST", "010-1234-5678", "수동 테스트 이벤트");
+                break;
+            default:
+                Console.WriteLine("사용 가능한 명령: call, stop, test, quit");
+                break;
+        }
+    }
+
+    // 서버 연결 테스트
+    static async Task TestServerConnection()
+    {
+        Console.WriteLine("1. 서버 연결 테스트...");
+        
+        try
+        {
+            await SendEvent("TEST_CONNECTION", "", "CTI Bridge 연결 테스트");
+            Console.WriteLine("✅ 서버 연결 성공");
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"❌ 서버 연결 실패: {ex.Message}");
+            Console.WriteLine("Node.js 서버가 실행 중인지 확인하고 다시 시도하세요.");
+            Environment.Exit(1);
+        }
+    }
+
+    // Node.js 서버로 이벤트 전송 (기존 방식)
+    static async Task SendEvent(string eventType, string phoneNumber, string message)
+    {
+        var eventData = new
+        {
+            EventType = eventType,
+            PhoneNumber = phoneNumber,
+            Timestamp = DateTime.Now.ToString("o"),
+            Message = message
+        };
+
+        await SendEventToServer(eventData);
+    }
+
+    // Node.js 서버로 이벤트 전송 (통합)
+    static async Task SendEventToServer(object eventData)
+    {
+        string json = JsonSerializer.Serialize(eventData);
+        var content = new StringContent(json, Encoding.UTF8, "application/json");
+
+        try
+        {
+            var response = await httpClient.PostAsync($"{serverUrl}/cti/events", content);
+            if (response.IsSuccessStatusCode)
+            {
+                var eventType = eventData.GetType().GetProperty("EventType")?.GetValue(eventData)?.ToString() ?? "UNKNOWN";
+                Console.WriteLine($"[{DateTime.Now:HH:mm:ss}] 이벤트 전송 성공: {eventType}");
+            }
+            else
+            {
+                Console.WriteLine($"[{DateTime.Now:HH:mm:ss}] 이벤트 전송 실패: {response.StatusCode}");
+            }
+        }
+        catch (Exception ex)
+        {
+            throw new Exception($"서버 통신 오류: {ex.Message}");
+        }
+    }
+}

@@ -1,0 +1,11 @@
+{
+  "version": 2,
+  "dgSpecHash": "E6qT92rOwDY=",
+  "success": true,
+  "projectFilePath": "D:\\outbound-management 250728 - 백업(여기로돌아오기) - 복사본\\d-care-console\\CTIBridge\\CTIBridge.csproj",
+  "expectedPackageFiles": [
+    "C:\\Users\\USER\\.nuget\\packages\\newtonsoft.json\\13.0.3\\newtonsoft.json.13.0.3.nupkg.sha512",
+    "C:\\Users\\USER\\.nuget\\packages\\system.text.encoding.codepages\\8.0.0\\system.text.encoding.codepages.8.0.0.nupkg.sha512"
+  ],
+  "logs": []
+}

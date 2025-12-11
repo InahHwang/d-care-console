@@ -143,7 +143,7 @@ export default function PatientManagement() {
     return { startDate, endDate };
   }, [selectedYear, selectedMonth]);
 
-  // React Query로 환자 데이터 관리 + 실시간 동기화
+  // 🔥 React Query로 환자 데이터 관리 - 중복 로딩 제거 및 캐시 최적화
   const {
     data: queryResult,
     isLoading: queryLoading,
@@ -160,27 +160,24 @@ export default function PatientManagement() {
           'Content-Type': 'application/json'
         }
       });
-      
+
       if (!response.ok) {
         throw new Error(`API 호출 실패: ${response.status}`);
       }
-      
+
       const result = await response.json();
       console.log('🚀 React Query: 환자 데이터 로딩 완료', result?.patients?.length || 0, '명');
-      
-      if (result.success && result.patients) {
-        setTimeout(() => {
-          dispatch(fetchPatients());
-        }, 0);
-      }
-      
+
+      // 🔥 Redux 동기화 제거 - React Query 캐시만 사용
+      // Redux는 선택된 환자 등 UI 상태만 관리
+
       return result;
     },
-    staleTime: 30 * 1000,
-    gcTime: 5 * 60 * 1000,
-    refetchOnWindowFocus: true,
-    refetchOnMount: true,
-    refetchInterval: isOptimisticEnabled ? 60 * 1000 : false,
+    staleTime: 2 * 60 * 1000,  // 🔥 2분으로 늘림 (기존 30초)
+    gcTime: 10 * 60 * 1000,    // 🔥 10분으로 늘림 (기존 5분)
+    refetchOnWindowFocus: false, // 🔥 탭 포커스시 자동 새로고침 비활성화
+    refetchOnMount: 'always',    // 컴포넌트 마운트시만 새로고침
+    refetchInterval: isOptimisticEnabled ? 5 * 60 * 1000 : false, // 🔥 5분 (기존 1분)
     refetchIntervalInBackground: false,
     enabled: true,
     retry: 1,

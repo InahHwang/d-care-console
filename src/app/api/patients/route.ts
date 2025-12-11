@@ -69,14 +69,50 @@ function normalizePatientResponse(patient: any) {
 export async function GET(request: NextRequest) {
   try {
     const { db } = await connectToDatabase();
-    
+
     console.log('🔍 API: 환자 목록 조회 시작');
-    
-    // 🔥 최신 등록순으로 정렬 (createdAt 내림차순)
+
+    // 🔥 성능 최적화: 필요한 필드만 조회 (Projection)
+    const projection = {
+      _id: 1,
+      id: 1,
+      patientId: 1,
+      name: 1,
+      phoneNumber: 1,
+      age: 1,
+      gender: 1,
+      status: 1,
+      consultationType: 1,
+      inboundPhoneNumber: 1,
+      referralSource: 1,
+      interestedServices: 1,
+      region: 1,
+      callInDate: 1,
+      reservationDate: 1,
+      visitConfirmed: 1,
+      postVisitStatus: 1,
+      isCompleted: 1,
+      isPostReservationPatient: 1,
+      hasBeenPostReservationPatient: 1,
+      callbackHistory: 1,
+      memo: 1,
+      notes: 1,
+      createdAt: 1,
+      updatedAt: 1,
+      createdBy: 1,
+      createdByName: 1,
+      lastModifiedBy: 1,
+      lastModifiedByName: 1,
+      lastModifiedAt: 1,
+      eventTargetInfo: 1,
+      postVisitConsultation: 1,
+    };
+
+    // 🔥 최신 등록순으로 정렬 (createdAt 내림차순) + Projection 적용
     const patients = await db
       .collection('patients')
-      .find({})
-      .sort({ createdAt: -1 }) // 🔥 최신순 정렬 추가
+      .find({}, { projection })
+      .sort({ createdAt: -1 })
       .toArray();
     
     console.log('🔍 API: 조회된 환자 수:', patients.length);

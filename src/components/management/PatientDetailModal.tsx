@@ -54,6 +54,14 @@ export default function PatientDetailModal() {
   const [isEditModalOpen, setIsEditModalOpen] = useState(false)
   const [isMessageSendModalOpen, setIsMessageSendModalOpen] = useState(false)
   const [isConsultationFormOpen, setIsConsultationFormOpen] = useState(false)
+
+  // 🔥 modalContext에 따라 기본 탭 설정 (CTI 전화 수신 시 내원관리 탭 자동 활성화)
+  useEffect(() => {
+    if (modalContext === 'visit-management' && selectedPatient?.visitConfirmed) {
+      console.log('[CTI] 내원관리 컨텍스트로 모달 오픈 - 내원관리 탭 활성화');
+      setActiveTab('내원관리');
+    }
+  }, [modalContext, selectedPatient?.visitConfirmed]);
   
   // 설정값
   const isOptimisticEnabled = true

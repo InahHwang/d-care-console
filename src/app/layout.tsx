@@ -4,6 +4,7 @@ import type { Metadata } from 'next';
 import { Inter } from 'next/font/google';
 import './globals.css';
 import { Providers } from '@/store/Providers';
+import FloatingCTIPanel from '@/components/management/FloatingCTIPanel'
 
 const inter = Inter({ subsets: ['latin'] });
 
@@ -22,6 +23,8 @@ export default function RootLayout({
       <body className={inter.className}>
         <Providers>
           {children}
+          {/* ★ 항상 마운트: 모든 페이지에서 CTI 패널 활성 (Providers 안에 위치해야 Redux 사용 가능) */}
+          <FloatingCTIPanel />
         </Providers>
       </body>
     </html>
