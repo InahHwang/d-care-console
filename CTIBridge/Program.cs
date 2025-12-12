@@ -68,6 +68,8 @@ namespace CTIBridge
         public const int IMS_SVC_ABS_NOTI           = 12;  // 부재중 알림
         public const int IMS_SVC_TERMCALL_START     = 10;  // 착신통화 시작 (수화기 들었을 때)
         public const int IMS_SVC_TERMCALL_END       = 11;  // 착신통화 종료
+        public const int IMS_SVC_CALL_STATUS        = 15;  // 🔥 통화 상태 변경 (실제 SK API 이벤트)
+        public const int EVT_CALL_STATUS_CHANGE     = 0x0304;  // 통화 상태 변경 이벤트 타입
 
         // ===== 설정 =====
         static string APP_KEY   = "zeQ4GBTe/n7Of6S0fd3egUfL4QDxsyc9fJWHwRTGUW4woKsHqFYINVBmFGEnCNyc";
@@ -389,6 +391,40 @@ namespace CTIBridge
 
                         // 통화기록 API로 부재중 이벤트 전송
                         _ = SendCallLogEvent("missed", evt.Dn1, evt.Dn2, evt.ExtInfo);
+                    }
+                }
+                // 🔥 Svc=15 통화 상태 변경 이벤트 (실제 SK API에서 사용)
+                else if (evt.Service == IMS_SVC_CALL_STATUS && evt.EvtType == EVT_CALL_STATUS_CHANGE)
+                {
+                    // ExtInfo에 "called", "released" 등의 상태가 담겨있음
+                    string extLower = (evt.ExtInfo ?? "").ToLower();
+
+                    // DN1=수신번호(병원), DN2=발신번호(고객) 순서가 뒤바뀌어 있음
+                    string callerNum = evt.Dn2;  // 실제 발신자 번호
+                    string calledNum = evt.Dn1;  // 실제 수신 번호 (병원)
+
+                    if (extLower.Contains("called") || extLower.Contains("answer") || extLower.Contains("connect"))
+                    {
+                        // 통화 연결됨 (수화기 들었을 때)
+                        Console.WriteLine();
+                        Console.WriteLine($"[{DateTime.Now:HH:mm:ss}] 📱 통화 연결: {callerNum}");
+                        Console.WriteLine($"  → ExtInfo: {evt.ExtInfo}");
+
+                        _ = SendCallLogEvent("start", callerNum, calledNum, evt.ExtInfo);
+                    }
+                    else if (extLower.Contains("release") || extLower.Contains("disconnect") || extLower.Contains("end") || extLower.Contains("bye"))
+                    {
+                        // 통화 종료됨
+                        Console.WriteLine();
+                        Console.WriteLine($"[{DateTime.Now:HH:mm:ss}] 📴 통화 종료: {callerNum}");
+                        Console.WriteLine($"  → ExtInfo: {evt.ExtInfo}");
+
+                        _ = SendCallLogEvent("end", callerNum, calledNum, evt.ExtInfo);
+                    }
+                    else
+                    {
+                        // 기타 상태 변경 (로그만 출력)
+                        Console.WriteLine($"  → 통화 상태: {evt.ExtInfo} (발신:{callerNum}, 수신:{calledNum})");
                     }
                 }
             }

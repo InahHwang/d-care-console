@@ -1,0 +1,6 @@
+D:\outbound-management 250728 - 백업(여기로돌아오기) - 복사본\d-care-console\CTIBridge\publish\CTIBridge.exe
+D:\outbound-management 250728 - 백업(여기로돌아오기) - 복사본\d-care-console\CTIBridge\publish\CTIBridge.dll
+D:\outbound-management 250728 - 백업(여기로돌아오기) - 복사본\d-care-console\CTIBridge\publish\CTIBridge.deps.json
+D:\outbound-management 250728 - 백업(여기로돌아오기) - 복사본\d-care-console\CTIBridge\publish\CTIBridge.runtimeconfig.json
+D:\outbound-management 250728 - 백업(여기로돌아오기) - 복사본\d-care-console\CTIBridge\publish\CTIBridge.pdb
+D:\outbound-management 250728 - 백업(여기로돌아오기) - 복사본\d-care-console\CTIBridge\publish\Newtonsoft.Json.dll
