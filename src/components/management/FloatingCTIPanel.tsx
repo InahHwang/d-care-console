@@ -3,12 +3,25 @@
 
 'use client';
 
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect, useRef, useCallback } from 'react';
 import { useDispatch } from 'react-redux';
 import { AppDispatch } from '@/store';
 import { selectPatientWithContext } from '@/store/slices/patientsSlice';
 import { openPatientFormWithPhone } from '@/store/slices/uiSlice';
 import { useCTI, CTIEvent } from '@/hooks/useCTI';
+
+// 통화기록 타입
+interface CallLogRecord {
+  _id: string;
+  callId: string;
+  callerNumber: string;
+  calledNumber: string;
+  callStatus: 'ringing' | 'answered' | 'missed' | 'ended';
+  ringTime: string;
+  isMissed: boolean;
+  patientId?: string;
+  patientName?: string;
+}
 
 export const FloatingCTIPanel: React.FC = () => {
   const dispatch = useDispatch<AppDispatch>();
@@ -21,6 +34,42 @@ export const FloatingCTIPanel: React.FC = () => {
     error,
     clearCurrentCall,
   } = useCTI();
+
+  // 🔥 DB에서 불러온 최근 통화기록
+  const [recentCallLogs, setRecentCallLogs] = useState<CallLogRecord[]>([]);
+  const [loadingLogs, setLoadingLogs] = useState(false);
+
+  // 🔥 최근 통화기록 불러오기
+  const fetchRecentCallLogs = useCallback(async () => {
+    try {
+      setLoadingLogs(true);
+      const response = await fetch('/api/call-logs?limit=20');
+      const data = await response.json();
+      if (data.success) {
+        setRecentCallLogs(data.data);
+      }
+    } catch (err) {
+      console.error('[CTI] 통화기록 조회 실패:', err);
+    } finally {
+      setLoadingLogs(false);
+    }
+  }, []);
+
+  // 🔥 컴포넌트 마운트 시 통화기록 불러오기
+  useEffect(() => {
+    fetchRecentCallLogs();
+  }, [fetchRecentCallLogs]);
+
+  // 🔥 새 전화가 오면 통화기록 갱신
+  useEffect(() => {
+    if (currentCall) {
+      // 3초 후에 통화기록 갱신 (DB 저장 후)
+      const timer = setTimeout(() => {
+        fetchRecentCallLogs();
+      }, 3000);
+      return () => clearTimeout(timer);
+    }
+  }, [currentCall, fetchRecentCallLogs]);
 
   // 🔥 기본 상태: 패널이 닫혀 있고, 작은 버튼만 보임
   const [isPanelOpen, setIsPanelOpen] = useState(false);
@@ -228,15 +277,24 @@ export const FloatingCTIPanel: React.FC = () => {
 
         {/* 패널 내용 - 항상 표시 */}
         <div className="p-3 space-y-3">
-          {/* Recent Events */}
+          {/* 🔥 최근 통화기록 (DB에서 불러옴) */}
           <div>
-            <h4 className="text-xs font-semibold text-gray-700 mb-2">
-              최근 이벤트 ({events.length}건)
-            </h4>
-            <div className="space-y-1 max-h-40 overflow-y-auto">
-              {events.slice(0, 5).map((event: CTIEvent) => (
+            <div className="flex items-center justify-between mb-2">
+              <h4 className="text-xs font-semibold text-gray-700">
+                최근 통화기록 ({recentCallLogs.length}건)
+              </h4>
+              <button
+                onClick={fetchRecentCallLogs}
+                disabled={loadingLogs}
+                className="text-xs text-blue-600 hover:text-blue-800 disabled:text-gray-400"
+              >
+                {loadingLogs ? '로딩...' : '새로고침'}
+              </button>
+            </div>
+            <div className="space-y-1 max-h-60 overflow-y-auto">
+              {recentCallLogs.map((log) => (
                 <div
-                  key={event.id}
+                  key={log._id}
                   className="bg-gray-50 rounded p-2"
                 >
                   <div className="flex justify-between items-start">
@@ -244,47 +302,51 @@ export const FloatingCTIPanel: React.FC = () => {
                       <div className="flex items-center space-x-2">
                         <span
                           className={`text-xs px-2 py-0.5 rounded ${
-                            event.eventType === 'INCOMING_CALL'
-                              ? 'bg-blue-100 text-blue-700'
-                              : event.eventType === 'MISSED_CALL'
+                            log.isMissed
                               ? 'bg-red-100 text-red-700'
-                              : event.eventType === 'CALL_ENDED'
-                              ? 'bg-gray-100 text-gray-700'
-                              : 'bg-green-100 text-green-700'
+                              : log.callStatus === 'ended'
+                              ? 'bg-green-100 text-green-700'
+                              : log.callStatus === 'answered'
+                              ? 'bg-blue-100 text-blue-700'
+                              : 'bg-yellow-100 text-yellow-700'
                           }`}
                         >
-                          {event.eventType === 'INCOMING_CALL'
-                            ? '수신'
-                            : event.eventType === 'MISSED_CALL'
+                          {log.isMissed
                             ? '부재중'
-                            : event.eventType === 'CALL_ENDED'
-                            ? '종료'
-                            : '응답'}
+                            : log.callStatus === 'ended'
+                            ? '통화완료'
+                            : log.callStatus === 'answered'
+                            ? '통화중'
+                            : '수신'}
                         </span>
-                        {event.patient && (
+                        {log.patientName ? (
                           <span className="text-xs px-2 py-0.5 rounded bg-green-100 text-green-700">
-                            {event.patient.name}
+                            {log.patientName}
                           </span>
-                        )}
-                        {event.isNewCustomer && (
-                          <span className="text-xs px-2 py-0.5 rounded bg-yellow-100 text-yellow-700">
-                            신규
+                        ) : (
+                          <span className="text-xs px-2 py-0.5 rounded bg-gray-100 text-gray-600">
+                            미등록
                           </span>
                         )}
                       </div>
                       <p className="text-xs text-gray-800 font-medium mt-1">
-                        {formatPhoneNumber(event.callerNumber)}
+                        {formatPhoneNumber(log.callerNumber)}
                       </p>
                     </div>
                     <span className="text-xs text-gray-500">
-                      {formatTime(event.timestamp)}
+                      {formatTime(log.ringTime)}
                     </span>
                   </div>
                 </div>
               ))}
-              {events.length === 0 && (
+              {recentCallLogs.length === 0 && !loadingLogs && (
                 <p className="text-xs text-gray-500 text-center py-2">
-                  이벤트가 없습니다
+                  통화기록이 없습니다
+                </p>
+              )}
+              {loadingLogs && (
+                <p className="text-xs text-gray-500 text-center py-2">
+                  로딩 중...
                 </p>
               )}
             </div>
@@ -301,7 +363,7 @@ export const FloatingCTIPanel: React.FC = () => {
                   ? '연결됨'
                   : '연결 안됨'}
               </span>
-              <span className="text-gray-500">SSE 방식</span>
+              <span className="text-gray-500">Pusher</span>
             </div>
           </div>
         </div>
