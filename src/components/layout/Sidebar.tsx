@@ -128,26 +128,33 @@ export default function Sidebar() {
           href="/management"
         />
         {/* 🔥 내원 관리 메뉴 - 수정된 활성화 로직 적용 */}
-        <SidebarItem 
-          icon={HiOutlineClipboardCheck} 
-          text="내원 관리" 
-          isActive={getIsActive('/visit-management', '내원 관리')} 
+        <SidebarItem
+          icon={HiOutlineClipboardCheck}
+          text="내원 관리"
+          isActive={getIsActive('/visit-management', '내원 관리')}
           href="/visit-management"
           badge={visitManagementBadge}
         />
+        {/* 🆕 사후관리 메뉴 - 내원관리 바로 밑 */}
+        <SidebarItem
+          icon={HiOutlineHeart}
+          text="사후관리"
+          isActive={getIsActive('/follow-up', '사후관리')}
+          href="/follow-up"
+        />
         {/* 🆕 이벤트타겟관리 메뉴 추가 */}
-        <SidebarItem 
-          icon={HiOutlineVolumeUp} 
-          text="이벤트 타겟 관리" 
-          isActive={getIsActive('/event-target-management', '이벤트타겟관리')} 
+        <SidebarItem
+          icon={HiOutlineVolumeUp}
+          text="이벤트 타겟 관리"
+          isActive={getIsActive('/event-target-management', '이벤트타겟관리')}
           href="/event-target-management"
         />
 
        {/* 임시 비활성화
-       <SidebarItem 
-          icon={HiOutlineChartBar} 
-          text="통계 분석" 
-          isActive={getIsActive('/statistics', '통계 분석')} 
+       <SidebarItem
+          icon={HiOutlineChartBar}
+          text="통계 분석"
+          isActive={getIsActive('/statistics', '통계 분석')}
           href="/statistics"
         />
         */}
@@ -163,13 +170,6 @@ export default function Sidebar() {
           text="통화기록"
           isActive={getIsActive('/call-logs', '통화기록')}
           href="/call-logs"
-        />
-        {/* 🆕 사후관리 메뉴 추가 */}
-        <SidebarItem
-          icon={HiOutlineHeart}
-          text="사후관리"
-          isActive={getIsActive('/follow-up', '사후관리')}
-          href="/follow-up"
         />
         {/* 임시 비활성화
         <SidebarItem 

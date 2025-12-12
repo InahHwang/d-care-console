@@ -25,6 +25,12 @@ import {
   BarChart3,
   Users,
   ChevronRight,
+  FileText,
+  Settings,
+  X,
+  Edit,
+  Trash2,
+  Save,
 } from 'lucide-react';
 
 // 타입 정의
@@ -80,6 +86,23 @@ interface Stats {
   typeStats: Record<string, number>;
 }
 
+// 템플릿 인터페이스
+interface MessageTemplate {
+  id: string;
+  type: FollowUpType;
+  name: string;
+  content: string;
+  isActive: boolean;
+}
+
+// 발송 규칙 인터페이스
+interface SendRule {
+  type: FollowUpType;
+  enabled: boolean;
+  autoSend: boolean;
+  sendTime: string; // HH:mm 형식
+}
+
 // 사후관리 타입 라벨
 const followUpTypeLabels: Record<FollowUpType, string> = {
   day1: 'D+1',
@@ -133,6 +156,8 @@ export default function FollowUpPage() {
   // 모달 상태
   const [showCreateModal, setShowCreateModal] = useState(false);
   const [selectedPatient, setSelectedPatient] = useState<Patient | null>(null);
+  const [showTemplateModal, setShowTemplateModal] = useState(false);
+  const [showRuleModal, setShowRuleModal] = useState(false);
 
   useEffect(() => {
     dispatch(setCurrentMenuItem('사후관리'));
@@ -328,13 +353,29 @@ export default function FollowUpPage() {
           {/* 헤더 */}
           <div className="flex items-center justify-between">
             <h1 className="text-2xl font-bold text-gray-900">사후관리</h1>
-            <button
-              onClick={handleRefresh}
-              className="flex items-center gap-2 px-4 py-2 text-gray-600 bg-white border border-gray-300 rounded-lg hover:bg-gray-50 transition-colors"
-            >
-              <RefreshCw className={`w-4 h-4 ${loading ? 'animate-spin' : ''}`} />
-              <span>새로고침</span>
-            </button>
+            <div className="flex items-center gap-2">
+              <button
+                onClick={() => setShowTemplateModal(true)}
+                className="flex items-center gap-2 px-4 py-2 text-gray-600 bg-white border border-gray-300 rounded-lg hover:bg-gray-50 transition-colors"
+              >
+                <FileText className="w-4 h-4" />
+                <span>템플릿 관리</span>
+              </button>
+              <button
+                onClick={() => setShowRuleModal(true)}
+                className="flex items-center gap-2 px-4 py-2 text-gray-600 bg-white border border-gray-300 rounded-lg hover:bg-gray-50 transition-colors"
+              >
+                <Settings className="w-4 h-4" />
+                <span>발송 규칙</span>
+              </button>
+              <button
+                onClick={handleRefresh}
+                className="flex items-center gap-2 px-4 py-2 text-gray-600 bg-white border border-gray-300 rounded-lg hover:bg-gray-50 transition-colors"
+              >
+                <RefreshCw className={`w-4 h-4 ${loading ? 'animate-spin' : ''}`} />
+                <span>새로고침</span>
+              </button>
+            </div>
           </div>
 
           {/* 탭 */}
@@ -809,6 +850,16 @@ export default function FollowUpPage() {
             onCreate={handleCreateFollowUp}
           />
         )}
+
+        {/* 템플릿 관리 모달 */}
+        {showTemplateModal && (
+          <TemplateManagementModal onClose={() => setShowTemplateModal(false)} />
+        )}
+
+        {/* 발송 규칙 설정 모달 */}
+        {showRuleModal && (
+          <SendRuleModal onClose={() => setShowRuleModal(false)} />
+        )}
       </AppLayout>
     </AuthGuard>
   );
@@ -906,6 +957,251 @@ function CreateFollowUpModal({
             className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
           >
             등록
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+// 템플릿 관리 모달 컴포넌트
+function TemplateManagementModal({ onClose }: { onClose: () => void }) {
+  const [templates, setTemplates] = useState<MessageTemplate[]>([
+    { id: '1', type: 'day1', name: 'D+1 기본 템플릿', content: '[{병원명}] {환자명}님, 어제 내원해주셔서 감사합니다. 불편하신 점 있으시면 언제든 연락주세요. ({병원전화})', isActive: true },
+    { id: '2', type: 'day3', name: 'D+3 기본 템플릿', content: '[{병원명}] {환자명}님, 진료 후 경과는 어떠신가요? 궁금하신 점 있으시면 문의주세요. ({병원전화})', isActive: true },
+    { id: '3', type: 'week1', name: '1주 기본 템플릿', content: '[{병원명}] {환자명}님, 진료 받으신지 일주일이 되었습니다. 경과가 좋으시길 바랍니다. 추가 상담이 필요하시면 연락주세요.', isActive: true },
+    { id: '4', type: 'week2', name: '2주 기본 템플릿', content: '[{병원명}] {환자명}님, 진료 후 2주가 되었습니다. 정기 검진이 필요하시면 예약해주세요. ({병원전화})', isActive: false },
+    { id: '5', type: 'month1', name: '1개월 기본 템플릿', content: '[{병원명}] {환자명}님, 한 달 전 내원해주셨습니다. 정기 검진 예약을 원하시면 연락주세요. ({병원전화})', isActive: true },
+    { id: '6', type: 'month3', name: '3개월 기본 템플릿', content: '[{병원명}] {환자명}님, 정기 검진 시기입니다. 건강한 치아 관리를 위해 내원해주세요. ({병원전화})', isActive: true },
+  ]);
+  const [editingId, setEditingId] = useState<string | null>(null);
+  const [editContent, setEditContent] = useState('');
+
+  const handleEdit = (template: MessageTemplate) => {
+    setEditingId(template.id);
+    setEditContent(template.content);
+  };
+
+  const handleSave = (id: string) => {
+    setTemplates(prev => prev.map(t =>
+      t.id === id ? { ...t, content: editContent } : t
+    ));
+    setEditingId(null);
+    setEditContent('');
+  };
+
+  const handleToggleActive = (id: string) => {
+    setTemplates(prev => prev.map(t =>
+      t.id === id ? { ...t, isActive: !t.isActive } : t
+    ));
+  };
+
+  return (
+    <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+      <div className="bg-white rounded-lg shadow-xl w-full max-w-3xl mx-4 max-h-[90vh] flex flex-col">
+        <div className="p-4 border-b flex items-center justify-between">
+          <h3 className="text-lg font-semibold text-gray-900">템플릿 관리</h3>
+          <button onClick={onClose} className="p-1 hover:bg-gray-100 rounded">
+            <X className="w-5 h-5 text-gray-500" />
+          </button>
+        </div>
+
+        <div className="p-4 overflow-y-auto flex-1">
+          <div className="mb-4 p-3 bg-blue-50 rounded-lg">
+            <p className="text-sm text-blue-700">
+              <strong>사용 가능한 변수:</strong> {'{환자명}'}, {'{병원명}'}, {'{병원전화}'}, {'{내원일}'}, {'{진료내용}'}
+            </p>
+          </div>
+
+          <div className="space-y-4">
+            {templates.map(template => (
+              <div key={template.id} className="border rounded-lg p-4">
+                <div className="flex items-center justify-between mb-2">
+                  <div className="flex items-center gap-3">
+                    <span className="px-2 py-1 text-xs font-medium bg-purple-100 text-purple-700 rounded-full">
+                      {followUpTypeLabels[template.type]}
+                    </span>
+                    <span className="font-medium text-gray-900">{template.name}</span>
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <label className="flex items-center gap-2 cursor-pointer">
+                      <input
+                        type="checkbox"
+                        checked={template.isActive}
+                        onChange={() => handleToggleActive(template.id)}
+                        className="w-4 h-4 text-blue-600 rounded focus:ring-blue-500"
+                      />
+                      <span className="text-sm text-gray-600">활성화</span>
+                    </label>
+                    {editingId === template.id ? (
+                      <button
+                        onClick={() => handleSave(template.id)}
+                        className="p-1.5 text-green-600 hover:bg-green-50 rounded"
+                      >
+                        <Save className="w-4 h-4" />
+                      </button>
+                    ) : (
+                      <button
+                        onClick={() => handleEdit(template)}
+                        className="p-1.5 text-blue-600 hover:bg-blue-50 rounded"
+                      >
+                        <Edit className="w-4 h-4" />
+                      </button>
+                    )}
+                  </div>
+                </div>
+                {editingId === template.id ? (
+                  <textarea
+                    value={editContent}
+                    onChange={(e) => setEditContent(e.target.value)}
+                    className="w-full p-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 text-sm"
+                    rows={3}
+                  />
+                ) : (
+                  <p className="text-sm text-gray-600 bg-gray-50 p-3 rounded-lg">
+                    {template.content}
+                  </p>
+                )}
+              </div>
+            ))}
+          </div>
+        </div>
+
+        <div className="p-4 border-t flex justify-end">
+          <button
+            onClick={onClose}
+            className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors"
+          >
+            확인
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+// 발송 규칙 설정 모달 컴포넌트
+function SendRuleModal({ onClose }: { onClose: () => void }) {
+  const [rules, setRules] = useState<SendRule[]>([
+    { type: 'day1', enabled: true, autoSend: false, sendTime: '10:00' },
+    { type: 'day3', enabled: true, autoSend: false, sendTime: '10:00' },
+    { type: 'week1', enabled: true, autoSend: false, sendTime: '10:00' },
+    { type: 'week2', enabled: false, autoSend: false, sendTime: '10:00' },
+    { type: 'month1', enabled: true, autoSend: false, sendTime: '10:00' },
+    { type: 'month3', enabled: true, autoSend: false, sendTime: '10:00' },
+  ]);
+
+  const handleToggle = (type: FollowUpType, field: 'enabled' | 'autoSend') => {
+    setRules(prev => prev.map(r =>
+      r.type === type ? { ...r, [field]: !r[field] } : r
+    ));
+  };
+
+  const handleTimeChange = (type: FollowUpType, time: string) => {
+    setRules(prev => prev.map(r =>
+      r.type === type ? { ...r, sendTime: time } : r
+    ));
+  };
+
+  const handleSave = () => {
+    // TODO: API 호출하여 규칙 저장
+    alert('발송 규칙이 저장되었습니다.');
+    onClose();
+  };
+
+  return (
+    <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+      <div className="bg-white rounded-lg shadow-xl w-full max-w-2xl mx-4 max-h-[90vh] flex flex-col">
+        <div className="p-4 border-b flex items-center justify-between">
+          <h3 className="text-lg font-semibold text-gray-900">발송 규칙 설정</h3>
+          <button onClick={onClose} className="p-1 hover:bg-gray-100 rounded">
+            <X className="w-5 h-5 text-gray-500" />
+          </button>
+        </div>
+
+        <div className="p-4 overflow-y-auto flex-1">
+          <div className="mb-4 p-3 bg-yellow-50 rounded-lg">
+            <p className="text-sm text-yellow-700">
+              <strong>자동 발송:</strong> 활성화 시 지정된 시간에 자동으로 메시지가 발송됩니다. 비활성화 시 수동 발송이 필요합니다.
+            </p>
+          </div>
+
+          <div className="space-y-3">
+            <div className="grid grid-cols-4 gap-4 px-4 py-2 bg-gray-100 rounded-lg text-sm font-medium text-gray-600">
+              <span>타입</span>
+              <span className="text-center">사용</span>
+              <span className="text-center">자동 발송</span>
+              <span className="text-center">발송 시간</span>
+            </div>
+
+            {rules.map(rule => (
+              <div key={rule.type} className="grid grid-cols-4 gap-4 items-center px-4 py-3 border rounded-lg">
+                <div className="flex items-center gap-2">
+                  <span className="px-2 py-1 text-xs font-medium bg-purple-100 text-purple-700 rounded-full">
+                    {followUpTypeLabels[rule.type]}
+                  </span>
+                </div>
+                <div className="flex justify-center">
+                  <label className="relative inline-flex items-center cursor-pointer">
+                    <input
+                      type="checkbox"
+                      checked={rule.enabled}
+                      onChange={() => handleToggle(rule.type, 'enabled')}
+                      className="sr-only peer"
+                    />
+                    <div className="w-11 h-6 bg-gray-200 peer-focus:outline-none peer-focus:ring-4 peer-focus:ring-blue-300 rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-blue-600"></div>
+                  </label>
+                </div>
+                <div className="flex justify-center">
+                  <label className="relative inline-flex items-center cursor-pointer">
+                    <input
+                      type="checkbox"
+                      checked={rule.autoSend}
+                      onChange={() => handleToggle(rule.type, 'autoSend')}
+                      disabled={!rule.enabled}
+                      className="sr-only peer"
+                    />
+                    <div className={`w-11 h-6 ${!rule.enabled ? 'bg-gray-100' : 'bg-gray-200'} peer-focus:outline-none peer-focus:ring-4 peer-focus:ring-green-300 rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-green-600 peer-disabled:cursor-not-allowed`}></div>
+                  </label>
+                </div>
+                <div className="flex justify-center">
+                  <input
+                    type="time"
+                    value={rule.sendTime}
+                    onChange={(e) => handleTimeChange(rule.type, e.target.value)}
+                    disabled={!rule.enabled || !rule.autoSend}
+                    className="px-2 py-1 border border-gray-300 rounded text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 disabled:bg-gray-100 disabled:cursor-not-allowed"
+                  />
+                </div>
+              </div>
+            ))}
+          </div>
+
+          <div className="mt-6 p-4 bg-gray-50 rounded-lg">
+            <h4 className="font-medium text-gray-900 mb-2">발송 규칙 설명</h4>
+            <ul className="text-sm text-gray-600 space-y-1">
+              <li>• <strong>D+1:</strong> 내원 다음 날 발송</li>
+              <li>• <strong>D+3:</strong> 내원 3일 후 발송</li>
+              <li>• <strong>1주차:</strong> 내원 7일 후 발송</li>
+              <li>• <strong>2주차:</strong> 내원 14일 후 발송</li>
+              <li>• <strong>1개월:</strong> 내원 30일 후 발송</li>
+              <li>• <strong>3개월:</strong> 내원 90일 후 발송</li>
+            </ul>
+          </div>
+        </div>
+
+        <div className="p-4 border-t flex justify-end gap-2">
+          <button
+            onClick={onClose}
+            className="px-4 py-2 text-gray-600 border border-gray-300 rounded-lg hover:bg-gray-50 transition-colors"
+          >
+            취소
+          </button>
+          <button
+            onClick={handleSave}
+            className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors"
+          >
+            저장
           </button>
         </div>
       </div>
