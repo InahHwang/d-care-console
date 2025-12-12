@@ -8,7 +8,9 @@
       "Bash(npx tsc:*)",
       "Bash(curl:*)",
       "Bash(git commit -m \"$(cat <<''EOF''\nCTIBridge 빌드 파일 업데이트\n\n🤖 Generated with [Claude Code](https://claude.com/claude-code)\n\nCo-Authored-By: Claude Opus 4.5 <noreply@anthropic.com>\nEOF\n)\")",
-      "Bash(git push:*)"
+      "Bash(git push:*)",
+      "Bash(git commit -m \"$(cat <<''EOF''\n사후관리 메뉴 및 페이지 추가\n\n- 사후관리 API 라우트 생성 (/api/follow-up)\n  - 통계 조회, 목록 조회, 발송 이력 조회\n  - 사후관리 등록 (단건/일괄), 발송, 수정, 삭제\n- 사후관리 페이지 생성 (/follow-up)\n  - 대시보드 탭: 통계 카드, 타입별 현황, 발송 대기 목록\n  - 환자 관리 탭: 내원완료 환자 목록, 사후관리 등록\n  - 발송 이력 탭: 발송 기록 조회\n- 사이드바에 사후관리 메뉴 추가\n\n🤖 Generated with [Claude Code](https://claude.com/claude-code)\n\nCo-Authored-By: Claude Opus 4.5 <noreply@anthropic.com>\nEOF\n)\")",
+      "Bash(git commit:*)"
     ]
   }
 }

@@ -112,7 +112,8 @@ export default function FollowUpPage() {
     totalFailed: 0,
     typeStats: {}
   });
-  const [pendingFollowUps, setPendingFollowUps] = useState<FollowUpRecord[]>([]);
+  const [todayFollowUps, setTodayFollowUps] = useState<FollowUpRecord[]>([]);
+  const [recentSentFollowUps, setRecentSentFollowUps] = useState<FollowUpHistory[]>([]);
 
   // 환자 관리 상태
   const [patients, setPatients] = useState<Patient[]>([]);
@@ -150,16 +151,30 @@ export default function FollowUpPage() {
     }
   }, []);
 
-  // 대기 중인 사후관리 조회
-  const fetchPendingFollowUps = useCallback(async () => {
+  // 오늘 발송 예정 조회
+  const fetchTodayFollowUps = useCallback(async () => {
     try {
-      const response = await fetch('/api/follow-up?status=pending&limit=10');
+      const today = new Date().toISOString().split('T')[0];
+      const response = await fetch(`/api/follow-up?status=pending&startDate=${today}&endDate=${today}&limit=20`);
       const data = await response.json();
       if (data.success) {
-        setPendingFollowUps(data.data);
+        setTodayFollowUps(data.data);
       }
     } catch (error) {
-      console.error('대기 목록 조회 실패:', error);
+      console.error('오늘 발송 예정 조회 실패:', error);
+    }
+  }, []);
+
+  // 최근 발송 현황 조회
+  const fetchRecentSentFollowUps = useCallback(async () => {
+    try {
+      const response = await fetch('/api/follow-up?type=history&limit=10');
+      const data = await response.json();
+      if (data.success) {
+        setRecentSentFollowUps(data.data);
+      }
+    } catch (error) {
+      console.error('최근 발송 현황 조회 실패:', error);
     }
   }, []);
 
@@ -225,13 +240,14 @@ export default function FollowUpPage() {
   useEffect(() => {
     if (activeTab === 'dashboard') {
       fetchStats();
-      fetchPendingFollowUps();
+      fetchTodayFollowUps();
+      fetchRecentSentFollowUps();
     } else if (activeTab === 'patients') {
       fetchPatients();
     } else if (activeTab === 'history') {
       fetchHistory();
     }
-  }, [activeTab, fetchStats, fetchPendingFollowUps, fetchPatients, fetchHistory]);
+  }, [activeTab, fetchStats, fetchTodayFollowUps, fetchRecentSentFollowUps, fetchPatients, fetchHistory]);
 
   // 사후관리 발송
   const handleSend = async (followUpId: string) => {
@@ -247,7 +263,8 @@ export default function FollowUpPage() {
       if (data.success) {
         alert('발송 완료되었습니다.');
         fetchStats();
-        fetchPendingFollowUps();
+        fetchTodayFollowUps();
+        fetchRecentSentFollowUps();
       } else {
         alert('발송 실패: ' + data.error);
       }
@@ -295,7 +312,8 @@ export default function FollowUpPage() {
   const handleRefresh = () => {
     if (activeTab === 'dashboard') {
       fetchStats();
-      fetchPendingFollowUps();
+      fetchTodayFollowUps();
+      fetchRecentSentFollowUps();
     } else if (activeTab === 'patients') {
       fetchPatients();
     } else if (activeTab === 'history') {
@@ -395,67 +413,93 @@ export default function FollowUpPage() {
                 </div>
               </div>
 
-              {/* 타입별 현황 */}
-              <div className="bg-white rounded-lg shadow-sm border p-4">
-                <h3 className="text-lg font-semibold text-gray-900 mb-4">타입별 대기 현황</h3>
-                <div className="grid grid-cols-2 md:grid-cols-6 gap-3">
-                  {Object.entries(followUpTypeLabels).map(([type, label]) => (
-                    <div key={type} className="bg-gray-50 rounded-lg p-3 text-center">
-                      <p className="text-xs text-gray-500 mb-1">{label}</p>
-                      <p className="text-xl font-bold text-gray-900">
-                        {stats.typeStats[type] || 0}
-                      </p>
-                    </div>
-                  ))}
-                </div>
-              </div>
-
-              {/* 발송 예정 목록 */}
-              <div className="bg-white rounded-lg shadow-sm border overflow-hidden">
-                <div className="p-4 border-b bg-gray-50">
-                  <h3 className="text-lg font-semibold text-gray-900">발송 대기 목록</h3>
-                </div>
-                <div className="divide-y">
-                  {pendingFollowUps.length === 0 ? (
-                    <div className="p-8 text-center text-gray-500">
-                      <MessageSquare className="w-12 h-12 mx-auto mb-4 text-gray-300" />
-                      <p>발송 대기 중인 사후관리가 없습니다</p>
-                    </div>
-                  ) : (
-                    pendingFollowUps.map(followUp => (
-                      <div key={followUp._id} className="p-4 hover:bg-gray-50 transition-colors">
-                        <div className="flex items-center justify-between">
-                          <div className="flex items-center gap-4">
-                            <div className="p-2 bg-blue-100 rounded-lg">
-                              <User className="w-5 h-5 text-blue-600" />
-                            </div>
-                            <div>
-                              <p className="font-medium text-gray-900">{followUp.patientName}</p>
-                              <p className="text-sm text-gray-500">{followUp.phoneNumber}</p>
-                            </div>
-                            <span className="px-2 py-1 text-xs font-medium bg-purple-100 text-purple-700 rounded-full">
-                              {followUpTypeLabels[followUp.followUpType]}
-                            </span>
-                          </div>
-                          <div className="flex items-center gap-4">
-                            <div className="text-right">
-                              <p className="text-sm text-gray-500">발송 예정일</p>
-                              <p className="font-medium text-gray-900">
-                                {format(new Date(followUp.scheduledDate), 'MM/dd (EEE)', { locale: ko })}
-                              </p>
+              {/* 오늘 발송 예정 + 최근 발송 현황 */}
+              <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+                {/* 오늘 발송 예정 */}
+                <div className="bg-white rounded-lg shadow-sm border overflow-hidden">
+                  <div className="p-4 border-b bg-gray-50">
+                    <h3 className="text-lg font-semibold text-gray-900">오늘 발송 예정</h3>
+                  </div>
+                  <div className="divide-y max-h-96 overflow-y-auto">
+                    {todayFollowUps.length === 0 ? (
+                      <div className="p-8 text-center text-gray-500">
+                        <Calendar className="w-12 h-12 mx-auto mb-4 text-gray-300" />
+                        <p>오늘 발송 예정인 사후관리가 없습니다</p>
+                      </div>
+                    ) : (
+                      todayFollowUps.map(followUp => (
+                        <div key={followUp._id} className="p-4 hover:bg-gray-50 transition-colors">
+                          <div className="flex items-center justify-between">
+                            <div className="flex items-center gap-3">
+                              <div className="p-2 bg-blue-100 rounded-lg">
+                                <User className="w-4 h-4 text-blue-600" />
+                              </div>
+                              <div>
+                                <p className="font-medium text-gray-900">{followUp.patientName}</p>
+                                <p className="text-sm text-gray-500">{followUp.phoneNumber}</p>
+                              </div>
+                              <span className="px-2 py-1 text-xs font-medium bg-purple-100 text-purple-700 rounded-full">
+                                {followUpTypeLabels[followUp.followUpType]}
+                              </span>
                             </div>
                             <button
                               onClick={() => handleSend(followUp._id)}
-                              className="flex items-center gap-2 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors"
+                              className="flex items-center gap-1 px-3 py-1.5 bg-blue-600 text-white text-sm rounded-lg hover:bg-blue-700 transition-colors"
                             >
-                              <Send className="w-4 h-4" />
+                              <Send className="w-3 h-3" />
                               <span>발송</span>
                             </button>
                           </div>
                         </div>
+                      ))
+                    )}
+                  </div>
+                </div>
+
+                {/* 최근 발송 현황 */}
+                <div className="bg-white rounded-lg shadow-sm border overflow-hidden">
+                  <div className="p-4 border-b bg-gray-50">
+                    <h3 className="text-lg font-semibold text-gray-900">최근 발송 현황</h3>
+                  </div>
+                  <div className="divide-y max-h-96 overflow-y-auto">
+                    {recentSentFollowUps.length === 0 ? (
+                      <div className="p-8 text-center text-gray-500">
+                        <History className="w-12 h-12 mx-auto mb-4 text-gray-300" />
+                        <p>최근 발송 이력이 없습니다</p>
                       </div>
-                    ))
-                  )}
+                    ) : (
+                      recentSentFollowUps.map(item => (
+                        <div key={item._id} className="p-4 hover:bg-gray-50 transition-colors">
+                          <div className="flex items-center justify-between">
+                            <div className="flex items-center gap-3">
+                              <div className={`p-2 rounded-lg ${item.status === 'success' ? 'bg-green-100' : 'bg-red-100'}`}>
+                                {item.status === 'success' ? (
+                                  <CheckCircle className="w-4 h-4 text-green-600" />
+                                ) : (
+                                  <XCircle className="w-4 h-4 text-red-600" />
+                                )}
+                              </div>
+                              <div>
+                                <p className="font-medium text-gray-900">{item.patientName}</p>
+                                <p className="text-sm text-gray-500">{item.phoneNumber}</p>
+                              </div>
+                              <span className="px-2 py-1 text-xs font-medium bg-purple-100 text-purple-700 rounded-full">
+                                {followUpTypeLabels[item.followUpType]}
+                              </span>
+                            </div>
+                            <div className="text-right">
+                              <p className={`text-sm font-medium ${item.status === 'success' ? 'text-green-600' : 'text-red-600'}`}>
+                                {item.status === 'success' ? '발송완료' : '발송실패'}
+                              </p>
+                              <p className="text-xs text-gray-500">
+                                {format(new Date(item.sentAt), 'MM/dd HH:mm', { locale: ko })}
+                              </p>
+                            </div>
+                          </div>
+                        </div>
+                      ))
+                    )}
+                  </div>
                 </div>
               </div>
             </div>
