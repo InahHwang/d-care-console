@@ -212,6 +212,23 @@ async function createIndexesSafely(db: Db) {
       console.warn('Reports 인덱스 생성 중 오류:', reportsIndexError);
     }
 
+    // 🔥 CallLogs 컬렉션 인덱스 (통화기록)
+    try {
+      await db.collection('callLogs').createIndex({ callerNumber: 1 });
+      await db.collection('callLogs').createIndex({ calledNumber: 1 });
+      await db.collection('callLogs').createIndex({ callStartTime: -1 });
+      await db.collection('callLogs').createIndex({ callStatus: 1 });
+      await db.collection('callLogs').createIndex({ patientId: 1 });
+      await db.collection('callLogs').createIndex({ callId: 1 }, { unique: true, sparse: true });
+      // 복합 인덱스
+      await db.collection('callLogs').createIndex(
+        { callerNumber: 1, callStartTime: -1 },
+        { name: 'idx_caller_time' }
+      );
+    } catch (callLogsIndexError) {
+      console.warn('CallLogs 인덱스 생성 중 오류:', callLogsIndexError);
+    }
+
     const envInfo = getEnvironmentInfo();
     console.log(`✅ MongoDB 인덱스 생성/확인 완료 (${envInfo.database})`);
   } catch (error) {
@@ -224,6 +241,12 @@ async function createIndexesSafely(db: Db) {
 export async function getReportsCollection() {
   const { db } = await connectToDatabase();
   return db.collection('reports');
+}
+
+// 🔥 통화기록 컬렉션 헬퍼 함수
+export async function getCallLogsCollection() {
+  const { db } = await connectToDatabase();
+  return db.collection('callLogs');
 }
 
 // 타입 안전한 컬렉션 헬퍼 함수들

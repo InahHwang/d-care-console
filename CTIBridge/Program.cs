@@ -64,6 +64,11 @@ namespace CTIBridge
         public const int EVT_LOGIN          = 0x0104;  // 260
         public const int EVT_SERVICE_INFO   = 0x0300;  // 768
 
+        // 🔥 추가 서비스 코드 (통화 상태 추적용)
+        public const int IMS_SVC_ABS_NOTI           = 12;  // 부재중 알림
+        public const int IMS_SVC_TERMCALL_START     = 10;  // 착신통화 시작 (수화기 들었을 때)
+        public const int IMS_SVC_TERMCALL_END       = 11;  // 착신통화 종료
+
         // ===== 설정 =====
         static string APP_KEY   = "zeQ4GBTe/n7Of6S0fd3egUfL4QDxsyc9fJWHwRTGUW4woKsHqFYINVBmFGEnCNyc";
         static string USER_ID   = "dsbrdental";
@@ -78,6 +83,7 @@ namespace CTIBridge
         static bool gotSvcInfo = false;
         static readonly HttpClient http = new();
         static Encoding Cp949;
+        static bool needReconnect = false;  // 재연결 필요 플래그
 
         // config.txt에서 URL 읽기
         static void LoadConfig()
@@ -197,9 +203,57 @@ namespace CTIBridge
             Console.WriteLine("  종료하려면 Ctrl+C를 누르세요.");
             Console.WriteLine("═══════════════════════════════════════════════════════════\n");
 
-            // 이벤트 폴링 루프
+            // 이벤트 폴링 루프 (자동 재연결 포함)
             while (true)
             {
+                // 재연결이 필요한 경우
+                if (needReconnect)
+                {
+                    Console.WriteLine("\n[!] 연결 끊김 감지 - 자동 재연결 시도...");
+                    needReconnect = false;
+
+                    // 기존 연결 정리
+                    try { IMS_Logout(); } catch { }
+                    try { IMS_Close(); } catch { }
+                    Thread.Sleep(2000);
+
+                    // 재초기화
+                    rc = IMS_Init(APP_KEY);
+                    if (rc != SUCCESS)
+                    {
+                        Console.WriteLine($"  ✗ 재초기화 실패 (코드: 0x{rc:X})");
+                        Thread.Sleep(5000);
+                        needReconnect = true;
+                        continue;
+                    }
+
+                    // 재로그인
+                    gotLogin = false;
+                    gotSvcInfo = false;
+                    rc = IMS_Login(USER_ID, PASSWORD);
+                    if (rc != SUCCESS)
+                    {
+                        Console.WriteLine($"  ✗ 재로그인 요청 실패 (코드: 0x{rc:X})");
+                        Thread.Sleep(5000);
+                        needReconnect = true;
+                        continue;
+                    }
+
+                    Thread.Sleep(200);
+                    if (WaitLoginAndSvcInfo(60000))
+                    {
+                        Console.WriteLine("  ✓ 재연결 성공!");
+                        Console.WriteLine("═══════════════════════════════════════════════════════════\n");
+                    }
+                    else
+                    {
+                        Console.WriteLine("  ✗ 재연결 실패 - 5초 후 재시도...");
+                        Thread.Sleep(5000);
+                        needReconnect = true;
+                        continue;
+                    }
+                }
+
                 PollOnce();
                 Thread.Sleep(200);
             }
@@ -247,6 +301,14 @@ namespace CTIBridge
                 if (!string.IsNullOrEmpty(evt.ExtInfo) && evt.ExtInfo.Length < 100)
                     Console.WriteLine($"  ExtInfo: {evt.ExtInfo}");
 
+                // 연결 끊김 감지 (0x8000 에러 또는 0x102 disconnect 이벤트)
+                if (evt.Result == 0x8000 || (evt.Service == 30 && evt.EvtType == 0x102 && evt.Result != SUCCESS))
+                {
+                    Console.WriteLine("  → ⚠️ 연결 끊김 감지! 자동 재연결 예정...");
+                    needReconnect = true;
+                    return;
+                }
+
                 // 이벤트 타입별 처리
                 if (evt.EvtType == EVT_CONNECTED)
                 {
@@ -277,8 +339,56 @@ namespace CTIBridge
                         Console.WriteLine("╚══════════════════════════════════════╝");
                         Console.WriteLine();
 
-                        // Next.js 서버로 전송
+                        // Next.js 서버로 전송 (CTI 팝업용)
                         _ = SendToNextJS(evt.Dn1, evt.Dn2);
+
+                        // 🔥 통화기록 API로 착신 이벤트 전송
+                        _ = SendCallLogEvent("ring", evt.Dn1, evt.Dn2, evt.ExtInfo);
+                    }
+                }
+                // 🔥 착신통화 시작 (수화기 들었을 때)
+                else if (evt.Service == IMS_SVC_TERMCALL_START)
+                {
+                    if (!string.IsNullOrEmpty(evt.Dn1))
+                    {
+                        Console.WriteLine();
+                        Console.WriteLine($"[{DateTime.Now:HH:mm:ss}] 📱 통화 시작: {evt.Dn1}");
+                        Console.WriteLine($"  → 통화 연결됨");
+
+                        // 통화기록 API로 통화 시작 이벤트 전송
+                        _ = SendCallLogEvent("start", evt.Dn1, evt.Dn2, evt.ExtInfo);
+                    }
+                }
+                // 🔥 착신통화 종료
+                else if (evt.Service == IMS_SVC_TERMCALL_END)
+                {
+                    if (!string.IsNullOrEmpty(evt.Dn1))
+                    {
+                        Console.WriteLine();
+                        Console.WriteLine($"[{DateTime.Now:HH:mm:ss}] 📴 통화 종료: {evt.Dn1}");
+                        Console.WriteLine($"  → 통화 종료됨 (시간: {evt.ExtInfo})");
+
+                        // 통화기록 API로 통화 종료 이벤트 전송
+                        _ = SendCallLogEvent("end", evt.Dn1, evt.Dn2, evt.ExtInfo);
+                    }
+                }
+                // 🔥 부재중 알림
+                else if (evt.Service == IMS_SVC_ABS_NOTI)
+                {
+                    if (!string.IsNullOrEmpty(evt.Dn1))
+                    {
+                        Console.WriteLine();
+                        Console.WriteLine("╔══════════════════════════════════════╗");
+                        Console.WriteLine("║          ❌ 부재중 전화!            ║");
+                        Console.WriteLine("╠══════════════════════════════════════╣");
+                        Console.WriteLine($"║  발신번호: {evt.Dn1,-24} ║");
+                        Console.WriteLine($"║  수신번호: {evt.Dn2,-24} ║");
+                        Console.WriteLine($"║  시각: {DateTime.Now:yyyy-MM-dd HH:mm:ss,-20} ║");
+                        Console.WriteLine("╚══════════════════════════════════════╝");
+                        Console.WriteLine();
+
+                        // 통화기록 API로 부재중 이벤트 전송
+                        _ = SendCallLogEvent("missed", evt.Dn1, evt.Dn2, evt.ExtInfo);
                     }
                 }
             }
@@ -354,6 +464,49 @@ namespace CTIBridge
             catch (Exception ex)
             {
                 Console.WriteLine($"  ✗ 오류: {ex.Message}");
+            }
+        }
+
+        // 🔥 통화기록 API로 이벤트 전송
+        static async System.Threading.Tasks.Task SendCallLogEvent(string eventType, string callerNumber, string calledNumber, string extInfo)
+        {
+            try
+            {
+                var payload = new
+                {
+                    eventType = eventType,  // "ring", "start", "end", "missed"
+                    callerNumber = callerNumber,
+                    calledNumber = calledNumber,
+                    timestamp = DateTime.Now.ToString("yyyy-MM-ddTHH:mm:ss.fffzzz"),
+                    extInfo = extInfo
+                };
+
+                var json = JsonSerializer.Serialize(payload);
+                Console.WriteLine($"  → 통화기록 저장 중 ({eventType})...");
+
+                var response = await http.PostAsync(
+                    $"{NEXTJS_URL}/api/call-logs",
+                    new StringContent(json, Encoding.UTF8, "application/json")
+                );
+
+                if (response.IsSuccessStatusCode)
+                {
+                    Console.WriteLine($"  ✓ 통화기록 저장 성공!");
+                }
+                else
+                {
+                    var errorBody = await response.Content.ReadAsStringAsync();
+                    Console.WriteLine($"  ✗ 통화기록 저장 실패: HTTP {(int)response.StatusCode}");
+                    Console.WriteLine($"    → {errorBody}");
+                }
+            }
+            catch (HttpRequestException ex)
+            {
+                Console.WriteLine($"  ✗ 통화기록 API 연결 실패: {ex.Message}");
+            }
+            catch (Exception ex)
+            {
+                Console.WriteLine($"  ✗ 통화기록 저장 오류: {ex.Message}");
             }
         }
     }
