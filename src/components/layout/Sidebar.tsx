@@ -17,7 +17,8 @@ import {
   HiOutlineClipboardCheck, // 🔥 내원 관리 아이콘 추가
   HiOutlineLightBulb, // 🔥 스마트 보고서 아이콘 추가
   HiOutlineVolumeUp, // 🆕 이벤트타겟관리 아이콘 추가
-  HiOutlinePhoneIncoming // 🆕 통화기록 아이콘 추가
+  HiOutlinePhoneIncoming, // 🆕 통화기록 아이콘 추가
+  HiOutlineHeart // 🆕 사후관리 아이콘 추가
 } from 'react-icons/hi'
 import { Icon } from '../common/Icon'
 import { useMemo } from 'react'
@@ -162,6 +163,13 @@ export default function Sidebar() {
           text="통화기록"
           isActive={getIsActive('/call-logs', '통화기록')}
           href="/call-logs"
+        />
+        {/* 🆕 사후관리 메뉴 추가 */}
+        <SidebarItem
+          icon={HiOutlineHeart}
+          text="사후관리"
+          isActive={getIsActive('/follow-up', '사후관리')}
+          href="/follow-up"
         />
         {/* 임시 비활성화
         <SidebarItem 
