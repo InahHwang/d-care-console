@@ -227,61 +227,33 @@ export default function PatientEditForm({ patient, isOpen, onClose }: PatientEdi
       const optimisticPatient = { ...patient, ...updateData, updatedAt: new Date().toISOString() }
       dispatch(setSelectedPatient(optimisticPatient))
 
-      // 🔥 모달 닫기는 onSuccess로 이동 (서버 응답 확인 후)
-
-      return { previousPatients, previousSelectedPatient, updateData }
-    },
-    onSuccess: (updatedPatient, variables, context) => {
-      // 🚀 5. 서버에서 실제 데이터 받아서 업데이트 - React Query 캐시
-      queryClient.setQueryData(['patients'], (oldData: any) => {
-        if (!oldData) return { patients: [updatedPatient] }
-
-        if (oldData.patients && Array.isArray(oldData.patients)) {
-          return {
-            ...oldData,
-            patients: oldData.patients.map((p: any) =>
-              (p._id === patient._id || p.id === patient.id) ? updatedPatient : p
-            )
-          }
-        }
-
-        if (Array.isArray(oldData)) {
-          return oldData.map((p: any) =>
-            (p._id === patient._id || p.id === patient.id) ? updatedPatient : p
-          )
-        }
-
-        return oldData
-      })
-
-      // 🚀 6. Redux selectedPatient를 서버 응답으로 최종 업데이트
-      dispatch(setSelectedPatient(updatedPatient))
-
-      // 🔥 즉시 데이터 동기화 트리거
-      PatientDataSync.onUpdate(patient._id || patient.id, 'PatientEditForm', variables);
-
-      // 🚀 7. 즉시 모달 닫기 (사용자 경험 개선)
+      // 🚀 5. 즉시 모달 닫기 (서버 응답 기다리지 않음 - 진정한 Optimistic Update)
       handleClose()
 
-      // 🚀 8. 활동 로그는 백그라운드에서 처리 (모달 닫힌 후)
-      setTimeout(() => {
-        logPatientAction(
-          'patient_update',
-          patient._id || patient.id,
-          updatedPatient.name,
-          {
-            patientId: patient._id || patient.id,
-            patientName: updatedPatient.name,
-            changes: context?.updateData,
-            handledBy: currentUser?.name,
-            notes: `환자 정보 수정 완료`
-          }
-        ).catch(logError => {
-          console.warn('⚠️ 활동 로그 기록 실패:', logError);
-        });
-      }, 0);
+      return { previousPatients, previousSelectedPatient, updateData, optimisticPatient }
     },
-    onError: async (error, variables, context) => {
+    onSuccess: (updatedPatient, variables, context) => {
+      // 🚀 6. 서버 응답으로 최종 데이터 동기화 (백그라운드)
+      dispatch(setSelectedPatient(updatedPatient))
+      PatientDataSync.onUpdate(patient._id || patient.id, 'PatientEditForm', variables);
+
+      // 🚀 7. 활동 로그는 백그라운드에서 처리
+      logPatientAction(
+        'patient_update',
+        patient._id || patient.id,
+        updatedPatient.name,
+        {
+          patientId: patient._id || patient.id,
+          patientName: updatedPatient.name,
+          changes: context?.updateData,
+          handledBy: currentUser?.name,
+          notes: `환자 정보 수정 완료`
+        }
+      ).catch(logError => {
+        console.warn('⚠️ 활동 로그 기록 실패:', logError);
+      });
+    },
+    onError: (error, variables, context) => {
       // 🚀 실패시 롤백 - React Query 캐시
       if (context?.previousPatients) {
         queryClient.setQueryData(['patients'], context.previousPatients)
@@ -293,29 +265,7 @@ export default function PatientEditForm({ patient, isOpen, onClose }: PatientEdi
       }
 
       console.error('환자 수정 오류:', error)
-      alert('환자 정보 수정 중 오류가 발생했습니다.')
-      
-      // 실패 로그 기록
-      try {
-        await logPatientAction(
-          'patient_update',
-          patient._id || patient.id,
-          formValues.name,
-          {
-            patientId: patient._id || patient.id,
-            patientName: formValues.name,
-            error: error instanceof Error ? error.message : '알 수 없는 오류',
-            attemptedBy: currentUser?.name,
-            notes: '환자 정보 수정 실패'
-          }
-        );
-      } catch (logError) {
-        console.warn('활동 로그 기록 실패:', logError);
-      }
-    },
-    onSettled: () => {
-      // 🚀 8. 최종적으로 서버 데이터로 동기화
-      queryClient.invalidateQueries({ queryKey: ['patients'] })
+      alert('환자 정보 수정에 실패했습니다. 다시 시도해주세요.')
     }
   })
   
