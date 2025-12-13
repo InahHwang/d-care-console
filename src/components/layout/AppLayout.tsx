@@ -15,7 +15,7 @@ import AuthGuard from '../auth/AuthGuard'
 
 interface AppLayoutProps {
   children: ReactNode
-  currentPage?: 'dashboard' | 'management' | 'statistics' | 'settings' | 'reports' | 'event-target-management' | 'call-logs' | 'follow-up'
+  currentPage?: 'dashboard' | 'management' | 'statistics' | 'settings' | 'reports' | 'event-target-management' | 'call-logs' | 'follow-up' | 'referrals'
 }
 
 const getMenuItemFromPage = (page?: string) => {
@@ -34,6 +34,8 @@ const getMenuItemFromPage = (page?: string) => {
       return '통화기록'
     case 'follow-up':
       return '사후관리'
+    case 'referrals':
+      return '소개환자 관리'
     default:
       return '대시보드'
   }

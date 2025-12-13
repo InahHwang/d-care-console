@@ -348,7 +348,24 @@ namespace CTIBridge
                         _ = SendCallLogEvent("ring", evt.Dn1, evt.Dn2, evt.ExtInfo);
                     }
                 }
-                // 🔥 착신통화 시작 (수화기 들었을 때)
+                // 🔥 Svc=9: 통화 연결됨 (수화기 들었을 때)
+                else if (evt.Service == IMS_SVC_CONNECTED)
+                {
+                    // Svc=9는 DN1=발신번호(고객), DN2=수신번호(병원) 순서
+                    string callerNum = evt.Dn1;
+                    string calledNum = evt.Dn2;
+
+                    if (!string.IsNullOrEmpty(callerNum))
+                    {
+                        Console.WriteLine();
+                        Console.WriteLine($"[{DateTime.Now:HH:mm:ss}] 📱 통화 연결: {callerNum}");
+                        Console.WriteLine($"  → 통화 시작됨");
+
+                        // 통화기록 API로 통화 시작 이벤트 전송
+                        _ = SendCallLogEvent("start", callerNum, calledNum, evt.ExtInfo);
+                    }
+                }
+                // 🔥 착신통화 시작 (Svc=10, 백업용)
                 else if (evt.Service == IMS_SVC_TERMCALL_START)
                 {
                     if (!string.IsNullOrEmpty(evt.Dn1))
@@ -361,17 +378,21 @@ namespace CTIBridge
                         _ = SendCallLogEvent("start", evt.Dn1, evt.Dn2, evt.ExtInfo);
                     }
                 }
-                // 🔥 착신통화 종료
+                // 🔥 착신통화 종료 (Svc=11)
                 else if (evt.Service == IMS_SVC_TERMCALL_END)
                 {
-                    if (!string.IsNullOrEmpty(evt.Dn1))
+                    // Svc=11은 DN1=수신번호(병원), DN2=발신번호(고객) 순서가 바뀌어 있음!
+                    string callerNum = evt.Dn2;  // 실제 발신자 (고객)
+                    string calledNum = evt.Dn1;  // 실제 수신자 (병원)
+
+                    if (!string.IsNullOrEmpty(callerNum))
                     {
                         Console.WriteLine();
-                        Console.WriteLine($"[{DateTime.Now:HH:mm:ss}] 📴 통화 종료: {evt.Dn1}");
-                        Console.WriteLine($"  → 통화 종료됨 (시간: {evt.ExtInfo})");
+                        Console.WriteLine($"[{DateTime.Now:HH:mm:ss}] 📴 통화 종료: {callerNum}");
+                        Console.WriteLine($"  → 통화 종료됨");
 
                         // 통화기록 API로 통화 종료 이벤트 전송
-                        _ = SendCallLogEvent("end", evt.Dn1, evt.Dn2, evt.ExtInfo);
+                        _ = SendCallLogEvent("end", callerNum, calledNum, evt.ExtInfo);
                     }
                 }
                 // 🔥 부재중 알림

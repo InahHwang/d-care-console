@@ -4,8 +4,8 @@
 'use client';
 
 import React, { useState, useEffect, useRef, useCallback } from 'react';
-import { useDispatch } from 'react-redux';
-import { AppDispatch } from '@/store';
+import { useDispatch, useSelector } from 'react-redux';
+import { AppDispatch, RootState } from '@/store';
 import { selectPatientWithContext } from '@/store/slices/patientsSlice';
 import { openPatientFormWithPhone } from '@/store/slices/uiSlice';
 import { useCTI, CTIEvent } from '@/hooks/useCTI';
@@ -25,6 +25,9 @@ interface CallLogRecord {
 
 export const FloatingCTIPanel: React.FC = () => {
   const dispatch = useDispatch<AppDispatch>();
+
+  // 🔥 로그인 상태 확인
+  const { isAuthenticated, isInitialized } = useSelector((state: RootState) => state.auth);
 
   const {
     connected,
@@ -125,6 +128,11 @@ export const FloatingCTIPanel: React.FC = () => {
     }
     return phone;
   };
+
+  // 🔥 로그인 안 된 상태면 렌더링하지 않음
+  if (!isInitialized || !isAuthenticated) {
+    return null;
+  }
 
   // 🔥 기본 상태: 작은 버튼만 보임 (패널이 닫혀 있을 때)
   if (!isPanelOpen) {

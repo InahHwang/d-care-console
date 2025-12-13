@@ -15,7 +15,7 @@ import {
   fetchPatients,
   selectPatient
 } from '@/store/slices/patientsSlice'
-import { HiOutlineX, HiOutlinePhone, HiOutlineCalendar, HiOutlineUser, HiOutlineLocationMarker, HiOutlineCake, HiOutlineClipboardList, HiOutlinePencil, HiOutlineCheck, HiOutlineStop, HiOutlineRefresh, HiOutlineGlobeAlt, HiOutlineUserGroup, HiOutlineCreditCard, HiOutlineCurrencyDollar, HiOutlineClipboardCheck } from 'react-icons/hi'
+import { HiOutlineX, HiOutlinePhone, HiOutlineCalendar, HiOutlineUser, HiOutlineLocationMarker, HiOutlineCake, HiOutlineClipboardList, HiOutlinePencil, HiOutlineCheck, HiOutlineStop, HiOutlineRefresh, HiOutlineGlobeAlt, HiOutlineUserGroup, HiOutlineCreditCard, HiOutlineCurrencyDollar, HiOutlineClipboardCheck, HiOutlineHeart, HiOutlineGift } from 'react-icons/hi'
 import { FiPhone, FiPhoneCall } from 'react-icons/fi'
 import { formatDistance } from 'date-fns'
 import { ko } from 'date-fns/locale/ko'
@@ -25,6 +25,8 @@ import PatientEditForm from './PatientEditForm'
 import PatientMessageHistory from './PatientMessageHistory'
 import MessageSendModal from './MessageSendModal'
 import ConsultationFormModal from './ConsultationFormModal'
+import FollowUpTab from './FollowUpTab'
+import ReferralTab from './ReferralTab'
 import { 
   getEstimateAgreedColor, 
   getEstimateAgreedText,
@@ -884,6 +886,39 @@ export default function PatientDetailModal() {
           </button>
           <button
             className={`px-4 py-2 text-sm font-medium transition-colors relative ${
+              !isVisitConfirmed
+                ? 'text-gray-400 cursor-not-allowed'
+                : activeTab === '사후관리'
+                ? 'text-primary'
+                : 'text-text-secondary hover:text-text-primary'
+            }`}
+            onClick={() => isVisitConfirmed && handleTabChange('사후관리')}
+            disabled={!isVisitConfirmed}
+            title={!isVisitConfirmed ? '내원 확정 후 이용 가능합니다' : ''}
+          >
+            사후관리
+            {!isVisitConfirmed && (
+              <span className="ml-1 text-xs">🔒</span>
+            )}
+            {activeTab === '사후관리' && isVisitConfirmed && (
+              <div className="absolute bottom-0 left-0 right-0 h-0.5 bg-primary"></div>
+            )}
+          </button>
+          <button
+            className={`px-4 py-2 text-sm font-medium transition-colors relative ${
+              activeTab === '소개관리'
+                ? 'text-primary'
+                : 'text-text-secondary hover:text-text-primary'
+            }`}
+            onClick={() => handleTabChange('소개관리')}
+          >
+            소개관리
+            {activeTab === '소개관리' && (
+              <div className="absolute bottom-0 left-0 right-0 h-0.5 bg-primary"></div>
+            )}
+          </button>
+          <button
+            className={`px-4 py-2 text-sm font-medium transition-colors relative ${
               activeTab === '문자내역'
                 ? 'text-primary'
                 : 'text-text-secondary hover:text-text-primary'
@@ -1351,7 +1386,17 @@ export default function PatientDetailModal() {
           {activeTab === '내원관리' && (
             <VisitManagementTab patient={selectedPatient} />
           )}
-          
+
+          {/* 사후관리 탭 */}
+          {activeTab === '사후관리' && (
+            <FollowUpTab patient={selectedPatient} />
+          )}
+
+          {/* 소개관리 탭 */}
+          {activeTab === '소개관리' && (
+            <ReferralTab patient={selectedPatient} />
+          )}
+
           {/* 문자내역 탭 */}
           {activeTab === '문자내역' && (
             <PatientMessageHistory patient={selectedPatient} />

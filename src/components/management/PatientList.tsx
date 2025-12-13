@@ -11,7 +11,6 @@ import { HiOutlineChevronLeft, HiOutlineChevronRight, HiOutlineArrowUp, HiOutlin
 import { FiPhone, FiPhoneCall } from 'react-icons/fi'
 import { Icon } from '../common/Icon'
 import { useState, useEffect, useMemo } from 'react'
-import PatientDetailModal from './PatientDetailModal'
 import PatientTooltip from './PatientTooltip'
 import ReservationDateModal from './ReservationDateModal'
 import CancelVisitConfirmationModal from './CancelVisitConfirmationModal'
@@ -967,8 +966,6 @@ export default function PatientList({ isLoading = false, filteredPatients, onSel
       </div>
     </div>
     
-    {selectedPatient && <PatientDetailModal />}
-
     <ReservationDateModal
       isOpen={isReservationModalOpen}
       onClose={handleReservationModalClose}

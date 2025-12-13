@@ -69,8 +69,10 @@ function normalizePatientResponse(patient: any) {
 export async function GET(request: NextRequest) {
   try {
     const { db } = await connectToDatabase();
+    const { searchParams } = new URL(request.url);
+    const search = searchParams.get('search');
 
-    console.log('🔍 API: 환자 목록 조회 시작');
+    console.log('🔍 API: 환자 목록 조회 시작', search ? `(검색어: ${search})` : '');
 
     // 🔥 성능 최적화: 필요한 필드만 조회 (Projection)
     const projection = {
@@ -108,10 +110,27 @@ export async function GET(request: NextRequest) {
       postVisitConsultation: 1,
     };
 
+    // 🔥 검색 필터 생성
+    let filter: any = {};
+    if (search && search.trim()) {
+      const searchTerm = search.trim();
+      // 전화번호에서 숫자만 추출
+      const phoneDigits = searchTerm.replace(/\D/g, '');
+
+      filter = {
+        $or: [
+          { name: { $regex: searchTerm, $options: 'i' } },
+          { phoneNumber: { $regex: searchTerm, $options: 'i' } },
+          // 전화번호 숫자만으로도 검색
+          ...(phoneDigits.length >= 4 ? [{ phoneNumber: { $regex: phoneDigits } }] : [])
+        ]
+      };
+    }
+
     // 🔥 최신 등록순으로 정렬 (createdAt 내림차순) + Projection 적용
     const patients = await db
       .collection('patients')
-      .find({}, { projection })
+      .find(filter, { projection })
       .sort({ createdAt: -1 })
       .toArray();
     
@@ -146,9 +165,10 @@ export async function GET(request: NextRequest) {
     console.log('🔍 API: ID 정규화 및 상태 계산 완료');
     
     // 🔥 성능 최적화를 위한 헤더 추가
-    const response = NextResponse.json({ 
+    const response = NextResponse.json({
+      success: true,
       patients: normalizedPatients,
-      totalItems: normalizedPatients.length 
+      totalItems: normalizedPatients.length
     });
     
     // 🔥 캐시 제어 헤더 설정 (속도개선 2 버전)
