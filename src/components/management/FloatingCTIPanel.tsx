@@ -17,6 +17,7 @@ interface CallLogRecord {
   callerNumber: string;
   calledNumber: string;
   callStatus: 'ringing' | 'answered' | 'missed' | 'ended';
+  callStartTime?: string;
   ringTime: string;
   isMissed: boolean;
   patientId?: string;
@@ -300,53 +301,57 @@ export const FloatingCTIPanel: React.FC = () => {
               </button>
             </div>
             <div className="space-y-1 max-h-60 overflow-y-auto">
-              {recentCallLogs.map((log) => (
-                <div
-                  key={log._id}
-                  className="bg-gray-50 rounded p-2"
-                >
-                  <div className="flex justify-between items-start">
-                    <div className="flex-1">
-                      <div className="flex items-center space-x-2">
-                        <span
-                          className={`text-xs px-2 py-0.5 rounded ${
-                            log.isMissed
-                              ? 'bg-red-100 text-red-700'
-                              : log.callStatus === 'ended'
-                              ? 'bg-green-100 text-green-700'
-                              : log.callStatus === 'answered'
-                              ? 'bg-blue-100 text-blue-700'
-                              : 'bg-yellow-100 text-yellow-700'
-                          }`}
-                        >
-                          {log.isMissed
-                            ? '부재중'
-                            : log.callStatus === 'ended'
-                            ? '통화완료'
-                            : log.callStatus === 'answered'
-                            ? '통화중'
-                            : '수신'}
-                        </span>
-                        {log.patientName ? (
-                          <span className="text-xs px-2 py-0.5 rounded bg-green-100 text-green-700">
-                            {log.patientName}
+              {recentCallLogs.map((log) => {
+                // 부재중 여부 판단: isMissed이거나, 통화시작 없이 종료된 경우
+                const isMissedCall = log.isMissed || (log.callStatus === 'ringing') || (!log.callStartTime && log.callStatus !== 'answered');
+
+                return (
+                  <div
+                    key={log._id}
+                    className="bg-gray-50 rounded p-2 hover:bg-gray-100 cursor-pointer transition-colors"
+                    onClick={() => {
+                      if (log.patientId && log.patientName) {
+                        // 등록된 환자 - 상세 모달 열기
+                        handleOpenPatientDetail(log.patientId);
+                      } else {
+                        // 미등록 - 신규 등록 모달 열기
+                        handleRegisterNewPatient(log.callerNumber);
+                      }
+                    }}
+                  >
+                    <div className="flex justify-between items-start">
+                      <div className="flex-1">
+                        <div className="flex items-center space-x-2">
+                          <span
+                            className={`text-xs px-2 py-0.5 rounded ${
+                              isMissedCall
+                                ? 'bg-red-100 text-red-700'
+                                : 'bg-green-100 text-green-700'
+                            }`}
+                          >
+                            {isMissedCall ? '부재중' : '통화완료'}
                           </span>
-                        ) : (
-                          <span className="text-xs px-2 py-0.5 rounded bg-gray-100 text-gray-600">
-                            미등록
-                          </span>
-                        )}
+                          {log.patientName ? (
+                            <span className="text-xs px-2 py-0.5 rounded bg-blue-100 text-blue-700">
+                              {log.patientName}
+                            </span>
+                          ) : (
+                            <span className="text-xs px-2 py-0.5 rounded bg-orange-100 text-orange-600">
+                              신규등록
+                            </span>
+                          )}
+                        </div>
+                        <p className="text-xs text-blue-600 font-medium mt-1 hover:underline">
+                          {formatPhoneNumber(log.callerNumber)}
+                        </p>
                       </div>
-                      <p className="text-xs text-gray-800 font-medium mt-1">
-                        {formatPhoneNumber(log.callerNumber)}
-                      </p>
+                      <span className="text-xs text-gray-500">
+                        {formatTime(log.ringTime)}
+                      </span>
                     </div>
-                    <span className="text-xs text-gray-500">
-                      {formatTime(log.ringTime)}
-                    </span>
                   </div>
-                </div>
-              ))}
+                );
+              })}
               {recentCallLogs.length === 0 && !loadingLogs && (
                 <p className="text-xs text-gray-500 text-center py-2">
                   통화기록이 없습니다

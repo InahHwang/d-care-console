@@ -5,8 +5,10 @@ import { format } from 'date-fns';
 import { ko } from 'date-fns/locale';
 import AuthGuard from '@/components/auth/AuthGuard';
 import AppLayout from '@/components/layout/AppLayout';
-import { useAppDispatch } from '@/hooks/reduxHooks';
-import { setCurrentMenuItem } from '@/store/slices/uiSlice';
+import { useAppDispatch, useAppSelector } from '@/hooks/reduxHooks';
+import { setCurrentMenuItem, openPatientFormWithPhone } from '@/store/slices/uiSlice';
+import { selectPatientWithContext } from '@/store/slices/patientsSlice';
+import PatientDetailModal from '@/components/management/PatientDetailModal';
 import {
   Phone,
   PhoneIncoming,
@@ -16,6 +18,7 @@ import {
   Filter,
   Clock,
   User,
+  UserPlus,
 } from 'lucide-react';
 
 interface CallLog {
@@ -43,6 +46,7 @@ interface TodayStats {
 
 export default function CallLogsPage() {
   const dispatch = useAppDispatch();
+  const selectedPatient = useAppSelector((state) => state.patients.selectedPatient);
   const [callLogs, setCallLogs] = useState<CallLog[]>([]);
   const [loading, setLoading] = useState(true);
   const [todayStats, setTodayStats] = useState<TodayStats>({
@@ -130,9 +134,10 @@ export default function CallLogsPage() {
     return `${hours}시간 ${mins}분`;
   };
 
-  // 통화 상태에 따른 아이콘과 색상
+  // 통화 상태에 따른 아이콘과 색상 (통화완료/부재중 두 가지로 단순화)
   const getCallStatusDisplay = (log: CallLog) => {
-    if (log.isMissed) {
+    // 부재중: isMissed가 true이거나, 통화시작 없이 종료된 경우
+    if (log.isMissed || (log.callStatus === 'ringing') || (!log.callStartTime && log.callStatus !== 'answered')) {
       return {
         icon: <PhoneMissed className="w-4 h-4" />,
         color: 'text-red-600',
@@ -140,28 +145,24 @@ export default function CallLogsPage() {
         label: '부재중',
       };
     }
-    if (log.callStatus === 'ended') {
-      return {
-        icon: <Phone className="w-4 h-4" />,
-        color: 'text-green-600',
-        bgColor: 'bg-green-100',
-        label: '통화완료',
-      };
-    }
-    if (log.callStatus === 'answered') {
-      return {
-        icon: <PhoneIncoming className="w-4 h-4" />,
-        color: 'text-blue-600',
-        bgColor: 'bg-blue-100',
-        label: '통화중',
-      };
-    }
+    // 그 외는 모두 통화완료
     return {
-      icon: <PhoneIncoming className="w-4 h-4" />,
-      color: 'text-yellow-600',
-      bgColor: 'bg-yellow-100',
-      label: '착신중',
+      icon: <Phone className="w-4 h-4" />,
+      color: 'text-green-600',
+      bgColor: 'bg-green-100',
+      label: '통화완료',
     };
+  };
+
+  // 전화번호 클릭 핸들러
+  const handlePhoneClick = (log: CallLog) => {
+    if (log.patientId && log.patientName) {
+      // 등록된 환자 - 환자 상세 모달 열기
+      dispatch(selectPatientWithContext(log.patientId, 'visit-management'));
+    } else {
+      // 미등록 - 신규 환자 등록 모달 열기
+      dispatch(openPatientFormWithPhone(log.callerNumber));
+    }
   };
 
   return (
@@ -346,16 +347,30 @@ export default function CallLogsPage() {
                           </div>
                         </td>
                         <td className="px-4 py-3">
-                          <span className="text-gray-900 font-mono">{log.callerNumber}</span>
+                          <button
+                            onClick={() => handlePhoneClick(log)}
+                            className="text-blue-600 hover:text-blue-800 hover:underline font-mono cursor-pointer"
+                          >
+                            {log.callerNumber}
+                          </button>
                         </td>
                         <td className="px-4 py-3">
                           {log.patientName ? (
-                            <div className="flex items-center gap-2">
+                            <button
+                              onClick={() => handlePhoneClick(log)}
+                              className="flex items-center gap-2 hover:text-blue-600 cursor-pointer"
+                            >
                               <User className="w-4 h-4 text-blue-600" />
-                              <span className="text-gray-900">{log.patientName}</span>
-                            </div>
+                              <span className="text-gray-900 hover:underline">{log.patientName}</span>
+                            </button>
                           ) : (
-                            <span className="text-gray-400 text-sm">미등록</span>
+                            <button
+                              onClick={() => handlePhoneClick(log)}
+                              className="flex items-center gap-1 text-orange-500 hover:text-orange-700 text-sm cursor-pointer"
+                            >
+                              <UserPlus className="w-4 h-4" />
+                              <span>신규등록</span>
+                            </button>
                           )}
                         </td>
                         <td className="px-4 py-3">
@@ -419,6 +434,9 @@ export default function CallLogsPage() {
             )}
           </div>
         </div>
+
+        {/* 환자 상세 모달 */}
+        {selectedPatient && <PatientDetailModal />}
       </AppLayout>
     </AuthGuard>
   );
