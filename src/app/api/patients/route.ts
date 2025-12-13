@@ -91,6 +91,7 @@ export async function GET(request: NextRequest) {
       region: 1,
       callInDate: 1,
       reservationDate: 1,
+      reservationTime: 1,  // 🔥 추가
       visitConfirmed: 1,
       postVisitStatus: 1,
       isCompleted: 1,
@@ -108,6 +109,13 @@ export async function GET(request: NextRequest) {
       lastModifiedAt: 1,
       eventTargetInfo: 1,
       postVisitConsultation: 1,
+      consultation: 1,        // 🔥 추가: 최초 상담 기록
+      firstConsultDate: 1,    // 🔥 추가: 첫 상담 날짜
+      lastConsultation: 1,    // 🔥 추가: 마지막 상담
+      reminderStatus: 1,      // 🔥 추가: 리마인더 상태
+      completedReason: 1,     // 🔥 추가: 종결 사유
+      completedAt: 1,         // 🔥 추가: 종결일
+      visitDate: 1,           // 🔥 추가: 내원일
     };
 
     // 🔥 검색 필터 생성
