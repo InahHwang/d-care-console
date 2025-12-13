@@ -223,11 +223,13 @@ export async function POST(request: NextRequest) {
 
     } else if (eventType === 'start') {
       // 통화 시작 (수화기 들었을 때)
-      // 최근 해당 번호의 ringing 상태 통화 찾기
+      // 최근 해당 번호의 ringing 상태 통화 찾기 (최근 5분 이내)
+      const fiveMinutesAgo = new Date(Date.now() - 5 * 60 * 1000).toISOString();
       const existingCall = await callLogsCollection.findOne(
         {
           callerNumber: { $regex: normalizedCaller.slice(-8) + '$' },
-          callStatus: 'ringing'
+          callStatus: 'ringing',
+          ringTime: { $gte: fiveMinutesAgo }
         },
         { sort: { ringTime: -1 } }
       );
@@ -252,27 +254,11 @@ export async function POST(request: NextRequest) {
         });
       }
 
-      // 기존 기록이 없으면 새로 생성
-      const newCallId = callId || `call-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`;
-      const newCallLog: CallLog = {
-        callId: newCallId,
-        callerNumber: formatPhone(callerNumber),
-        calledNumber: formatPhone(calledNumber || ''),
-        callStatus: 'answered',
-        callStartTime: timestamp || now,
-        ringTime: timestamp || now,
-        isMissed: false,
-        patientId: patient?._id?.toString(),
-        patientName: patient?.name,
-        createdAt: now,
-        updatedAt: now
-      };
-
-      await callLogsCollection.insertOne(newCallLog);
+      // 🔥 기존 기록이 없으면 새로 생성하지 않음 (ring 이벤트가 먼저 와야 함)
+      console.log(`[CallLog] start 이벤트: 매칭되는 ringing 기록 없음 (무시)`);
       return NextResponse.json({
         success: true,
-        message: 'Call log created with start',
-        callId: newCallId
+        message: 'No matching ringing call found, ignored'
       });
 
     } else if (eventType === 'end') {
@@ -324,11 +310,13 @@ export async function POST(request: NextRequest) {
 
     } else if (eventType === 'missed') {
       // 부재중 (명시적 부재중 이벤트)
-      // 최근 해당 번호의 ringing 상태 통화 찾기
+      // 최근 해당 번호의 ringing 상태 통화 찾기 (최근 5분 이내)
+      const fiveMinutesAgo = new Date(Date.now() - 5 * 60 * 1000).toISOString();
       const existingCall = await callLogsCollection.findOne(
         {
           callerNumber: { $regex: normalizedCaller.slice(-8) + '$' },
-          callStatus: 'ringing'
+          callStatus: 'ringing',
+          ringTime: { $gte: fiveMinutesAgo }
         },
         { sort: { ringTime: -1 } }
       );
@@ -353,28 +341,11 @@ export async function POST(request: NextRequest) {
         });
       }
 
-      // 기존 기록이 없으면 새로 생성
-      const newCallId = callId || `call-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`;
-      const missedCallLog: CallLog = {
-        callId: newCallId,
-        callerNumber: formatPhone(callerNumber),
-        calledNumber: formatPhone(calledNumber || ''),
-        callStatus: 'missed',
-        ringTime: timestamp || now,
-        isMissed: true,
-        patientId: patient?._id?.toString(),
-        patientName: patient?.name,
-        createdAt: now,
-        updatedAt: now
-      };
-
-      await callLogsCollection.insertOne(missedCallLog);
-      console.log(`[CallLog] 부재중 통화기록 생성: ${newCallId}`);
-
+      // 🔥 기존 기록이 없으면 새로 생성하지 않음 (ring 이벤트가 먼저 와야 함)
+      console.log(`[CallLog] missed 이벤트: 매칭되는 ringing 기록 없음 (무시)`);
       return NextResponse.json({
         success: true,
-        message: 'Missed call log created',
-        callId: newCallId
+        message: 'No matching ringing call found, ignored'
       });
     }
 
