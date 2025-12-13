@@ -6,7 +6,7 @@ import { useState, useEffect } from 'react'
 import { useAppDispatch, useAppSelector } from '@/hooks/reduxHooks'
 import { useMutation, useQueryClient } from '@tanstack/react-query'
 import { RootState } from '@/store'
-import { updatePatient, PatientStatus, Patient } from '@/store/slices/patientsSlice'
+import { updatePatient, PatientStatus, Patient, setSelectedPatient, fetchPatients } from '@/store/slices/patientsSlice'
 import { HiOutlineX, HiOutlineUser, HiOutlinePhone, HiOutlineCalendar, HiOutlineLocationMarker, HiOutlineCake, HiOutlineGlobeAlt } from 'react-icons/hi'
 import { FiPhoneCall } from 'react-icons/fi'
 import { Icon } from '../common/Icon'
@@ -191,70 +191,83 @@ export default function PatientEditForm({ patient, isOpen, onClose }: PatientEdi
     onMutate: async (updateData) => {
       // 🚀 1. 기존 쿼리 취소 (충돌 방지)
       await queryClient.cancelQueries({ queryKey: ['patients'] })
-      
+
       // 🚀 2. 현재 데이터 백업
       const previousPatients = queryClient.getQueryData(['patients'])
-      
-      // 🚀 3. UI에 즉시 반영
+      const previousSelectedPatient = patient
+
+      // 🚀 3. UI에 즉시 반영 - React Query 캐시
       queryClient.setQueryData(['patients'], (oldData: any) => {
         if (!oldData) return oldData
-        
+
         // 🚨 데이터 구조 처리
         if (oldData.patients && Array.isArray(oldData.patients)) {
           return {
             ...oldData,
-            patients: oldData.patients.map((p: any) => 
-              (p._id === patient._id || p.id === patient.id) 
+            patients: oldData.patients.map((p: any) =>
+              (p._id === patient._id || p.id === patient.id)
                 ? { ...p, ...updateData, updatedAt: new Date().toISOString() }
                 : p
             )
           }
         }
-        
+
         if (Array.isArray(oldData)) {
-          return oldData.map((p: any) => 
-            (p._id === patient._id || p.id === patient.id) 
+          return oldData.map((p: any) =>
+            (p._id === patient._id || p.id === patient.id)
               ? { ...p, ...updateData, updatedAt: new Date().toISOString() }
               : p
           )
         }
-        
+
         return oldData
       })
-      
-      // 🚀 4. 즉시 성공 메시지 표시 및 모달 닫기
-      alert(`환자 정보가 수정되었습니다!\n수정자: ${currentUser?.name}`)
-      handleClose()
-      
-      return { previousPatients, updateData }
+
+      // 🚀 4. Redux selectedPatient도 즉시 업데이트 (환자 상세 모달 반영)
+      const optimisticPatient = { ...patient, ...updateData, updatedAt: new Date().toISOString() }
+      dispatch(setSelectedPatient(optimisticPatient))
+
+      // 🔥 모달 닫기는 onSuccess로 이동 (서버 응답 확인 후)
+
+      return { previousPatients, previousSelectedPatient, updateData }
     },
     onSuccess: async (updatedPatient, variables, context) => {
-      // 🚀 5. 서버에서 실제 데이터 받아서 업데이트
+      // 🚀 5. 서버에서 실제 데이터 받아서 업데이트 - React Query 캐시
       queryClient.setQueryData(['patients'], (oldData: any) => {
         if (!oldData) return { patients: [updatedPatient] }
-        
+
         if (oldData.patients && Array.isArray(oldData.patients)) {
           return {
             ...oldData,
-            patients: oldData.patients.map((p: any) => 
+            patients: oldData.patients.map((p: any) =>
               (p._id === patient._id || p.id === patient.id) ? updatedPatient : p
             )
           }
         }
-        
+
         if (Array.isArray(oldData)) {
-          return oldData.map((p: any) => 
+          return oldData.map((p: any) =>
             (p._id === patient._id || p.id === patient.id) ? updatedPatient : p
           )
         }
-        
+
         return oldData
       })
-      
+
+      // 🚀 6. Redux selectedPatient를 서버 응답으로 최종 업데이트
+      dispatch(setSelectedPatient(updatedPatient))
+
+      // 🚀 7. Redux patients 배열도 갱신 (테이블에 즉시 반영)
+      dispatch(fetchPatients())
+
       // 🔥 즉시 데이터 동기화 트리거
       PatientDataSync.onUpdate(patient._id || patient.id, 'PatientEditForm', variables);
-      
-      // 🚀 6. 활동 로그 기록
+
+      // 🚀 8. 성공 메시지 표시 및 모달 닫기 (서버 응답 확인 후)
+      alert(`환자 정보가 수정되었습니다!\n수정자: ${currentUser?.name}`)
+      handleClose()
+
+      // 🚀 9. 활동 로그 기록
       try {
         await logPatientAction(
           'patient_update',
@@ -274,11 +287,16 @@ export default function PatientEditForm({ patient, isOpen, onClose }: PatientEdi
       }
     },
     onError: async (error, variables, context) => {
-      // 🚀 7. 실패시 롤백
+      // 🚀 실패시 롤백 - React Query 캐시
       if (context?.previousPatients) {
         queryClient.setQueryData(['patients'], context.previousPatients)
       }
-      
+
+      // 🚀 실패시 롤백 - Redux selectedPatient
+      if (context?.previousSelectedPatient) {
+        dispatch(setSelectedPatient(context.previousSelectedPatient))
+      }
+
       console.error('환자 수정 오류:', error)
       alert('환자 정보 수정 중 오류가 발생했습니다.')
       
