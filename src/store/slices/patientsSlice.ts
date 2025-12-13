@@ -1765,23 +1765,42 @@ const patientsSlice = createSlice({
       // 환자 정보 수정 처리
       .addCase(updatePatient.fulfilled, (state, action: PayloadAction<Patient>) => {
         const updatedPatient = action.payload;
-        
-        const patientIndex = state.patients.findIndex(p => 
+
+        // 🔥 patients 배열 업데이트
+        const patientIndex = state.patients.findIndex(p =>
           p._id === updatedPatient._id || p.id === updatedPatient.id
         );
         if (patientIndex !== -1) {
           state.patients[patientIndex] = updatedPatient;
         }
-        
-        const filteredIndex = state.filteredPatients.findIndex(p => 
+
+        // 🔥 filteredPatients 배열 업데이트
+        const filteredIndex = state.filteredPatients.findIndex(p =>
           p._id === updatedPatient._id || p.id === updatedPatient.id
         );
         if (filteredIndex !== -1) {
           state.filteredPatients[filteredIndex] = updatedPatient;
         }
-        
-        if (state.selectedPatient && 
-            (state.selectedPatient._id === updatedPatient._id || 
+
+        // 🔥 postVisitPatients 배열 업데이트 (내원관리 페이지 반영)
+        const postVisitIndex = state.postVisitPatients.findIndex(p =>
+          p._id === updatedPatient._id || p.id === updatedPatient.id
+        );
+        if (postVisitIndex !== -1) {
+          state.postVisitPatients[postVisitIndex] = updatedPatient;
+        }
+
+        // 🔥 eventTargetPatients 배열 업데이트 (이벤트 타겟 페이지 반영)
+        const eventTargetIndex = state.eventTargetPatients.findIndex(p =>
+          p._id === updatedPatient._id || p.id === updatedPatient.id
+        );
+        if (eventTargetIndex !== -1) {
+          state.eventTargetPatients[eventTargetIndex] = updatedPatient;
+        }
+
+        // 🔥 selectedPatient 업데이트
+        if (state.selectedPatient &&
+            (state.selectedPatient._id === updatedPatient._id ||
              state.selectedPatient.id === updatedPatient.id)) {
           state.selectedPatient = updatedPatient;
         }
