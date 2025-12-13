@@ -37,6 +37,7 @@ import { ConsultationInfo } from '@/types/patient'
 import { useActivityLogger } from '@/hooks/useActivityLogger'
 import { PatientDataSync, setupDataSyncListener } from '@/utils/dataSync'
 import VisitManagementTab from './VisitManagementTab'
+import { useCategories } from '@/hooks/useCategories'
 
 export default function PatientDetailModal() {
   const dispatch = useAppDispatch()
@@ -48,7 +49,10 @@ export default function PatientDetailModal() {
   
   // ✅ 모든 Hook들을 최상단에서 항상 호출 (조건부 호출 금지)
   const { logPatientAction } = useActivityLogger()
-  
+
+  // 🔥 커스텀 카테고리 훅 - 상담타입 라벨 표시용
+  const { activeConsultationTypes } = useCategories()
+
   // 상태 관리 Hook들
   const [refreshTrigger, setRefreshTrigger] = useState(0)
   const [forceUpdate, setForceUpdate] = useState(0)
@@ -785,30 +789,34 @@ export default function PatientDetailModal() {
             </h2>
             <StatusBadge status={isCompleted ? '종결' : selectedPatient.status} />
             <ReminderBadge status={selectedPatient.reminderStatus} />
-            <div className={`inline-flex items-center px-2.5 py-1 rounded-full text-xs font-medium ${
-              (selectedPatient.consultationType || 'outbound') === 'inbound' 
-                ? 'bg-green-100 text-green-800' 
-                : selectedPatient.consultationType === 'returning'
+            {(() => {
+              const consultationType = selectedPatient.consultationType || 'outbound';
+              const categoryItem = activeConsultationTypes.find(item => item.id === consultationType);
+              const label = categoryItem?.label || consultationType;
+
+              // 색상 결정 (기본 타입은 특정 색상, 커스텀은 회색 계열)
+              const colorClass = consultationType === 'inbound'
+                ? 'bg-green-100 text-green-800'
+                : consultationType === 'returning'
                 ? 'bg-purple-100 text-purple-800'
-                : 'bg-blue-100 text-blue-800'
-            }`}>
-              {(selectedPatient.consultationType || 'outbound') === 'inbound' ? (
-                <>
-                  <FiPhone className="w-3 h-3 mr-1" />
-                  인바운드
-                </>
-              ) : selectedPatient.consultationType === 'returning' ? (
-                <>
-                  <HiOutlineRefresh className="w-3 h-3 mr-1" />  {/* 순환아이콘으로 변경 */}
-                  구신환
-                </>
-              ) : (
-                <>
-                  <FiPhoneCall className="w-3 h-3 mr-1" />
-                  아웃바운드
-                </>
-              )}
-            </div>
+                : consultationType === 'outbound'
+                ? 'bg-blue-100 text-blue-800'
+                : 'bg-gray-100 text-gray-800'; // 커스텀 카테고리
+
+              // 아이콘 결정
+              const IconComponent = consultationType === 'inbound'
+                ? FiPhone
+                : consultationType === 'returning'
+                ? HiOutlineRefresh
+                : FiPhoneCall;
+
+              return (
+                <div className={`inline-flex items-center px-2.5 py-1 rounded-full text-xs font-medium ${colorClass}`}>
+                  <IconComponent className="w-3 h-3 mr-1" />
+                  {label}
+                </div>
+              );
+            })()}
           </div>
           <div className="flex items-center gap-2">
             <button 
@@ -969,35 +977,44 @@ export default function PatientDetailModal() {
                   </div>
                   
                   {/* 상담 타입 정보 */}
-                  <div className="flex items-start gap-2">
-                    <Icon 
-                      icon={(selectedPatient.consultationType || 'outbound') === 'inbound' ? FiPhone : 
-                            selectedPatient.consultationType === 'returning' ? HiOutlineRefresh : FiPhoneCall} 
-                      size={18} 
-                      className="text-text-muted mt-0.5" 
-                    />
-                    <div>
-                      <p className="text-sm text-text-secondary">상담 타입</p>
-                      <div className="flex items-center gap-2">
-                        <p className="text-text-primary">
-                          {(selectedPatient.consultationType || 'outbound') === 'inbound' ? '인바운드' : 
-                            selectedPatient.consultationType === 'returning' ? '구신환' : '아웃바운드'}
-                        </p>
-                        <button
-                          className="text-xs text-primary hover:text-primary-dark underline"
-                          onClick={handleOpenEditModal}
-                          title="상담 타입을 변경하려면 수정 모달에서 변경할 수 있습니다"
-                        >
-                          변경
-                        </button>
-                        {selectedPatient.consultationType === 'inbound' && selectedPatient.inboundPhoneNumber && (
-                          <span className="text-xs text-gray-500">
-                            (입력번호: {selectedPatient.inboundPhoneNumber})
-                          </span>
-                        )}
+                  {(() => {
+                    const consultationType = selectedPatient.consultationType || 'outbound';
+                    const categoryItem = activeConsultationTypes.find(item => item.id === consultationType);
+                    const label = categoryItem?.label || consultationType;
+                    const IconComponent = consultationType === 'inbound'
+                      ? FiPhone
+                      : consultationType === 'returning'
+                      ? HiOutlineRefresh
+                      : FiPhoneCall;
+
+                    return (
+                      <div className="flex items-start gap-2">
+                        <Icon
+                          icon={IconComponent}
+                          size={18}
+                          className="text-text-muted mt-0.5"
+                        />
+                        <div>
+                          <p className="text-sm text-text-secondary">상담 타입</p>
+                          <div className="flex items-center gap-2">
+                            <p className="text-text-primary">{label}</p>
+                            <button
+                              className="text-xs text-primary hover:text-primary-dark underline"
+                              onClick={handleOpenEditModal}
+                              title="상담 타입을 변경하려면 수정 모달에서 변경할 수 있습니다"
+                            >
+                              변경
+                            </button>
+                            {consultationType === 'inbound' && selectedPatient.inboundPhoneNumber && (
+                              <span className="text-xs text-gray-500">
+                                (입력번호: {selectedPatient.inboundPhoneNumber})
+                              </span>
+                            )}
+                          </div>
+                        </div>
                       </div>
-                    </div>
-                  </div>
+                    );
+                  })()}
                   
                   {/* 유입경로 정보 */}
                   <div className="flex items-start gap-2">

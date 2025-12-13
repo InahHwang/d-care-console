@@ -15,6 +15,7 @@ import PatientTooltip from './PatientTooltip'
 import ReservationDateModal from './ReservationDateModal'
 import CancelVisitConfirmationModal from './CancelVisitConfirmationModal'
 import { useQueryClient } from '@tanstack/react-query'
+import { useCategories } from '@/hooks/useCategories'
 
 // 🔥 이벤트 타겟 표시 컴포넌트
 const EventTargetBadge = ({ patient, context = 'management' }: { 
@@ -219,37 +220,47 @@ const getLastConsultationDate = (patient: Patient): string => {
   return dates[0].toISOString().split('T')[0];
 };
 
-// 상담 타입 배지 컴포넌트
-const ConsultationTypeBadge = ({ type, inboundPhoneNumber }: { type: 'inbound' | 'outbound' | 'returning', inboundPhoneNumber?: string }) => {
-  if (type === 'inbound') {
-    return (
-      <div className="flex items-center space-x-1">
-        <span className="inline-flex items-center px-2 py-1 rounded-full text-xs font-medium bg-green-100 text-green-800">
-          <FiPhone className="w-3 h-3 mr-1" />
-          인바운드
-        </span>
-        {inboundPhoneNumber && (
-          <span className="text-xs text-gray-500" title="입력된 번호">
-          </span>
-        )}
-      </div>
-    );
-  }
+// 상담 타입 배지 컴포넌트 - 커스텀 카테고리 지원
+const ConsultationTypeBadge = ({
+  type,
+  inboundPhoneNumber,
+  consultationTypes
+}: {
+  type: string;
+  inboundPhoneNumber?: string;
+  consultationTypes?: { id: string; label: string }[];
+}) => {
+  // 카테고리에서 라벨 찾기
+  const categoryItem = consultationTypes?.find(item => item.id === type);
+  const label = categoryItem?.label || type;
 
-  if (type === 'returning') {
-    return (
-      <span className="inline-flex items-center px-2 py-1 rounded-full text-xs font-medium bg-purple-100 text-purple-800">
-        <HiOutlineRefresh className="w-3 h-3 mr-1" />
-        구신환
-      </span>
-    );
-  }
+  // 색상 결정 (기본 타입은 특정 색상, 커스텀은 회색 계열)
+  const colorClass = type === 'inbound'
+    ? 'bg-green-100 text-green-800'
+    : type === 'returning'
+    ? 'bg-purple-100 text-purple-800'
+    : type === 'outbound'
+    ? 'bg-blue-100 text-blue-800'
+    : 'bg-gray-100 text-gray-800'; // 커스텀 카테고리
+
+  // 아이콘 결정
+  const IconComponent = type === 'inbound'
+    ? FiPhone
+    : type === 'returning'
+    ? HiOutlineRefresh
+    : FiPhoneCall;
 
   return (
-    <span className="inline-flex items-center px-2 py-1 rounded-full text-xs font-medium bg-blue-100 text-blue-800">
-      <FiPhoneCall className="w-3 h-3 mr-1" />
-      아웃바운드
-    </span>
+    <div className="flex items-center space-x-1">
+      <span className={`inline-flex items-center px-2 py-1 rounded-full text-xs font-medium ${colorClass}`}>
+        <IconComponent className="w-3 h-3 mr-1" />
+        {label}
+      </span>
+      {type === 'inbound' && inboundPhoneNumber && (
+        <span className="text-xs text-gray-500" title="입력된 번호">
+        </span>
+      )}
+    </div>
   );
 };
 
@@ -382,7 +393,10 @@ const hasOverdueCallbacks = (patient: Patient): boolean => {
 export default function PatientList({ isLoading = false, filteredPatients, onSelectPatient }: PatientListProps) {
   const dispatch = useDispatch<AppDispatch>()
   const queryClient = useQueryClient()
-  
+
+  // 🔥 커스텀 카테고리 훅 - 상담타입 라벨 표시용
+  const { activeConsultationTypes } = useCategories()
+
   const [isMounted, setIsMounted] = useState(false)
   const [tooltipRefreshTrigger, setTooltipRefreshTrigger] = useState(0)
   const [isReservationModalOpen, setIsReservationModalOpen] = useState(false)
@@ -752,9 +766,10 @@ export default function PatientList({ isLoading = false, filteredPatients, onSel
                     }`}
                   >
                     <td className="px-4 py-4">
-                      <ConsultationTypeBadge 
-                        type={patient.consultationType || 'outbound'} 
+                      <ConsultationTypeBadge
+                        type={patient.consultationType || 'outbound'}
                         inboundPhoneNumber={patient.inboundPhoneNumber}
+                        consultationTypes={activeConsultationTypes}
                       />
                     </td>
                     <td className={`px-4 py-4 text-sm font-medium ${isVip ? 'text-purple-800' : 'text-text-primary'}`}>
