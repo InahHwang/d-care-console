@@ -6,7 +6,7 @@ import { useState, useEffect } from 'react'
 import { useAppDispatch, useAppSelector } from '@/hooks/reduxHooks'
 import { useMutation, useQueryClient } from '@tanstack/react-query'
 import { RootState } from '@/store'
-import { updatePatient, PatientStatus, Patient, setSelectedPatient, fetchPatients } from '@/store/slices/patientsSlice'
+import { updatePatient, PatientStatus, Patient, setSelectedPatient } from '@/store/slices/patientsSlice'
 import { HiOutlineX, HiOutlineUser, HiOutlinePhone, HiOutlineCalendar, HiOutlineLocationMarker, HiOutlineCake, HiOutlineGlobeAlt } from 'react-icons/hi'
 import { FiPhoneCall } from 'react-icons/fi'
 import { Icon } from '../common/Icon'
@@ -231,7 +231,7 @@ export default function PatientEditForm({ patient, isOpen, onClose }: PatientEdi
 
       return { previousPatients, previousSelectedPatient, updateData }
     },
-    onSuccess: async (updatedPatient, variables, context) => {
+    onSuccess: (updatedPatient, variables, context) => {
       // 🚀 5. 서버에서 실제 데이터 받아서 업데이트 - React Query 캐시
       queryClient.setQueryData(['patients'], (oldData: any) => {
         if (!oldData) return { patients: [updatedPatient] }
@@ -257,19 +257,15 @@ export default function PatientEditForm({ patient, isOpen, onClose }: PatientEdi
       // 🚀 6. Redux selectedPatient를 서버 응답으로 최종 업데이트
       dispatch(setSelectedPatient(updatedPatient))
 
-      // 🚀 7. Redux patients 배열도 갱신 (테이블에 즉시 반영)
-      dispatch(fetchPatients())
-
       // 🔥 즉시 데이터 동기화 트리거
       PatientDataSync.onUpdate(patient._id || patient.id, 'PatientEditForm', variables);
 
-      // 🚀 8. 성공 메시지 표시 및 모달 닫기 (서버 응답 확인 후)
-      alert(`환자 정보가 수정되었습니다!\n수정자: ${currentUser?.name}`)
+      // 🚀 7. 즉시 모달 닫기 (사용자 경험 개선)
       handleClose()
 
-      // 🚀 9. 활동 로그 기록
-      try {
-        await logPatientAction(
+      // 🚀 8. 활동 로그는 백그라운드에서 처리 (모달 닫힌 후)
+      setTimeout(() => {
+        logPatientAction(
           'patient_update',
           patient._id || patient.id,
           updatedPatient.name,
@@ -280,11 +276,10 @@ export default function PatientEditForm({ patient, isOpen, onClose }: PatientEdi
             handledBy: currentUser?.name,
             notes: `환자 정보 수정 완료`
           }
-        );
-        console.log('✅ 환자 수정 활동 로그 기록 성공');
-      } catch (logError) {
-        console.warn('⚠️ 활동 로그 기록 실패:', logError);
-      }
+        ).catch(logError => {
+          console.warn('⚠️ 활동 로그 기록 실패:', logError);
+        });
+      }, 0);
     },
     onError: async (error, variables, context) => {
       // 🚀 실패시 롤백 - React Query 캐시
