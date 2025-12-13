@@ -122,13 +122,30 @@ export async function PUT(
       console.log('🔥 API: 지역 필드가 undefined이므로 업데이트에서 제외 (기존 값 유지)');
     }
     
-    // 🔥 상담 정보가 포함된 경우 특별 처리
+    // 🔥 상담 정보가 포함된 경우 특별 처리 - 기존 데이터와 병합
     if (data.consultation) {
       console.log('🔥 API: 상담 정보 업데이트 감지:', data.consultation);
+
+      // 🔥 기존 환자의 consultation 데이터를 먼저 조회
+      let existingPatient;
+      if (ObjectId.isValid(id)) {
+        existingPatient = await db.collection('patients').findOne({ _id: new ObjectId(id) });
+      } else {
+        existingPatient = await db.collection('patients').findOne({ patientId: id });
+      }
+
+      const existingConsultation = existingPatient?.consultation || {};
+
+      console.log('🔥 API: 기존 상담 정보:', existingConsultation);
+
+      // 🔥 기존 데이터와 새 데이터 병합 (새 데이터가 우선)
       updateData.consultation = {
-        ...data.consultation,
+        ...existingConsultation,  // 기존 데이터 유지
+        ...data.consultation,     // 새 데이터로 덮어쓰기
         updatedAt: new Date().toISOString()
       };
+
+      console.log('🔥 API: 병합된 상담 정보:', updateData.consultation);
     }
     
     delete updateData._id; // _id는 업데이트 불가
