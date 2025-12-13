@@ -394,8 +394,14 @@ export default function PatientList({ isLoading = false, filteredPatients, onSel
   const dispatch = useDispatch<AppDispatch>()
   const queryClient = useQueryClient()
 
-  // 🔥 커스텀 카테고리 훅 - 상담타입 라벨 표시용
-  const { activeConsultationTypes } = useCategories()
+  // 🔥 커스텀 카테고리 훅 - 상담타입, 관심분야 라벨 표시용
+  const { activeConsultationTypes, activeInterestedServices } = useCategories()
+
+  // 🔥 관심분야 라벨 가져오기 헬퍼 함수
+  const getInterestedServiceLabel = (service: string) => {
+    const categoryItem = activeInterestedServices.find(item => item.id === service);
+    return categoryItem?.label || service;
+  }
 
   const [isMounted, setIsMounted] = useState(false)
   const [tooltipRefreshTrigger, setTooltipRefreshTrigger] = useState(0)
@@ -811,11 +817,11 @@ export default function PatientList({ isLoading = false, filteredPatients, onSel
                     <td className="px-4 py-4">
                       <div className="flex flex-wrap gap-1">
                         {(patient.interestedServices || []).map((service, idx) => (
-                          <span 
+                          <span
                             key={idx}
                             className="inline-block px-2 py-1 rounded-full text-xs bg-light-bg text-text-primary"
                           >
-                            {service}
+                            {getInterestedServiceLabel(service)}
                           </span>
                         ))}
                         {(!patient.interestedServices || patient.interestedServices.length === 0) && (

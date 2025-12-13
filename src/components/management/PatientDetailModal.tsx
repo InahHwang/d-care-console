@@ -50,8 +50,8 @@ export default function PatientDetailModal() {
   // ✅ 모든 Hook들을 최상단에서 항상 호출 (조건부 호출 금지)
   const { logPatientAction } = useActivityLogger()
 
-  // 🔥 커스텀 카테고리 훅 - 상담타입 라벨 표시용
-  const { activeConsultationTypes } = useCategories()
+  // 🔥 커스텀 카테고리 훅 - 상담타입, 유입경로, 관심분야 라벨 표시용
+  const { activeConsultationTypes, activeReferralSources, activeInterestedServices } = useCategories()
 
   // 상태 관리 Hook들
   const [refreshTrigger, setRefreshTrigger] = useState(0)
@@ -354,8 +354,19 @@ export default function PatientDetailModal() {
 
   const getReferralSourceText = useCallback((source?: string) => {
     if (!source || source === '') return '-';
-    return source;
-  }, []);
+    // 커스텀 카테고리에서 라벨 찾기
+    const categoryItem = activeReferralSources.find(item => item.id === source);
+    return categoryItem?.label || source;
+  }, [activeReferralSources]);
+
+  // 🔥 관심분야 라벨 가져오기 (ID 또는 라벨 둘 다 지원)
+  const getInterestedServiceLabel = useCallback((service: string) => {
+    // ID로 저장된 경우 라벨 찾기
+    const categoryItem = activeInterestedServices.find(item => item.id === service);
+    if (categoryItem) return categoryItem.label;
+    // 이미 라벨로 저장된 경우 그대로 반환
+    return service;
+  }, [activeInterestedServices]);
 
   const getUserDisplayName = useCallback((userId?: string, userName?: string) => {
     console.log('🔍 getUserDisplayName 호출:', { userId, userName });
@@ -1120,11 +1131,11 @@ export default function PatientDetailModal() {
                       <p className="text-sm text-text-secondary">관심 분야</p>
                       <div className="flex flex-wrap gap-1 mt-1">
                         {selectedPatient.interestedServices.map((service, index) => (
-                          <span 
+                          <span
                             key={index}
                             className="inline-flex items-center px-2 py-1 rounded-full text-xs bg-light-bg text-text-primary"
                           >
-                            {service}
+                            {getInterestedServiceLabel(service)}
                           </span>
                         ))}
                       </div>
