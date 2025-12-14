@@ -1628,10 +1628,14 @@ const handlePatientUpdate = useCallback((updatedPatient: Patient) => {
    return { startDate, endDate };
  }, [selectedYear, selectedMonth]);
 
- // 내원확정된 환자들 필터링
+ // 🔥 내원확정된 환자들 - postVisitPatients 직접 사용 (환자 수정 즉시 반영)
  const visitConfirmedPatients = useMemo(() => {
-   return patients.filter(patient => patient.visitConfirmed === true)
- }, [patients])
+   // postVisitPatients가 있으면 사용, 없으면 patients에서 필터링 (fallback)
+   if (postVisitPatients && postVisitPatients.length > 0) {
+     return postVisitPatients;
+   }
+   return patients.filter(patient => patient.visitConfirmed === true);
+ }, [postVisitPatients, patients])
 
  // 필터링 로직 개선 - 검색어와 날짜 필터 추가
  const filteredPatients = useMemo(() => {
@@ -1861,6 +1865,36 @@ const handlePatientUpdate = useCallback((updatedPatient: Patient) => {
    setSelectedMonth(new Date().getMonth() + 1);
    setSelectedFilter('all');
  }, []);
+
+ // 🔥 데이터 동기화 이벤트 리스너 - 환자 정보 수정 시 즉시 반영
+ useEffect(() => {
+   const handlePatientDataChanged = (event: Event) => {
+     try {
+       const customEvent = event as CustomEvent;
+       const { type, patientId } = customEvent.detail || {};
+
+       console.log('🔄 VisitManagement: 환자 데이터 변경 감지:', { type, patientId });
+
+       // 환자 업데이트 또는 상담 정보 업데이트 시 내원관리 데이터 새로고침
+       if (['patient_update', 'consultation_update', 'callback_update'].includes(type)) {
+         console.log('🔄 VisitManagement: fetchPostVisitPatients 호출');
+         dispatch(fetchPostVisitPatients());
+       }
+     } catch (error) {
+       console.error('환자 데이터 변경 이벤트 처리 실패:', error);
+     }
+   };
+
+   if (typeof window !== 'undefined') {
+     window.addEventListener('patientDataChanged', handlePatientDataChanged);
+     console.log('📡 VisitManagement: 데이터 동기화 리스너 등록 완료');
+
+     return () => {
+       window.removeEventListener('patientDataChanged', handlePatientDataChanged);
+       console.log('📡 VisitManagement: 데이터 동기화 리스너 해제');
+     };
+   }
+ }, [dispatch]);
 
  // 큰 박스 클릭 시 필터링 기능 추가 - 치료 동의 상태 추가
   const handleStatsCardClick = useCallback((filterType: 'all' | 'unprocessed_callback' | 'treatment_consent_not_started' | 'in_treatment' | 'needs_callback' | 'no_status') => {
