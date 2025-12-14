@@ -92,9 +92,23 @@ export const CTIPanel: React.FC = () => {
           <div className="space-y-2">
             <div className="flex items-center">
               <span className="text-gray-600 w-20">발신번호:</span>
-              <span className="font-bold text-2xl text-blue-900">
-                {formatPhoneNumber(currentCall.callerNumber)}
-              </span>
+              <div className="flex items-center gap-2">
+                <span className="font-bold text-2xl text-blue-900">
+                  {formatPhoneNumber(currentCall.callerNumber)}
+                </span>
+                {/* 기존 환자 이름 표시 */}
+                {currentCall.patient && (
+                  <span className="px-2 py-1 bg-green-100 text-green-800 rounded-full text-sm font-medium">
+                    {currentCall.patient.name}
+                  </span>
+                )}
+                {/* 구환 이름 표시 */}
+                {!currentCall.patient && currentCall.legacyPatient && (
+                  <span className="px-2 py-1 bg-orange-100 text-orange-800 rounded-full text-sm font-medium">
+                    {currentCall.legacyPatient.name}(구환)
+                  </span>
+                )}
+              </div>
             </div>
             <div className="flex items-center">
               <span className="text-gray-600 w-20">수신번호:</span>
@@ -161,6 +175,18 @@ export const CTIPanel: React.FC = () => {
                     <span className="font-semibold text-gray-800">
                       {formatPhoneNumber(event.callerNumber)}
                     </span>
+                    {/* 기존 환자 이름 표시 */}
+                    {event.patient && (
+                      <span className="text-xs px-1.5 py-0.5 bg-green-100 text-green-700 rounded">
+                        {event.patient.name}
+                      </span>
+                    )}
+                    {/* 구환 이름 표시 */}
+                    {!event.patient && event.legacyPatient && (
+                      <span className="text-xs px-1.5 py-0.5 bg-orange-100 text-orange-700 rounded">
+                        {event.legacyPatient.name}(구환)
+                      </span>
+                    )}
                   </div>
                   <span className="text-xs text-gray-500">
                     {formatTime(event.timestamp)}

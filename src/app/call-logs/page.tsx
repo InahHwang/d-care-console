@@ -34,6 +34,7 @@ interface CallLog {
   isMissed: boolean;
   patientId?: string;
   patientName?: string;
+  legacyPatientName?: string;  // 구환 이름
   createdAt: string;
 }
 
@@ -97,7 +98,40 @@ export default function CallLogsPage() {
       const data = await response.json();
 
       if (data.success) {
-        setCallLogs(data.data);
+        let logs = data.data;
+
+        // 환자 정보가 없는 전화번호들에 대해 구환 정보 조회
+        const phonesWithoutPatient = logs
+          .filter((log: CallLog) => !log.patientName && log.callerNumber)
+          .map((log: CallLog) => log.callerNumber);
+
+        if (phonesWithoutPatient.length > 0) {
+          try {
+            const legacyResponse = await fetch('/api/legacy-patients', {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({ phoneNumbers: phonesWithoutPatient }),
+            });
+            const legacyData = await legacyResponse.json();
+
+            if (legacyData.success && legacyData.results) {
+              // 구환 정보 매핑
+              logs = logs.map((log: CallLog) => {
+                if (!log.patientName && legacyData.results[log.callerNumber]) {
+                  return {
+                    ...log,
+                    legacyPatientName: legacyData.results[log.callerNumber].name,
+                  };
+                }
+                return log;
+              });
+            }
+          } catch (legacyError) {
+            console.error('구환 정보 조회 실패:', legacyError);
+          }
+        }
+
+        setCallLogs(logs);
         setPagination((prev) => ({
           ...prev,
           total: data.pagination.total,
@@ -363,10 +397,21 @@ export default function CallLogsPage() {
                               <User className="w-4 h-4 text-blue-600" />
                               <span className="text-gray-900 hover:underline">{log.patientName}</span>
                             </button>
+                          ) : log.legacyPatientName ? (
+                            <button
+                              onClick={() => handlePhoneClick(log)}
+                              className="flex items-center gap-2 cursor-pointer"
+                            >
+                              <User className="w-4 h-4 text-orange-500" />
+                              <span className="text-orange-600 hover:underline">
+                                {log.legacyPatientName}
+                                <span className="ml-1 text-xs bg-orange-100 text-orange-700 px-1.5 py-0.5 rounded">구환</span>
+                              </span>
+                            </button>
                           ) : (
                             <button
                               onClick={() => handlePhoneClick(log)}
-                              className="flex items-center gap-1 text-orange-500 hover:text-orange-700 text-sm cursor-pointer"
+                              className="flex items-center gap-1 text-gray-400 hover:text-orange-500 text-sm cursor-pointer"
                             >
                               <UserPlus className="w-4 h-4" />
                               <span>신규등록</span>

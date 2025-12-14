@@ -13,6 +13,12 @@ export interface PatientInfo {
   callCount?: number;
 }
 
+// 구환 정보
+export interface LegacyPatientInfo {
+  name: string;
+  isLegacy: true;
+}
+
 export interface CTIEvent {
   id: string;
   eventType: 'INCOMING_CALL' | 'CALL_ANSWERED' | 'CALL_ENDED' | 'MISSED_CALL';
@@ -21,6 +27,7 @@ export interface CTIEvent {
   timestamp: string;
   receivedAt: string;
   patient?: PatientInfo | null;
+  legacyPatient?: LegacyPatientInfo | null;  // 구환 정보
   isNewCustomer?: boolean;
 }
 
@@ -93,15 +100,32 @@ export const useCTI = () => {
     });
 
     // CTI 이벤트 수신
-    channel.bind('incoming-call', (data: CTIEvent) => {
+    channel.bind('incoming-call', async (data: CTIEvent) => {
       console.log('[CTI Hook] 전화 수신:', data);
 
+      // 구환 정보 조회
+      let legacyPatient: LegacyPatientInfo | null = null;
+      if (data.callerNumber && !data.patient) {
+        try {
+          const response = await fetch(`/api/legacy-patients?phone=${encodeURIComponent(data.callerNumber)}`);
+          const result = await response.json();
+          if (result.found) {
+            legacyPatient = { name: result.name, isLegacy: true };
+            console.log('[CTI Hook] 구환 매칭:', legacyPatient.name);
+          }
+        } catch (error) {
+          console.error('[CTI Hook] 구환 조회 오류:', error);
+        }
+      }
+
+      const eventWithLegacy = { ...data, legacyPatient };
+
       setState(prev => {
-        const newEvents = [data, ...prev.events].slice(0, 50);
+        const newEvents = [eventWithLegacy, ...prev.events].slice(0, 50);
         let newCurrentCall = prev.currentCall;
 
         if (data.eventType === 'INCOMING_CALL') {
-          newCurrentCall = data;
+          newCurrentCall = eventWithLegacy;
         } else if (data.eventType === 'CALL_ENDED' || data.eventType === 'MISSED_CALL') {
           newCurrentCall = null;
         }
