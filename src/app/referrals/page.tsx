@@ -76,6 +76,7 @@ interface Patient {
   name: string;
   phoneNumber: string;
   chartNo?: string;
+  isLegacy?: boolean;  // 구환 여부
 }
 
 // 상태 라벨
@@ -193,7 +194,7 @@ export default function ReferralsPage() {
     }
   }, []);
 
-  // 환자 검색
+  // 환자 검색 (기존 환자 + 구환 동시 검색)
   const searchPatients = useCallback(async (query: string) => {
     if (!query || query.length < 2) {
       setSearchResults([]);
@@ -201,11 +202,30 @@ export default function ReferralsPage() {
     }
 
     try {
-      const response = await fetch(`/api/patients?search=${encodeURIComponent(query)}&limit=10`);
-      const data = await response.json();
-      if (data.success) {
-        setSearchResults(data.data || data.patients || []);
-      }
+      // 기존 환자와 구환 동시에 검색
+      const [patientsRes, legacyRes] = await Promise.all([
+        fetch(`/api/patients?search=${encodeURIComponent(query)}&limit=10`),
+        fetch(`/api/legacy-patients?search=${encodeURIComponent(query)}&limit=10`)
+      ]);
+
+      const patientsData = await patientsRes.json();
+      const legacyData = await legacyRes.json();
+
+      // 기존 환자 목록
+      const patients: Patient[] = patientsData.success
+        ? (patientsData.data || patientsData.patients || []).map((p: Patient) => ({
+            ...p,
+            isLegacy: false
+          }))
+        : [];
+
+      // 구환 목록
+      const legacyPatients: Patient[] = legacyData.success
+        ? (legacyData.data || [])
+        : [];
+
+      // 합치기 (기존 환자 먼저, 구환 나중에)
+      setSearchResults([...patients, ...legacyPatients]);
     } catch (error) {
       console.error('환자 검색 실패:', error);
     }
@@ -473,12 +493,17 @@ export default function ReferralsPage() {
                     소개자 (기존 환자)
                   </label>
                   {selectedReferrer ? (
-                    <div className="flex items-center gap-3 p-3 bg-blue-50 rounded-lg">
-                      <div className="p-2 bg-blue-100 rounded-full">
-                        <User className="w-5 h-5 text-blue-600" />
+                    <div className={`flex items-center gap-3 p-3 rounded-lg ${selectedReferrer.isLegacy ? 'bg-orange-50' : 'bg-blue-50'}`}>
+                      <div className={`p-2 rounded-full ${selectedReferrer.isLegacy ? 'bg-orange-100' : 'bg-blue-100'}`}>
+                        <User className={`w-5 h-5 ${selectedReferrer.isLegacy ? 'text-orange-600' : 'text-blue-600'}`} />
                       </div>
                       <div className="flex-1">
-                        <p className="font-medium text-gray-900">{selectedReferrer.name}</p>
+                        <div className="flex items-center gap-2">
+                          <p className="font-medium text-gray-900">{selectedReferrer.name}</p>
+                          {selectedReferrer.isLegacy && (
+                            <span className="text-xs bg-orange-100 text-orange-700 px-1.5 py-0.5 rounded">구환</span>
+                          )}
+                        </div>
                         <p className="text-sm text-gray-500">{selectedReferrer.phoneNumber}</p>
                       </div>
                       <button
@@ -516,9 +541,14 @@ export default function ReferralsPage() {
                               }}
                               className="w-full px-4 py-2 text-left hover:bg-gray-50 flex items-center gap-3"
                             >
-                              <User className="w-4 h-4 text-gray-400" />
-                              <div>
-                                <p className="font-medium text-gray-900">{patient.name}</p>
+                              <User className={`w-4 h-4 ${patient.isLegacy ? 'text-orange-500' : 'text-gray-400'}`} />
+                              <div className="flex-1">
+                                <div className="flex items-center gap-2">
+                                  <p className="font-medium text-gray-900">{patient.name}</p>
+                                  {patient.isLegacy && (
+                                    <span className="text-xs bg-orange-100 text-orange-700 px-1.5 py-0.5 rounded">구환</span>
+                                  )}
+                                </div>
                                 <p className="text-sm text-gray-500">{patient.phoneNumber}</p>
                               </div>
                             </button>
@@ -535,12 +565,17 @@ export default function ReferralsPage() {
                     피소개자 (소개받은 신규 환자)
                   </label>
                   {selectedReferred ? (
-                    <div className="flex items-center gap-3 p-3 bg-green-50 rounded-lg">
-                      <div className="p-2 bg-green-100 rounded-full">
-                        <UserPlus className="w-5 h-5 text-green-600" />
+                    <div className={`flex items-center gap-3 p-3 rounded-lg ${selectedReferred.isLegacy ? 'bg-orange-50' : 'bg-green-50'}`}>
+                      <div className={`p-2 rounded-full ${selectedReferred.isLegacy ? 'bg-orange-100' : 'bg-green-100'}`}>
+                        <UserPlus className={`w-5 h-5 ${selectedReferred.isLegacy ? 'text-orange-600' : 'text-green-600'}`} />
                       </div>
                       <div className="flex-1">
-                        <p className="font-medium text-gray-900">{selectedReferred.name}</p>
+                        <div className="flex items-center gap-2">
+                          <p className="font-medium text-gray-900">{selectedReferred.name}</p>
+                          {selectedReferred.isLegacy && (
+                            <span className="text-xs bg-orange-100 text-orange-700 px-1.5 py-0.5 rounded">구환</span>
+                          )}
+                        </div>
                         <p className="text-sm text-gray-500">{selectedReferred.phoneNumber}</p>
                       </div>
                       <button
@@ -578,9 +613,14 @@ export default function ReferralsPage() {
                               }}
                               className="w-full px-4 py-2 text-left hover:bg-gray-50 flex items-center gap-3"
                             >
-                              <User className="w-4 h-4 text-gray-400" />
-                              <div>
-                                <p className="font-medium text-gray-900">{patient.name}</p>
+                              <User className={`w-4 h-4 ${patient.isLegacy ? 'text-orange-500' : 'text-gray-400'}`} />
+                              <div className="flex-1">
+                                <div className="flex items-center gap-2">
+                                  <p className="font-medium text-gray-900">{patient.name}</p>
+                                  {patient.isLegacy && (
+                                    <span className="text-xs bg-orange-100 text-orange-700 px-1.5 py-0.5 rounded">구환</span>
+                                  )}
+                                </div>
                                 <p className="text-sm text-gray-500">{patient.phoneNumber}</p>
                               </div>
                             </button>

@@ -23,47 +23,79 @@ function extractPhonePattern(phoneNumber: string): string | null {
   return null;
 }
 
-// GET: 전화번호로 구환 정보 조회
+// GET: 전화번호 또는 이름으로 구환 정보 조회
 export async function GET(request: NextRequest) {
   try {
     const searchParams = request.nextUrl.searchParams;
     const phoneNumber = searchParams.get('phone');
-
-    if (!phoneNumber) {
-      return NextResponse.json(
-        { error: '전화번호가 필요합니다.' },
-        { status: 400 }
-      );
-    }
-
-    const phonePattern = extractPhonePattern(phoneNumber);
-
-    if (!phonePattern) {
-      return NextResponse.json(
-        { found: false, message: '유효하지 않은 전화번호 형식입니다.' }
-      );
-    }
+    const searchQuery = searchParams.get('search');
+    const limit = parseInt(searchParams.get('limit') || '10');
 
     const client = await clientPromise;
     const db = client.db('d-care-db');
     const collection = db.collection('legacyPatients');
 
-    // 패턴으로 검색
-    const legacyPatient = await collection.findOne({ phonePattern });
+    // 이름/전화번호 검색 (search 파라미터)
+    if (searchQuery) {
+      const query = {
+        $or: [
+          { name: { $regex: searchQuery, $options: 'i' } },
+          { phonePattern: { $regex: searchQuery.replace(/\D/g, '') } }
+        ]
+      };
 
-    if (legacyPatient) {
-      return NextResponse.json({
-        found: true,
-        name: legacyPatient.name,
-        phonePattern: legacyPatient.phonePattern,
+      const legacyPatients = await collection
+        .find(query)
+        .limit(limit)
+        .toArray();
+
+      // 구환 데이터를 Patient 형식으로 변환
+      const patients = legacyPatients.map(p => ({
+        _id: `legacy_${p._id}`,  // 구환임을 표시하기 위해 prefix 추가
+        name: p.name,
+        phoneNumber: p.phonePattern ? `010-${p.phonePattern.slice(0,4)}-**${p.phonePattern.slice(4,6)}` : '',
+        phonePattern: p.phonePattern,
         isLegacy: true
+      }));
+
+      return NextResponse.json({
+        success: true,
+        data: patients,
+        total: patients.length
       });
     }
 
-    return NextResponse.json({
-      found: false,
-      message: '구환 데이터에서 찾을 수 없습니다.'
-    });
+    // 전화번호로 단건 조회 (phone 파라미터)
+    if (phoneNumber) {
+      const phonePattern = extractPhonePattern(phoneNumber);
+
+      if (!phonePattern) {
+        return NextResponse.json(
+          { found: false, message: '유효하지 않은 전화번호 형식입니다.' }
+        );
+      }
+
+      const legacyPatient = await collection.findOne({ phonePattern });
+
+      if (legacyPatient) {
+        return NextResponse.json({
+          found: true,
+          name: legacyPatient.name,
+          phonePattern: legacyPatient.phonePattern,
+          isLegacy: true
+        });
+      }
+
+      return NextResponse.json({
+        found: false,
+        message: '구환 데이터에서 찾을 수 없습니다.'
+      });
+    }
+
+    return NextResponse.json(
+      { error: 'phone 또는 search 파라미터가 필요합니다.' },
+      { status: 400 }
+    );
 
   } catch (error) {
     console.error('구환 조회 오류:', error);

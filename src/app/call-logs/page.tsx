@@ -19,7 +19,10 @@ import {
   Clock,
   User,
   UserPlus,
+  Bot,
+  Loader2,
 } from 'lucide-react';
+import CallAnalysisModal from '@/components/call-analysis/CallAnalysisModal';
 
 interface CallLog {
   _id: string;
@@ -35,6 +38,8 @@ interface CallLog {
   patientId?: string;
   patientName?: string;
   legacyPatientName?: string;  // 구환 이름
+  analysisId?: string;         // AI 분석 ID
+  analysisStatus?: string;     // AI 분석 상태
   createdAt: string;
 }
 
@@ -68,6 +73,7 @@ export default function CallLogsPage() {
     startDate: '',
     endDate: '',
   });
+  const [selectedAnalysisId, setSelectedAnalysisId] = useState<string | null>(null);
 
   useEffect(() => {
     dispatch(setCurrentMenuItem('통화기록'));
@@ -348,12 +354,13 @@ export default function CallLogsPage() {
                   <th className="text-left px-4 py-3 text-gray-600 font-medium text-sm">통화시작</th>
                   <th className="text-left px-4 py-3 text-gray-600 font-medium text-sm">통화종료</th>
                   <th className="text-left px-4 py-3 text-gray-600 font-medium text-sm">통화시간</th>
+                  <th className="text-left px-4 py-3 text-gray-600 font-medium text-sm">AI분석</th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-gray-100">
                 {loading ? (
                   <tr>
-                    <td colSpan={7} className="text-center py-12 text-gray-500">
+                    <td colSpan={8} className="text-center py-12 text-gray-500">
                       <div className="flex items-center justify-center gap-2">
                         <div className="animate-spin rounded-full h-5 w-5 border-2 border-blue-600 border-t-transparent" />
                         <span>로딩 중...</span>
@@ -362,7 +369,7 @@ export default function CallLogsPage() {
                   </tr>
                 ) : callLogs.length === 0 ? (
                   <tr>
-                    <td colSpan={7} className="text-center py-12 text-gray-500">
+                    <td colSpan={8} className="text-center py-12 text-gray-500">
                       <PhoneIncoming className="w-12 h-12 mx-auto mb-4 text-gray-300" />
                       <p>통화기록이 없습니다</p>
                     </td>
@@ -442,6 +449,36 @@ export default function CallLogsPage() {
                             {formatDuration(log.duration)}
                           </span>
                         </td>
+                        <td className="px-4 py-3">
+                          {log.analysisId ? (
+                            <button
+                              onClick={() => setSelectedAnalysisId(log.analysisId!)}
+                              className={`flex items-center gap-1.5 px-2.5 py-1 rounded-lg text-xs font-medium transition-colors ${
+                                log.analysisStatus === 'complete'
+                                  ? 'bg-green-100 text-green-700 hover:bg-green-200'
+                                  : log.analysisStatus === 'failed'
+                                  ? 'bg-red-100 text-red-700 hover:bg-red-200'
+                                  : 'bg-blue-100 text-blue-700 hover:bg-blue-200'
+                              }`}
+                            >
+                              {log.analysisStatus === 'complete' ? (
+                                <Bot className="w-3.5 h-3.5" />
+                              ) : log.analysisStatus === 'failed' ? (
+                                <Bot className="w-3.5 h-3.5" />
+                              ) : (
+                                <Loader2 className="w-3.5 h-3.5 animate-spin" />
+                              )}
+                              {log.analysisStatus === 'complete' ? '분석완료' :
+                               log.analysisStatus === 'failed' ? '실패' :
+                               log.analysisStatus === 'analyzing' ? '분석중' :
+                               log.analysisStatus === 'stt_processing' ? 'STT중' : '처리중'}
+                            </button>
+                          ) : log.duration && log.duration > 10 ? (
+                            <span className="text-xs text-gray-400">-</span>
+                          ) : (
+                            <span className="text-xs text-gray-300">-</span>
+                          )}
+                        </td>
                       </tr>
                     );
                   })
@@ -482,6 +519,14 @@ export default function CallLogsPage() {
 
         {/* 환자 상세 모달 */}
         {selectedPatient && <PatientDetailModal />}
+
+        {/* AI 분석 모달 */}
+        {selectedAnalysisId && (
+          <CallAnalysisModal
+            analysisId={selectedAnalysisId}
+            onClose={() => setSelectedAnalysisId(null)}
+          />
+        )}
       </AppLayout>
     </AuthGuard>
   );

@@ -26,6 +26,19 @@ namespace CTIBridge
         [DllImport("SKB_OpenAPI_IMS.dll", CharSet = CharSet.Ansi)]
         public static extern int IMS_Close();
 
+        // ===== 착신녹취 DLL IMPORTS =====
+        [DllImport("SKB_OpenAPI_IMS.dll", CharSet = CharSet.Ansi)]
+        public static extern int IMS_TermRec_Start();
+
+        [DllImport("SKB_OpenAPI_IMS.dll", CharSet = CharSet.Ansi)]
+        public static extern int IMS_TermRec_Stop();
+
+        [DllImport("SKB_OpenAPI_IMS.dll", CharSet = CharSet.Ansi)]
+        public static extern int IMS_TermRec_StopService();
+
+        [DllImport("SKB_OpenAPI_IMS.dll", CharSet = CharSet.Ansi)]
+        public static extern int IMS_TermRec_CallStatus();
+
         // ===== EVT 구조체 (문자열 대신 byte[]로 안전 수신) =====
         [StructLayout(LayoutKind.Sequential, CharSet = CharSet.Ansi, Pack = 1)]
         public struct _EVTMSG_RAW
@@ -68,8 +81,19 @@ namespace CTIBridge
         public const int IMS_SVC_ABS_NOTI           = 12;  // 부재중 알림
         public const int IMS_SVC_TERMCALL_START     = 10;  // 착신통화 시작 (수화기 들었을 때)
         public const int IMS_SVC_TERMCALL_END       = 11;  // 착신통화 종료
+        public const int IMS_SVC_CALL_END           = 14;  // 통화 종료 (실제 SK API에서 사용)
         public const int IMS_SVC_CALL_STATUS        = 15;  // 🔥 통화 상태 변경 (실제 SK API 이벤트)
         public const int EVT_CALL_STATUS_CHANGE     = 0x0304;  // 통화 상태 변경 이벤트 타입
+
+        // 🎙️ 착신녹취 서비스/이벤트 코드
+        public const int IMS_SVC_TERM_REC           = 16;  // 착신녹취 서비스
+        public const int EVT_CALL_STATUS            = 0x0301;  // 호 상태 조회
+        public const int EVT_START_SERVICE          = 0x0302;  // 서비스 시작
+        public const int EVT_STOP_SERVICE           = 0x0303;  // 서비스 종료
+        public const int EVT_READY_SERVICE          = 0x0304;  // 서비스 준비 (녹취 시작 가능 신호)
+        public const int EVT_INIT_RECORD            = 0x0306;  // 착신녹취 준비
+        public const int EVT_START_RECORD           = 0x0307;  // 녹음 시작 (파일명 전달)
+        public const int EVT_STOP_RECORD            = 0x0308;  // 녹음 종료 (파일명 전달)
 
         // ===== 설정 =====
         static string APP_KEY   = "zeQ4GBTe/n7Of6S0fd3egUfL4QDxsyc9fJWHwRTGUW4woKsHqFYINVBmFGEnCNyc";
@@ -86,6 +110,13 @@ namespace CTIBridge
         static readonly HttpClient http = new();
         static Encoding Cp949;
         static bool needReconnect = false;  // 재연결 필요 플래그
+
+        // 🎙️ 착신녹취 상태 관리
+        static bool isRecordingReady = false;   // 녹취 시작 가능 상태
+        static bool isRecording = false;        // 현재 녹취 중 여부
+        static string currentCallerId = "";     // 현재 통화 중인 발신자 번호
+        static string currentCalledId = "";     // 현재 통화 중인 수신자 번호
+        static DateTime recordingStartTime;     // 녹취 시작 시간
 
         // config.txt에서 URL 읽기
         static void LoadConfig()
@@ -395,6 +426,23 @@ namespace CTIBridge
                         _ = SendCallLogEvent("end", callerNum, calledNum, evt.ExtInfo);
                     }
                 }
+                // 🔥 통화 종료 (Svc=14) - 실제 SK API에서 사용
+                else if (evt.Service == IMS_SVC_CALL_END)
+                {
+                    // Svc=14는 DN1=발신번호(고객), DN2=수신번호(병원) 순서
+                    string callerNum = evt.Dn1;
+                    string calledNum = evt.Dn2;
+
+                    if (!string.IsNullOrEmpty(callerNum))
+                    {
+                        Console.WriteLine();
+                        Console.WriteLine($"[{DateTime.Now:HH:mm:ss}] 📴 통화 종료: {callerNum}");
+                        Console.WriteLine($"  → 통화 종료됨 (Svc=14)");
+
+                        // 통화기록 API로 통화 종료 이벤트 전송
+                        _ = SendCallLogEvent("end", callerNum, calledNum, evt.ExtInfo);
+                    }
+                }
                 // 🔥 부재중 알림
                 else if (evt.Service == IMS_SVC_ABS_NOTI)
                 {
@@ -448,10 +496,115 @@ namespace CTIBridge
                         Console.WriteLine($"  → 통화 상태: {evt.ExtInfo} (발신:{callerNum}, 수신:{calledNum})");
                     }
                 }
+                // 🎙️ 착신녹취 서비스 이벤트 처리
+                else if (evt.Service == IMS_SVC_TERM_REC)
+                {
+                    ProcessTermRecEvent(evt);
+                }
             }
             catch (Exception ex)
             {
                 Console.WriteLine($"[오류] {ex.Message}");
+            }
+        }
+
+        // 🎙️ 착신녹취 이벤트 처리 함수
+        static void ProcessTermRecEvent(EvtMsg evt)
+        {
+            switch (evt.EvtType)
+            {
+                case EVT_READY_SERVICE:
+                    // 서비스 준비 완료 - 녹취 시작 가능
+                    isRecordingReady = true;
+                    currentCallerId = evt.Dn1;
+                    currentCalledId = evt.Dn2;
+                    Console.WriteLine();
+                    Console.WriteLine("╔══════════════════════════════════════╗");
+                    Console.WriteLine("║       🎙️ 착신녹취 준비 완료          ║");
+                    Console.WriteLine("╠══════════════════════════════════════╣");
+                    Console.WriteLine($"║  발신번호: {evt.Dn1,-24} ║");
+                    Console.WriteLine($"║  수신번호: {evt.Dn2,-24} ║");
+                    Console.WriteLine("╚══════════════════════════════════════╝");
+
+                    // 자동 녹취 시작
+                    Console.WriteLine("  → 자동 녹취 시작 중...");
+                    int startResult = IMS_TermRec_Start();
+                    if (startResult == SUCCESS)
+                    {
+                        Console.WriteLine("  ✓ 녹취 시작 요청 성공!");
+                        recordingStartTime = DateTime.Now;
+                    }
+                    else
+                    {
+                        Console.WriteLine($"  ✗ 녹취 시작 실패 (코드: 0x{startResult:X})");
+                        isRecordingReady = false;
+                    }
+                    break;
+
+                case EVT_START_RECORD:
+                    // 녹취 시작됨
+                    if (evt.Result == SUCCESS)
+                    {
+                        isRecording = true;
+                        Console.WriteLine();
+                        Console.WriteLine($"[{DateTime.Now:HH:mm:ss}] 🔴 녹취 시작!");
+                        Console.WriteLine($"  → 파일명: {evt.ExtInfo}");
+                    }
+                    else
+                    {
+                        Console.WriteLine($"[{DateTime.Now:HH:mm:ss}] ✗ 녹취 시작 실패");
+                    }
+                    break;
+
+                case EVT_STOP_RECORD:
+                    // 녹취 종료됨 - 파일명을 서버로 전송
+                    isRecording = false;
+                    isRecordingReady = false;
+                    int duration = (int)(DateTime.Now - recordingStartTime).TotalSeconds;
+                    Console.WriteLine();
+                    Console.WriteLine("╔══════════════════════════════════════╗");
+                    Console.WriteLine("║       ⏹️ 녹취 완료!                  ║");
+                    Console.WriteLine("╠══════════════════════════════════════╣");
+                    Console.WriteLine($"║  파일명: {evt.ExtInfo,-25} ║");
+                    Console.WriteLine($"║  통화시간: {duration}초                       ║".Substring(0, 42) + "║");
+                    Console.WriteLine("╚══════════════════════════════════════╝");
+
+                    // Next.js 서버로 녹취 완료 이벤트 전송
+                    _ = SendRecordingComplete(currentCallerId, currentCalledId, evt.ExtInfo, duration);
+
+                    // 상태 초기화
+                    currentCallerId = "";
+                    currentCalledId = "";
+                    break;
+
+                case EVT_START_SERVICE:
+                    if (evt.Result == SUCCESS)
+                    {
+                        Console.WriteLine($"[{DateTime.Now:HH:mm:ss}] 🎙️ 착신녹취 서비스 시작 [{evt.Dn1} → {evt.Dn2}]");
+                    }
+                    else
+                    {
+                        Console.WriteLine($"[{DateTime.Now:HH:mm:ss}] ✗ 착신녹취 서비스 시작 실패 (코드: 0x{evt.Result:X})");
+                    }
+                    break;
+
+                case EVT_STOP_SERVICE:
+                    Console.WriteLine($"[{DateTime.Now:HH:mm:ss}] ⏹️ 착신녹취 서비스 종료 (원인: 0x{evt.Result:X})");
+                    isRecording = false;
+                    isRecordingReady = false;
+                    break;
+
+                case EVT_CALL_STATUS:
+                    Console.WriteLine($"[{DateTime.Now:HH:mm:ss}] 📊 호 상태: {evt.ExtInfo}");
+                    break;
+
+                case EVT_INIT_RECORD:
+                    Console.WriteLine($"[{DateTime.Now:HH:mm:ss}] 🎙️ 착신녹취 초기화");
+                    break;
+
+                default:
+                    Console.WriteLine($"[{DateTime.Now:HH:mm:ss}] 🎙️ 착신녹취 이벤트: Type=0x{evt.EvtType:X} Result=0x{evt.Result:X}");
+                    break;
             }
         }
 
@@ -564,6 +717,58 @@ namespace CTIBridge
             catch (Exception ex)
             {
                 Console.WriteLine($"  ✗ 통화기록 저장 오류: {ex.Message}");
+            }
+        }
+
+        // 🎙️ 녹취 완료 시 Next.js 서버로 전송
+        static async System.Threading.Tasks.Task SendRecordingComplete(string callerNumber, string calledNumber, string recordingInfo, int durationSeconds)
+        {
+            try
+            {
+                // recordingInfo가 URL인지 파일명인지 자동 감지
+                bool isUrl = recordingInfo.StartsWith("http://") || recordingInfo.StartsWith("https://");
+
+                var payload = new
+                {
+                    callerNumber = callerNumber,
+                    calledNumber = calledNumber,
+                    recordingFileName = isUrl ? Path.GetFileName(recordingInfo) : recordingInfo,
+                    recordingUrl = isUrl ? recordingInfo : (string)null,  // URL이면 전달, 아니면 null
+                    duration = durationSeconds,
+                    timestamp = DateTime.Now.ToString("yyyy-MM-ddTHH:mm:ss.fffzzz")
+                };
+
+                Console.WriteLine($"  → 녹취 정보: {(isUrl ? "URL 형식" : "파일명 형식")}");
+
+                var json = JsonSerializer.Serialize(payload);
+                Console.WriteLine($"  → 녹취 완료 정보 전송 중...");
+
+                var response = await http.PostAsync(
+                    $"{NEXTJS_URL}/api/call-analysis/recording",
+                    new StringContent(json, Encoding.UTF8, "application/json")
+                );
+
+                if (response.IsSuccessStatusCode)
+                {
+                    var responseBody = await response.Content.ReadAsStringAsync();
+                    Console.WriteLine($"  ✓ 녹취 정보 전송 성공!");
+                    Console.WriteLine($"  → 응답: {responseBody}");
+                }
+                else
+                {
+                    var errorBody = await response.Content.ReadAsStringAsync();
+                    Console.WriteLine($"  ✗ 녹취 정보 전송 실패: HTTP {(int)response.StatusCode}");
+                    Console.WriteLine($"    → {errorBody}");
+                }
+            }
+            catch (HttpRequestException ex)
+            {
+                Console.WriteLine($"  ✗ 녹취 API 연결 실패: {ex.Message}");
+                Console.WriteLine($"    → Next.js 서버가 {NEXTJS_URL}에서 실행 중인지 확인하세요.");
+            }
+            catch (Exception ex)
+            {
+                Console.WriteLine($"  ✗ 녹취 정보 전송 오류: {ex.Message}");
             }
         }
     }
