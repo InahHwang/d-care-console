@@ -37,12 +37,19 @@ export async function GET(request: NextRequest) {
 
     // 이름/전화번호 검색 (search 파라미터)
     if (searchQuery) {
-      const query = {
-        $or: [
-          { name: { $regex: searchQuery, $options: 'i' } },
-          { phonePattern: { $regex: searchQuery.replace(/\D/g, '') } }
-        ]
-      };
+      const phoneDigits = searchQuery.replace(/\D/g, '');
+
+      // 조건 배열 구성 (빈 문자열 regex 방지)
+      const orConditions: any[] = [
+        { name: { $regex: searchQuery, $options: 'i' } }
+      ];
+
+      // 전화번호 숫자가 있을 때만 phonePattern 검색 추가
+      if (phoneDigits.length >= 2) {
+        orConditions.push({ phonePattern: { $regex: phoneDigits } });
+      }
+
+      const query = { $or: orConditions };
 
       const legacyPatients = await collection
         .find(query)
