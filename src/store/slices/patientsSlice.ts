@@ -1586,49 +1586,77 @@ const patientsSlice = createSlice({
       })
       .addCase(fetchPatients.fulfilled, (state, action: PayloadAction<{ patients: Patient[], totalItems: number }>) => {
         state.isLoading = false;
-        
+
         // 🔥 프론트엔드에서도 최신순 정렬 보장
         const sortedPatients = action.payload.patients.sort((a, b) => {
           const dateA = new Date(a.createdAt || a.callInDate).getTime();
           const dateB = new Date(b.createdAt || b.callInDate).getTime();
           return dateB - dateA; // 최신순 (내림차순)
         });
-        
+
         state.patients = sortedPatients;
         state.filteredPatients = sortedPatients;
         state.pagination.totalItems = action.payload.totalItems;
         state.pagination.totalPages = Math.ceil(action.payload.totalItems / state.pagination.itemsPerPage) || 1;
-        console.log('fetchPatients 완료 - 환자 수:', action.payload.patients.length);
+
+        // 🔥 postVisitPatients도 동기화 (내원관리 페이지 실시간 반영)
+        const visitConfirmedPatients = sortedPatients.filter(p => p.visitConfirmed === true);
+        state.postVisitPatients = visitConfirmedPatients;
+
+        console.log('fetchPatients 완료 - 환자 수:', action.payload.patients.length, '/ 내원확정:', visitConfirmedPatients.length);
       })
       
       // 내원확정 토글 처리
       .addCase(toggleVisitConfirmation.fulfilled, (state, action: PayloadAction<Patient>) => {
         const updatedPatient = action.payload;
-        
-        const patientIndex = state.patients.findIndex(p => 
+
+        const patientIndex = state.patients.findIndex(p =>
           p._id === updatedPatient._id || p.id === updatedPatient.id
         );
         if (patientIndex !== -1) {
           state.patients[patientIndex] = updatedPatient;
         }
-        
-        const filteredIndex = state.filteredPatients.findIndex(p => 
+
+        const filteredIndex = state.filteredPatients.findIndex(p =>
           p._id === updatedPatient._id || p.id === updatedPatient.id
         );
         if (filteredIndex !== -1) {
           state.filteredPatients[filteredIndex] = updatedPatient;
         }
-        
-        if (state.selectedPatient && 
-            (state.selectedPatient._id === updatedPatient._id || 
+
+        if (state.selectedPatient &&
+            (state.selectedPatient._id === updatedPatient._id ||
              state.selectedPatient.id === updatedPatient.id)) {
           state.selectedPatient = updatedPatient;
         }
-        
+
+        // 🔥 postVisitPatients 배열 업데이트 (내원관리 페이지 실시간 반영)
+        const postVisitIndex = state.postVisitPatients.findIndex(p =>
+          p._id === updatedPatient._id || p.id === updatedPatient.id
+        );
+
+        if (updatedPatient.visitConfirmed) {
+          // 내원확정된 경우: postVisitPatients에 추가 또는 업데이트
+          if (postVisitIndex !== -1) {
+            state.postVisitPatients[postVisitIndex] = updatedPatient;
+          } else {
+            // 새로 추가 (배열 앞에 추가하여 최신 순으로)
+            state.postVisitPatients.unshift(updatedPatient);
+          }
+          console.log('✅ 내원관리 목록에 환자 추가:', updatedPatient.name);
+        } else {
+          // 내원확정 취소된 경우: postVisitPatients에서 제거
+          if (postVisitIndex !== -1) {
+            state.postVisitPatients.splice(postVisitIndex, 1);
+            console.log('✅ 내원관리 목록에서 환자 제거:', updatedPatient.name);
+          }
+        }
+
         console.log('내원확정 상태 업데이트 완료:', {
           patientId: updatedPatient._id,
           name: updatedPatient.name,
-          visitConfirmed: updatedPatient.visitConfirmed
+          visitConfirmed: updatedPatient.visitConfirmed,
+          postVisitPatientsCount: state.postVisitPatients.length
         });
       })
 

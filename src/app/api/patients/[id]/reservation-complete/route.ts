@@ -203,14 +203,17 @@ export async function PUT(
       console.log('✅ 새로운 직접 내원완료 콜백 추가:', newCallbackRecord);
     }
 
-    // 🔥 환자 정보 업데이트
+    // 🔥 환자 정보 업데이트 (visitConfirmed도 함께 설정하여 API 호출 1회로 최적화)
     const updateData = {
       status: '예약확정',
       callbackHistory: callbackHistory,
       updatedAt: new Date().toISOString(),
       reservationDate: reservationDate,
       reservationTime: reservationTime,
-      reservationCompletedAt: todayKorean
+      reservationCompletedAt: todayKorean,
+      // 🔥 내원확정도 함께 처리 (toggleVisitConfirmation API 호출 불필요)
+      visitConfirmed: true,
+      visitConfirmedAt: new Date().toISOString()
     };
 
     console.log('💾 업데이트할 데이터:', updateData);
