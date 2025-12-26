@@ -33,6 +33,9 @@ import { PatientDataSync } from '@/utils/dataSync'
 
 // 🔧 수정된 import - 새로운 함수만 import
 import { isUnprocessedAfterCallback, getDaysSinceProcessed } from '@/utils/patientUtils'
+import { useCategories } from '@/hooks/useCategories'
+import PostponementReasonSelector from '../common/PostponementReasonSelector'
+import { getDelayReasonWithIcon } from '@/constants/delayReasons'
 
 // 날짜 필터 타입 추가
 type SimpleDateFilterType = 'all' | 'daily' | 'monthly';
@@ -100,6 +103,10 @@ const PostVisitStatusModal = ({
 
  // 종결 사유 상태 추가
  const [completionReason, setCompletionReason] = useState('');
+
+ // 🔥 미룸 사유 관련 상태 추가
+ const [postponementReason, setPostponementReason] = useState<string | null>(null);
+ const [postponementReasonCustom, setPostponementReasonCustom] = useState<string>('');
 
  // 🔥 콜백 이력 새로고침을 위한 상태 추가
  const [refreshKey, setRefreshKey] = useState(0);
@@ -433,7 +440,11 @@ const handleCompleteVisitCallback = async (callback: any) => {
      // 🔥 수정 모드 관련 초기화
      setIsEditingVisitCallback(false);
      setEditingCallbackId('');
-     
+
+     // 🔥 미룸 사유 관련 초기화
+     setPostponementReason(null);
+     setPostponementReasonCustom('');
+
      // 기타 필드들 초기화
      setNextCallbackDate('');
      setNextConsultationPlan('');
@@ -575,6 +586,10 @@ const handleCompleteVisitCallback = async (callback: any) => {
     status: '완료',
     reason: selectedStatus,
     isVisitManagementCallback: true,
+    // 🔥 미룸 사유 관련 필드 추가 (재콜백필요 시에만)
+    postponementReason: selectedStatus === '재콜백필요' ? (postponementReason || undefined) : undefined,
+    postponementReasonCustom: selectedStatus === '재콜백필요' && postponementReason === 'other' ? postponementReasonCustom : undefined,
+    postponementReasonConfirmedAt: selectedStatus === '재콜백필요' && postponementReason ? new Date().toISOString() : undefined,
     notes: (() => {
       switch (selectedStatus) {
         case '재콜백필요':
@@ -582,16 +597,16 @@ const handleCompleteVisitCallback = async (callback: any) => {
             return `[내원 후 ${visitCallbackType} 콜백]\n사유: ${visitCallbackReason}\n\n상담 계획:\n${visitCallbackNotes}`;
           }
           return `[내원 후 재콜백 필요]\n재콜백이 필요한 상태로 처리되었습니다.`;
-        
+
         case '치료동의':
           return `[내원 후 치료 동의]\n환자가 치료에 동의하였습니다.\n${statusData.treatmentConsentInfo?.treatmentStartDate ? `치료 시작 예정일: ${statusData.treatmentConsentInfo.treatmentStartDate}` : ''}`;
-        
+
         case '치료시작':
           return `[내원 후 치료 시작]\n치료가 시작되었습니다.\n납부방식: ${statusData.paymentInfo?.paymentType === 'installment' ? '분할납' : '일시납'}\n${statusData.nextVisitDate ? `다음 내원일: ${statusData.nextVisitDate}` : ''}`;
-        
+
         case '종결':
           return `[내원 후 종결]\n${statusData.completionNotes || '치료가 완료되어 종결 처리되었습니다.'}`;
-        
+
         default:
           return `[내원 후 ${selectedStatus}]\n상태가 ${selectedStatus}(으)로 변경되었습니다.`;
       }
@@ -602,6 +617,9 @@ const handleCompleteVisitCallback = async (callback: any) => {
    if (selectedStatus === '재콜백필요') {
      statusData.nextCallbackDate = nextCallbackDate;
      statusData.nextConsultationPlan = nextConsultationPlan;
+     // 🔥 미룸 사유 정보 추가
+     (statusData as any).postponementReason = postponementReason || undefined;
+     (statusData as any).postponementReasonCustom = postponementReason === 'other' ? postponementReasonCustom : undefined;
    } else if (selectedStatus === '치료동의') {
      // 치료 동의 정보 추가
      statusData.treatmentConsentInfo = {
@@ -1028,7 +1046,21 @@ const hasPendingVisitCallbacks = currentVisitCallbacks.some(cb => cb.status === 
                       placeholder="콜백 시 진행할 상담 내용을 입력하세요..."
                     />
                   </div>
-                  
+
+                  {/* 🔥 미룸 사유 선택 UI 추가 */}
+                  <div className="border-t border-yellow-200 pt-3 mt-3">
+                    <PostponementReasonSelector
+                      value={postponementReason}
+                      customValue={postponementReasonCustom}
+                      onChange={(value, customValue) => {
+                        setPostponementReason(value);
+                        setPostponementReasonCustom(customValue || '');
+                      }}
+                      showNotConfirmedOption={true}
+                      label="미룸 사유 파악"
+                    />
+                  </div>
+
                   {/* 🔥 수정 모드일 때는 별도 저장 버튼 표시 */}
                   {isEditingVisitCallback && (
                     <div className="flex justify-end gap-2 pt-2">
@@ -1205,34 +1237,47 @@ const hasPendingVisitCallbacks = currentVisitCallbacks.some(cb => cb.status === 
  );
 };
 
-// 상담 타입 배지 컴포넌트 - walkin 타입 지원 추가
-const ConsultationTypeBadge = ({ type, inboundPhoneNumber }: { 
-  type: 'inbound' | 'outbound' | 'returning', 
-  inboundPhoneNumber?: string 
+// 상담 타입 배지 컴포넌트 - 커스텀 카테고리 지원 추가
+const ConsultationTypeBadge = ({ type, label, inboundPhoneNumber }: {
+  type?: string,
+  label?: string,
+  inboundPhoneNumber?: string
 }) => {
+  // 기본 타입별 색상과 아이콘 설정
   if (type === 'inbound') {
     return (
       <span className="inline-flex items-center px-2 py-1 rounded-full text-xs font-medium bg-green-100 text-green-800">
         <FiPhone className="w-3 h-3 mr-1" />
-        인바운드
+        {label || '인바운드'}
       </span>
     );
   }
 
-  // 구신환 타입 추가
+  // 구신환 타입
   if (type === 'returning') {
     return (
       <span className="inline-flex items-center px-2 py-1 rounded-full text-xs font-medium bg-purple-100 text-purple-800">
         <FiPhoneCall className="w-3 h-3 mr-1" />
-        구신환
+        {label || '구신환'}
       </span>
     );
   }
- 
+
+  // 아웃바운드 타입
+  if (type === 'outbound' || !type) {
+    return (
+      <span className="inline-flex items-center px-2 py-1 rounded-full text-xs font-medium bg-blue-100 text-blue-800">
+        <FiPhoneCall className="w-3 h-3 mr-1" />
+        {label || '아웃바운드'}
+      </span>
+    );
+  }
+
+  // 커스텀 카테고리 (회색 계열)
   return (
-    <span className="inline-flex items-center px-2 py-1 rounded-full text-xs font-medium bg-blue-100 text-blue-800">
+    <span className="inline-flex items-center px-2 py-1 rounded-full text-xs font-medium bg-gray-100 text-gray-800">
       <FiPhoneCall className="w-3 h-3 mr-1" />
-      아웃바운드
+      {label || type}
     </span>
   );
 };
@@ -1532,12 +1577,29 @@ const VisitCallbackBadge = ({ patient }: { patient: Patient }) => {
 export default function VisitManagement() {
  const dispatch = useDispatch<AppDispatch>()
  
- const { 
+ const {
    patients,
    postVisitPatients,
    selectedPatient,
    isLoading
  } = useSelector((state: RootState) => state.patients)
+
+ // 🔥 커스텀 카테고리 훅 - 상담타입 라벨 표시용
+ const { activeConsultationTypes } = useCategories()
+
+ // 🔥 상담타입 라벨 가져오기 헬퍼 함수
+ const getConsultationTypeLabel = useCallback((type?: string): string => {
+   if (!type) return '아웃바운드';
+   const categoryItem = activeConsultationTypes.find(item => item.id === type);
+   if (categoryItem) return categoryItem.label;
+   // 기본 타입의 경우 한글 라벨 반환
+   switch (type) {
+     case 'inbound': return '인바운드';
+     case 'outbound': return '아웃바운드';
+     case 'returning': return '구신환';
+     default: return type; // 커스텀 카테고리는 ID 그대로 반환 (라벨이 없는 경우)
+   }
+ }, [activeConsultationTypes]);
 
  // 필터 상태들 추가
  const [searchTerm, setSearchTerm] = useState('')
@@ -1581,19 +1643,6 @@ const handlePatientUpdate = useCallback((updatedPatient: Patient) => {
   console.log('🔄 선택된 환자 정보 업데이트:', updatedPatient.name);
 }, []);
 
- // 🔥 consultationType을 안전하게 변환하는 헬퍼 함수
- const getConsultationTypeForBadge = (type?: string): 'inbound' | 'outbound' | 'returning' => {
-   switch (type) {
-     case 'inbound':
-       return 'inbound';
-     case 'returning':
-       return 'returning';
-     case 'outbound':
-     default:
-       return 'outbound';
-   }
- };
-
  // 연도 목록 생성
  const availableYears = useMemo(() => {
    const currentYear = new Date().getFullYear();
@@ -1628,14 +1677,12 @@ const handlePatientUpdate = useCallback((updatedPatient: Patient) => {
    return { startDate, endDate };
  }, [selectedYear, selectedMonth]);
 
- // 🔥 내원확정된 환자들 - postVisitPatients 직접 사용 (환자 수정 즉시 반영)
+ // 🔥 내원확정된 환자들 - postVisitPatients만 사용 (fallback 제거로 데이터 일관성 보장)
  const visitConfirmedPatients = useMemo(() => {
-   // postVisitPatients가 있으면 사용, 없으면 patients에서 필터링 (fallback)
-   if (postVisitPatients && postVisitPatients.length > 0) {
-     return postVisitPatients;
-   }
-   return patients.filter(patient => patient.visitConfirmed === true);
- }, [postVisitPatients, patients])
+   // 🔥 수정: patients fallback 제거 - 서버에서 가져온 postVisitPatients만 사용
+   // 이렇게 해야 삭제된 환자가 표시되지 않고, 데이터 일관성이 보장됨
+   return postVisitPatients || [];
+ }, [postVisitPatients])
 
  // 필터링 로직 개선 - 검색어와 날짜 필터 추가
  const filteredPatients = useMemo(() => {
@@ -1990,7 +2037,14 @@ const handlePatientUpdate = useCallback((updatedPatient: Patient) => {
        postVisitConsultation: statusData,
        postVisitNotes: statusData.consultationContent,
        nextVisitDate: statusData.nextVisitDate,
-       visitCallbackData: statusData.visitCallbackData
+       visitCallbackData: statusData.visitCallbackData,
+       // 🔥 미룸 사유 정보 추가 (재콜백필요 시에만)
+       ...(statusData.selectedStatus === '재콜백필요' && (statusData as any).postponementReason ? {
+         latestPostponementReason: (statusData as any).postponementReason,
+         latestPostponementReasonCustom: (statusData as any).postponementReasonCustom,
+         latestPostponementReasonConfirmedAt: new Date().toISOString(),
+         latestPostponementCallbackType: '내원'
+       } : {})
      };
      
      console.log('🔥 API 호출 전 데이터 확인:', {
@@ -2366,8 +2420,9 @@ const handlePatientUpdate = useCallback((updatedPatient: Patient) => {
                       }
                     >
                       <td className="px-4 py-4">
-                        <ConsultationTypeBadge 
-                          type={getConsultationTypeForBadge(patient.consultationType)} 
+                        <ConsultationTypeBadge
+                          type={patient.consultationType}
+                          label={getConsultationTypeLabel(patient.consultationType)}
                           inboundPhoneNumber={patient.inboundPhoneNumber}
                         />
                       </td>
