@@ -4,7 +4,7 @@
 import { useSelector, useDispatch } from 'react-redux'
 import { RootState, AppDispatch } from '@/store'
 import { Patient } from '@/types/patient'
-import { setPage, selectPatient, toggleVisitConfirmation, fetchPatients, addPatientToPostVisit, updateSinglePatient, fetchPostVisitPatients, selectPatientWithContext } from '@/store/slices/patientsSlice'
+import { setPage, selectPatient, toggleVisitConfirmation, fetchPatients, selectPatientWithContext } from '@/store/slices/patientsSlice'
 import { openDeleteConfirm, toggleHideCompletedVisits } from '@/store/slices/uiSlice'
 import { IconType } from 'react-icons'
 import { HiOutlineChevronLeft, HiOutlineChevronRight, HiOutlineArrowUp, HiOutlineTrash, HiOutlineCheck, HiOutlineEyeOff, HiOutlineEye, HiOutlineUser, HiOutlineRefresh, HiOutlineTag, HiOutlineExclamationCircle } from 'react-icons/hi'
@@ -545,10 +545,7 @@ export default function PatientList({ isLoading = false, filteredPatients, onSel
         
         if (toggleVisitConfirmation.fulfilled.match(result)) {
           console.log('✅ Redux 내원확정 처리 성공');
-
-          // 🔥 내원관리 페이지 동기화 보장
-          dispatch(fetchPostVisitPatients());
-
+          
           queryClient.invalidateQueries({ queryKey: ['patients'] });
           setTooltipRefreshTrigger(prev => prev + 1);
         } else {
@@ -613,19 +610,8 @@ export default function PatientList({ isLoading = false, filteredPatients, onSel
 
       console.log('✅ 내원완료 처리 성공 (예약완료 + 내원확정 통합)');
 
-      // 🚀 속도 최적화: fetchPatients() 대신 동기 액션으로 즉시 업데이트 (API 호출 제거)
-      if (updatedPatient) {
-        // 상담관리 리스트 업데이트 (동기, 즉시)
-        dispatch(updateSinglePatient(updatedPatient));
-
-        // 내원관리 페이지 동기화 (동기, 즉시)
-        dispatch(addPatientToPostVisit(updatedPatient));
-
-        // 🔥 내원관리 페이지 서버 동기화 보장 (백그라운드)
-        dispatch(fetchPostVisitPatients());
-
-        console.log('🚀 내원완료 동기 업데이트 완료');
-      }
+      // 🔥 Redux 상태 업데이트 (fetchPatients 대신 직접 업데이트로 속도 향상)
+      await dispatch(fetchPatients());
 
       queryClient.invalidateQueries({ queryKey: ['patients'] });
       setTooltipRefreshTrigger(prev => prev + 1);
