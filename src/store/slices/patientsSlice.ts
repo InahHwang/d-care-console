@@ -1370,7 +1370,55 @@ const patientsSlice = createSlice({
         };
       }
     },
-  
+
+    // 🔥 환자를 postVisitPatients에 추가/업데이트하는 동기 액션 (내원완료 시 사용)
+    addPatientToPostVisit: (state, action: PayloadAction<Patient>) => {
+      const patient = action.payload;
+      const existingIndex = state.postVisitPatients.findIndex(p =>
+        p._id === patient._id || p.id === patient.id
+      );
+
+      if (existingIndex !== -1) {
+        // 기존 환자 업데이트
+        state.postVisitPatients[existingIndex] = patient;
+      } else {
+        // 새 환자 추가 (맨 앞에)
+        state.postVisitPatients.unshift(patient);
+      }
+
+      console.log('🔥 postVisitPatients에 환자 추가/업데이트:', patient.name);
+    },
+
+    // 🔥 단일 환자 정보 동기 업데이트 (fetchPatients 대체용 - 속도 최적화)
+    updateSinglePatient: (state, action: PayloadAction<Patient>) => {
+      const updatedPatient = action.payload;
+
+      // patients 배열에서 업데이트
+      const patientIndex = state.patients.findIndex(p =>
+        p._id === updatedPatient._id || p.id === updatedPatient.id
+      );
+      if (patientIndex !== -1) {
+        state.patients[patientIndex] = updatedPatient;
+      }
+
+      // filteredPatients 배열에서도 업데이트
+      const filteredIndex = state.filteredPatients.findIndex(p =>
+        p._id === updatedPatient._id || p.id === updatedPatient.id
+      );
+      if (filteredIndex !== -1) {
+        state.filteredPatients[filteredIndex] = updatedPatient;
+      }
+
+      // selectedPatient도 업데이트 (현재 선택된 환자라면)
+      if (state.selectedPatient &&
+          (state.selectedPatient._id === updatedPatient._id ||
+           state.selectedPatient.id === updatedPatient.id)) {
+        state.selectedPatient = updatedPatient;
+      }
+
+      console.log('🔥 단일 환자 동기 업데이트 완료:', updatedPatient.name);
+    },
+
   extraReducers: (builder) => {
     builder
     // 🔥 예약 후 미내원 환자 자동 분류 처리
@@ -1599,11 +1647,11 @@ const patientsSlice = createSlice({
         state.pagination.totalItems = action.payload.totalItems;
         state.pagination.totalPages = Math.ceil(action.payload.totalItems / state.pagination.itemsPerPage) || 1;
 
-        // 🔥 postVisitPatients도 동기화 (내원관리 페이지 실시간 반영)
-        const visitConfirmedPatients = sortedPatients.filter(p => p.visitConfirmed === true);
-        state.postVisitPatients = visitConfirmedPatients;
+        // 🔥 수정: postVisitPatients 동기화 제거 (삭제 시 race condition 방지)
+        // postVisitPatients는 fetchPostVisitPatients와 개별 액션(deletePatient, toggleVisitConfirmation 등)에서만 관리
+        // 이렇게 하면 상담관리(fetchPatients)와 내원관리(postVisitPatients)가 독립적으로 동작함
 
-        console.log('fetchPatients 완료 - 환자 수:', action.payload.patients.length, '/ 내원확정:', visitConfirmedPatients.length);
+        console.log('fetchPatients 완료 - 환자 수:', action.payload.patients.length);
       })
       
       // 내원확정 토글 처리
@@ -1917,6 +1965,6 @@ export const selectPatientWithContext = (
   context?: 'management' | 'visit-management'
 ) => selectPatient({ patientId, context });
 
-export const { selectPatient, setSelectedPatient, clearSelectedPatient, setFilters, setPage, clearFilteredPatients, updatePatientField } = patientsSlice.actions;
+export const { selectPatient, setSelectedPatient, clearSelectedPatient, setFilters, setPage, clearFilteredPatients, updatePatientField, addPatientToPostVisit, updateSinglePatient } = patientsSlice.actions;
 export default patientsSlice.reducer;
 
