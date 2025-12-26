@@ -31,6 +31,11 @@ function normalizePhone(phone: string): string {
   return (phone || '').replace(/\D/g, '');
 }
 
+// 🔥 제외할 전화번호 목록 (통화기록에 저장하지 않음)
+const EXCLUDED_PHONE_NUMBERS = [
+  '07047414471',  // 070-4741-4471
+];
+
 // 전화번호 포맷팅 (010-1234-5678 형식)
 function formatPhone(phone: string): string {
   const normalized = normalizePhone(phone);
@@ -78,7 +83,10 @@ export async function GET(request: NextRequest) {
     const callLogsCollection = await getCallLogsCollection();
 
     // 필터 조건 구성
-    const filter: any = {};
+    const filter: any = {
+      // 🔥 제외 번호들은 조회에서 제외
+      callerNumber: { $nin: EXCLUDED_PHONE_NUMBERS.map(n => formatPhone(n)).concat(EXCLUDED_PHONE_NUMBERS) }
+    };
 
     if (status === 'missed') {
       filter.isMissed = true;
@@ -104,13 +112,68 @@ export async function GET(request: NextRequest) {
     // 총 개수 조회
     const total = await callLogsCollection.countDocuments(filter);
 
-    // 페이징 적용하여 조회
-    const callLogs = await callLogsCollection
-      .find(filter)
-      .sort({ ringTime: -1 })
-      .skip((page - 1) * limit)
-      .limit(limit)
-      .toArray();
+    // 페이징 적용 + callAnalysis 조인하여 조회
+    const callLogs = await callLogsCollection.aggregate([
+      { $match: filter },
+      { $sort: { ringTime: -1 } },
+      { $skip: (page - 1) * limit },
+      { $limit: limit },
+      // callAnalysis 컬렉션과 조인 (analysisId 기준)
+      // 🔥 $toObjectId 오류 방지: analysisId가 유효한 경우만 변환
+      {
+        $lookup: {
+          from: 'callAnalysis',
+          let: { analysisId: '$analysisId' },
+          pipeline: [
+            {
+              $match: {
+                $expr: {
+                  $and: [
+                    { $ne: ['$$analysisId', null] },
+                    { $ne: ['$$analysisId', ''] },
+                    // $convert를 사용해 안전하게 ObjectId 변환 (유효하지 않은 값이면 null 반환)
+                    {
+                      $eq: [
+                        '$_id',
+                        {
+                          $convert: {
+                            input: '$$analysisId',
+                            to: 'objectId',
+                            onError: null,
+                            onNull: null
+                          }
+                        }
+                      ]
+                    }
+                  ]
+                }
+              }
+            },
+            {
+              $project: {
+                status: 1,
+                analysis: 1,
+                transcriptFormatted: 1
+              }
+            }
+          ],
+          as: 'analysisInfo'
+        }
+      },
+      // 배열을 단일 객체로 변환
+      {
+        $addFields: {
+          analysisStatus: { $arrayElemAt: ['$analysisInfo.status', 0] },
+          analysisResult: { $arrayElemAt: ['$analysisInfo.analysis', 0] }
+        }
+      },
+      // 조인 임시 필드 제거
+      {
+        $project: {
+          analysisInfo: 0
+        }
+      }
+    ]).toArray();
 
     // 통계 계산
     const todayStart = new Date();
@@ -119,7 +182,9 @@ export async function GET(request: NextRequest) {
     const todayStats = await callLogsCollection.aggregate([
       {
         $match: {
-          ringTime: { $gte: todayStart.toISOString() }
+          ringTime: { $gte: todayStart.toISOString() },
+          // 🔥 제외 번호들은 통계에서도 제외
+          callerNumber: { $nin: EXCLUDED_PHONE_NUMBERS.map(n => formatPhone(n)).concat(EXCLUDED_PHONE_NUMBERS) }
         }
       },
       {
@@ -187,9 +252,19 @@ export async function POST(request: NextRequest) {
       );
     }
 
+    // 🔥 제외 번호 체크 - 해당 번호는 통화기록에 저장하지 않음
+    const normalizedCaller = normalizePhone(callerNumber);
+    if (EXCLUDED_PHONE_NUMBERS.includes(normalizedCaller)) {
+      console.log(`[CallLog] 제외 번호로 무시됨: ${callerNumber}`);
+      return NextResponse.json({
+        success: true,
+        message: 'Excluded phone number, ignored',
+        excluded: true
+      });
+    }
+
     const callLogsCollection = await getCallLogsCollection();
     const now = new Date().toISOString();
-    const normalizedCaller = normalizePhone(callerNumber);
 
     // 환자 정보 조회
     const patient = await findPatientByPhone(callerNumber);
@@ -225,9 +300,16 @@ export async function POST(request: NextRequest) {
       // 통화 시작 (수화기 들었을 때)
       // 최근 해당 번호의 ringing 상태 통화 찾기 (최근 5분 이내)
       const fiveMinutesAgo = new Date(Date.now() - 5 * 60 * 1000).toISOString();
+      const formattedCaller = formatPhone(callerNumber);
+
+      // 🔥 전화번호 매칭 개선: 포맷된 형식과 정규화된 형식 둘 다 검색
       const existingCall = await callLogsCollection.findOne(
         {
-          callerNumber: { $regex: normalizedCaller.slice(-8) + '$' },
+          $or: [
+            { callerNumber: formattedCaller },
+            { callerNumber: normalizedCaller },
+            { callerNumber: callerNumber }
+          ],
           callStatus: 'ringing',
           ringTime: { $gte: fiveMinutesAgo }
         },
@@ -263,9 +345,16 @@ export async function POST(request: NextRequest) {
 
     } else if (eventType === 'end') {
       // 통화 종료
+      const formattedCaller = formatPhone(callerNumber);
+
+      // 🔥 전화번호 매칭 개선: 포맷된 형식과 정규화된 형식 둘 다 검색
       const existingCall = await callLogsCollection.findOne(
         {
-          callerNumber: { $regex: normalizedCaller.slice(-8) + '$' },
+          $or: [
+            { callerNumber: formattedCaller },
+            { callerNumber: normalizedCaller },
+            { callerNumber: callerNumber }
+          ],
           callStatus: { $in: ['ringing', 'answered'] }
         },
         { sort: { ringTime: -1 } }
@@ -312,9 +401,16 @@ export async function POST(request: NextRequest) {
       // 부재중 (명시적 부재중 이벤트)
       // 최근 해당 번호의 ringing 상태 통화 찾기 (최근 5분 이내)
       const fiveMinutesAgo = new Date(Date.now() - 5 * 60 * 1000).toISOString();
+      const formattedCaller = formatPhone(callerNumber);
+
+      // 🔥 전화번호 매칭 개선: 포맷된 형식과 정규화된 형식 둘 다 검색
       const existingCall = await callLogsCollection.findOne(
         {
-          callerNumber: { $regex: normalizedCaller.slice(-8) + '$' },
+          $or: [
+            { callerNumber: formattedCaller },
+            { callerNumber: normalizedCaller },
+            { callerNumber: callerNumber }
+          ],
           callStatus: 'ringing',
           ringTime: { $gte: fiveMinutesAgo }
         },
@@ -356,6 +452,63 @@ export async function POST(request: NextRequest) {
 
   } catch (error) {
     console.error('[CallLog API] POST 오류:', error);
+    return NextResponse.json(
+      { success: false, error: 'Internal server error' },
+      { status: 500 }
+    );
+  }
+}
+
+// PATCH - 통화기록 수정
+export async function PATCH(request: NextRequest) {
+  try {
+    const body = await request.json();
+    const { id, isMissed, duration, callStatus } = body;
+
+    if (!id) {
+      return NextResponse.json(
+        { success: false, error: 'id is required' },
+        { status: 400 }
+      );
+    }
+
+    const callLogsCollection = await getCallLogsCollection();
+    const now = new Date().toISOString();
+
+    const updateFields: Record<string, unknown> = { updatedAt: now };
+
+    if (typeof isMissed === 'boolean') {
+      updateFields.isMissed = isMissed;
+    }
+    if (typeof duration === 'number') {
+      updateFields.duration = duration;
+    }
+    if (callStatus) {
+      updateFields.callStatus = callStatus;
+    }
+
+    const result = await callLogsCollection.updateOne(
+      { _id: new ObjectId(id) },
+      { $set: updateFields }
+    );
+
+    if (result.matchedCount === 0) {
+      return NextResponse.json(
+        { success: false, error: 'Call log not found' },
+        { status: 404 }
+      );
+    }
+
+    console.log(`[CallLog] 통화기록 수정: ${id}`, updateFields);
+
+    return NextResponse.json({
+      success: true,
+      message: 'Call log updated',
+      updated: updateFields
+    });
+
+  } catch (error) {
+    console.error('[CallLog API] PATCH 오류:', error);
     return NextResponse.json(
       { success: false, error: 'Internal server error' },
       { status: 500 }
