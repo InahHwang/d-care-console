@@ -1,6 +1,7 @@
 'use client';
 
 import { useState, useEffect, useCallback } from 'react';
+import { useRouter } from 'next/navigation';
 import { format } from 'date-fns';
 import { ko } from 'date-fns/locale';
 import AuthGuard from '@/components/auth/AuthGuard';
@@ -52,7 +53,13 @@ interface TodayStats {
 
 export default function CallLogsPage() {
   const dispatch = useAppDispatch();
+  const router = useRouter();
   const selectedPatient = useAppSelector((state) => state.patients.selectedPatient);
+  const { user, isInitialized } = useAppSelector((state) => state.auth);
+
+  // 🔥 마스터 관리자(dsbrdental)만 접근 가능
+  const isMasterAdmin = user?.username === 'dsbrdental';
+
   const [callLogs, setCallLogs] = useState<CallLog[]>([]);
   const [loading, setLoading] = useState(true);
   const [todayStats, setTodayStats] = useState<TodayStats>({
@@ -78,6 +85,13 @@ export default function CallLogsPage() {
   useEffect(() => {
     dispatch(setCurrentMenuItem('통화기록'));
   }, [dispatch]);
+
+  // 🔥 마스터 관리자가 아니면 대시보드로 리다이렉트
+  useEffect(() => {
+    if (isInitialized && !isMasterAdmin) {
+      router.replace('/');
+    }
+  }, [isInitialized, isMasterAdmin, router]);
 
   const fetchCallLogs = useCallback(async () => {
     setLoading(true);
@@ -204,6 +218,19 @@ export default function CallLogsPage() {
       dispatch(openPatientFormWithPhone(log.callerNumber));
     }
   };
+
+  // 🔥 마스터 관리자가 아니면 빈 화면 (리다이렉트 중)
+  if (!isInitialized || !isMasterAdmin) {
+    return (
+      <AuthGuard>
+        <AppLayout currentPage="call-logs">
+          <div className="flex items-center justify-center h-64">
+            <div className="text-gray-400">접근 권한 확인 중...</div>
+          </div>
+        </AppLayout>
+      </AuthGuard>
+    );
+  }
 
   return (
     <AuthGuard>
@@ -471,7 +498,9 @@ export default function CallLogsPage() {
                               {log.analysisStatus === 'complete' ? '분석완료' :
                                log.analysisStatus === 'failed' ? '실패' :
                                log.analysisStatus === 'analyzing' ? '분석중' :
-                               log.analysisStatus === 'stt_processing' ? 'STT중' : '처리중'}
+                               log.analysisStatus === 'stt_processing' ? 'STT중' :
+                               log.analysisStatus === 'stt_complete' ? '분석대기' :
+                               log.analysisStatus === 'pending' ? '대기중' : '처리중'}
                             </button>
                           ) : log.duration && log.duration > 10 ? (
                             <span className="text-xs text-gray-400">-</span>
