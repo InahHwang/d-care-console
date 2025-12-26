@@ -1811,23 +1811,27 @@ const patientsSlice = createSlice({
       // 환자 삭제 처리
       .addCase(deletePatient.fulfilled, (state, action: PayloadAction<string>) => {
         const deletedPatientId = action.payload;
-        
-        state.patients = state.patients.filter(p => 
+
+        state.patients = state.patients.filter(p =>
           p._id !== deletedPatientId && p.id !== deletedPatientId
         );
-        state.filteredPatients = state.filteredPatients.filter(p => 
+        state.filteredPatients = state.filteredPatients.filter(p =>
           p._id !== deletedPatientId && p.id !== deletedPatientId
         );
-        state.eventTargetPatients = state.eventTargetPatients.filter(p => 
+        state.eventTargetPatients = state.eventTargetPatients.filter(p =>
           p._id !== deletedPatientId && p.id !== deletedPatientId
         );
-        
-        if (state.selectedPatient && 
-            (state.selectedPatient._id === deletedPatientId || 
+        // 🔥 postVisitPatients에서도 삭제 (내원관리 페이지 반영)
+        state.postVisitPatients = state.postVisitPatients.filter(p =>
+          p._id !== deletedPatientId && p.id !== deletedPatientId
+        );
+
+        if (state.selectedPatient &&
+            (state.selectedPatient._id === deletedPatientId ||
              state.selectedPatient.id === deletedPatientId)) {
           state.selectedPatient = null;
         }
-        
+
         state.pagination.totalItems -= 1;
         state.pagination.totalPages = Math.ceil(state.pagination.totalItems / state.pagination.itemsPerPage);
       })
