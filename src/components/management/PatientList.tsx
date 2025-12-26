@@ -4,7 +4,7 @@
 import { useSelector, useDispatch } from 'react-redux'
 import { RootState, AppDispatch } from '@/store'
 import { Patient } from '@/types/patient'
-import { setPage, selectPatient, toggleVisitConfirmation, fetchPatients, addPatientToPostVisit, updateSinglePatient, selectPatientWithContext } from '@/store/slices/patientsSlice'
+import { setPage, selectPatient, toggleVisitConfirmation, fetchPatients, addPatientToPostVisit, updateSinglePatient, fetchPostVisitPatients, selectPatientWithContext } from '@/store/slices/patientsSlice'
 import { openDeleteConfirm, toggleHideCompletedVisits } from '@/store/slices/uiSlice'
 import { IconType } from 'react-icons'
 import { HiOutlineChevronLeft, HiOutlineChevronRight, HiOutlineArrowUp, HiOutlineTrash, HiOutlineCheck, HiOutlineEyeOff, HiOutlineEye, HiOutlineUser, HiOutlineRefresh, HiOutlineTag, HiOutlineExclamationCircle } from 'react-icons/hi'
@@ -545,7 +545,10 @@ export default function PatientList({ isLoading = false, filteredPatients, onSel
         
         if (toggleVisitConfirmation.fulfilled.match(result)) {
           console.log('✅ Redux 내원확정 처리 성공');
-          
+
+          // 🔥 내원관리 페이지 동기화 보장
+          dispatch(fetchPostVisitPatients());
+
           queryClient.invalidateQueries({ queryKey: ['patients'] });
           setTooltipRefreshTrigger(prev => prev + 1);
         } else {
@@ -618,7 +621,10 @@ export default function PatientList({ isLoading = false, filteredPatients, onSel
         // 내원관리 페이지 동기화 (동기, 즉시)
         dispatch(addPatientToPostVisit(updatedPatient));
 
-        console.log('🚀 내원완료 동기 업데이트 완료 (API 호출 없이 즉시 반영)');
+        // 🔥 내원관리 페이지 서버 동기화 보장 (백그라운드)
+        dispatch(fetchPostVisitPatients());
+
+        console.log('🚀 내원완료 동기 업데이트 완료');
       }
 
       queryClient.invalidateQueries({ queryKey: ['patients'] });
