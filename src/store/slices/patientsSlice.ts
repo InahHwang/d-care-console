@@ -602,14 +602,16 @@ export const toggleVisitConfirmation = createAsyncThunk(
         return rejectWithValue(errorData.error || '내원확정 상태 변경에 실패했습니다');
       }
       
-      const updatedPatient = await response.json();
-      
+      const responseData = await response.json();
+      // 🔥 API 응답에서 실제 환자 데이터 추출 (응답 형식: { success, message, updatedPatient, visitInfo })
+      const updatedPatient = responseData.updatedPatient || responseData;
+
       await PatientActivityLogger.toggleVisitConfirmation(
         updatedPatient.id,
         updatedPatient.name,
         updatedPatient.visitConfirmed
       );
-      
+
       return updatedPatient;
     } catch (error) {
       console.error('내원확정 API 오류:', error);

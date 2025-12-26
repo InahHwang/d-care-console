@@ -74,8 +74,8 @@ export const VISIT_MANAGEMENT_FILTER_COLORS: Record<VisitManagementFilterType, {
   no_status: { bg: 'bg-gray-100', text: 'text-gray-600', hover: 'hover:bg-gray-50' }
 };
 
-// 🔥 상담 타입 추가
-export type ConsultationType = 'inbound' | 'outbound' | 'returning';
+// 🔥 상담 타입 추가 - 사용자 정의 타입도 허용
+export type ConsultationType = 'inbound' | 'outbound' | 'returning' | string;
 
 // 🔥 내원관리 전용 콜백 타입 추가
 export type VisitManagementCallbackType = 
@@ -143,19 +143,23 @@ export interface EstimateInfo {
 // 🔥 첫 상담 후 상태별 정보 타입들 (새로 추가)
 export interface FirstConsultationResult {
   status: FirstConsultationStatus;
-  
+
   // 예약완료일 때 필요한 정보
   reservationDate?: string;        // 예약 날짜
   reservationTime?: string;        // 예약 시간
   consultationContent?: string;    // 상담 내용
-  
+
   // 상담진행중/부재중일 때 필요한 정보
   callbackDate?: string;          // 콜백 날짜
   consultationPlan?: string;      // 상담 계획
-  
+
   // 종결일 때 필요한 정보
   terminationReason?: string;     // 종결 사유 (기타 선택 시 주관식 내용 포함)
-  
+
+  // 🔥 미룸 사유 (상담진행중일 때)
+  postponementReason?: string;           // 미룸 사유 코드
+  postponementReasonCustom?: string;     // 기타 선택 시 직접 입력 내용
+
   createdAt: string;
   updatedAt: string;
 }
@@ -183,19 +187,23 @@ export interface PostReservationResult {
 export interface CallbackFollowupResult {
   status: CallbackFollowupStatus;
   callbackType: '1차' | '2차' | '3차' | '4차' | '5차'; // 몇 차 콜백인지
-  
+
   // 예약완료일 때 (첫 상담 후와 동일한 로직)
   reservationDate?: string;
   reservationTime?: string;
   consultationContent?: string;
-  
+
   // 부재중/상담중일 때
   nextCallbackDate?: string;     // 다음 콜백 날짜
   reason?: string;              // 사유
 
   // 🔥 종결일 때 추가
   terminationReason?: string;
-  
+
+  // 🔥 미룸 사유 (상담진행중일 때)
+  postponementReason?: string;           // 미룸 사유 코드
+  postponementReasonCustom?: string;     // 기타 선택 시 직접 입력 내용
+
   createdAt: string;
   updatedAt: string;
 }
@@ -233,11 +241,13 @@ export interface ConsultationInfo {
   estimatedAmount?: number;           // 견적 금액
   consultationDate: string;         // 상담 날짜 (YYYY-MM-DD)
   consultationNotes?: string;       // 상담 메모
-  treatmentPlan?: string;           // 치료 계획
-  
+  treatmentPlan?: string;           // 치료 계획 (기존 텍스트 - 호환성 유지)
+  selectedTeeth?: number[];         // 🔥 선택된 치아 번호 배열 (FDI 국제 표기법)
+  teethUnknown?: boolean;           // 🔥 치아 번호 미확인 여부
+
   // 🔥 핵심 필드: 견적 동의 여부 (호환성 유지)
   estimateAgreed: boolean;          // 견적 동의 여부 (true = Y, false = N)
-  
+
   createdAt?: string;               // 생성일시
   updatedAt?: string;               // 수정일시
 }
@@ -347,6 +357,11 @@ export interface CallbackItem {
   delayReason?: string;
   isVisitManagementCallback?: boolean;
   visitManagementReason?: string;
+
+  // 🔥 미룸 사유 관련 필드 추가
+  postponementReason?: string;           // 미룸 사유 코드 (예: 'budget_exceeded')
+  postponementReasonCustom?: string;     // 기타 선택 시 직접 입력 내용
+  postponementReasonConfirmedAt?: string; // 사유가 확정된 시점 (ISO 문자열)
 
   consultationRecord?: CallbackConsultationRecord;
 }
@@ -497,6 +512,12 @@ export interface Patient {
   
   // 🔥 임시 데이터 표시용 필드 (Optimistic Update용)
   isTemporary?: boolean;            // 임시 데이터 여부
+
+  // 🔥 미룸 사유 관련 필드 추가 (최근 확정된 사유)
+  latestPostponementReason?: string;           // 최근 확정된 미룸 사유 코드
+  latestPostponementReasonCustom?: string;     // 기타 선택 시 직접 입력 내용
+  latestPostponementReasonConfirmedAt?: string; // 사유가 확정된 시점
+  latestPostponementCallbackType?: string;     // 어떤 콜백에서 확정되었는지 (예: '2차', '내원1차')
 }
 
 // 🔥 환자 생성을 위한 타입 - consultationType, referralSource, 담당자 정보, 결제 정보 추가
@@ -569,6 +590,12 @@ export interface UpdatePatientData {
   postVisitNotes?: string;           // 내원 후 메모 (호환성 유지)
   treatmentStartDate?: string;       // 치료 시작일
   nextVisitDate?: string;           // 다음 내원 예정일
+
+  // 🔥 미룸 사유 관련 필드 추가
+  latestPostponementReason?: string;
+  latestPostponementReasonCustom?: string;
+  latestPostponementReasonConfirmedAt?: string;
+  latestPostponementCallbackType?: string;
 }
 
 // 🔥 내원관리 통계 계산 헬퍼 함수들

@@ -11,7 +11,7 @@ interface PatientFromDB {
   patientId: string;
   name: string;
   phoneNumber: string;
-  consultationType?: 'inbound' | 'outbound'; // 🔥 추가
+  consultationType?: string; // 🔥 사용자 정의 타입도 허용
   inboundPhoneNumber?: string; // 🔥 추가
   referralSource?: string; // 🔥 유입경로 추가
   // 기타 필요한 필드들...

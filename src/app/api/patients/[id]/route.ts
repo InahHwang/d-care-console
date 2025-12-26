@@ -95,7 +95,8 @@ export async function PUT(
       ...data,
       updatedAt: new Date().toISOString(),
       referralSource: data.referralSource !== undefined ? data.referralSource : '',
-      consultationType: data.consultationType || 'outbound'
+      // 🔥 consultationType이 명시적으로 전달된 경우만 업데이트, undefined면 기존 값 유지
+      ...(data.consultationType !== undefined && { consultationType: data.consultationType })
     };
     
     // 🔥 나이 필드 검증 및 처리
