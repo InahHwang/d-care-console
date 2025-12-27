@@ -102,6 +102,23 @@ async function downloadRecording(url: string): Promise<Buffer> {
   return Buffer.from(arrayBuffer);
 }
 
+// MongoDB에서 base64 녹음 데이터 가져오기
+async function getRecordingBase64(db: Awaited<ReturnType<typeof connectToDatabase>>['db'], analysisId: string): Promise<string | null> {
+  try {
+    const recording = await db.collection('callRecordings').findOne({
+      analysisId: analysisId
+    });
+    if (recording?.recordingBase64) {
+      console.log(`[Transcribe] base64 녹음 데이터 로드 완료: ${recording.recordingBase64.length} chars`);
+      return recording.recordingBase64;
+    }
+    return null;
+  } catch (error) {
+    console.error('[Transcribe] base64 데이터 로드 오류:', error);
+    return null;
+  }
+}
+
 // OpenAI Transcription API 호출
 async function transcribeWithOpenAI(audioBuffer: Buffer, fileName: string): Promise<OpenAITranscriptionResponse> {
   const apiKey = process.env.OPENAI_API_KEY;
@@ -189,29 +206,51 @@ export async function POST(request: NextRequest) {
       }
     );
 
-    // 녹음 파일 URL 결정
-    const audioUrl = recordingUrl || analysis.recordingUrl;
-    if (!audioUrl) {
+    // 녹음 데이터 가져오기 (base64 우선, 없으면 URL 다운로드)
+    let audioBuffer: Buffer | null = null;
+
+    // 1. MongoDB에서 base64 데이터 확인
+    const base64Data = await getRecordingBase64(db, analysisId);
+    if (base64Data) {
+      console.log('[Transcribe] base64 데이터 사용');
+      audioBuffer = Buffer.from(base64Data, 'base64');
+      console.log(`[Transcribe] base64 디코딩 완료: ${audioBuffer.length} bytes`);
+    }
+
+    // 2. base64가 없으면 URL 다운로드 시도
+    if (!audioBuffer) {
+      const audioUrl = recordingUrl || analysis.recordingUrl;
+      if (audioUrl) {
+        console.log('[Transcribe] URL에서 다운로드 시도');
+        try {
+          audioBuffer = await downloadRecording(audioUrl);
+          console.log(`[Transcribe] 다운로드 완료: ${audioBuffer.length} bytes`);
+        } catch (dlError) {
+          console.error('[Transcribe] URL 다운로드 실패:', dlError);
+        }
+      }
+    }
+
+    // 3. 녹음 데이터가 없으면 실패
+    if (!audioBuffer) {
       await analysisCollection.updateOne(
         { _id: new ObjectId(analysisId) },
         {
           $set: {
             status: 'failed',
-            errorMessage: '녹음 파일 URL이 없습니다.',
+            errorMessage: '녹음 파일을 찾을 수 없습니다 (base64/URL 모두 없음).',
             updatedAt: new Date().toISOString()
           }
         }
       );
       return NextResponse.json(
-        { success: false, error: 'Recording URL not found' },
+        { success: false, error: 'Recording data not found' },
         { status: 400 }
       );
     }
 
     try {
-      // 1. 녹음 파일 다운로드
-      const audioBuffer = await downloadRecording(audioUrl);
-      console.log(`[Transcribe] 파일 크기: ${audioBuffer.length} bytes`);
+      console.log(`[Transcribe] 오디오 파일 크기: ${audioBuffer.length} bytes`);
 
       // 2. OpenAI API로 STT 변환
       const transcription = await transcribeWithOpenAI(

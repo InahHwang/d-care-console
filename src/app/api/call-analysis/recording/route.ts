@@ -277,6 +277,7 @@ export async function POST(request: NextRequest) {
       callerNumber,
       calledNumber,
       recordingFileName,
+      recordingBase64,  // CTI Bridge에서 보내는 base64 인코딩된 오디오
       duration,
       timestamp
     } = body;
@@ -288,6 +289,7 @@ export async function POST(request: NextRequest) {
     console.log(`  녹취파일: ${recordingFileName}`);
     console.log(`  통화시간: ${duration}초`);
     console.log(`  시각: ${timestamp}`);
+    console.log(`  base64 데이터: ${recordingBase64 ? `있음 (${recordingBase64.length} chars)` : '없음'}`);
     console.log('='.repeat(60));
 
     if (!callerNumber || !recordingFileName) {
@@ -307,7 +309,7 @@ export async function POST(request: NextRequest) {
     // 통화기록 찾기
     const callLog = await findCallLog(callerNumber, duration);
 
-    // 새 분석 레코드 생성
+    // 새 분석 레코드 생성 (base64는 너무 크므로 별도 저장)
     const newAnalysis: CallAnalysis = {
       callLogId: callLog?._id?.toString(),
       callerNumber: formatPhone(callerNumber),
@@ -321,8 +323,34 @@ export async function POST(request: NextRequest) {
       updatedAt: now
     };
 
+    // base64 데이터가 있으면 별도 컬렉션에 저장 (분석 레코드에는 너무 큼)
+    let hasRecordingData = false;
+    if (recordingBase64) {
+      try {
+        await db.collection('callRecordings').insertOne({
+          analysisId: null, // 나중에 업데이트
+          recordingBase64: recordingBase64,
+          createdAt: now
+        });
+        hasRecordingData = true;
+        console.log('[CallAnalysis] base64 녹음 데이터 임시 저장 완료');
+      } catch (saveErr) {
+        console.error('[CallAnalysis] base64 저장 오류:', saveErr);
+      }
+    }
+
     const result = await analysisCollection.insertOne(newAnalysis);
-    console.log(`[CallAnalysis] 새 분석 레코드 생성: ${result.insertedId}`);
+    const analysisId = result.insertedId.toString();
+    console.log(`[CallAnalysis] 새 분석 레코드 생성: ${analysisId}`);
+
+    // base64 녹음 데이터에 analysisId 연결
+    if (hasRecordingData) {
+      await db.collection('callRecordings').updateOne(
+        { analysisId: null, createdAt: now },
+        { $set: { analysisId: analysisId } }
+      );
+      console.log('[CallAnalysis] 녹음 데이터에 analysisId 연결 완료');
+    }
 
     // 통화기록에 분석 ID 연결
     if (callLog) {
@@ -341,21 +369,25 @@ export async function POST(request: NextRequest) {
     }
 
     // Phase 2: STT 파이프라인 트리거 (waitUntil로 백그라운드 실행 보장)
-    if (body.recordingUrl) {
+    // base64 데이터가 있거나 recordingUrl이 있으면 STT 시작
+    if (hasRecordingData || body.recordingUrl) {
       console.log('[CallAnalysis] waitUntil로 STT 파이프라인 시작');
+      console.log(`  - base64 데이터: ${hasRecordingData ? '있음' : '없음'}`);
+      console.log(`  - recordingUrl: ${body.recordingUrl ? '있음' : '없음'}`);
+
       waitUntil(
-        triggerSTTProcessing(result.insertedId.toString(), body.recordingUrl)
+        triggerSTTProcessing(analysisId, body.recordingUrl)
           .then(() => console.log('[CallAnalysis] STT 파이프라인 완료'))
           .catch(err => console.error('[CallAnalysis] STT 트리거 실패:', err))
       );
     } else {
-      console.log('[CallAnalysis] recordingUrl이 없어 STT 처리 보류');
+      console.log('[CallAnalysis] 녹음 데이터가 없어 STT 처리 보류');
     }
 
     return NextResponse.json({
       success: true,
       message: 'Recording received, analysis queued',
-      analysisId: result.insertedId.toString(),
+      analysisId: analysisId,
       data: {
         ...newAnalysis,
         _id: result.insertedId
