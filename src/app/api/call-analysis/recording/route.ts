@@ -2,6 +2,7 @@
 // 통화 녹취 완료 이벤트 처리 및 분석 파이프라인 트리거
 
 import { NextRequest, NextResponse } from 'next/server';
+import { waitUntil } from '@vercel/functions';
 import { connectToDatabase, getCallLogsCollection } from '@/utils/mongodb';
 import { ObjectId } from 'mongodb';
 
@@ -339,10 +340,14 @@ export async function POST(request: NextRequest) {
       console.log(`[CallAnalysis] 통화기록에 분석 ID 연결: ${callLog._id}`);
     }
 
-    // Phase 2: STT 파이프라인 트리거 (비동기로 실행)
+    // Phase 2: STT 파이프라인 트리거 (waitUntil로 백그라운드 실행 보장)
     if (body.recordingUrl) {
-      triggerSTTProcessing(result.insertedId.toString(), body.recordingUrl)
-        .catch(err => console.error('[CallAnalysis] STT 트리거 실패:', err));
+      console.log('[CallAnalysis] waitUntil로 STT 파이프라인 시작');
+      waitUntil(
+        triggerSTTProcessing(result.insertedId.toString(), body.recordingUrl)
+          .then(() => console.log('[CallAnalysis] STT 파이프라인 완료'))
+          .catch(err => console.error('[CallAnalysis] STT 트리거 실패:', err))
+      );
     } else {
       console.log('[CallAnalysis] recordingUrl이 없어 STT 처리 보류');
     }
