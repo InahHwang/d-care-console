@@ -132,12 +132,11 @@ async function transcribeWithOpenAI(audioBuffer: Buffer, fileName: string): Prom
   // Buffer를 Blob으로 변환
   const audioBlob = new Blob([audioBuffer], { type: 'audio/wav' });
   formData.append('file', audioBlob, fileName || 'recording.wav');
-  formData.append('model', 'gpt-4o-transcribe');
+  formData.append('model', 'whisper-1');
   formData.append('language', 'ko');
   formData.append('response_format', 'verbose_json');
-  // 화자분리 및 타임스탬프 포함
+  // 타임스탬프 포함
   formData.append('timestamp_granularities[]', 'word');
-  formData.append('include[]', 'logprobs');
 
   console.log('[Transcribe] OpenAI API 호출 중...');
 
