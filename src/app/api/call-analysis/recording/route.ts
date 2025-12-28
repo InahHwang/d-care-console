@@ -402,3 +402,55 @@ export async function POST(request: NextRequest) {
     );
   }
 }
+
+// PATCH - pending 상태 레코드를 failed로 업데이트
+export async function PATCH(request: NextRequest) {
+  try {
+    const body = await request.json();
+    const { updatePendingToFailed, errorMessage } = body;
+
+    if (!updatePendingToFailed) {
+      return NextResponse.json(
+        { success: false, error: 'Invalid request' },
+        { status: 400 }
+      );
+    }
+
+    const { db } = await connectToDatabase();
+    const analysisCollection = db.collection('callAnalysis');
+    const now = new Date().toISOString();
+
+    // pending 상태인 레코드 중 오래된 것들을 failed로 변경
+    // (10분 이상 pending 상태인 것들)
+    const tenMinutesAgo = new Date(Date.now() - 10 * 60 * 1000).toISOString();
+
+    const result = await analysisCollection.updateMany(
+      {
+        status: 'pending',
+        updatedAt: { $lt: tenMinutesAgo }
+      },
+      {
+        $set: {
+          status: 'failed',
+          errorMessage: errorMessage || '처리 시간 초과 또는 데이터 누락으로 복구 불가',
+          updatedAt: now
+        }
+      }
+    );
+
+    console.log(`[CallAnalysis] ${result.modifiedCount}개 레코드를 pending → failed로 변경`);
+
+    return NextResponse.json({
+      success: true,
+      message: `${result.modifiedCount} records updated to failed`,
+      modifiedCount: result.modifiedCount
+    });
+
+  } catch (error) {
+    console.error('[CallAnalysis API] PATCH 오류:', error);
+    return NextResponse.json(
+      { success: false, error: 'Internal server error' },
+      { status: 500 }
+    );
+  }
+}
