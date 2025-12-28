@@ -207,9 +207,9 @@ function PatientList({
   };
 
   return (
-    <div className="flex flex-col h-full">
+    <div className="flex flex-col">
       {/* 필터 탭 */}
-      <div className="p-4 border-b border-gray-200 bg-gray-50">
+      <div className="p-4 border-b border-gray-200 bg-gray-50 sticky top-0 z-10">
         <div className="flex gap-2 flex-wrap">
           {[
             { key: 'all' as const, label: '전체' },
@@ -233,7 +233,7 @@ function PatientList({
       </div>
 
       {/* 환자 목록 */}
-      <div className="flex-1 overflow-y-auto">
+      <div>
         {sortedPatients.length === 0 ? (
           <div className="text-center py-12 text-gray-500">
             해당 조건의 환자가 없습니다.
@@ -342,7 +342,7 @@ function PatientList({
 function PatientDetailPanel({ patient }: { patient: PatientData | null }) {
   if (!patient) {
     return (
-      <div className="h-full flex items-center justify-center bg-gray-50 text-gray-500">
+      <div className="flex items-center justify-center bg-gray-50 text-gray-500 py-20">
         <div className="text-center">
           <div className="text-5xl mb-4">👈</div>
           <p>환자를 선택하면 상세 정보가 표시됩니다.</p>
@@ -355,7 +355,7 @@ function PatientDetailPanel({ patient }: { patient: PatientData | null }) {
   const hasDiscount = patient.discountRate > 0;
 
   return (
-    <div className="h-full overflow-y-auto bg-gray-50">
+    <div className="bg-gray-50">
       {/* 헤더 */}
       <div className={`${config.bgColor} border-b ${config.borderColor} p-6`}>
         <div className="flex items-start justify-between mb-4">
@@ -661,11 +661,11 @@ const DailyReport: React.FC = () => {
       {data && <SummaryCards summary={data.summary} />}
 
       {/* 메인 컨텐츠 - 좌우 분할 */}
-      {data && (
-        <div className="bg-white rounded-xl shadow-sm border border-gray-200 overflow-hidden">
-          <div className="grid grid-cols-1 lg:grid-cols-2" style={{ height: 'calc(100vh - 420px)', minHeight: '500px' }}>
+      {data && data.patients.length > 0 && (
+        <div className="bg-white rounded-xl shadow-sm border border-gray-200">
+          <div className="grid grid-cols-1 lg:grid-cols-2">
             {/* 좌측: 환자 목록 */}
-            <div className="border-r border-gray-200">
+            <div className="border-r border-gray-200 lg:max-h-[70vh] lg:overflow-y-auto">
               <PatientList
                 patients={data.patients}
                 selectedId={selectedPatient?.id || null}
@@ -676,7 +676,7 @@ const DailyReport: React.FC = () => {
             </div>
 
             {/* 우측: 환자 상세 */}
-            <div>
+            <div className="lg:max-h-[70vh] lg:overflow-y-auto">
               <PatientDetailPanel patient={selectedPatient} />
             </div>
           </div>
