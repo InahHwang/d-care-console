@@ -80,18 +80,22 @@ export default function EventTargetList() {
   // 컴포넌트 마운트 시 데이터 로드 - 수정된 부분
   useEffect(() => {
     console.log('EventTargetList 컴포넌트 마운트됨')
-    
+
     // 초기 데이터 로드
     const initializeData = async () => {
       try {
         setRefreshing(true)
-        
-        // 환자 데이터, 이벤트 타겟 데이터, 템플릿 데이터, 카테고리 데이터를 순차적으로 로드
-        await dispatch(fetchPatients()).unwrap()
+
+        // 🔥 성능 최적화: 환자 데이터가 없을 때만 로드
+        if (patients.length === 0) {
+          await dispatch(fetchPatients()).unwrap()
+        }
+
+        // 이벤트 타겟, 템플릿, 카테고리 데이터는 항상 로드 (이 페이지 전용 데이터)
         await dispatch(initializeEventTargets()).unwrap()
         await dispatch(fetchTemplates()).unwrap()
-        await dispatch(fetchCategories()).unwrap() // 추가
-        
+        await dispatch(fetchCategories()).unwrap()
+
         console.log('초기 데이터 로드 완료')
       } catch (error) {
         console.error('초기 데이터 로드 실패:', error)
@@ -99,9 +103,9 @@ export default function EventTargetList() {
         setRefreshing(false)
       }
     }
-    
+
     initializeData()
-  }, [dispatch])
+  }, [dispatch, patients.length])
 
   // 이벤트 타겟 환자 데이터 변경 감지
   useEffect(() => {

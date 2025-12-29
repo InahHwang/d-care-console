@@ -5,15 +5,15 @@ import { useState, useEffect, useMemo, useCallback } from 'react'
 import { useAppDispatch, useAppSelector } from '@/hooks/reduxHooks'
 import { useMutation, useQueryClient } from '@tanstack/react-query'
 import { RootState } from '@/store'
-import { 
-  clearSelectedPatient, 
-  Patient, 
+import {
+  clearSelectedPatient,
+  Patient,
   updateConsultationInfo,
   updatePatient,
   addCallback,
   updateCallback,
-  fetchPatients,
-  selectPatient
+  selectPatient,
+  updatePatientDirectly
 } from '@/store/slices/patientsSlice'
 import { HiOutlineX, HiOutlinePhone, HiOutlineCalendar, HiOutlineUser, HiOutlineLocationMarker, HiOutlineCake, HiOutlineClipboardList, HiOutlinePencil, HiOutlineCheck, HiOutlineStop, HiOutlineRefresh, HiOutlineGlobeAlt, HiOutlineUserGroup, HiOutlineCreditCard, HiOutlineCurrencyDollar, HiOutlineClipboardCheck, HiOutlineHeart, HiOutlineGift } from 'react-icons/hi'
 import { FiPhone, FiPhoneCall } from 'react-icons/fi'
@@ -157,28 +157,24 @@ export default function PatientDetailModal() {
 
   const refreshPatientData = useCallback(async () => {
     try {
-      if (selectedPatient && (selectedPatient._id || selectedPatient.id)) {
+      const patientId = selectedPatient?._id || selectedPatient?.id;
+      if (selectedPatient && patientId) {
         console.log('🔄 환자 상세 모달 - 환자 데이터 새로고침 시작');
-        
-        const result = await dispatch(fetchPatients()).unwrap();
-        
-        if (result?.patients) {
-          const updatedPatient = result.patients.find((p: Patient) => 
-            p._id === selectedPatient._id || p.id === selectedPatient.id
-          );
-          
-          if (updatedPatient) {
-            dispatch(selectPatient(updatedPatient));
-            console.log('✅ 선택된 환자 정보 업데이트 완료:', {
-              name: updatedPatient.name,
-              status: updatedPatient.status,
-              isCompleted: updatedPatient.isCompleted
-            });
-          }
+
+        // 🔥 성능 최적화: 전체 환자 목록 대신 단일 환자만 조회
+        const response = await fetch(`/api/patients/${patientId}`);
+        if (response.ok) {
+          const updatedPatient = await response.json();
+          dispatch(updatePatientDirectly(updatedPatient));
+          console.log('✅ 선택된 환자 정보 업데이트 완료:', {
+            name: updatedPatient.name,
+            status: updatedPatient.status,
+            isCompleted: updatedPatient.isCompleted
+          });
         }
-        
+
         setForceUpdate(prev => prev + 1);
-        
+
         setTimeout(() => {
           try {
             PatientDataSync.refreshAll('PatientDetailModal_refresh');
@@ -186,7 +182,7 @@ export default function PatientDetailModal() {
             console.warn('데이터 동기화 트리거 실패:', syncError);
           }
         }, 500);
-        
+
         console.log('✅ 환자 상세 모달 - 환자 데이터 새로고침 완료');
       }
     } catch (error) {

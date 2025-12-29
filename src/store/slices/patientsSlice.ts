@@ -1370,6 +1370,64 @@ const patientsSlice = createSlice({
         };
       }
     },
+
+    // 🔥 성능 최적화: 개별 환자 직접 업데이트 (fetchPatients 대신 사용)
+    updatePatientDirectly: (state, action: PayloadAction<Patient>) => {
+      const updatedPatient = action.payload;
+      const patientId = updatedPatient._id || updatedPatient.id;
+
+      // patients 배열 업데이트
+      const patientIndex = state.patients.findIndex(p =>
+        p._id === patientId || p.id === patientId
+      );
+      if (patientIndex !== -1) {
+        state.patients[patientIndex] = updatedPatient;
+      }
+
+      // filteredPatients 배열 업데이트
+      const filteredIndex = state.filteredPatients.findIndex(p =>
+        p._id === patientId || p.id === patientId
+      );
+      if (filteredIndex !== -1) {
+        state.filteredPatients[filteredIndex] = updatedPatient;
+      }
+
+      // postVisitPatients 배열 업데이트
+      const postVisitIndex = state.postVisitPatients.findIndex(p =>
+        p._id === patientId || p.id === patientId
+      );
+      if (updatedPatient.visitConfirmed) {
+        if (postVisitIndex !== -1) {
+          state.postVisitPatients[postVisitIndex] = updatedPatient;
+        } else {
+          state.postVisitPatients.unshift(updatedPatient);
+        }
+      } else {
+        if (postVisitIndex !== -1) {
+          state.postVisitPatients.splice(postVisitIndex, 1);
+        }
+      }
+
+      // eventTargetPatients 배열 업데이트
+      const eventTargetIndex = state.eventTargetPatients.findIndex(p =>
+        p._id === patientId || p.id === patientId
+      );
+      if (eventTargetIndex !== -1) {
+        state.eventTargetPatients[eventTargetIndex] = updatedPatient;
+      }
+
+      // selectedPatient 업데이트
+      if (state.selectedPatient &&
+          (state.selectedPatient._id === patientId ||
+           state.selectedPatient.id === patientId)) {
+        state.selectedPatient = updatedPatient;
+      }
+
+      console.log('✅ updatePatientDirectly: 환자 직접 업데이트 완료', {
+        patientId,
+        name: updatedPatient.name
+      });
+    },
   
   extraReducers: (builder) => {
     builder
@@ -1917,6 +1975,6 @@ export const selectPatientWithContext = (
   context?: 'management' | 'visit-management'
 ) => selectPatient({ patientId, context });
 
-export const { selectPatient, setSelectedPatient, clearSelectedPatient, setFilters, setPage, clearFilteredPatients, updatePatientField } = patientsSlice.actions;
+export const { selectPatient, setSelectedPatient, clearSelectedPatient, setFilters, setPage, clearFilteredPatients, updatePatientField, updatePatientDirectly } = patientsSlice.actions;
 export default patientsSlice.reducer;
 

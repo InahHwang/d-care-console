@@ -47,6 +47,8 @@ export default function AppLayout({ children, currentPage = 'dashboard' }: AppLa
   // 🔥 인증 상태 확인
   const { isAuthenticated, isInitialized, user } = useSelector((state: RootState) => state.auth)
   const { widget } = useSelector((state: RootState) => state.ui)
+  // 🔥 성능 최적화: 환자 데이터가 이미 로드되었는지 확인
+  const { patients } = useSelector((state: RootState) => state.patients)
 
   // 현재 페이지에 따라 사이드바 메뉴 아이템 설정
   useEffect(() => {
@@ -62,12 +64,12 @@ export default function AppLayout({ children, currentPage = 'dashboard' }: AppLa
       const menuItem = getMenuItemFromPage(currentPage)
       dispatch(setCurrentMenuItem(menuItem))
 
-      // 대시보드나 환자 관리 페이지로 이동할 때 환자 데이터 다시 불러오기
-      if (currentPage === 'dashboard' || currentPage === 'management') {
+      // 🔥 성능 최적화: 환자 데이터가 없을 때만 로드 (중복 로드 방지)
+      if ((currentPage === 'dashboard' || currentPage === 'management') && patients.length === 0) {
         dispatch(fetchPatients());
       }
     }
-  }, [currentPage, dispatch, isAuthenticated, isInitialized, user]);
+  }, [currentPage, dispatch, isAuthenticated, isInitialized, user, patients.length]);
 
   // 🔥 AuthGuard로 전체 레이아웃을 감싸서 인증 보호
   return (
