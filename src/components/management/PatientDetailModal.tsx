@@ -138,10 +138,10 @@ export default function PatientDetailModal() {
         }
       }, 200);
       
-      dispatch(clearSelectedPatient());
+      dispatch(clearSelectedPatient(undefined));
     } catch (error) {
       console.error('모달 닫기 중 오류:', error);
-      dispatch(clearSelectedPatient());
+      dispatch(clearSelectedPatient(undefined));
     }
   }, [dispatch]);
 
