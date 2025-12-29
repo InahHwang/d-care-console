@@ -1366,9 +1366,10 @@ const patientsSlice = createSlice({
             target = target[fieldPath[i]];
           }
           target[fieldPath[fieldPath.length - 1]] = value;
-          }
-        };
-      }
+        }
+      };
+      updatePatientInArray(state.patients);
+      updatePatientInArray(state.filteredPatients);
     },
 
     // 🔥 성능 최적화: 개별 환자 직접 업데이트 (fetchPatients 대신 사용)
@@ -1428,7 +1429,7 @@ const patientsSlice = createSlice({
         name: updatedPatient.name
       });
     },
-  
+  },
   extraReducers: (builder) => {
     builder
     // 🔥 예약 후 미내원 환자 자동 분류 처리
