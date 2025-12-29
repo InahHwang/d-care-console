@@ -1333,9 +1333,9 @@ const patientsSlice = createSlice({
       state.selectedPatient = action.payload;
     },
 
-    clearSelectedPatient: (state) => {
+    clearSelectedPatient: (state, _action: PayloadAction<void>) => {
       state.selectedPatient = null;
-      state.modalContext = null; 
+      state.modalContext = null;
     },
     setFilters: (state, action: PayloadAction<Partial<PatientsState['filters']>>) => {
       state.filters = { ...state.filters, ...action.payload };
