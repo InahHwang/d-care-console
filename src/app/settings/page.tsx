@@ -6,15 +6,17 @@ import { useState } from 'react'
 import AppLayout from '@/components/layout/AppLayout'
 import GoalSettings from '@/components/settings/GoalSettings'
 import PatientCategorySettings from '@/components/settings/PatientCategorySettings'
+import CallRetentionSettings from '@/components/settings/CallRetentionSettings'
 import {
   HiOutlineUserCircle,
   HiOutlineOfficeBuilding,
   HiOutlineTag,
-  HiOutlineCollection
+  HiOutlineCollection,
+  HiOutlineArchive
 } from 'react-icons/hi'
 import { Icon } from '@/components/common/Icon'
 
-type SettingsTab = 'account' | 'clinic' | 'goals' | 'categories'
+type SettingsTab = 'account' | 'clinic' | 'goals' | 'categories' | 'callRetention'
 
 export default function SettingsPage() {
   const [activeTab, setActiveTab] = useState<SettingsTab>('goals')
@@ -70,6 +72,17 @@ export default function SettingsPage() {
             <Icon icon={HiOutlineCollection} size={16} />
             카테고리 관리
           </button>
+          <button
+            className={`px-4 py-2 font-medium text-sm border-b-2 -mb-px flex items-center gap-1.5 whitespace-nowrap ${
+              activeTab === 'callRetention'
+                ? 'border-primary text-primary'
+                : 'border-transparent text-text-secondary hover:text-text-primary'
+            }`}
+            onClick={() => setActiveTab('callRetention')}
+          >
+            <Icon icon={HiOutlineArchive} size={16} />
+            통화기록 보존
+          </button>
         </div>
         
         {/* 탭 내용 - 메시지 템플릿 관련 제거 */}
@@ -99,6 +112,8 @@ export default function SettingsPage() {
           {activeTab === 'goals' && <GoalSettings />}
 
           {activeTab === 'categories' && <PatientCategorySettings />}
+
+          {activeTab === 'callRetention' && <CallRetentionSettings />}
         </div>
       </div>
     </AppLayout>
