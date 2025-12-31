@@ -18,8 +18,10 @@ import {
   HiOutlineLightBulb, // 🔥 스마트 보고서 아이콘 추가
   HiOutlineVolumeUp, // 🆕 이벤트타겟관리 아이콘 추가
   HiOutlinePhoneIncoming, // 🆕 통화기록 아이콘 추가
+  HiOutlineArchive, // 🆕 통화 아카이브 아이콘 추가
   HiOutlineHeart, // 🆕 사후관리 아이콘 추가
-  HiOutlineUserGroup // 🆕 소개환자 관리 아이콘 추가
+  HiOutlineUserGroup, // 🆕 소개환자 관리 아이콘 추가
+  HiOutlineCollection // 🆕 통합 환자관리 아이콘 추가
 } from 'react-icons/hi'
 import { Icon } from '../common/Icon'
 import { useMemo } from 'react'
@@ -116,16 +118,23 @@ export default function Sidebar() {
 
       {/* 메뉴 아이템 */}
       <nav className="flex flex-col gap-1 p-3 mt-4 flex-1 overflow-y-auto">
-        <SidebarItem 
-          icon={HiOutlineViewGrid} 
-          text="대시보드" 
-          isActive={getIsActive('/', '대시보드')} 
+        <SidebarItem
+          icon={HiOutlineViewGrid}
+          text="대시보드"
+          isActive={getIsActive('/', '대시보드')}
           href="/"
         />
-        <SidebarItem 
-          icon={HiOutlinePhone} 
-          text="상담 관리" 
-          isActive={getIsActive('/management', '상담 관리')} 
+        {/* 🆕 통합 환자관리 (테스트) */}
+        <SidebarItem
+          icon={HiOutlineCollection}
+          text="통합 환자관리"
+          isActive={getIsActive('/unified-patients', '통합 환자관리')}
+          href="/unified-patients"
+        />
+        <SidebarItem
+          icon={HiOutlinePhone}
+          text="상담 관리"
+          isActive={getIsActive('/management', '상담 관리')}
           href="/management"
         />
         {/* 🔥 내원 관리 메뉴 - 수정된 활성화 로직 적용 */}
@@ -178,6 +187,13 @@ export default function Sidebar() {
           text="통화기록"
           isActive={getIsActive('/call-logs', '통화기록')}
           href="/call-logs"
+        />
+        {/* 🆕 통화 아카이브 - 전체 수발신 기록 */}
+        <SidebarItem
+          icon={HiOutlineArchive}
+          text="통화 아카이브"
+          isActive={getIsActive('/call-archive', '통화 아카이브')}
+          href="/call-archive"
         />
         {/* 임시 비활성화
         <SidebarItem 

@@ -12,7 +12,7 @@ export interface PatientInfo {
 
 export interface CTIEvent {
   id: string;
-  eventType: 'INCOMING_CALL' | 'CALL_ANSWERED' | 'CALL_ENDED' | 'MISSED_CALL';
+  eventType: 'INCOMING_CALL' | 'OUTGOING_CALL' | 'CALL_ANSWERED' | 'CALL_ENDED' | 'MISSED_CALL';
   callerNumber: string;
   calledNumber: string;
   timestamp: string;

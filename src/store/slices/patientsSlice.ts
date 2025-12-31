@@ -279,7 +279,7 @@ export interface PatientsState {
   patients: Patient[];            // import한 Patient 사용
   filteredPatients: Patient[];    
   selectedPatient: Patient | null; 
-  modalContext: 'management' | 'visit-management' | null; // 🆕 추가
+  modalContext: 'management' | 'visit-management' | 'unified' | 'call-archive' | null; // 🆕 추가
   pagination: {
     currentPage: number;
     totalPages: number;
@@ -1272,9 +1272,9 @@ const patientsSlice = createSlice({
   initialState,
   reducers: {
     // 🔧 selectPatient 액션을 오버로드 방식으로 수정 (기존 호환성 유지)
-    selectPatient: (state, action: PayloadAction<string | { 
-      patientId: string; 
-      context?: 'management' | 'visit-management' 
+    selectPatient: (state, action: PayloadAction<string | {
+      patientId: string;
+      context?: 'management' | 'visit-management' | 'unified' | 'call-archive'
     }>) => {
       // 문자열인 경우 (기존 방식)
       if (typeof action.payload === 'string') {
@@ -1972,8 +1972,8 @@ const patientsSlice = createSlice({
 });
 
 export const selectPatientWithContext = (
-  patientId: string, 
-  context?: 'management' | 'visit-management'
+  patientId: string,
+  context?: 'management' | 'visit-management' | 'unified' | 'call-archive'
 ) => selectPatient({ patientId, context });
 
 export const { selectPatient, setSelectedPatient, clearSelectedPatient, setFilters, setPage, clearFilteredPatients, updatePatientField, updatePatientDirectly } = patientsSlice.actions;

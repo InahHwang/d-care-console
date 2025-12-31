@@ -8,12 +8,17 @@ import { ObjectId } from 'mongodb';
 // 통화 상태 타입
 export type CallStatus = 'ringing' | 'answered' | 'missed' | 'ended';
 
+// 통화 방향 타입
+export type CallDirection = 'inbound' | 'outbound';
+
 // 통화기록 인터페이스
 export interface CallLog {
   _id?: ObjectId;
   callId: string;           // 통화 고유 ID
+  callDirection?: CallDirection;  // 통화 방향 (수신/발신)
   callerNumber: string;     // 발신번호
   calledNumber: string;     // 수신번호 (병원번호)
+  phoneNumber?: string;     // 환자 번호 (방향 무관)
   callStatus: CallStatus;   // 통화 상태
   callStartTime?: string;   // 통화 시작 시간 (수화기 들었을 때)
   callEndTime?: string;     // 통화 종료 시간
@@ -22,6 +27,7 @@ export interface CallLog {
   isMissed: boolean;        // 부재중 여부
   patientId?: string;       // 환자 ID (매칭된 경우)
   patientName?: string;     // 환자 이름
+  isNewPatient?: boolean;   // 이 통화로 자동 등록된 환자인지
   createdAt: string;
   updatedAt: string;
 }
@@ -76,9 +82,11 @@ export async function GET(request: NextRequest) {
     const page = parseInt(searchParams.get('page') || '1');
     const limit = parseInt(searchParams.get('limit') || '50');
     const status = searchParams.get('status'); // all, answered, missed
+    const direction = searchParams.get('direction'); // inbound, outbound, all
     const startDate = searchParams.get('startDate');
     const endDate = searchParams.get('endDate');
     const search = searchParams.get('search'); // 전화번호 또는 환자이름 검색
+    const isNewPatient = searchParams.get('isNewPatient'); // true, false
 
     const callLogsCollection = await getCallLogsCollection();
 
@@ -87,6 +95,18 @@ export async function GET(request: NextRequest) {
       // 🔥 제외 번호들은 조회에서 제외
       callerNumber: { $nin: EXCLUDED_PHONE_NUMBERS.map(n => formatPhone(n)).concat(EXCLUDED_PHONE_NUMBERS) }
     };
+
+    // 통화 방향 필터
+    if (direction === 'inbound') {
+      filter.callDirection = 'inbound';
+    } else if (direction === 'outbound') {
+      filter.callDirection = 'outbound';
+    }
+
+    // 신규 환자 필터
+    if (isNewPatient === 'true') {
+      filter.isNewPatient = true;
+    }
 
     if (status === 'missed') {
       filter.isMissed = true;
@@ -182,7 +202,10 @@ export async function GET(request: NextRequest) {
     const todayStats = await callLogsCollection.aggregate([
       {
         $match: {
-          ringTime: { $gte: todayStart.toISOString() },
+          $or: [
+            { ringTime: { $gte: todayStart.toISOString() } },
+            { callStartTime: { $gte: todayStart.toISOString() } }
+          ],
           // 🔥 제외 번호들은 통계에서도 제외
           callerNumber: { $nin: EXCLUDED_PHONE_NUMBERS.map(n => formatPhone(n)).concat(EXCLUDED_PHONE_NUMBERS) }
         }
@@ -193,6 +216,9 @@ export async function GET(request: NextRequest) {
           totalCalls: { $sum: 1 },
           missedCalls: { $sum: { $cond: ['$isMissed', 1, 0] } },
           answeredCalls: { $sum: { $cond: [{ $eq: ['$callStatus', 'ended'] }, 1, 0] } },
+          inboundCalls: { $sum: { $cond: [{ $eq: ['$callDirection', 'inbound'] }, 1, 0] } },
+          outboundCalls: { $sum: { $cond: [{ $eq: ['$callDirection', 'outbound'] }, 1, 0] } },
+          newPatientCalls: { $sum: { $cond: ['$isNewPatient', 1, 0] } },
           totalDuration: { $sum: { $ifNull: ['$duration', 0] } }
         }
       }
@@ -202,6 +228,9 @@ export async function GET(request: NextRequest) {
       totalCalls: 0,
       missedCalls: 0,
       answeredCalls: 0,
+      inboundCalls: 0,
+      outboundCalls: 0,
+      newPatientCalls: 0,
       totalDuration: 0
     };
 
@@ -275,8 +304,10 @@ export async function POST(request: NextRequest) {
 
       const newCallLog: CallLog = {
         callId: newCallId,
+        callDirection: 'inbound',  // 수신 통화
         callerNumber: formatPhone(callerNumber),
         calledNumber: formatPhone(calledNumber || ''),
+        phoneNumber: formatPhone(callerNumber),  // 환자 번호 = 발신 번호
         callStatus: 'ringing',
         ringTime: timestamp || now,
         isMissed: false,
@@ -442,6 +473,66 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({
         success: true,
         message: 'No matching ringing call found, ignored'
+      });
+
+    } else if (eventType === 'outbound_end') {
+      // 발신 통화 종료
+      // callerNumber = 환자 번호 (CTIWorker에서 patientNumber로 전송)
+      // calledNumber = 치과 번호
+      const patientPhone = formatPhone(callerNumber);
+      const normalizedPatient = normalizePhone(callerNumber);
+
+      console.log(`[CallLog] 발신 종료 - 환자번호: ${patientPhone}`);
+
+      // 같은 환자번호의 최근 발신 통화 찾기
+      const existingCall = await callLogsCollection.findOne(
+        {
+          $or: [
+            { phoneNumber: patientPhone },
+            { phoneNumber: normalizedPatient },
+            { phoneNumber: callerNumber }
+          ],
+          callDirection: 'outbound',
+          callStatus: 'answered'
+        },
+        { sort: { callStartTime: -1 } }
+      );
+
+      if (existingCall) {
+        const endTime = timestamp || now;
+        let duration = 0;
+
+        if (existingCall.callStartTime) {
+          duration = Math.round(
+            (new Date(endTime).getTime() - new Date(existingCall.callStartTime).getTime()) / 1000
+          );
+        }
+
+        await callLogsCollection.updateOne(
+          { _id: existingCall._id },
+          {
+            $set: {
+              callStatus: 'ended',
+              callEndTime: endTime,
+              duration: duration,
+              updatedAt: now
+            }
+          }
+        );
+        console.log(`[CallLog] 발신 통화 종료 업데이트: ${existingCall.callId}, 통화시간: ${duration}초`);
+
+        return NextResponse.json({
+          success: true,
+          message: 'Outbound call ended',
+          callId: existingCall.callId,
+          duration
+        });
+      }
+
+      console.log(`[CallLog] outbound_end: 매칭되는 발신 통화 없음`);
+      return NextResponse.json({
+        success: true,
+        message: 'No matching outbound call found'
       });
     }
 
