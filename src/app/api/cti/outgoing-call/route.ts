@@ -303,7 +303,7 @@ export async function POST(request: NextRequest) {
     const store = getCTIEventStore();
     store.addEvent(ctiEvent);
 
-    // Pusher로 실시간 전송
+    // Pusher로 실시간 전송 (V1 채널)
     try {
       await pusher.trigger('cti-channel', 'outgoing-call', {
         patient: {
@@ -320,9 +320,28 @@ export async function POST(request: NextRequest) {
           isNewPatient: isV2NewPatient,
         },
       });
-      console.log(`[발신 API] Pusher 전송 성공`);
+      console.log(`[발신 API] Pusher V1 채널 전송 성공`);
     } catch (pusherError) {
-      console.error(`[발신 API] Pusher 전송 실패:`, pusherError);
+      console.error(`[발신 API] Pusher V1 채널 전송 실패:`, pusherError);
+    }
+
+    // Pusher로 V2 채널에도 전송
+    if (v2PatientId && v2CallLogId) {
+      try {
+        await pusher.trigger('cti-v2', 'outgoing-call', {
+          callLogId: v2CallLogId,
+          phone: formattedPhone,
+          patientId: v2PatientId,
+          patientName: patient?.name || `발신_${formattedPhone.slice(-4)}`,
+          patientStatus: 'consulting',
+          temperature: null,
+          isNewPatient: isV2NewPatient,
+          callTime: timestamp || new Date().toISOString(),
+        });
+        console.log(`[발신 API] Pusher V2 채널 전송 성공`);
+      } catch (pusherError) {
+        console.error(`[발신 API] Pusher V2 채널 전송 실패:`, pusherError);
+      }
     }
 
     console.log(`[발신 API] V1 처리 완료 - 신규환자: ${isNewPatient}`);

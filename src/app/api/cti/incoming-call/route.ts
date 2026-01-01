@@ -334,7 +334,7 @@ export async function POST(request: NextRequest) {
     const store = getCTIEventStore();
     store.addEvent(ctiEvent);
 
-    // Pusher로 실시간 전송
+    // Pusher로 실시간 전송 (V1 채널)
     try {
       await pusher.trigger('cti-channel', 'incoming-call', {
         ...ctiEvent,
@@ -347,9 +347,28 @@ export async function POST(request: NextRequest) {
           isNewPatient: isV2NewPatient,
         },
       });
-      console.log(`[CTI API] Pusher 전송 성공`);
+      console.log(`[CTI API] Pusher V1 채널 전송 성공`);
     } catch (pusherError) {
-      console.error(`[CTI API] Pusher 전송 실패:`, pusherError);
+      console.error(`[CTI API] Pusher V1 채널 전송 실패:`, pusherError);
+    }
+
+    // Pusher로 V2 채널에도 전송
+    if (v2PatientId && v2CallLogId) {
+      try {
+        await pusher.trigger('cti-v2', 'incoming-call', {
+          callLogId: v2CallLogId,
+          phone: formattedPhone,
+          patientId: v2PatientId,
+          patientName: patient?.name || `수신_${formattedPhone.slice(-4)}`,
+          patientStatus: 'consulting',
+          temperature: null,
+          isNewPatient: isV2NewPatient,
+          callTime: callTime,
+        });
+        console.log(`[CTI API] Pusher V2 채널 전송 성공`);
+      } catch (pusherError) {
+        console.error(`[CTI API] Pusher V2 채널 전송 실패:`, pusherError);
+      }
     }
 
     console.log(`[CTI API] 이벤트 브로드캐스트 완료 (SSE 클라이언트: ${store.getClientCount()}개)`);
