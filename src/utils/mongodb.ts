@@ -220,10 +220,22 @@ async function createIndexesSafely(db: Db) {
       await db.collection('callLogs').createIndex({ callStatus: 1 });
       await db.collection('callLogs').createIndex({ patientId: 1 });
       await db.collection('callLogs').createIndex({ callId: 1 }, { unique: true, sparse: true });
+      // 🔥 CTI 자동등록 관련 인덱스 추가
+      await db.collection('callLogs').createIndex({ callDirection: 1 });
+      await db.collection('callLogs').createIndex({ phoneNumber: 1 });  // 환자번호 (방향 무관)
+      await db.collection('callLogs').createIndex({ isNewPatient: 1 });
       // 복합 인덱스
       await db.collection('callLogs').createIndex(
         { callerNumber: 1, callStartTime: -1 },
         { name: 'idx_caller_time' }
+      );
+      await db.collection('callLogs').createIndex(
+        { phoneNumber: 1, callDirection: 1, callStartTime: -1 },
+        { name: 'idx_patient_direction_time' }
+      );
+      await db.collection('callLogs').createIndex(
+        { callDirection: 1, callStatus: 1, callStartTime: -1 },
+        { name: 'idx_direction_status_time' }
       );
     } catch (callLogsIndexError) {
       console.warn('CallLogs 인덱스 생성 중 오류:', callLogsIndexError);

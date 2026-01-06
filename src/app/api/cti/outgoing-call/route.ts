@@ -1,6 +1,7 @@
 // src/app/api/cti/outgoing-call/route.ts
 // CTI Bridge로부터 발신 통화 이벤트를 수신하는 API 엔드포인트
-// 환자 조회 → 없으면 자동 생성 → Pusher로 브라우저에 전달
+// 환자 조회 → 통화기록 생성 → Pusher로 브라우저에 전달
+// V2: 환자 자동 등록 없음 (사용자가 직접 등록)
 // V1과 V2 동시 저장 지원
 
 import { NextRequest, NextResponse } from 'next/server';
@@ -8,7 +9,6 @@ import { getCTIEventStore, CTIEvent, PatientInfo } from '@/lib/ctiEventStore';
 import { connectToDatabase } from '@/utils/mongodb';
 import { ObjectId } from 'mongodb';
 import Pusher from 'pusher';
-import { PatientStatus, Temperature } from '@/types/v2';
 
 // Pusher 서버 인스턴스
 const pusher = new Pusher({
@@ -77,36 +77,6 @@ async function findPatientV2ByPhone(db: any, phoneNumber: string) {
   }
 }
 
-// V2 환자 생성 함수
-// eslint-disable-next-line @typescript-eslint/no-explicit-any
-async function createPatientV2(db: any, phone: string) {
-  const now = new Date();
-
-  const newPatient = {
-    name: `발신_${phone.slice(-4)}`,
-    phone: phone,
-    status: 'consulting' as PatientStatus,
-    temperature: 'warm' as Temperature,
-    source: '발신전화',
-    aiAnalysis: {
-      interest: '',
-      summary: '',
-      classification: 'new_patient',
-    },
-    createdAt: now,
-    updatedAt: now,
-    lastContactAt: now,
-    statusChangedAt: now,
-    callCount: 1,
-    memo: '',
-    tags: [],
-    statusHistory: [],
-  };
-
-  const result = await db.collection('patients_v2').insertOne(newPatient);
-  return { ...newPatient, _id: result.insertedId };
-}
-
 // V2 통화기록 생성 함수
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 async function createCallLogV2(
@@ -114,7 +84,8 @@ async function createCallLogV2(
   phone: string,
   patientId: string | null,
   callerNumber: string,
-  calledNumber: string
+  calledNumber: string,
+  patientName?: string  // 기존 환자 이름 추가
 ) {
   const now = new Date();
 
@@ -122,7 +93,7 @@ async function createCallLogV2(
     phone: phone,
     patientId: patientId,
     direction: 'outbound',
-    status: 'answered',
+    status: 'ringing',  // 발신 시작: ringing → 연결되면 connected, 부재면 missed
     duration: 0,
     startedAt: now,
     endedAt: null,
@@ -130,7 +101,8 @@ async function createCallLogV2(
     calledNumber: calledNumber || '',
     recordingUrl: null,
     aiStatus: 'pending',
-    aiAnalysis: null,
+    // 기존 환자면 이름 포함
+    aiAnalysis: patientName ? { patientName } : null,
     createdAt: now,
     updatedAt: now,
   };
@@ -194,31 +166,17 @@ export async function POST(request: NextRequest) {
     let isNewPatient = false;
     let patient = await findPatientByPhone(db, phoneNumber);
 
-    // 환자가 없으면 자동 생성
+    // 환자가 없으면 신규로 표시만 하고 자동 등록은 하지 않음 (V1)
     if (!patient) {
       isNewPatient = true;
+      console.log(`[발신 API] V1 신규 고객 - 자동등록 비활성화 (${formattedPhone})`);
 
-      const newPatient = {
-        patientId: generatePatientId(),
-        name: `발신_${formattedPhone.slice(-4)}`,  // 임시 이름
+      // V1은 환자 정보 없이 통화기록만 남김
+      patient = {
+        _id: null,
+        name: `발신_${formattedPhone.slice(-4)}`,
         phoneNumber: formattedPhone,
-        consultationType: 'outbound',
-        status: '잠재고객',
-        interestedServices: [],
-        callInDate: (timestamp || new Date().toISOString()).split('T')[0],
-        reminderStatus: '초기',
-        visitConfirmed: false,
-        callbackHistory: [],
-        createdBy: 'system',
-        createdByName: '자동등록(발신)',
-        createdAt: new Date().toISOString(),
-        updatedAt: new Date().toISOString(),
       };
-
-      const result = await db.collection('patients').insertOne(newPatient);
-      patient = { ...newPatient, _id: result.insertedId };
-
-      console.log(`[발신 API] 신규 환자 자동 등록: ${patient.patientId} (${formattedPhone})`);
     }
 
     // 통화 기록 생성
@@ -228,9 +186,9 @@ export async function POST(request: NextRequest) {
       phoneNumber: formattedPhone,
       callerNumber: callerNumber || '',
       calledNumber: phoneNumber,
-      callStatus: 'answered',
+      callStatus: 'ringing',  // 발신 시작: ringing → 연결되면 answered, 부재면 missed
       callStartTime: timestamp || new Date().toISOString(),
-      patientId: patient._id.toString(),
+      patientId: patient._id ? patient._id.toString() : null,  // 신규면 null
       patientName: patient.name,
       isNewPatient: isNewPatient,
       createdAt: new Date().toISOString(),
@@ -243,18 +201,15 @@ export async function POST(request: NextRequest) {
     // ===== V2 동시 저장 =====
     let v2PatientId: string | null = null;
     let v2CallLogId: string | null = null;
-    let isV2NewPatient = false;
+    let v2PatientName: string | null = null;
+    let v2PatientStatus: string | null = null;
+    let v2PatientTemperature: string | null = null;
 
     try {
-      // V2 환자 검색
-      let v2Patient = await findPatientV2ByPhone(db, phoneNumber);
+      // V2 환자 검색 (자동 생성하지 않음 - 사용자가 직접 등록)
+      const v2Patient = await findPatientV2ByPhone(db, phoneNumber);
 
-      if (!v2Patient) {
-        // V2 신규 환자 생성
-        v2Patient = await createPatientV2(db, formattedPhone);
-        isV2NewPatient = true;
-        console.log(`[발신 API V2] 신규 환자 생성: ${v2Patient._id}`);
-      } else {
+      if (v2Patient) {
         // 기존 환자면 lastContactAt, callCount 업데이트
         await db.collection('patients_v2').updateOne(
           { _id: v2Patient._id },
@@ -263,15 +218,27 @@ export async function POST(request: NextRequest) {
             $inc: { callCount: 1 },
           }
         );
+        v2PatientId = v2Patient._id.toString();
+        v2PatientName = v2Patient.name || null;
+        v2PatientStatus = v2Patient.status || 'consulting';
+        v2PatientTemperature = v2Patient.temperature || null;
         console.log(`[발신 API V2] 기존 환자 업데이트: ${v2Patient._id}`);
+      } else {
+        // 신규 전화번호 - 환자 자동 등록 안함 (사용자가 직접 등록)
+        console.log(`[발신 API V2] 신규 전화번호 - 환자 미등록 상태로 통화기록만 생성`);
       }
 
-      v2PatientId = v2Patient._id.toString();
-
-      // V2 통화 기록 생성
-      const v2CallLog = await createCallLogV2(db, formattedPhone, v2PatientId, callerNumber, phoneNumber);
+      // V2 통화 기록 생성 (환자 등록 여부와 관계없이)
+      const v2CallLog = await createCallLogV2(
+        db,
+        formattedPhone,
+        v2PatientId,
+        callerNumber,
+        phoneNumber,
+        v2PatientName || undefined  // 기존 환자면 이름 전달
+      );
       v2CallLogId = v2CallLog._id.toString();
-      console.log(`[발신 API V2] 통화 기록 생성: ${v2CallLogId}`);
+      console.log(`[발신 API V2] 통화 기록 생성: ${v2CallLogId} (환자ID: ${v2PatientId || '미등록'})`);
     } catch (v2Error) {
       // V2 저장 실패해도 V1은 계속 진행
       console.error('[발신 API V2] 저장 실패 (V1은 정상 진행):', v2Error);
@@ -279,7 +246,7 @@ export async function POST(request: NextRequest) {
 
     // PatientInfo 형식으로 변환
     const patientInfo: PatientInfo = {
-      id: patient._id.toString(),
+      id: patient._id ? patient._id.toString() : '',
       name: patient.name || '이름없음',
       phoneNumber: patient.phoneNumber || '',
       lastVisit: patient.lastVisit || patient.callInDate || '',
@@ -308,8 +275,8 @@ export async function POST(request: NextRequest) {
       await pusher.trigger('cti-channel', 'outgoing-call', {
         patient: {
           ...patient,
-          _id: patient._id.toString(),
-          id: patient._id.toString(),
+          _id: patient._id ? patient._id.toString() : null,
+          id: patient._id ? patient._id.toString() : null,
         },
         callLog: callLog,
         isNewPatient: isNewPatient,
@@ -317,7 +284,7 @@ export async function POST(request: NextRequest) {
         v2: {
           patientId: v2PatientId,
           callLogId: v2CallLogId,
-          isNewPatient: isV2NewPatient,
+          isRegistered: !!v2PatientId,  // 환자 등록 여부
         },
       });
       console.log(`[발신 API] Pusher V1 채널 전송 성공`);
@@ -325,35 +292,35 @@ export async function POST(request: NextRequest) {
       console.error(`[발신 API] Pusher V1 채널 전송 실패:`, pusherError);
     }
 
-    // Pusher로 V2 채널에도 전송
-    if (v2PatientId && v2CallLogId) {
+    // Pusher로 V2 채널에도 전송 (환자 등록 여부와 관계없이)
+    if (v2CallLogId) {
       try {
         await pusher.trigger('cti-v2', 'outgoing-call', {
           callLogId: v2CallLogId,
           phone: formattedPhone,
-          patientId: v2PatientId,
-          patientName: patient?.name || `발신_${formattedPhone.slice(-4)}`,
-          patientStatus: 'consulting',
-          temperature: null,
-          isNewPatient: isV2NewPatient,
+          patientId: v2PatientId,  // null일 수 있음 (미등록)
+          patientName: v2PatientName || null,
+          patientStatus: v2PatientStatus || null,
+          temperature: v2PatientTemperature,
+          isRegistered: !!v2PatientId,  // 환자 등록 여부
           callTime: timestamp || new Date().toISOString(),
         });
-        console.log(`[발신 API] Pusher V2 채널 전송 성공`);
+        console.log(`[발신 API] Pusher V2 채널 전송 성공 (등록여부: ${!!v2PatientId})`);
       } catch (pusherError) {
         console.error(`[발신 API] Pusher V2 채널 전송 실패:`, pusherError);
       }
     }
 
     console.log(`[발신 API] V1 처리 완료 - 신규환자: ${isNewPatient}`);
-    console.log(`[발신 API] V2 환자 ID: ${v2PatientId || 'N/A'} - ${isV2NewPatient ? '신규등록' : '기존환자'}`);
+    console.log(`[발신 API] V2 환자 ID: ${v2PatientId || '미등록'} - ${v2PatientId ? '기존환자' : '미등록(사용자등록필요)'}`);
 
     return NextResponse.json({
       success: true,
-      message: isNewPatient ? 'New patient created' : 'Existing patient found',
+      message: isNewPatient ? 'New customer (not registered)' : 'Existing patient found',
       patient: {
         ...patient,
-        _id: patient._id.toString(),
-        id: patient._id.toString(),
+        _id: patient._id ? patient._id.toString() : null,
+        id: patient._id ? patient._id.toString() : null,
       },
       callLog: callLog,
       isNewPatient: isNewPatient,
@@ -361,7 +328,7 @@ export async function POST(request: NextRequest) {
       v2: {
         patientId: v2PatientId,
         callLogId: v2CallLogId,
-        isNewPatient: isV2NewPatient,
+        isRegistered: !!v2PatientId,  // 환자 등록 여부
       },
     });
   } catch (error) {

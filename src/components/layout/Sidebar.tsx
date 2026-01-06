@@ -79,6 +79,10 @@ export default function Sidebar() {
   const { currentMenuItem } = useSelector((state: RootState) => state.ui)
   const pathname = usePathname()
 
+  // 🔥 사용자 정보 가져오기 (마스터 전용 메뉴 제어)
+  const { user } = useSelector((state: RootState) => state.auth)
+  const isMaster = user?.id === 'dsbrdental' || user?.username === 'dsbrdental'
+
   // 🔥 내원 관리 관련 통계 계산
   const { patients } = useSelector((state: RootState) => state.patients)
   
@@ -124,13 +128,15 @@ export default function Sidebar() {
           isActive={getIsActive('/', '대시보드')}
           href="/"
         />
-        {/* 🆕 통합 환자관리 (테스트) */}
-        <SidebarItem
-          icon={HiOutlineCollection}
-          text="통합 환자관리"
-          isActive={getIsActive('/unified-patients', '통합 환자관리')}
-          href="/unified-patients"
-        />
+        {/* 🆕 통합 환자관리 (마스터 전용) */}
+        {isMaster && (
+          <SidebarItem
+            icon={HiOutlineCollection}
+            text="통합 환자관리"
+            isActive={getIsActive('/unified-patients', '통합 환자관리')}
+            href="/unified-patients"
+          />
+        )}
         <SidebarItem
           icon={HiOutlinePhone}
           text="상담 관리"
@@ -181,20 +187,24 @@ export default function Sidebar() {
           isActive={getIsActive('/reports', '보고서')}
           href="/reports"
         />
-        {/* 🆕 통화기록 메뉴 추가 */}
-        <SidebarItem
-          icon={HiOutlinePhoneIncoming}
-          text="통화기록"
-          isActive={getIsActive('/call-logs', '통화기록')}
-          href="/call-logs"
-        />
-        {/* 🆕 통화 아카이브 - 전체 수발신 기록 */}
-        <SidebarItem
-          icon={HiOutlineArchive}
-          text="통화 아카이브"
-          isActive={getIsActive('/call-archive', '통화 아카이브')}
-          href="/call-archive"
-        />
+        {/* 🆕 통화기록 메뉴 (마스터 전용) */}
+        {isMaster && (
+          <SidebarItem
+            icon={HiOutlinePhoneIncoming}
+            text="통화기록"
+            isActive={getIsActive('/call-logs', '통화기록')}
+            href="/call-logs"
+          />
+        )}
+        {/* 🆕 통화 아카이브 - 전체 수발신 기록 (마스터 전용) */}
+        {isMaster && (
+          <SidebarItem
+            icon={HiOutlineArchive}
+            text="통화 아카이브"
+            isActive={getIsActive('/call-archive', '통화 아카이브')}
+            href="/call-archive"
+          />
+        )}
         {/* 임시 비활성화
         <SidebarItem 
           icon={HiOutlineLightBulb} 

@@ -63,3 +63,4 @@ export interface PatientFilter {
 }
 
 export * from './report';
+export * from './callLog';

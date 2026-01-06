@@ -534,6 +534,56 @@ export async function POST(request: NextRequest) {
         success: true,
         message: 'No matching outbound call found'
       });
+
+    } else if (eventType === 'outbound_missed') {
+      // 발신 통화 후 상대방 부재중
+      // callerNumber = 환자 번호, calledNumber = 치과 번호
+      const patientPhone = formatPhone(callerNumber);
+      const normalizedPatient = normalizePhone(callerNumber);
+
+      console.log(`[CallLog] 발신 후 부재중 - 환자번호: ${patientPhone}`);
+
+      // 같은 환자번호의 최근 발신 통화 찾기 (ringing 상태)
+      const existingCall = await callLogsCollection.findOne(
+        {
+          $or: [
+            { phoneNumber: patientPhone },
+            { phoneNumber: normalizedPatient },
+            { phoneNumber: callerNumber }
+          ],
+          callDirection: 'outbound',
+          callStatus: 'ringing'
+        },
+        { sort: { callStartTime: -1 } }
+      );
+
+      if (existingCall) {
+        // 기존 발신 통화를 missed로 업데이트
+        await callLogsCollection.updateOne(
+          { _id: existingCall._id },
+          {
+            $set: {
+              callStatus: 'missed',
+              isMissed: true,
+              callEndTime: timestamp || now,
+              updatedAt: now
+            }
+          }
+        );
+        console.log(`[CallLog] 발신 후 부재중 업데이트: ${existingCall.callId}`);
+
+        return NextResponse.json({
+          success: true,
+          message: 'Outbound call missed (no answer)',
+          callId: existingCall.callId
+        });
+      }
+
+      console.log(`[CallLog] outbound_missed: 매칭되는 발신 통화 없음`);
+      return NextResponse.json({
+        success: true,
+        message: 'No matching outbound call found'
+      });
     }
 
     return NextResponse.json(

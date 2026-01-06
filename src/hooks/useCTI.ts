@@ -21,7 +21,7 @@ export interface LegacyPatientInfo {
 
 export interface CTIEvent {
   id: string;
-  eventType: 'INCOMING_CALL' | 'CALL_ANSWERED' | 'CALL_ENDED' | 'MISSED_CALL';
+  eventType: 'INCOMING_CALL' | 'OUTGOING_CALL' | 'CALL_ANSWERED' | 'CALL_ENDED' | 'MISSED_CALL';
   callerNumber: string;
   calledNumber: string;
   timestamp: string;
@@ -29,6 +29,7 @@ export interface CTIEvent {
   patient?: PatientInfo | null;
   legacyPatient?: LegacyPatientInfo | null;  // 구환 정보
   isNewCustomer?: boolean;
+  isNewPatient?: boolean;  // 발신 시 자동 등록된 환자
 }
 
 interface CTIState {
@@ -99,13 +100,15 @@ export const useCTI = () => {
       setState(prev => ({ ...prev, connected: false }));
     });
 
-    // CTI 이벤트 수신
-    channel.bind('incoming-call', async (data: CTIEvent) => {
+    // CTI 이벤트 수신 (인바운드)
+    channel.bind('incoming-call', async (data: any) => {
       console.log('[CTI Hook] 전화 수신:', data);
 
-      // 구환 정보 조회
+      const { isNewPatient, callLog } = data;
+
+      // 구환 정보 조회 (기존 환자가 없고 신규 등록도 아닌 경우만)
       let legacyPatient: LegacyPatientInfo | null = null;
-      if (data.callerNumber && !data.patient) {
+      if (data.callerNumber && !data.patient && !isNewPatient) {
         try {
           const response = await fetch(`/api/legacy-patients?phone=${encodeURIComponent(data.callerNumber)}`);
           const result = await response.json();
@@ -118,14 +121,25 @@ export const useCTI = () => {
         }
       }
 
-      const eventWithLegacy = { ...data, legacyPatient };
+      const incomingEvent: CTIEvent = {
+        id: callLog?.callId || data.id || `incoming-${Date.now()}`,
+        eventType: 'INCOMING_CALL',
+        callerNumber: data.callerNumber || '',
+        calledNumber: data.calledNumber || '',
+        timestamp: data.timestamp || new Date().toISOString(),
+        receivedAt: data.receivedAt || new Date().toISOString(),
+        patient: data.patient,
+        legacyPatient: legacyPatient,
+        isNewCustomer: isNewPatient || data.isNewCustomer,
+        isNewPatient: isNewPatient,
+      };
 
       setState(prev => {
-        const newEvents = [eventWithLegacy, ...prev.events].slice(0, 50);
+        const newEvents = [incomingEvent, ...prev.events].slice(0, 50);
         let newCurrentCall = prev.currentCall;
 
         if (data.eventType === 'INCOMING_CALL') {
-          newCurrentCall = eventWithLegacy;
+          newCurrentCall = incomingEvent;
         } else if (data.eventType === 'CALL_ENDED' || data.eventType === 'MISSED_CALL') {
           newCurrentCall = null;
         }
@@ -136,6 +150,55 @@ export const useCTI = () => {
           currentCall: newCurrentCall,
         };
       });
+
+      // 신규 환자 자동 등록 알림
+      if (isNewPatient && data.patient) {
+        console.log(`[CTI Hook] 신규 환자 자동 등록됨 (수신): ${data.patient.name} (${data.patient.phoneNumber})`);
+      }
+    });
+
+    // CTI 이벤트 수신 (아웃바운드 - 발신)
+    channel.bind('outgoing-call', async (data: any) => {
+      console.log('[CTI Hook] 발신 통화:', data);
+
+      const { patient, callLog, isNewPatient } = data;
+
+      // PatientInfo 형식으로 변환
+      const patientInfo: PatientInfo | null = patient ? {
+        id: patient._id || patient.id,
+        name: patient.name,
+        phoneNumber: patient.phoneNumber,
+        lastVisit: patient.lastVisit || patient.callInDate,
+        notes: patient.memo || patient.notes,
+        callCount: patient.callCount,
+      } : null;
+
+      const outgoingEvent: CTIEvent = {
+        id: callLog?.callId || `outgoing-${Date.now()}`,
+        eventType: 'OUTGOING_CALL',
+        callerNumber: callLog?.callerNumber || '',  // 치과 번호
+        calledNumber: callLog?.phoneNumber || patient?.phoneNumber || '',  // 환자 번호
+        timestamp: callLog?.callStartTime || new Date().toISOString(),
+        receivedAt: new Date().toISOString(),
+        patient: patientInfo,
+        isNewCustomer: isNewPatient,
+        isNewPatient: isNewPatient,
+      };
+
+      setState(prev => {
+        const newEvents = [outgoingEvent, ...prev.events].slice(0, 50);
+
+        return {
+          ...prev,
+          events: newEvents,
+          currentCall: outgoingEvent,  // 발신도 현재 통화로 표시
+        };
+      });
+
+      // 신규 환자 자동 등록 알림
+      if (isNewPatient && patient) {
+        console.log(`[CTI Hook] 신규 환자 자동 등록됨: ${patient.name} (${patient.phoneNumber})`);
+      }
     });
 
   }, []);

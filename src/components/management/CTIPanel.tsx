@@ -74,29 +74,57 @@ export const CTIPanel: React.FC = () => {
         </div>
       )}
 
-      {/* 현재 통화 (전화가 왔을 때) */}
+      {/* 현재 통화 (전화 수신/발신) */}
       {currentCall && (
-        <div className="bg-blue-50 border-2 border-blue-400 rounded-lg p-4 mb-6 animate-pulse">
+        <div className={`border-2 rounded-lg p-4 mb-6 animate-pulse ${
+          currentCall.eventType === 'OUTGOING_CALL'
+            ? 'bg-green-50 border-green-400'
+            : 'bg-blue-50 border-blue-400'
+        }`}>
           <div className="flex items-center justify-between mb-3">
-            <h3 className="text-lg font-bold text-blue-800 flex items-center">
-              <span className="mr-2 text-2xl">📞</span>
-              전화 수신 중
+            <h3 className={`text-lg font-bold flex items-center ${
+              currentCall.eventType === 'OUTGOING_CALL'
+                ? 'text-green-800'
+                : 'text-blue-800'
+            }`}>
+              <span className="mr-2 text-2xl">
+                {currentCall.eventType === 'OUTGOING_CALL' ? '📱' : '📞'}
+              </span>
+              {currentCall.eventType === 'OUTGOING_CALL' ? '전화 발신 중' : '전화 수신 중'}
             </h3>
-            <button
-              onClick={clearCurrentCall}
-              className="text-gray-500 hover:text-gray-700 text-sm"
-            >
-              닫기
-            </button>
+            <div className="flex items-center gap-2">
+              {/* 신규 환자 자동 등록 배지 */}
+              {currentCall.isNewPatient && (
+                <span className="px-2 py-1 bg-yellow-100 text-yellow-800 rounded-full text-xs font-medium">
+                  신규 등록
+                </span>
+              )}
+              <button
+                onClick={clearCurrentCall}
+                className="text-gray-500 hover:text-gray-700 text-sm"
+              >
+                닫기
+              </button>
+            </div>
           </div>
           <div className="space-y-2">
             <div className="flex items-center">
-              <span className="text-gray-600 w-20">발신번호:</span>
+              <span className="text-gray-600 w-20">
+                {currentCall.eventType === 'OUTGOING_CALL' ? '환자번호:' : '발신번호:'}
+              </span>
               <div className="flex items-center gap-2">
-                <span className="font-bold text-2xl text-blue-900">
-                  {formatPhoneNumber(currentCall.callerNumber)}
+                <span className={`font-bold text-2xl ${
+                  currentCall.eventType === 'OUTGOING_CALL'
+                    ? 'text-green-900'
+                    : 'text-blue-900'
+                }`}>
+                  {formatPhoneNumber(
+                    currentCall.eventType === 'OUTGOING_CALL'
+                      ? currentCall.calledNumber
+                      : currentCall.callerNumber
+                  )}
                 </span>
-                {/* 기존 환자 이름 표시 */}
+                {/* 환자 이름 표시 */}
                 {currentCall.patient && (
                   <span className="px-2 py-1 bg-green-100 text-green-800 rounded-full text-sm font-medium">
                     {currentCall.patient.name}
@@ -111,9 +139,15 @@ export const CTIPanel: React.FC = () => {
               </div>
             </div>
             <div className="flex items-center">
-              <span className="text-gray-600 w-20">수신번호:</span>
+              <span className="text-gray-600 w-20">
+                {currentCall.eventType === 'OUTGOING_CALL' ? '치과번호:' : '수신번호:'}
+              </span>
               <span className="text-gray-800">
-                {formatPhoneNumber(currentCall.calledNumber)}
+                {formatPhoneNumber(
+                  currentCall.eventType === 'OUTGOING_CALL'
+                    ? currentCall.callerNumber
+                    : currentCall.calledNumber
+                )}
               </span>
             </div>
             <div className="flex items-center">
@@ -157,15 +191,19 @@ export const CTIPanel: React.FC = () => {
                       className={`px-2 py-1 rounded text-xs font-medium ${
                         event.eventType === 'INCOMING_CALL'
                           ? 'bg-blue-100 text-blue-800'
+                          : event.eventType === 'OUTGOING_CALL'
+                          ? 'bg-green-100 text-green-800'
                           : event.eventType === 'MISSED_CALL'
                           ? 'bg-red-100 text-red-800'
                           : event.eventType === 'CALL_ENDED'
                           ? 'bg-gray-100 text-gray-800'
-                          : 'bg-green-100 text-green-800'
+                          : 'bg-purple-100 text-purple-800'
                       }`}
                     >
                       {event.eventType === 'INCOMING_CALL'
                         ? '수신'
+                        : event.eventType === 'OUTGOING_CALL'
+                        ? '발신'
                         : event.eventType === 'MISSED_CALL'
                         ? '부재중'
                         : event.eventType === 'CALL_ENDED'
@@ -173,8 +211,18 @@ export const CTIPanel: React.FC = () => {
                         : '응답'}
                     </span>
                     <span className="font-semibold text-gray-800">
-                      {formatPhoneNumber(event.callerNumber)}
+                      {formatPhoneNumber(
+                        event.eventType === 'OUTGOING_CALL'
+                          ? event.calledNumber
+                          : event.callerNumber
+                      )}
                     </span>
+                    {/* 신규 환자 자동 등록 배지 */}
+                    {event.isNewPatient && (
+                      <span className="text-xs px-1.5 py-0.5 bg-yellow-100 text-yellow-700 rounded">
+                        신규
+                      </span>
+                    )}
                     {/* 기존 환자 이름 표시 */}
                     {event.patient && (
                       <span className="text-xs px-1.5 py-0.5 bg-green-100 text-green-700 rounded">

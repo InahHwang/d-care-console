@@ -1,5 +1,6 @@
 // src/app/api/call-analysis/recording/route.ts
 // 통화 녹취 완료 이벤트 처리 및 분석 파이프라인 트리거
+// V1 + V2 동시 저장 지원
 
 import { NextRequest, NextResponse } from 'next/server';
 import { waitUntil } from '@vercel/functions';
@@ -175,6 +176,273 @@ async function findCallLog(callerNumber: string, duration: number) {
   } catch (error) {
     console.error('[CallAnalysis] 통화기록 검색 오류:', error);
     return null;
+  }
+}
+
+// ===== V2 관련 함수들 =====
+
+// V2 통화기록 찾기 (수신/발신 모두 지원)
+// 녹취 매칭 시간을 60분으로 확장 (통화가 길 수 있음)
+async function findCallLogV2(
+  db: Awaited<ReturnType<typeof connectToDatabase>>['db'],
+  callerNumber: string,
+  calledNumber: string
+) {
+  try {
+    const formattedCaller = formatPhone(callerNumber);
+    const formattedCalled = formatPhone(calledNumber);
+    const normalizedCaller = normalizePhone(callerNumber);
+    const normalizedCalled = normalizePhone(calledNumber);
+    // 60분으로 확장 (10분 → 60분): 통화가 길거나 녹취 처리가 지연될 수 있음
+    const sixtyMinutesAgo = new Date(Date.now() - 60 * 60 * 1000);
+
+    console.log(`[CallAnalysis V2] 통화기록 검색: caller=${formattedCaller}, called=${formattedCalled}`);
+
+    // 수신 통화: callerNumber가 환자 번호
+    // 발신 통화: calledNumber가 환자 번호
+    // 다양한 전화번호 형식 시도
+    // 우선순위: 1) 녹취 없는 통화 먼저 (아직 녹취 연결 안 된 것)
+    //          2) ringing 상태 우선 (부재중으로 표시된 것을 connected로 변경해야 함)
+    const callLog = await db.collection('callLogs_v2').findOne(
+      {
+        $and: [
+          // 전화번호 매칭
+          {
+            $or: [
+              { phone: formattedCaller },
+              { phone: formattedCalled },
+              { phone: normalizedCaller },
+              { phone: normalizedCalled },
+              { phone: { $regex: normalizedCaller.slice(-8) + '$' } },
+              { phone: { $regex: normalizedCalled.slice(-8) + '$' } },
+            ],
+          },
+          // 시간 조건
+          { startedAt: { $gte: sixtyMinutesAgo } },
+          // 녹취 URL이 없는 통화 우선 (이미 녹취 연결된 것 제외)
+          {
+            $or: [
+              { recordingUrl: { $exists: false } },
+              { recordingUrl: null },
+              { recordingUrl: '' },
+            ],
+          },
+        ],
+      },
+      {
+        sort: {
+          // ringing 상태 우선 (부재중으로 남아있는 통화)
+          status: 1,  // 'ringing'이 'connected'보다 먼저
+          startedAt: -1
+        }
+      }
+    );
+
+    // 못 찾으면 녹취 있는 것도 포함해서 재검색 (fallback)
+    if (!callLog) {
+      const fallbackLog = await db.collection('callLogs_v2').findOne(
+        {
+          $or: [
+            { phone: formattedCaller },
+            { phone: formattedCalled },
+            { phone: normalizedCaller },
+            { phone: normalizedCalled },
+            { phone: { $regex: normalizedCaller.slice(-8) + '$' } },
+            { phone: { $regex: normalizedCalled.slice(-8) + '$' } },
+          ],
+          startedAt: { $gte: sixtyMinutesAgo },
+        },
+        { sort: { startedAt: -1 } }
+      );
+
+      if (fallbackLog) {
+        console.log(`[CallAnalysis V2] 통화기록 찾음 (fallback): ${fallbackLog._id}, status=${fallbackLog.status}`);
+        return fallbackLog;
+      }
+    }
+
+    if (callLog) {
+      console.log(`[CallAnalysis V2] 통화기록 찾음: ${callLog._id}, status=${callLog.status}`);
+    } else {
+      console.log('[CallAnalysis V2] 매칭되는 통화기록 없음');
+    }
+
+    return callLog;
+  } catch (error) {
+    console.error('[CallAnalysis V2] 통화기록 검색 오류:', error);
+    return null;
+  }
+}
+
+// V2 AI 분석 파이프라인 트리거
+async function triggerV2AnalysisPipeline(callLogId: string) {
+  try {
+    const baseUrl = process.env.NEXT_PUBLIC_BASE_URL || 'https://d-care-console.vercel.app';
+    console.log(`[V2 Analysis] 파이프라인 시작: ${callLogId}, baseUrl: ${baseUrl}`);
+
+    // 1. STT 변환
+    console.log(`[V2 Analysis] STT 시작: ${callLogId}`);
+    const sttResponse = await fetch(`${baseUrl}/api/v2/call-analysis/transcribe`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ callLogId }),
+    });
+
+    const sttText = await sttResponse.text();
+    console.log(`[V2 Analysis] STT 응답: ${sttResponse.status} - ${sttText.substring(0, 200)}`);
+
+    if (!sttResponse.ok) {
+      throw new Error(`STT 실패: ${sttResponse.status} - ${sttText}`);
+    }
+
+    const sttResult = JSON.parse(sttText);
+    if (!sttResult.success) {
+      throw new Error(sttResult.error || 'STT 실패');
+    }
+
+    console.log(`[V2 Analysis] STT 완료, transcript 길이: ${sttResult.transcript?.length || 0}`);
+
+    // 2. AI 분석
+    console.log(`[V2 Analysis] AI 분석 시작: ${callLogId}`);
+    const analyzeResponse = await fetch(`${baseUrl}/api/v2/call-analysis/analyze`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ callLogId }),
+    });
+
+    const analyzeText = await analyzeResponse.text();
+    console.log(`[V2 Analysis] AI 분석 응답: ${analyzeResponse.status} - ${analyzeText.substring(0, 200)}`);
+
+    if (!analyzeResponse.ok) {
+      throw new Error(`AI 분석 실패: ${analyzeResponse.status} - ${analyzeText}`);
+    }
+
+    console.log(`[V2 Analysis] 파이프라인 완료: ${callLogId}`);
+  } catch (error) {
+    console.error(`[V2 Analysis] 파이프라인 오류:`, error);
+
+    // 실패 상태로 업데이트
+    try {
+      const { db } = await connectToDatabase();
+      await db.collection('callLogs_v2').updateOne(
+        { _id: new ObjectId(callLogId) },
+        {
+          $set: {
+            aiStatus: 'failed',
+            updatedAt: new Date().toISOString(),
+          },
+        }
+      );
+    } catch (dbError) {
+      console.error('[V2 Analysis] DB 업데이트 오류:', dbError);
+    }
+  }
+}
+
+// V2 녹취 저장 및 분석 트리거
+async function saveRecordingToV2(
+  db: Awaited<ReturnType<typeof connectToDatabase>>['db'],
+  callerNumber: string,
+  calledNumber: string,
+  recordingFileName: string,
+  recordingUrl: string | null,  // 녹취 파일 전체 URL 추가
+  recordingBase64: string | null,
+  duration: number
+): Promise<{ callLogId: string | null; hasRecording: boolean }> {
+  try {
+    console.log('='.repeat(50));
+    console.log('[CallAnalysis V2] saveRecordingToV2 시작');
+    console.log(`  callerNumber: ${callerNumber}`);
+    console.log(`  calledNumber: ${calledNumber}`);
+    console.log(`  recordingFileName: ${recordingFileName}`);
+    console.log(`  recordingUrl: ${recordingUrl}`);
+    console.log(`  recordingBase64 있음: ${!!recordingBase64}`);
+    console.log(`  recordingBase64 길이: ${recordingBase64?.length || 0}`);
+    console.log(`  duration: ${duration}`);
+    console.log('='.repeat(50));
+
+    const now = new Date();
+    const formattedCaller = formatPhone(callerNumber);
+    const formattedCalled = formatPhone(calledNumber);
+
+    // V2 통화기록 찾기
+    const callLog = await findCallLogV2(db, callerNumber, calledNumber);
+
+    let callLogId: string;
+
+    if (!callLog) {
+      // 통화기록이 없으면 새로 생성
+      console.log('[CallAnalysis V2] 매칭 통화기록 없음, 새로 생성');
+      const newCallLog = {
+        phone: formattedCaller,
+        direction: 'inbound' as const,
+        status: 'connected' as const,
+        duration: duration || 0,
+        recordingFileName: recordingFileName,
+        recordingUrl: recordingUrl || recordingFileName,  // 전체 URL 저장 (없으면 파일명)
+        startedAt: now,
+        endedAt: now,
+        aiStatus: 'pending' as const,
+        createdAt: now,
+      };
+
+      const result = await db.collection('callLogs_v2').insertOne(newCallLog);
+      callLogId = result.insertedId.toString();
+      console.log(`[CallAnalysis V2] 새 통화기록 생성됨: ${callLogId}`);
+    } else {
+      // 기존 통화기록 업데이트
+      callLogId = callLog._id.toString();
+      const prevStatus = callLog.status;
+
+      await db.collection('callLogs_v2').updateOne(
+        { _id: callLog._id },
+        {
+          $set: {
+            recordingFileName: recordingFileName,
+            recordingUrl: recordingUrl || recordingFileName,  // 전체 URL 저장 (없으면 파일명)
+            duration: duration || callLog.duration,
+            status: 'connected',
+            aiStatus: 'pending',
+            updatedAt: now,
+          },
+        }
+      );
+
+      // 상태 변경 로그 (부재중 → 수신완료 변경 시 중요)
+      if (prevStatus === 'ringing') {
+        console.log(`[CallAnalysis V2] ✅ 부재중(ringing) → 수신완료(connected) 변경: ${callLogId}`);
+        console.log(`  - 전화번호: ${callLog.phone}`);
+        console.log(`  - 녹취파일: ${recordingFileName}`);
+        console.log(`  - 통화시간: ${duration}초`);
+      } else {
+        console.log(`[CallAnalysis V2] 기존 통화기록 업데이트: ${callLogId} (${prevStatus} → connected)`);
+      }
+    }
+
+    // base64 녹음 데이터 저장
+    let hasRecording = false;
+    if (recordingBase64 && recordingBase64.length > 0) {
+      try {
+        const insertResult = await db.collection('callRecordings_v2').insertOne({
+          callLogId: callLogId,
+          recordingBase64: recordingBase64,
+          createdAt: now,
+        });
+        hasRecording = true;
+        console.log(`[CallAnalysis V2] 녹음 데이터 저장 완료: ${callLogId}`);
+        console.log(`  - 녹음 레코드 ID: ${insertResult.insertedId}`);
+        console.log(`  - 데이터 크기: ${recordingBase64.length} chars`);
+      } catch (saveError) {
+        console.error('[CallAnalysis V2] 녹음 데이터 저장 실패:', saveError);
+      }
+    } else {
+      console.log('[CallAnalysis V2] recordingBase64가 비어있어서 녹음 저장 건너뜀');
+    }
+
+    return { callLogId, hasRecording };
+  } catch (error) {
+    console.error('[CallAnalysis V2] 저장 오류:', error);
+    return { callLogId: null, hasRecording: false };
   }
 }
 
@@ -384,10 +652,55 @@ export async function POST(request: NextRequest) {
       console.log('[CallAnalysis] 녹음 데이터가 없어 STT 처리 보류');
     }
 
+    // ===== V2 동시 저장 =====
+    let v2CallLogId: string | null = null;
+    let v2HasRecording = false;
+    try {
+      console.log('[CallAnalysis V2] V2 저장 시작');
+      const v2Result = await saveRecordingToV2(
+        db,
+        callerNumber,
+        calledNumber || '',
+        recordingFileName,
+        body.recordingUrl || null,  // 전체 URL 전달
+        recordingBase64 || null,
+        duration || 0
+      );
+
+      v2CallLogId = v2Result.callLogId;
+      v2HasRecording = v2Result.hasRecording;
+
+      console.log(`[CallAnalysis V2] 저장 결과: callLogId=${v2CallLogId}, hasRecording=${v2HasRecording}`);
+
+      // V2는 URL fallback을 지원하므로 base64가 없어도 URL이 있으면 분석 가능
+      const hasRecordingUrl = !!(body.recordingUrl);
+      const canAnalyze = v2HasRecording || hasRecordingUrl;
+
+      if (v2CallLogId && canAnalyze) {
+        // V2 분석 파이프라인 트리거 (백그라운드)
+        console.log(`[CallAnalysis V2] 분석 파이프라인 트리거 시작: ${v2CallLogId}`);
+        console.log(`  - base64: ${v2HasRecording ? '있음' : '없음'}`);
+        console.log(`  - URL: ${hasRecordingUrl ? body.recordingUrl : '없음'}`);
+        waitUntil(
+          triggerV2AnalysisPipeline(v2CallLogId)
+            .then(() => console.log('[CallAnalysis V2] 분석 파이프라인 완료'))
+            .catch(err => console.error('[CallAnalysis V2] 분석 트리거 실패:', err))
+        );
+      } else if (v2CallLogId && !canAnalyze) {
+        console.log('[CallAnalysis V2] 녹음 데이터(base64/URL)가 없어서 분석 파이프라인 건너뜀');
+      } else {
+        console.log('[CallAnalysis V2] callLogId가 없어서 분석 파이프라인 건너뜀');
+      }
+    } catch (v2Error) {
+      // V2 저장 실패해도 V1은 정상 진행
+      console.error('[CallAnalysis V2] 저장 실패 (V1은 정상 진행):', v2Error);
+    }
+
     return NextResponse.json({
       success: true,
       message: 'Recording received, analysis queued',
       analysisId: analysisId,
+      v2CallLogId: v2CallLogId,
       data: {
         ...newAnalysis,
         _id: result.insertedId

@@ -24,6 +24,9 @@ import {
   Plus,
   Pencil,
   Unlink,
+  Calendar,
+  ChevronLeft,
+  ChevronRight,
 } from 'lucide-react';
 import { Pagination } from '@/components/v2/ui/Pagination';
 import { Temperature } from '@/types/v2';
@@ -49,10 +52,7 @@ interface CallLog {
 
 // 분류 옵션
 const CLASSIFICATION_OPTIONS = [
-  { value: '신환', label: '신환' },
-  { value: '구신환', label: '구신환' },
-  { value: '구환', label: '구환' },
-  { value: '부재중', label: '부재중' },
+  { value: '환자', label: '환자' },
   { value: '거래처', label: '거래처' },
   { value: '스팸', label: '스팸' },
   { value: '기타', label: '기타' },
@@ -74,13 +74,11 @@ const FOLLOWUP_OPTIONS = [
 
 interface CallLogStats {
   all: number;
-  sinwhan: number;      // 신환
-  gusinwhan: number;    // 구신환
-  guhwan: number;       // 구환
-  bujaejung: number;    // 부재중
+  patient: number;      // 환자
   georaecheo: number;   // 거래처
   spam: number;         // 스팸
   etc: number;          // 기타
+  missed: number;       // 부재중 (통화시간 0초)
 }
 
 interface CallLogResponse {
@@ -94,14 +92,11 @@ interface CallLogResponse {
   stats: CallLogStats;
 }
 
-type ClassificationFilter = 'all' | 'sinwhan' | 'gusinwhan' | 'guhwan' | 'bujaejung' | 'georaecheo' | 'spam' | 'etc';
+type ClassificationFilter = 'all' | 'patient' | 'georaecheo' | 'spam' | 'etc';
 
 const filterTabs: Array<{ id: ClassificationFilter; label: string }> = [
   { id: 'all', label: '전체' },
-  { id: 'sinwhan', label: '신환' },
-  { id: 'gusinwhan', label: '구신환' },
-  { id: 'guhwan', label: '구환' },
-  { id: 'bujaejung', label: '부재중' },
+  { id: 'patient', label: '환자' },
   { id: 'georaecheo', label: '거래처' },
   { id: 'spam', label: '스팸' },
   { id: 'etc', label: '기타' },
@@ -109,10 +104,7 @@ const filterTabs: Array<{ id: ClassificationFilter; label: string }> = [
 
 function getClassificationStyle(classification: string) {
   switch (classification) {
-    case '신환': return 'bg-blue-100 text-blue-700';
-    case '구신환': return 'bg-purple-100 text-purple-700';
-    case '구환': return 'bg-emerald-100 text-emerald-700';
-    case '부재중': return 'bg-amber-100 text-amber-700';
+    case '환자': return 'bg-blue-100 text-blue-700';
     case '거래처': return 'bg-cyan-100 text-cyan-700';
     case '스팸': return 'bg-red-100 text-red-600';
     case '기타': return 'bg-slate-100 text-slate-600';
@@ -147,17 +139,85 @@ function TemperatureDisplay({ temperature }: { temperature: Temperature | string
 interface RegisterPatientModalProps {
   call: CallLog;
   onClose: () => void;
-  onSuccess: (patientId: string) => void;
+  onSuccess: (patientId: string, patientName: string) => void;
 }
+
+interface CategoryItem {
+  id: string;
+  label: string;
+  isDefault: boolean;
+  isActive: boolean;
+}
+
+// 시/도 및 시군구 데이터
+const REGION_DATA: Record<string, string[]> = {
+  '서울': ['강남구', '강동구', '강북구', '강서구', '관악구', '광진구', '구로구', '금천구', '노원구', '도봉구', '동대문구', '동작구', '마포구', '서대문구', '서초구', '성동구', '성북구', '송파구', '양천구', '영등포구', '용산구', '은평구', '종로구', '중구', '중랑구'],
+  '부산': ['강서구', '금정구', '남구', '동구', '동래구', '부산진구', '북구', '사상구', '사하구', '서구', '수영구', '연제구', '영도구', '중구', '해운대구', '기장군'],
+  '대구': ['남구', '달서구', '동구', '북구', '서구', '수성구', '중구', '달성군'],
+  '인천': ['계양구', '남동구', '동구', '미추홀구', '부평구', '서구', '연수구', '중구', '강화군', '옹진군'],
+  '광주': ['광산구', '남구', '동구', '북구', '서구'],
+  '대전': ['대덕구', '동구', '서구', '유성구', '중구'],
+  '울산': ['남구', '동구', '북구', '중구', '울주군'],
+  '세종': ['세종시'],
+  '경기': ['수원시', '성남시', '고양시', '용인시', '부천시', '안산시', '안양시', '남양주시', '화성시', '평택시', '의정부시', '시흥시', '파주시', '광명시', '김포시', '군포시', '광주시', '이천시', '양주시', '오산시', '구리시', '안성시', '포천시', '의왕시', '하남시', '여주시', '양평군', '동두천시', '과천시', '가평군', '연천군'],
+  '강원': ['춘천시', '원주시', '강릉시', '동해시', '태백시', '속초시', '삼척시', '홍천군', '횡성군', '영월군', '평창군', '정선군', '철원군', '화천군', '양구군', '인제군', '고성군', '양양군'],
+  '충북': ['청주시', '충주시', '제천시', '보은군', '옥천군', '영동군', '증평군', '진천군', '괴산군', '음성군', '단양군'],
+  '충남': ['천안시', '공주시', '보령시', '아산시', '서산시', '논산시', '계룡시', '당진시', '금산군', '부여군', '서천군', '청양군', '홍성군', '예산군', '태안군'],
+  '전북': ['전주시', '군산시', '익산시', '정읍시', '남원시', '김제시', '완주군', '진안군', '무주군', '장수군', '임실군', '순창군', '고창군', '부안군'],
+  '전남': ['목포시', '여수시', '순천시', '나주시', '광양시', '담양군', '곡성군', '구례군', '고흥군', '보성군', '화순군', '장흥군', '강진군', '해남군', '영암군', '무안군', '함평군', '영광군', '장성군', '완도군', '진도군', '신안군'],
+  '경북': ['포항시', '경주시', '김천시', '안동시', '구미시', '영주시', '영천시', '상주시', '문경시', '경산시', '군위군', '의성군', '청송군', '영양군', '영덕군', '청도군', '고령군', '성주군', '칠곡군', '예천군', '봉화군', '울진군', '울릉군'],
+  '경남': ['창원시', '진주시', '통영시', '사천시', '김해시', '밀양시', '거제시', '양산시', '의령군', '함안군', '창녕군', '고성군', '남해군', '하동군', '산청군', '함양군', '거창군', '합천군'],
+  '제주': ['제주시', '서귀포시'],
+};
+
+const PROVINCES = Object.keys(REGION_DATA);
 
 function RegisterPatientModal({ call, onClose, onSuccess }: RegisterPatientModalProps) {
   const [name, setName] = useState(call.patientName || '');
   const [phone] = useState(call.phone);
+  const [consultationType, setConsultationType] = useState('');
   const [interest, setInterest] = useState(call.interest || '');
-  const [source, setSource] = useState('전화문의');
-  const [temperature, setTemperature] = useState<Temperature>(call.temperature || 'warm');
+  const [source, setSource] = useState('');
+  const [age, setAge] = useState<string>('');
+  const [province, setProvince] = useState('');
+  const [city, setCity] = useState('');
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState('');
+
+  // 카테고리 데이터
+  const [consultationTypes, setConsultationTypes] = useState<CategoryItem[]>([]);
+  const [referralSources, setReferralSources] = useState<CategoryItem[]>([]);
+  const [interestedServices, setInterestedServices] = useState<CategoryItem[]>([]);
+  const [loadingCategories, setLoadingCategories] = useState(true);
+
+  // 카테고리 데이터 로드
+  useEffect(() => {
+    const fetchCategories = async () => {
+      try {
+        const response = await fetch('/api/settings/categories');
+        const data = await response.json();
+        if (data.success) {
+          // 활성화된 항목만 필터링
+          const activeTypes = (data.categories.consultationTypes || []).filter((item: CategoryItem) => item.isActive);
+          const activeSources = (data.categories.referralSources || []).filter((item: CategoryItem) => item.isActive);
+          const activeServices = (data.categories.interestedServices || []).filter((item: CategoryItem) => item.isActive);
+          setConsultationTypes(activeTypes);
+          setReferralSources(activeSources);
+          setInterestedServices(activeServices);
+          // 기본값 설정
+          if (activeTypes.length > 0 && !consultationType) {
+            setConsultationType(activeTypes[0].label);
+          }
+          // 유입경로는 기본값을 설정하지 않음 (알수없음이 기본)
+        }
+      } catch (err) {
+        console.error('카테고리 로드 실패:', err);
+      } finally {
+        setLoadingCategories(false);
+      }
+    };
+    fetchCategories();
+  }, []);
 
   const handleSubmit = async () => {
     if (!name.trim()) {
@@ -170,16 +230,31 @@ function RegisterPatientModal({ call, onClose, onSuccess }: RegisterPatientModal
 
     try {
       // 1. 환자 등록 시도
+      const patientData: Record<string, unknown> = {
+        name: name.trim(),
+        phone,
+        consultationType,
+        interest,
+        source,
+      };
+
+      // 나이 추가 (입력된 경우)
+      if (age) {
+        patientData.age = parseInt(age, 10);
+      }
+
+      // 지역 추가 (시/도가 선택된 경우)
+      if (province) {
+        patientData.region = {
+          province,
+          city: city || undefined,
+        };
+      }
+
       const patientRes = await fetch('/api/v2/patients', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          name: name.trim(),
-          phone,
-          interest,
-          source,
-          temperature,
-        }),
+        body: JSON.stringify(patientData),
       });
 
       let patientId: string;
@@ -197,17 +272,20 @@ function RegisterPatientModal({ call, onClose, onSuccess }: RegisterPatientModal
         patientId = data.patientId;
       }
 
-      // 2. 통화기록에 patientId 연결
+      // 2. 통화기록에 patientId 연결 + 분류를 '환자'로 변경
       await fetch('/api/v2/call-logs', {
         method: 'PATCH',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           callLogId: call.id,
           patientId,
+          classification: '환자',
+          patientName: name.trim(),
+          interest: interest || undefined,
         }),
       });
 
-      onSuccess(patientId);
+      onSuccess(patientId, name.trim());
       onClose();
     } catch (err) {
       setError('등록 중 오류가 발생했습니다');
@@ -264,59 +342,122 @@ function RegisterPatientModal({ call, onClose, onSuccess }: RegisterPatientModal
             />
           </div>
 
+          {/* 상담타입 */}
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-2">상담타입</label>
+            {loadingCategories ? (
+              <div className="w-full px-3 py-2 border border-gray-200 rounded-lg bg-gray-50 text-gray-400">
+                로딩 중...
+              </div>
+            ) : (
+              <select
+                value={consultationType}
+                onChange={(e) => setConsultationType(e.target.value)}
+                className="w-full px-3 py-2 border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+              >
+                <option value="">선택하세요</option>
+                {consultationTypes.map((item) => (
+                  <option key={item.id} value={item.label}>{item.label}</option>
+                ))}
+              </select>
+            )}
+          </div>
+
           {/* 관심 시술 */}
           <div>
             <label className="block text-sm font-medium text-gray-700 mb-2">관심 시술</label>
-            <input
-              type="text"
-              value={interest}
-              onChange={(e) => setInterest(e.target.value)}
-              placeholder="예: 임플란트, 교정"
-              className="w-full px-3 py-2 border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
-            />
+            {loadingCategories ? (
+              <div className="w-full px-3 py-2 border border-gray-200 rounded-lg bg-gray-50 text-gray-400">
+                로딩 중...
+              </div>
+            ) : interestedServices.length > 0 ? (
+              <select
+                value={interest}
+                onChange={(e) => setInterest(e.target.value)}
+                className="w-full px-3 py-2 border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+              >
+                <option value="">선택하세요</option>
+                {interestedServices.map((item) => (
+                  <option key={item.id} value={item.label}>{item.label}</option>
+                ))}
+              </select>
+            ) : (
+              <input
+                type="text"
+                value={interest}
+                onChange={(e) => setInterest(e.target.value)}
+                placeholder="예: 임플란트, 교정"
+                className="w-full px-3 py-2 border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+              />
+            )}
           </div>
 
           {/* 유입경로 */}
           <div>
             <label className="block text-sm font-medium text-gray-700 mb-2">유입경로</label>
-            <select
-              value={source}
-              onChange={(e) => setSource(e.target.value)}
-              className="w-full px-3 py-2 border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
-            >
-              <option value="전화문의">전화문의</option>
-              <option value="네이버">네이버</option>
-              <option value="카카오">카카오</option>
-              <option value="인스타그램">인스타그램</option>
-              <option value="지인소개">지인소개</option>
-              <option value="기타">기타</option>
-            </select>
+            {loadingCategories ? (
+              <div className="w-full px-3 py-2 border border-gray-200 rounded-lg bg-gray-50 text-gray-400">
+                로딩 중...
+              </div>
+            ) : (
+              <select
+                value={source}
+                onChange={(e) => setSource(e.target.value)}
+                className="w-full px-3 py-2 border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+              >
+                <option value="">알수없음</option>
+                {referralSources.map((item) => (
+                  <option key={item.id} value={item.label}>{item.label}</option>
+                ))}
+              </select>
+            )}
           </div>
 
-          {/* 관심도 */}
+          {/* 나이 */}
           <div>
-            <label className="block text-sm font-medium text-gray-700 mb-2">관심도</label>
-            <div className="flex gap-2">
-              {TEMPERATURE_OPTIONS.map((opt) => {
-                const Icon = opt.icon;
-                return (
-                  <button
-                    key={opt.value}
-                    type="button"
-                    onClick={() => setTemperature(opt.value as Temperature)}
-                    className={`flex-1 flex items-center justify-center gap-2 px-3 py-2 rounded-lg text-sm font-medium transition-all ${
-                      temperature === opt.value
-                        ? 'bg-blue-50 border-2 border-blue-500 text-blue-700'
-                        : 'bg-gray-50 border border-gray-200 text-gray-600 hover:bg-gray-100'
-                    }`}
-                  >
-                    <Icon size={16} className={opt.color} />
-                    {opt.label.split(' ')[0]}
-                  </button>
-                );
-              })}
+            <label className="block text-sm font-medium text-gray-700 mb-2">나이</label>
+            <input
+              type="number"
+              value={age}
+              onChange={(e) => setAge(e.target.value)}
+              placeholder="나이 입력"
+              min="1"
+              max="120"
+              className="w-full px-3 py-2 border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+            />
+          </div>
+
+          {/* 주소 (시/도, 시군구) */}
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-2">주소</label>
+            <div className="grid grid-cols-2 gap-2">
+              <select
+                value={province}
+                onChange={(e) => {
+                  setProvince(e.target.value);
+                  setCity(''); // 시/도 변경 시 시군구 초기화
+                }}
+                className="px-3 py-2 border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+              >
+                <option value="">시/도 선택</option>
+                {PROVINCES.map((p) => (
+                  <option key={p} value={p}>{p}</option>
+                ))}
+              </select>
+              <select
+                value={city}
+                onChange={(e) => setCity(e.target.value)}
+                disabled={!province}
+                className="px-3 py-2 border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 disabled:bg-gray-100 disabled:text-gray-400"
+              >
+                <option value="">시/군/구 선택</option>
+                {province && REGION_DATA[province]?.map((c) => (
+                  <option key={c} value={c}>{c}</option>
+                ))}
+              </select>
             </div>
           </div>
+
         </div>
 
         {/* 버튼 */}
@@ -366,24 +507,39 @@ function EditAnalysisModal({ call, onClose, onSave }: EditAnalysisModalProps) {
   const [followUp, setFollowUp] = useState(call.followUp || '콜백필요');
   const [saving, setSaving] = useState(false);
 
+  // 분류별 표시할 필드 결정
+  const isPatientType = classification === '환자';
+  const isVendor = classification === '거래처';
+  const isSpam = classification === '스팸';
+  const isEtc = classification === '기타';
+
   const handleSave = async () => {
     setSaving(true);
     try {
+      const requestBody = {
+        callLogId: call.id,
+        classification,
+        patientName: patientName || undefined,  // 모든 분류에서 이름 저장 가능
+        interest: isPatientType ? interest : undefined,
+        temperature: isPatientType ? temperature : undefined,
+        summary,
+        followUp: isPatientType ? followUp : '종결',
+      };
+
+      console.log('[EditAnalysisModal] 요청 body:', requestBody);
+
       const response = await fetch('/api/v2/call-logs', {
         method: 'PATCH',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          callLogId: call.id,
-          classification,
-          patientName,
-          interest,
-          temperature,
-          summary,
-          followUp,
-        }),
+        body: JSON.stringify(requestBody),
       });
 
-      if (!response.ok) throw new Error('Failed to update');
+      const data = await response.json();
+      console.log('[EditAnalysisModal] 응답:', data);
+
+      if (!response.ok) {
+        throw new Error(data.details || data.error || 'Failed to update');
+      }
 
       onSave({
         ...call,
@@ -397,7 +553,7 @@ function EditAnalysisModal({ call, onClose, onSave }: EditAnalysisModalProps) {
       onClose();
     } catch (error) {
       console.error('Error updating call log:', error);
-      alert('수정 중 오류가 발생했습니다.');
+      alert(`수정 중 오류가 발생했습니다: ${error instanceof Error ? error.message : 'Unknown error'}`);
     } finally {
       setSaving(false);
     }
@@ -410,7 +566,7 @@ function EditAnalysisModal({ call, onClose, onSave }: EditAnalysisModalProps) {
         <div className="flex items-center justify-between p-4 border-b">
           <div className="flex items-center gap-2">
             <Pencil size={18} className="text-blue-500" />
-            <h3 className="font-bold text-gray-900">AI 분석 수정</h3>
+            <h3 className="font-bold text-gray-900">분류 변경</h3>
           </div>
           <button onClick={onClose} className="p-1 hover:bg-gray-100 rounded">
             <X size={20} className="text-gray-400" />
@@ -440,83 +596,136 @@ function EditAnalysisModal({ call, onClose, onSave }: EditAnalysisModalProps) {
             </div>
           </div>
 
-          {/* 환자 이름 */}
-          <div>
-            <label className="block text-sm font-medium text-gray-700 mb-2">환자 이름</label>
-            <input
-              type="text"
-              value={patientName}
-              onChange={(e) => setPatientName(e.target.value)}
-              placeholder="환자 이름 입력"
-              className="w-full px-3 py-2 border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
-            />
-          </div>
+          {/* 스팸/거래처/기타 안내 메시지 */}
+          {(isSpam || isVendor || isEtc) && (
+            <div className={`p-3 rounded-lg text-sm ${
+              isSpam ? 'bg-red-50 text-red-700' :
+              isVendor ? 'bg-cyan-50 text-cyan-700' :
+              'bg-gray-50 text-gray-600'
+            }`}>
+              {isSpam && '스팸으로 분류됩니다. 환자 목록에서 제외됩니다.'}
+              {isVendor && '거래처로 분류됩니다. 환자 목록에서 제외됩니다.'}
+              {isEtc && '기타로 분류됩니다.'}
+            </div>
+          )}
 
-          {/* 관심 시술 */}
-          <div>
-            <label className="block text-sm font-medium text-gray-700 mb-2">관심 시술</label>
-            <input
-              type="text"
-              value={interest}
-              onChange={(e) => setInterest(e.target.value)}
-              placeholder="예: 임플란트, 교정, 충치치료"
-              className="w-full px-3 py-2 border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
-            />
-          </div>
+          {/* 거래처명 (거래처인 경우) */}
+          {isVendor && (
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-2">거래처명</label>
+              <input
+                type="text"
+                value={patientName}
+                onChange={(e) => setPatientName(e.target.value)}
+                placeholder="거래처 이름 입력"
+                className="w-full px-3 py-2 border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+              />
+            </div>
+          )}
 
-          {/* 관심도 */}
-          <div>
-            <label className="block text-sm font-medium text-gray-700 mb-2">관심도</label>
-            <div className="flex gap-2">
-              {TEMPERATURE_OPTIONS.map((opt) => {
-                const Icon = opt.icon;
-                return (
+          {/* 환자 이름 (환자인 경우) */}
+          {isPatientType && (
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-2">환자 이름</label>
+              <input
+                type="text"
+                value={patientName}
+                onChange={(e) => setPatientName(e.target.value)}
+                placeholder="환자 이름 입력"
+                className="w-full px-3 py-2 border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+              />
+            </div>
+          )}
+
+          {/* 스팸/기타 이름 (스팸 또는 기타인 경우) */}
+          {(isSpam || isEtc) && (
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-2">
+                {isSpam ? '스팸 발신자' : '발신자 정보'}
+              </label>
+              <input
+                type="text"
+                value={patientName}
+                onChange={(e) => setPatientName(e.target.value)}
+                placeholder={isSpam ? '예: 대출권유, 보험영업' : '예: 마케팅업체, 배달'}
+                className="w-full px-3 py-2 border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+              />
+            </div>
+          )}
+
+          {/* 관심 시술 (환자인 경우) */}
+          {isPatientType && (
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-2">관심 시술</label>
+              <input
+                type="text"
+                value={interest}
+                onChange={(e) => setInterest(e.target.value)}
+                placeholder="예: 임플란트, 교정, 충치치료"
+                className="w-full px-3 py-2 border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+              />
+            </div>
+          )}
+
+          {/* 관심도 (환자인 경우) */}
+          {isPatientType && (
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-2">관심도</label>
+              <div className="flex gap-2">
+                {TEMPERATURE_OPTIONS.map((opt) => {
+                  const Icon = opt.icon;
+                  return (
+                    <button
+                      key={opt.value}
+                      type="button"
+                      onClick={() => setTemperature(opt.value as Temperature)}
+                      className={`flex-1 flex items-center justify-center gap-2 px-3 py-2 rounded-lg text-sm font-medium transition-all ${
+                        temperature === opt.value
+                          ? 'bg-blue-50 border-2 border-blue-500 text-blue-700'
+                          : 'bg-gray-50 border border-gray-200 text-gray-600 hover:bg-gray-100'
+                      }`}
+                    >
+                      <Icon size={16} className={opt.color} />
+                      {opt.label.split(' ')[0]}
+                    </button>
+                  );
+                })}
+              </div>
+            </div>
+          )}
+
+          {/* 후속 조치 (환자인 경우) */}
+          {isPatientType && (
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-2">후속 조치</label>
+              <div className="flex gap-2">
+                {FOLLOWUP_OPTIONS.map((opt) => (
                   <button
                     key={opt.value}
                     type="button"
-                    onClick={() => setTemperature(opt.value as Temperature)}
-                    className={`flex-1 flex items-center justify-center gap-2 px-3 py-2 rounded-lg text-sm font-medium transition-all ${
-                      temperature === opt.value
-                        ? 'bg-blue-50 border-2 border-blue-500 text-blue-700'
-                        : 'bg-gray-50 border border-gray-200 text-gray-600 hover:bg-gray-100'
+                    onClick={() => setFollowUp(opt.value)}
+                    className={`flex-1 px-3 py-2 rounded-lg text-sm font-medium transition-all ${
+                      followUp === opt.value
+                        ? 'bg-blue-500 text-white'
+                        : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
                     }`}
                   >
-                    <Icon size={16} className={opt.color} />
-                    {opt.label.split(' ')[0]}
+                    {opt.label}
                   </button>
-                );
-              })}
+                ))}
+              </div>
             </div>
-          </div>
+          )}
 
-          {/* 후속 조치 */}
+          {/* 메모/요약 (항상 표시) */}
           <div>
-            <label className="block text-sm font-medium text-gray-700 mb-2">후속 조치</label>
-            <div className="flex gap-2">
-              {FOLLOWUP_OPTIONS.map((opt) => (
-                <button
-                  key={opt.value}
-                  type="button"
-                  onClick={() => setFollowUp(opt.value)}
-                  className={`flex-1 px-3 py-2 rounded-lg text-sm font-medium transition-all ${
-                    followUp === opt.value
-                      ? 'bg-blue-500 text-white'
-                      : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
-                  }`}
-                >
-                  {opt.label}
-                </button>
-              ))}
-            </div>
-          </div>
-
-          {/* 요약 */}
-          <div>
-            <label className="block text-sm font-medium text-gray-700 mb-2">요약</label>
+            <label className="block text-sm font-medium text-gray-700 mb-2">
+              {isSpam || isVendor || isEtc ? '메모' : '요약'}
+            </label>
             <textarea
               value={summary}
               onChange={(e) => setSummary(e.target.value)}
-              placeholder="통화 내용 요약"
+              placeholder={isSpam ? '스팸 관련 메모' : isVendor ? '거래처 관련 메모' : '통화 내용 요약'}
               rows={3}
               className="w-full px-3 py-2 border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 resize-none"
             />
@@ -572,6 +781,24 @@ function formatCallTime(dateString: string) {
   return { dateStr, time };
 }
 
+// 날짜를 YYYY-MM-DD 형식으로 변환
+function formatDateToString(date: Date): string {
+  const year = date.getFullYear();
+  const month = String(date.getMonth() + 1).padStart(2, '0');
+  const day = String(date.getDate()).padStart(2, '0');
+  return `${year}-${month}-${day}`;
+}
+
+// 착신 시각 포맷 (한 줄로)
+function formatCallTimeOneLine(dateString: string) {
+  const date = new Date(dateString);
+  const month = date.getMonth() + 1;
+  const day = date.getDate();
+  const hours = date.getHours().toString().padStart(2, '0');
+  const minutes = date.getMinutes().toString().padStart(2, '0');
+  return `${month}/${day} ${hours}:${minutes}`;
+}
+
 function CallLogsPageContent() {
   const router = useRouter();
   const searchParams = useSearchParams();
@@ -589,6 +816,14 @@ function CallLogsPageContent() {
   const [editingCall, setEditingCall] = useState<CallLog | null>(null);
   const [registeringCall, setRegisteringCall] = useState<CallLog | null>(null);
 
+  // 날짜 필터 상태 (기본값: 오늘)
+  const [selectedDate, setSelectedDate] = useState<string>(formatDateToString(new Date()));
+  const [showDatePicker, setShowDatePicker] = useState(false);
+  const [dateRange, setDateRange] = useState<{ start: string; end: string } | null>(null);
+
+  // 수신/발신 필터 상태
+  const [directionFilter, setDirectionFilter] = useState<'all' | 'inbound' | 'outbound'>('all');
+
   const fetchCallLogs = useCallback(async () => {
     setLoading(true);
     try {
@@ -596,14 +831,16 @@ function CallLogsPageContent() {
       params.set('page', currentPage.toString());
       params.set('limit', '20');
 
-      if (filter === 'sinwhan') {
-        params.set('classification', '신환');
-      } else if (filter === 'gusinwhan') {
-        params.set('classification', '구신환');
-      } else if (filter === 'guhwan') {
-        params.set('classification', '구환');
-      } else if (filter === 'bujaejung') {
-        params.set('classification', '부재중');
+      // 날짜 필터 적용
+      if (dateRange) {
+        params.set('startDate', dateRange.start);
+        params.set('endDate', dateRange.end);
+      } else {
+        params.set('date', selectedDate);
+      }
+
+      if (filter === 'patient') {
+        params.set('classification', '환자');
       } else if (filter === 'georaecheo') {
         params.set('classification', '거래처');
       } else if (filter === 'spam') {
@@ -614,6 +851,11 @@ function CallLogsPageContent() {
 
       if (searchQuery) {
         params.set('search', searchQuery);
+      }
+
+      // 수신/발신 필터
+      if (directionFilter !== 'all') {
+        params.set('direction', directionFilter);
       }
 
       const response = await fetch(`/api/v2/call-logs?${params.toString()}`);
@@ -631,7 +873,7 @@ function CallLogsPageContent() {
     } finally {
       setLoading(false);
     }
-  }, [currentPage, filter, searchQuery]);
+  }, [currentPage, filter, searchQuery, selectedDate, dateRange, directionFilter]);
 
   useEffect(() => {
     fetchCallLogs();
@@ -651,9 +893,68 @@ function CallLogsPageContent() {
     setCurrentPage(1);
   };
 
+  const handleDirectionChange = (direction: 'all' | 'inbound' | 'outbound') => {
+    setDirectionFilter(direction);
+    setCurrentPage(1);
+  };
+
   const handleSearch = (e: React.ChangeEvent<HTMLInputElement>) => {
     setSearchQuery(e.target.value);
     setCurrentPage(1);
+  };
+
+  // 날짜 네비게이션
+  const handlePrevDay = () => {
+    const current = new Date(selectedDate);
+    current.setDate(current.getDate() - 1);
+    setSelectedDate(formatDateToString(current));
+    setDateRange(null);
+    setCurrentPage(1);
+  };
+
+  const handleNextDay = () => {
+    const current = new Date(selectedDate);
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+    current.setDate(current.getDate() + 1);
+    if (current <= today) {
+      setSelectedDate(formatDateToString(current));
+      setDateRange(null);
+      setCurrentPage(1);
+    }
+  };
+
+  const handleToday = () => {
+    setSelectedDate(formatDateToString(new Date()));
+    setDateRange(null);
+    setCurrentPage(1);
+  };
+
+  const handleDateChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    setSelectedDate(e.target.value);
+    setDateRange(null);
+    setCurrentPage(1);
+  };
+
+  const isToday = selectedDate === formatDateToString(new Date());
+
+  // 날짜 표시 포맷
+  const getDisplayDate = () => {
+    if (dateRange) {
+      return `${dateRange.start} ~ ${dateRange.end}`;
+    }
+    const date = new Date(selectedDate);
+    const today = new Date();
+    const yesterday = new Date(today);
+    yesterday.setDate(yesterday.getDate() - 1);
+
+    if (selectedDate === formatDateToString(today)) {
+      return '오늘';
+    } else if (selectedDate === formatDateToString(yesterday)) {
+      return '어제';
+    } else {
+      return `${date.getMonth() + 1}월 ${date.getDate()}일`;
+    }
   };
 
   const handleCallClick = (call: CallLog) => {
@@ -672,17 +973,21 @@ function CallLogsPageContent() {
     setRegisteringCall(call);
   };
 
-  const handleRegisterSuccess = (patientId: string) => {
-    // 목록에서 업데이트 (등록됨 상태로 변경)
+  const handleRegisterSuccess = (patientId: string, patientName: string) => {
+    // 목록에서 업데이트 (등록됨 상태로 변경 + 환자 이름 추가 + 분류를 '환자'로 변경)
     setCallLogs((prev) =>
       prev.map((log) =>
-        log.id === registeringCall?.id ? { ...log, patientId } : log
+        log.id === registeringCall?.id
+          ? { ...log, patientId, patientName, callerName: patientName, classification: '환자' }
+          : log
       )
     );
     // 선택된 항목도 업데이트
     if (selectedCall && selectedCall.id === registeringCall?.id) {
-      setSelectedCall({ ...selectedCall, patientId } as CallLog);
+      setSelectedCall({ ...selectedCall, patientId, patientName, callerName: patientName, classification: '환자' } as CallLog);
     }
+    // 모달 닫기
+    setRegisteringCall(null);
   };
 
   const handleMakeCall = (phone: string) => {
@@ -698,7 +1003,7 @@ function CallLogsPageContent() {
   };
 
   const handleUnlinkPatient = async (call: CallLog) => {
-    if (!confirm('이 통화기록에서 환자 연결을 해제하시겠습니까?')) {
+    if (!confirm('이 통화기록에서 환자 연결을 해제하시겠습니까?\n(같은 환자와 연결된 모든 통화기록에서 연결이 해제됩니다)')) {
       return;
     }
 
@@ -714,10 +1019,11 @@ function CallLogsPageContent() {
 
       if (!response.ok) throw new Error('Failed to unlink');
 
-      // 목록에서 업데이트
+      // 같은 patientId를 가진 모든 통화기록 업데이트
+      const unlinkPatientId = call.patientId;
       setCallLogs((prev) =>
         prev.map((log) =>
-          log.id === call.id ? { ...log, patientId: null } : log
+          log.patientId === unlinkPatientId ? { ...log, patientId: null } : log
         )
       );
 
@@ -732,13 +1038,34 @@ function CallLogsPageContent() {
   };
 
   const handleSaveEdit = (updatedCall: CallLog) => {
-    // 목록에서 업데이트
-    setCallLogs((prev) =>
-      prev.map((log) => (log.id === updatedCall.id ? updatedCall : log))
-    );
+    // 스팸/거래처로 변경되면 patientId를 null로 설정
+    const NON_PATIENT_CLASSIFICATIONS = ['스팸', '거래처'];
+    const isNowNonPatient = NON_PATIENT_CLASSIFICATIONS.includes(updatedCall.classification);
+
+    const finalCall = isNowNonPatient
+      ? { ...updatedCall, patientId: null }
+      : updatedCall;
+
+    // 스팸/거래처로 변경되면서 기존에 patientId가 있었다면, 같은 patientId를 가진 모든 통화기록도 업데이트
+    const originalPatientId = editingCall?.patientId;
+    if (isNowNonPatient && originalPatientId) {
+      setCallLogs((prev) =>
+        prev.map((log) => {
+          if (log.id === finalCall.id) return finalCall;
+          if (log.patientId === originalPatientId) return { ...log, patientId: null };
+          return log;
+        })
+      );
+    } else {
+      // 목록에서 업데이트
+      setCallLogs((prev) =>
+        prev.map((log) => (log.id === finalCall.id ? finalCall : log))
+      );
+    }
+
     // 선택된 항목도 업데이트
-    if (selectedCall?.id === updatedCall.id) {
-      setSelectedCall(updatedCall);
+    if (selectedCall?.id === finalCall.id) {
+      setSelectedCall(finalCall);
     }
   };
 
@@ -746,10 +1073,7 @@ function CallLogsPageContent() {
     if (!stats) return 0;
     switch (filterId) {
       case 'all': return stats.all;
-      case 'sinwhan': return stats.sinwhan;
-      case 'gusinwhan': return stats.gusinwhan;
-      case 'guhwan': return stats.guhwan;
-      case 'bujaejung': return stats.bujaejung;
+      case 'patient': return stats.patient;
       case 'georaecheo': return stats.georaecheo;
       case 'spam': return stats.spam;
       case 'etc': return stats.etc;
@@ -758,18 +1082,165 @@ function CallLogsPageContent() {
   };
 
   return (
-    <div className="flex-1 flex h-full overflow-hidden">
+    <div className="flex-1 flex h-full overflow-y-auto">
       {/* 메인 컨텐츠 */}
       <div className="flex-1 flex flex-col min-h-0">
         {/* 헤더 */}
         <div className="bg-white border-b px-6 py-4 flex-shrink-0">
           <div className="flex items-center justify-between">
-            <div>
-              <h2 className="text-xl font-bold text-gray-900">통화 기록</h2>
-              <p className="text-sm text-gray-500 mt-1">
-                AI가 자동으로 분석하고 환자를 등록합니다
-              </p>
+            <div className="flex items-center gap-4">
+              <div>
+                <h2 className="text-xl font-bold text-gray-900">통화 기록</h2>
+                <p className="text-sm text-gray-500 mt-1">
+                  AI가 자동으로 분석하고 환자를 등록합니다
+                </p>
+              </div>
+
+              {/* 날짜 네비게이션 */}
+              <div className="flex items-center gap-2 ml-4">
+                <button
+                  onClick={handlePrevDay}
+                  className="p-1.5 hover:bg-gray-100 rounded-lg"
+                >
+                  <ChevronLeft size={20} className="text-gray-600" />
+                </button>
+
+                <div className="relative">
+                  <button
+                    onClick={() => setShowDatePicker(!showDatePicker)}
+                    className="flex items-center gap-2 px-3 py-1.5 bg-gray-100 hover:bg-gray-200 rounded-lg font-medium text-gray-700"
+                  >
+                    <Calendar size={16} />
+                    <span>{getDisplayDate()}</span>
+                  </button>
+
+                  {showDatePicker && (
+                    <div className="absolute top-full left-0 mt-1 bg-white border rounded-lg shadow-lg p-4 z-10 min-w-[280px]">
+                      {/* 단일 날짜 선택 */}
+                      <div className="mb-3">
+                        <label className="block text-xs font-medium text-gray-500 mb-1">날짜 선택</label>
+                        <input
+                          type="date"
+                          value={selectedDate}
+                          onChange={(e) => {
+                            handleDateChange(e);
+                            setShowDatePicker(false);
+                          }}
+                          max={formatDateToString(new Date())}
+                          className="w-full px-3 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                        />
+                      </div>
+
+                      {/* 기간 선택 */}
+                      <div className="border-t pt-3">
+                        <label className="block text-xs font-medium text-gray-500 mb-1">기간 선택</label>
+                        <div className="flex items-center gap-2">
+                          <input
+                            type="date"
+                            value={dateRange?.start || ''}
+                            onChange={(e) => {
+                              setDateRange(prev => ({
+                                start: e.target.value,
+                                end: prev?.end || formatDateToString(new Date())
+                              }));
+                            }}
+                            max={formatDateToString(new Date())}
+                            className="flex-1 px-2 py-1.5 text-sm border rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                          />
+                          <span className="text-gray-400">~</span>
+                          <input
+                            type="date"
+                            value={dateRange?.end || ''}
+                            onChange={(e) => {
+                              setDateRange(prev => ({
+                                start: prev?.start || formatDateToString(new Date()),
+                                end: e.target.value
+                              }));
+                            }}
+                            max={formatDateToString(new Date())}
+                            className="flex-1 px-2 py-1.5 text-sm border rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                          />
+                        </div>
+                        {dateRange && (
+                          <button
+                            onClick={() => {
+                              setCurrentPage(1);
+                              setShowDatePicker(false);
+                            }}
+                            className="w-full mt-2 py-1.5 text-sm bg-blue-500 text-white rounded-lg hover:bg-blue-600"
+                          >
+                            기간 적용
+                          </button>
+                        )}
+                      </div>
+
+                      {/* 빠른 선택 버튼 */}
+                      <div className="border-t pt-3 mt-3 flex gap-2">
+                        <button
+                          onClick={() => {
+                            handleToday();
+                            setShowDatePicker(false);
+                          }}
+                          className="flex-1 py-1.5 text-sm bg-gray-100 text-gray-700 rounded-lg hover:bg-gray-200"
+                        >
+                          오늘
+                        </button>
+                        <button
+                          onClick={() => {
+                            const today = new Date();
+                            const weekAgo = new Date(today);
+                            weekAgo.setDate(weekAgo.getDate() - 7);
+                            setDateRange({
+                              start: formatDateToString(weekAgo),
+                              end: formatDateToString(today)
+                            });
+                            setCurrentPage(1);
+                            setShowDatePicker(false);
+                          }}
+                          className="flex-1 py-1.5 text-sm bg-gray-100 text-gray-700 rounded-lg hover:bg-gray-200"
+                        >
+                          최근 7일
+                        </button>
+                        <button
+                          onClick={() => {
+                            const today = new Date();
+                            const monthAgo = new Date(today);
+                            monthAgo.setDate(monthAgo.getDate() - 30);
+                            setDateRange({
+                              start: formatDateToString(monthAgo),
+                              end: formatDateToString(today)
+                            });
+                            setCurrentPage(1);
+                            setShowDatePicker(false);
+                          }}
+                          className="flex-1 py-1.5 text-sm bg-gray-100 text-gray-700 rounded-lg hover:bg-gray-200"
+                        >
+                          최근 30일
+                        </button>
+                      </div>
+                    </div>
+                  )}
+                </div>
+
+                <button
+                  onClick={handleNextDay}
+                  disabled={isToday}
+                  className={`p-1.5 rounded-lg ${isToday ? 'text-gray-300 cursor-not-allowed' : 'hover:bg-gray-100 text-gray-600'}`}
+                >
+                  <ChevronRight size={20} />
+                </button>
+
+                {!isToday && (
+                  <button
+                    onClick={handleToday}
+                    className="px-3 py-1.5 text-sm text-blue-600 hover:bg-blue-50 rounded-lg font-medium"
+                  >
+                    오늘
+                  </button>
+                )}
+              </div>
             </div>
+
             <div className="flex items-center gap-3">
               <div className="flex items-center gap-2 text-sm text-emerald-600 bg-emerald-50 px-3 py-1.5 rounded-full">
                 <Sparkles size={16} />
@@ -804,15 +1275,54 @@ function CallLogsPageContent() {
               ))}
             </div>
 
-            <div className="relative">
-              <Search size={18} className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" />
-              <input
-                type="text"
-                placeholder="전화번호, 이름 검색"
-                value={searchQuery}
-                onChange={handleSearch}
-                className="pl-10 pr-4 py-2 border border-gray-200 rounded-lg w-64 focus:outline-none focus:ring-2 focus:ring-blue-500"
-              />
+            <div className="flex items-center gap-3">
+              {/* 수신/발신 필터 */}
+              <div className="flex items-center border border-gray-200 rounded-lg overflow-hidden">
+                <button
+                  onClick={() => handleDirectionChange('all')}
+                  className={`px-3 py-1.5 text-sm font-medium transition-colors ${
+                    directionFilter === 'all'
+                      ? 'bg-blue-500 text-white'
+                      : 'bg-white text-gray-600 hover:bg-gray-50'
+                  }`}
+                >
+                  전체
+                </button>
+                <button
+                  onClick={() => handleDirectionChange('inbound')}
+                  className={`px-3 py-1.5 text-sm font-medium transition-colors border-l border-gray-200 flex items-center gap-1 ${
+                    directionFilter === 'inbound'
+                      ? 'bg-green-500 text-white'
+                      : 'bg-white text-gray-600 hover:bg-gray-50'
+                  }`}
+                >
+                  <PhoneIncoming size={14} />
+                  수신
+                </button>
+                <button
+                  onClick={() => handleDirectionChange('outbound')}
+                  className={`px-3 py-1.5 text-sm font-medium transition-colors border-l border-gray-200 flex items-center gap-1 ${
+                    directionFilter === 'outbound'
+                      ? 'bg-blue-500 text-white'
+                      : 'bg-white text-gray-600 hover:bg-gray-50'
+                  }`}
+                >
+                  <PhoneOutgoing size={14} />
+                  발신
+                </button>
+              </div>
+
+              {/* 검색 */}
+              <div className="relative">
+                <Search size={18} className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" />
+                <input
+                  type="text"
+                  placeholder="전화번호, 이름 검색"
+                  value={searchQuery}
+                  onChange={handleSearch}
+                  className="pl-10 pr-4 py-2 border border-gray-200 rounded-lg w-64 focus:outline-none focus:ring-2 focus:ring-blue-500"
+                />
+              </div>
             </div>
           </div>
         </div>
@@ -821,13 +1331,13 @@ function CallLogsPageContent() {
         <div className="flex-1 overflow-auto p-6 min-h-0">
           <div className="bg-white rounded-2xl shadow-sm overflow-hidden">
             {/* 테이블 헤더 */}
-            <div className="grid grid-cols-12 gap-4 px-5 py-3 bg-gray-50 border-b text-sm font-medium text-gray-500">
+            <div className="grid grid-cols-12 gap-2 px-5 py-3 bg-gray-50 border-b text-sm font-medium text-gray-500">
               <div className="col-span-1">유형</div>
               <div className="col-span-2">전화번호</div>
-              <div className="col-span-1">시간</div>
-              <div className="col-span-1">통화</div>
-              <div className="col-span-2">AI 분류</div>
-              <div className="col-span-1">관심도</div>
+              <div className="col-span-2">환자</div>
+              <div className="col-span-1">착신 시각</div>
+              <div className="col-span-1">통화시간</div>
+              <div className="col-span-1">관심 진료</div>
               <div className="col-span-3">AI 요약</div>
               <div className="col-span-1">상태</div>
             </div>
@@ -836,13 +1346,13 @@ function CallLogsPageContent() {
             {loading ? (
               <div className="divide-y">
                 {Array.from({ length: 5 }).map((_, i) => (
-                  <div key={i} className="grid grid-cols-12 gap-4 px-5 py-4 animate-pulse">
+                  <div key={i} className="grid grid-cols-12 gap-2 px-5 py-4 animate-pulse">
                     <div className="col-span-1"><div className="w-8 h-8 bg-gray-200 rounded-full" /></div>
                     <div className="col-span-2"><div className="h-4 bg-gray-200 rounded w-24" /></div>
-                    <div className="col-span-1"><div className="h-4 bg-gray-200 rounded w-12" /></div>
+                    <div className="col-span-2"><div className="h-4 bg-gray-200 rounded w-20" /></div>
+                    <div className="col-span-1"><div className="h-4 bg-gray-200 rounded w-16" /></div>
                     <div className="col-span-1"><div className="h-4 bg-gray-200 rounded w-10" /></div>
-                    <div className="col-span-2"><div className="h-4 bg-gray-200 rounded w-16" /></div>
-                    <div className="col-span-1"><div className="h-4 bg-gray-200 rounded w-8" /></div>
+                    <div className="col-span-1"><div className="h-4 bg-gray-200 rounded w-12" /></div>
                     <div className="col-span-3"><div className="h-4 bg-gray-200 rounded w-full" /></div>
                     <div className="col-span-1"><div className="h-4 bg-gray-200 rounded w-12" /></div>
                   </div>
@@ -855,14 +1365,13 @@ function CallLogsPageContent() {
             ) : (
               <div className="divide-y">
                 {callLogs.map((call) => {
-                  const { dateStr, time } = formatCallTime(call.callTime);
                   const isSelected = selectedCall?.id === call.id;
 
                   return (
                     <div
                       key={call.id}
                       onClick={() => handleCallClick(call)}
-                      className={`grid grid-cols-12 gap-4 px-5 py-4 hover:bg-gray-50 cursor-pointer items-center transition-colors ${
+                      className={`grid grid-cols-12 gap-2 px-5 py-4 hover:bg-gray-50 cursor-pointer items-center transition-colors ${
                         isSelected ? 'bg-blue-50' : ''
                       }`}
                     >
@@ -879,18 +1388,32 @@ function CallLogsPageContent() {
                         </div>
                       </div>
 
-                      {/* 전화번호 + 이름 */}
+                      {/* 전화번호 */}
                       <div className="col-span-2">
                         <div className="font-medium text-gray-900">{call.phone}</div>
-                        {call.patientName && (
-                          <div className="text-sm text-gray-500">{call.patientName}</div>
-                        )}
                       </div>
 
-                      {/* 시간 */}
-                      <div className="col-span-1 text-sm text-gray-600">
-                        <div>{dateStr}</div>
-                        <div className="text-gray-400">{time}</div>
+                      {/* 환자 (이름 + 분류 태그 + 부재중 표시) */}
+                      <div className="col-span-2">
+                        <div className="flex items-center gap-2">
+                          {/* 부재중 표시 (빨간 점) */}
+                          {call.duration === 0 && (
+                            <span className="w-2 h-2 rounded-full bg-red-500 flex-shrink-0" title="부재중" />
+                          )}
+                          <span className="text-gray-900 font-medium truncate">
+                            {call.patientName || '-'}
+                          </span>
+                          {call.classification && (
+                            <span className={`px-1.5 py-0.5 rounded text-xs font-medium whitespace-nowrap ${getClassificationStyle(call.classification)}`}>
+                              {call.classification}
+                            </span>
+                          )}
+                        </div>
+                      </div>
+
+                      {/* 착신 시각 (한 줄로) */}
+                      <div className="col-span-1 text-sm text-gray-600 whitespace-nowrap">
+                        {formatCallTimeOneLine(call.callTime)}
                       </div>
 
                       {/* 통화시간 */}
@@ -898,28 +1421,9 @@ function CallLogsPageContent() {
                         {formatDuration(call.duration)}
                       </div>
 
-                      {/* AI 분류 */}
-                      <div className="col-span-2">
-                        {call.status === 'analyzing' ? (
-                          <div className="flex items-center gap-2 text-purple-600">
-                            <Loader2 size={16} className="animate-spin" />
-                            <span className="text-sm">분석 중...</span>
-                          </div>
-                        ) : (
-                          <div className="flex items-center gap-2">
-                            <span className={`px-2 py-1 rounded-full text-xs font-medium ${getClassificationStyle(call.classification)}`}>
-                              {call.classification || '-'}
-                            </span>
-                            {call.interest && (
-                              <span className="text-xs text-gray-500">{call.interest}</span>
-                            )}
-                          </div>
-                        )}
-                      </div>
-
-                      {/* 관심도 */}
-                      <div className="col-span-1">
-                        <TemperatureDisplay temperature={call.temperature} />
+                      {/* 관심 진료 */}
+                      <div className="col-span-1 text-sm text-gray-600 truncate">
+                        {call.interest || '-'}
                       </div>
 
                       {/* AI 요약 */}
@@ -938,14 +1442,17 @@ function CallLogsPageContent() {
                             <CheckCircle2 size={16} />
                             <span className="text-xs">등록됨</span>
                           </div>
-                        ) : call.classification === '구환' || call.classification === '거래처' || call.classification === '스팸' ? (
-                          <span className="text-xs text-gray-400">제외</span>
-                        ) : call.status === 'analyzing' ? (
-                          <span className="text-xs text-gray-400">대기</span>
-                        ) : call.classification === '부재중' ? (
-                          <span className="text-xs text-gray-400">재시도</span>
                         ) : (
-                          <span className="text-xs text-amber-500">미등록</span>
+                          <button
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              handleRegisterPatient(call);
+                            }}
+                            className="flex items-center gap-1 px-2 py-1 text-xs font-medium text-blue-600 bg-blue-50 hover:bg-blue-100 rounded transition-colors"
+                          >
+                            <UserPlus size={12} />
+                            등록
+                          </button>
                         )}
                       </div>
                     </div>
@@ -969,9 +1476,9 @@ function CallLogsPageContent() {
         </div>
       </div>
 
-      {/* 우측 상세 패널 - 고정 */}
+      {/* 우측 상세 패널 - 화면에 고정 */}
       {selectedCall && (
-        <div className="w-96 bg-white border-l flex flex-col h-full overflow-hidden flex-shrink-0">
+        <div className="w-96 bg-white border-l flex flex-col overflow-hidden flex-shrink-0 sticky top-0 self-start max-h-screen">
           {/* 패널 헤더 */}
           <div className="p-4 border-b flex items-center justify-between flex-shrink-0">
             <h3 className="font-bold text-gray-900">통화 상세</h3>
@@ -1102,17 +1609,29 @@ function CallLogsPageContent() {
                     연결 해제
                   </button>
                 </>
-              ) : (selectedCall.classification === '신환' || selectedCall.classification === '구신환') && !selectedCall.patientId ? (
-                <button
-                  onClick={() => handleRegisterPatient(selectedCall)}
-                  className="w-full py-3 bg-blue-500 hover:bg-blue-600 text-white rounded-xl font-medium flex items-center justify-center gap-2"
-                >
-                  <UserPlus size={18} />
-                  환자로 등록
-                </button>
-              ) : null}
+              ) : (
+                <>
+                  {/* 환자 미연결 상태: 환자 등록 버튼 항상 표시 */}
+                  <button
+                    onClick={() => handleRegisterPatient(selectedCall)}
+                    className="w-full py-3 bg-blue-500 hover:bg-blue-600 text-white rounded-xl font-medium flex items-center justify-center gap-2"
+                  >
+                    <UserPlus size={18} />
+                    환자로 등록
+                  </button>
+                </>
+              )}
 
-              {selectedCall.classification === '부재중' && (
+              {/* 분류 변경 버튼 - 항상 표시 */}
+              <button
+                onClick={() => handleEditAnalysis(selectedCall)}
+                className="w-full py-2.5 border border-gray-300 text-gray-600 hover:bg-gray-50 rounded-xl text-sm font-medium flex items-center justify-center gap-2"
+              >
+                <Pencil size={16} />
+                분류 변경
+              </button>
+
+              {selectedCall.duration === 0 && (
                 <button
                   onClick={() => handleMakeCall(selectedCall.phone)}
                   className="w-full py-3 bg-emerald-500 hover:bg-emerald-600 text-white rounded-xl font-medium flex items-center justify-center gap-2"
@@ -1129,21 +1648,6 @@ function CallLogsPageContent() {
                 </button>
               )}
             </div>
-
-            {/* AI 수정 안내 */}
-            {selectedCall.status === 'completed' && (
-              <div className="bg-gray-50 rounded-lg p-3">
-                <p className="text-xs text-gray-500 text-center">
-                  AI 분석이 틀렸나요?
-                  <button
-                    onClick={() => handleEditAnalysis(selectedCall)}
-                    className="text-blue-500 hover:text-blue-600 hover:underline ml-1 font-medium"
-                  >
-                    직접 수정
-                  </button>
-                </p>
-              </div>
-            )}
           </div>
         </div>
       )}

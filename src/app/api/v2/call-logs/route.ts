@@ -5,6 +5,19 @@ import { ObjectId } from 'mongodb';
 
 export const dynamic = 'force-dynamic';
 
+// 신환/구환/구신환 등을 "환자"로 통일
+function normalizeClassification(classification: string | undefined): string {
+  if (!classification) return 'unknown';
+
+  // 환자 관련 분류는 모두 "환자"로 통일
+  const patientTypes = ['신환', '구환', '구신환', '신규환자', '기존환자', '재초진'];
+  if (patientTypes.includes(classification)) {
+    return '환자';
+  }
+
+  return classification;
+}
+
 interface CallLogQuery {
   direction?: string;
   'aiAnalysis.classification'?: string | { $in: string[] };
@@ -37,14 +50,8 @@ export async function GET(request: NextRequest) {
     }
 
     if (classification) {
-      if (classification === '신환') {
-        query['aiAnalysis.classification'] = '신환';
-      } else if (classification === '구신환') {
-        query['aiAnalysis.classification'] = '구신환';
-      } else if (classification === '구환') {
-        query['aiAnalysis.classification'] = '구환';
-      } else if (classification === '부재중') {
-        query['aiAnalysis.classification'] = '부재중';
+      if (classification === '환자') {
+        query['aiAnalysis.classification'] = '환자';
       } else if (classification === '거래처') {
         query['aiAnalysis.classification'] = '거래처';
       } else if (classification === '스팸') {
@@ -114,45 +121,62 @@ export async function GET(request: NextRequest) {
       ]).toArray(),
     ]);
 
+    // patientId가 있는 통화의 실제 환자 이름 조회
+    const patientIds = callLogs
+      .filter(log => log.patientId && ObjectId.isValid(log.patientId))
+      .map(log => new ObjectId(log.patientId));
+
+    const patientNameMap: Record<string, string> = {};
+    if (patientIds.length > 0) {
+      const patients = await db.collection('patients_v2')
+        .find({ _id: { $in: patientIds } }, { projection: { name: 1 } })
+        .toArray();
+      patients.forEach(p => {
+        patientNameMap[p._id.toString()] = p.name || '';
+      });
+    }
+
     // 통계 정리
     const stats = {
       all: 0,
-      sinwhan: 0,     // 신환
-      gusinwhan: 0,   // 구신환
-      guhwan: 0,      // 구환
-      bujaejung: 0,   // 부재중
+      patient: 0,     // 환자
       georaecheo: 0,  // 거래처
       spam: 0,        // 스팸
       etc: 0,         // 기타
+      missed: 0,      // 부재중 (통화시간 0초)
     };
 
     (classificationStats as Array<{ _id: string; count: number }>).forEach((s) => {
       stats.all += s.count;
-      if (s._id === '신환') stats.sinwhan = s.count;
-      else if (s._id === '구신환') stats.gusinwhan = s.count;
-      else if (s._id === '구환') stats.guhwan = s.count;
-      else if (s._id === '부재중') stats.bujaejung = s.count;
+      if (s._id === '환자') stats.patient = s.count;
       else if (s._id === '거래처') stats.georaecheo = s.count;
       else if (s._id === '스팸') stats.spam = s.count;
       else if (s._id === '기타') stats.etc = s.count;
     });
 
     return NextResponse.json({
-      callLogs: callLogs.map((log) => ({
-        id: log._id.toString(),
-        callTime: log.startedAt,
-        callType: log.direction,
-        duration: log.duration,
-        phone: log.phone || '',
-        callerName: log.aiAnalysis?.patientName || '',
-        patientId: log.patientId || null,
-        patientName: log.aiAnalysis?.patientName || '',
-        classification: log.aiAnalysis?.classification || 'unknown',
-        interest: log.aiAnalysis?.interest || '',
-        summary: log.aiAnalysis?.summary || '',
-        temperature: log.aiAnalysis?.temperature || 'unknown',
-        status: log.aiStatus || 'completed', // pending, processing, completed
-      })),
+      callLogs: callLogs.map((log) => {
+        // patientId가 있으면 실제 환자 이름 사용, 없으면 AI 분석 결과 사용
+        const actualPatientName = (log.patientId && patientNameMap[log.patientId])
+          ? patientNameMap[log.patientId]
+          : (log.aiAnalysis?.patientName || '');
+
+        return {
+          id: log._id.toString(),
+          callTime: log.startedAt,
+          callType: log.direction,
+          duration: log.duration,
+          phone: log.phone || '',
+          callerName: actualPatientName,
+          patientId: log.patientId || null,
+          patientName: actualPatientName,
+          classification: normalizeClassification(log.aiAnalysis?.classification),
+          interest: log.aiAnalysis?.interest || '',
+          summary: log.aiAnalysis?.summary || '',
+          temperature: log.aiAnalysis?.temperature || 'unknown',
+          status: log.aiStatus || 'completed', // pending, processing, completed
+        };
+      }),
       pagination: {
         page,
         limit,
@@ -174,17 +198,42 @@ export async function GET(request: NextRequest) {
 export async function PATCH(request: NextRequest) {
   try {
     const body = await request.json();
+    console.log('[CallLogs PATCH] 요청 body:', JSON.stringify(body, null, 2));
+
     const { callLogId, classification, patientName, interest, temperature, summary, followUp, patientId } = body;
 
     if (!callLogId) {
+      console.log('[CallLogs PATCH] callLogId 누락');
       return NextResponse.json(
         { error: 'callLogId is required' },
         { status: 400 }
       );
     }
 
+    // callLogId 유효성 검사
+    if (!ObjectId.isValid(callLogId)) {
+      console.log('[CallLogs PATCH] 유효하지 않은 callLogId:', callLogId);
+      return NextResponse.json(
+        { error: 'Invalid callLogId format' },
+        { status: 400 }
+      );
+    }
+
     const { db } = await connectToDatabase();
+    console.log('[CallLogs PATCH] DB 연결 성공');
     const now = new Date().toISOString();
+
+    // 먼저 현재 통화기록 조회 (aiAnalysis가 null인지 확인)
+    const currentCallLog = await db.collection('callLogs_v2').findOne(
+      { _id: new ObjectId(callLogId) }
+    );
+
+    if (!currentCallLog) {
+      return NextResponse.json(
+        { error: 'Call log not found' },
+        { status: 404 }
+      );
+    }
 
     // 업데이트할 필드 구성
     const updateFields: Record<string, unknown> = {
@@ -196,36 +245,132 @@ export async function PATCH(request: NextRequest) {
 
     // 환자 연결/해제
     if (patientId === null) {
-      // 명시적으로 null이면 연결 해제
+      // 명시적으로 null이면 연결 해제 + 환자 삭제
       unsetFields.patientId = '';
+
+      // 연결 해제 시 환자도 삭제
+      if (currentCallLog?.patientId) {
+        try {
+          if (ObjectId.isValid(currentCallLog.patientId)) {
+            // 환자 삭제
+            await db.collection('patients_v2').deleteOne(
+              { _id: new ObjectId(currentCallLog.patientId) }
+            );
+            console.log(`[CallLogs PATCH] 연결 해제로 환자 삭제됨: ${currentCallLog.patientId}`);
+
+            // 같은 patientId를 가진 다른 통화기록들도 연결 해제
+            const unlinkResult = await db.collection('callLogs_v2').updateMany(
+              { patientId: currentCallLog.patientId, _id: { $ne: new ObjectId(callLogId) } },
+              { $unset: { patientId: '' } }
+            );
+            console.log(`[CallLogs PATCH] 다른 통화기록 연결 해제: ${unlinkResult.modifiedCount}건`);
+          }
+        } catch (deleteError) {
+          console.error('[CallLogs PATCH] 연결 해제 시 환자 삭제 실패:', deleteError);
+        }
+      }
     } else if (patientId) {
       // patientId가 있으면 연결
       updateFields.patientId = patientId;
+
+      // 환자와 연결되는데 분류가 없거나 unknown이면 자동으로 '환자'로 변경
+      const currentClassification = currentCallLog?.aiAnalysis?.classification;
+      if (!currentClassification || currentClassification === 'unknown') {
+        if (currentCallLog?.aiAnalysis === null || currentCallLog?.aiAnalysis === undefined) {
+          // aiAnalysis가 없으면 새로 생성
+          updateFields.aiAnalysis = {
+            classification: '환자',
+            manuallyEdited: true,
+            editedAt: now,
+          };
+        } else {
+          // aiAnalysis가 있으면 classification만 업데이트
+          updateFields['aiAnalysis.classification'] = '환자';
+          updateFields['aiAnalysis.manuallyEdited'] = true;
+          updateFields['aiAnalysis.editedAt'] = now;
+        }
+        console.log(`[CallLogs PATCH] 환자 연결로 분류 자동 변경: unknown → 환자`);
+      }
     }
 
-    // AI 분석 수정인 경우
-    if (classification || patientName !== undefined || interest !== undefined || temperature || summary !== undefined || followUp) {
-      updateFields['aiAnalysis.manuallyEdited'] = true;
-      updateFields['aiAnalysis.editedAt'] = now;
+    // AI 분석 수정인 경우 - aiAnalysis가 null이면 먼저 초기화
+    const hasAiAnalysisUpdate = classification || patientName !== undefined || interest !== undefined || temperature || summary !== undefined || followUp;
+
+    if (hasAiAnalysisUpdate) {
+      // aiAnalysis가 null이면 빈 객체로 초기화
+      if (currentCallLog.aiAnalysis === null || currentCallLog.aiAnalysis === undefined) {
+        console.log('[CallLogs PATCH] aiAnalysis가 null, 초기화 필요');
+        // 전체 aiAnalysis 객체를 새로 설정
+        const newAiAnalysis: Record<string, unknown> = {
+          manuallyEdited: true,
+          editedAt: now,
+        };
+        if (classification) newAiAnalysis.classification = classification;
+        if (patientName !== undefined) newAiAnalysis.patientName = patientName;
+        if (interest !== undefined) newAiAnalysis.interest = interest;
+        if (temperature) newAiAnalysis.temperature = temperature;
+        if (summary !== undefined) newAiAnalysis.summary = summary;
+        if (followUp) newAiAnalysis.followUp = followUp;
+
+        updateFields.aiAnalysis = newAiAnalysis;
+      } else {
+        // aiAnalysis가 이미 있으면 개별 필드 업데이트
+        updateFields['aiAnalysis.manuallyEdited'] = true;
+        updateFields['aiAnalysis.editedAt'] = now;
+
+        if (classification) {
+          updateFields['aiAnalysis.classification'] = classification;
+        }
+        if (patientName !== undefined) {
+          updateFields['aiAnalysis.patientName'] = patientName;
+        }
+        if (interest !== undefined) {
+          updateFields['aiAnalysis.interest'] = interest;
+        }
+        if (temperature) {
+          updateFields['aiAnalysis.temperature'] = temperature;
+        }
+        if (summary !== undefined) {
+          updateFields['aiAnalysis.summary'] = summary;
+        }
+        if (followUp) {
+          updateFields['aiAnalysis.followUp'] = followUp;
+        }
+      }
     }
 
-    if (classification) {
-      updateFields['aiAnalysis.classification'] = classification;
-    }
-    if (patientName !== undefined) {
-      updateFields['aiAnalysis.patientName'] = patientName;
-    }
-    if (interest !== undefined) {
-      updateFields['aiAnalysis.interest'] = interest;
-    }
-    if (temperature) {
-      updateFields['aiAnalysis.temperature'] = temperature;
-    }
-    if (summary !== undefined) {
-      updateFields['aiAnalysis.summary'] = summary;
-    }
-    if (followUp) {
-      updateFields['aiAnalysis.followUp'] = followUp;
+    // 스팸/거래처로 분류 변경 시 환자 삭제 처리
+    const NON_PATIENT_CLASSIFICATIONS = ['스팸', '거래처'];
+    let deletedPatientId: string | null = null;
+
+    if (classification && NON_PATIENT_CLASSIFICATIONS.includes(classification)) {
+      // 이미 위에서 조회한 currentCallLog 사용
+      if (currentCallLog?.patientId) {
+        deletedPatientId = currentCallLog.patientId;
+
+        // 환자 삭제 시도 (patients_v2에서)
+        try {
+          // ObjectId 형식 검증
+          if (ObjectId.isValid(currentCallLog.patientId)) {
+            await db.collection('patients_v2').deleteOne(
+              { _id: new ObjectId(currentCallLog.patientId) }
+            );
+            console.log(`[CallLogs PATCH] 환자 삭제됨: ${currentCallLog.patientId} (분류: ${classification})`);
+
+            // 같은 patientId를 가진 다른 통화기록들도 연결 해제
+            const unlinkResult = await db.collection('callLogs_v2').updateMany(
+              { patientId: currentCallLog.patientId, _id: { $ne: new ObjectId(callLogId) } },
+              { $unset: { patientId: '' } }
+            );
+            console.log(`[CallLogs PATCH] 다른 통화기록 연결 해제: ${unlinkResult.modifiedCount}건 (분류 변경)`);
+          }
+        } catch (deleteError) {
+          console.error('[CallLogs PATCH] 환자 삭제 실패:', deleteError);
+        }
+
+        // 통화기록에서 patientId 연결 해제
+        unsetFields.patientId = '';
+      }
     }
 
     // 업데이트 쿼리 구성
@@ -257,8 +402,10 @@ export async function PATCH(request: NextRequest) {
 
     return NextResponse.json({
       success: true,
+      deletedPatientId,
       callLog: {
         id: updatedLog?._id.toString(),
+        patientId: updatedLog?.patientId || null,
         classification: updatedLog?.aiAnalysis?.classification,
         patientName: updatedLog?.aiAnalysis?.patientName,
         interest: updatedLog?.aiAnalysis?.interest,
@@ -268,9 +415,13 @@ export async function PATCH(request: NextRequest) {
       },
     });
   } catch (error) {
-    console.error('Error updating call log:', error);
+    console.error('[CallLogs PATCH] 오류 발생:', error);
+    console.error('[CallLogs PATCH] 오류 스택:', error instanceof Error ? error.stack : 'N/A');
     return NextResponse.json(
-      { error: 'Failed to update call log' },
+      {
+        error: 'Failed to update call log',
+        details: error instanceof Error ? error.message : 'Unknown error'
+      },
       { status: 500 }
     );
   }
