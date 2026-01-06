@@ -390,19 +390,24 @@ function AddReferralModal({
     }
 
     try {
-      const response = await fetch(`/api/v2/patients?search=${query}&limit=10`);
+      // period=all로 전체 환자 검색 (기간 제한 없이)
+      const response = await fetch(`/api/v2/patients?search=${query}&limit=10&period=all`);
       const result = await response.json();
-      if (result.success) {
+      // API는 { patients: [...], pagination: {...} } 형식으로 반환
+      if (result.patients && result.patients.length > 0) {
         setResults(
-          result.data.patients.map((p: { id: string; name: string; phone: string }) => ({
+          result.patients.map((p: { id: string; name: string; phone: string }) => ({
             id: p.id,
             name: p.name,
             phone: p.phone,
           }))
         );
+      } else {
+        setResults([]);
       }
     } catch (error) {
       console.error('Failed to search patients:', error);
+      setResults([]);
     }
   };
 

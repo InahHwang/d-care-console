@@ -256,7 +256,7 @@ export async function POST(request: NextRequest) {
 export async function PATCH(request: NextRequest) {
   try {
     const body = await request.json();
-    const { id, status, note } = body;
+    const { id, status, note, source } = body;
 
     if (!id || !status) {
       return NextResponse.json(
@@ -268,36 +268,102 @@ export async function PATCH(request: NextRequest) {
     const { db } = await connectToDatabase();
     const now = new Date().toISOString();
 
-    const updateData: Record<string, unknown> = {
-      status,
-      updatedAt: now,
-    };
+    // 1. 먼저 callbacks_v2에서 찾기
+    let result = await db.collection('callbacks_v2').findOne({ _id: new ObjectId(id) });
 
-    if (status === 'completed') {
-      updateData.completedAt = now;
-    }
+    if (result) {
+      // callbacks_v2에 있는 경우 - 기존 로직
+      const updateData: Record<string, unknown> = {
+        status,
+        updatedAt: now,
+      };
 
-    if (note !== undefined) {
-      updateData.note = note;
-    }
+      if (status === 'completed') {
+        updateData.completedAt = now;
+      }
 
-    const result = await db.collection('callbacks_v2').findOneAndUpdate(
-      { _id: new ObjectId(id) },
-      { $set: updateData },
-      { returnDocument: 'after' }
-    );
+      if (note !== undefined) {
+        updateData.note = note;
+      }
 
-    if (!result) {
-      return NextResponse.json(
-        { success: false, error: 'Callback not found' },
-        { status: 404 }
+      result = await db.collection('callbacks_v2').findOneAndUpdate(
+        { _id: new ObjectId(id) },
+        { $set: updateData },
+        { returnDocument: 'after' }
       );
+
+      return NextResponse.json({
+        success: true,
+        data: result,
+      });
     }
 
-    return NextResponse.json({
-      success: true,
-      data: result,
-    });
+    // 2. callbacks_v2에 없으면 patients_v2의 nextActionDate 기반 콜백일 수 있음
+    // id가 실제로 patientId인 경우
+    const patient = await db.collection('patients_v2').findOne({ _id: new ObjectId(id) });
+
+    if (patient && patient.nextActionDate) {
+      // 환자 기반 콜백 완료 처리
+      if (status === 'completed') {
+        // callbacks_v2에 완료 레코드 생성
+        const newCallback = {
+          patientId: id,
+          type: patient.nextAction === '리콜' ? 'recall' :
+                patient.nextAction === '감사전화' ? 'thanks' : 'callback',
+          scheduledAt: new Date(patient.nextActionDate),
+          status: 'completed' as CallbackStatus,
+          note: note || patient.nextAction,
+          completedAt: now,
+          createdAt: now,
+        };
+
+        const insertResult = await db.collection('callbacks_v2').insertOne(newCallback);
+
+        // 환자의 nextActionDate 클리어
+        await db.collection('patients_v2').updateOne(
+          { _id: new ObjectId(id) },
+          {
+            $unset: { nextActionDate: '', nextAction: '' },
+            $set: { updatedAt: now },
+          }
+        );
+
+        return NextResponse.json({
+          success: true,
+          data: {
+            _id: insertResult.insertedId,
+            ...newCallback,
+          },
+        });
+      } else if (status === 'missed') {
+        // 미연결 처리 - callbacks_v2에 레코드 생성
+        const newCallback = {
+          patientId: id,
+          type: patient.nextAction === '리콜' ? 'recall' :
+                patient.nextAction === '감사전화' ? 'thanks' : 'callback',
+          scheduledAt: new Date(patient.nextActionDate),
+          status: 'missed' as CallbackStatus,
+          note: note || patient.nextAction,
+          createdAt: now,
+        };
+
+        const insertResult = await db.collection('callbacks_v2').insertOne(newCallback);
+
+        return NextResponse.json({
+          success: true,
+          data: {
+            _id: insertResult.insertedId,
+            ...newCallback,
+          },
+        });
+      }
+    }
+
+    // 3. 둘 다 아닌 경우
+    return NextResponse.json(
+      { success: false, error: 'Callback not found' },
+      { status: 404 }
+    );
   } catch (error) {
     console.error('[Callbacks API] PATCH 오류:', error);
     return NextResponse.json(
