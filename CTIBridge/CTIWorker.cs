@@ -945,75 +945,10 @@ public class CTIWorker : BackgroundService
                 });
             }
         }
-        else if (evt.Service == IMS_SVC_TERMCALL_START)
-        {
-            // Svc=11: 발신 시작
-            string ourNumber = evt.Dn1;      // 치과 번호
-            string patientNumber = evt.Dn2;  // 환자 번호
-
-            if (!string.IsNullOrEmpty(patientNumber))
-            {
-                _logger.LogInformation("📞 발신 시작: {Our} → {Patient}", ourNumber, patientNumber);
-
-                // 발신 통화 이벤트 생성
-                _eventQueue.Enqueue(new CallEvent
-                {
-                    Type = CallEventType.OutgoingCall,
-                    CallerNumber = patientNumber,  // 환자번호
-                    CalledNumber = ourNumber       // 치과번호
-                });
-
-                // 발신 통화 로그 (상태: ringing)
-                _eventQueue.Enqueue(new CallEvent
-                {
-                    Type = CallEventType.CallLog,
-                    EventType = "outgoing_start",
-                    CallerNumber = patientNumber,
-                    CalledNumber = ourNumber,
-                    ExtInfo = evt.ExtInfo
-                });
-            }
-        }
-        else if (evt.Service == IMS_SVC_TERMCALL_END)
-        {
-            // Svc=12: 발신 종료
-            string ourNumber = evt.Dn1;      // 치과 번호
-            string patientNumber = evt.Dn2;  // 환자 번호
-
-            if (!string.IsNullOrEmpty(patientNumber))
-            {
-                // 발신 후 부재인지 확인
-                // 녹취 시작(_isRecording)이 있었으면 연결된 통화
-                bool hasRecording = _isRecording;
-
-                if (hasRecording)
-                {
-                    // 녹취가 있으면 연결된 통화 → 정상 종료
-                    _logger.LogInformation("📴 발신 통화 종료: {Our} → {Patient}", ourNumber, patientNumber);
-                    _eventQueue.Enqueue(new CallEvent
-                    {
-                        Type = CallEventType.CallLog,
-                        EventType = "end",
-                        CallerNumber = patientNumber,
-                        CalledNumber = ourNumber,
-                        ExtInfo = evt.ExtInfo
-                    });
-                }
-                else
-                {
-                    // 녹취가 없으면 상대방이 안 받음 → 발신 부재
-                    _logger.LogInformation("📱 발신 후 부재중: {Our} → {Patient}", ourNumber, patientNumber);
-                    _eventQueue.Enqueue(new CallEvent
-                    {
-                        Type = CallEventType.CallLog,
-                        EventType = "outbound_missed",
-                        CallerNumber = patientNumber,
-                        CalledNumber = ourNumber,
-                        ExtInfo = evt.ExtInfo
-                    });
-                }
-            }
-        }
+        // ★ IMS_SVC_TERMCALL_START (Svc=11)와 IMS_SVC_TERMCALL_END (Svc=12)는
+        // 착신(수신) 통화 연결/종료 이벤트입니다. (TERM = Terminating call = 수신)
+        // 발신(Originating call)이 아니므로 여기서 별도 처리하지 않습니다.
+        // 수신 통화는 IMS_SVC_RING, IMS_SVC_CONNECTED, IMS_SVC_CALL_END 등에서 처리됩니다.
         else if (evt.Service == IMS_SVC_CALL_END)
         {
             if (!string.IsNullOrEmpty(evt.Dn1))
@@ -1101,21 +1036,12 @@ public class CTIWorker : BackgroundService
         string callerNum = evt.Dn2;
         string calledNum = evt.Dn1;
 
+        // ★ "calling" 상태는 수신 통화 중에도 발생하므로 발신으로 처리하지 않습니다.
+        // 실제 발신은 ClickCall 또는 IMS_SVC_ORIGCALL_START_NOTI를 통해서만 감지합니다.
         if (extLower.Contains("calling"))
         {
-            string ourNumber = evt.Dn1;
-            string patientNumber = evt.Dn2;
-
-            if (!string.IsNullOrEmpty(patientNumber))
-            {
-                _logger.LogInformation("📱 발신 시작 (via status): {Our} → {Patient}", ourNumber, patientNumber);
-                _eventQueue.Enqueue(new CallEvent
-                {
-                    Type = CallEventType.OutgoingCall,
-                    CallerNumber = patientNumber,
-                    CalledNumber = ourNumber
-                });
-            }
+            // 로그만 남기고 발신 이벤트는 생성하지 않음
+            _logger.LogDebug("📞 [CallStatus] calling 상태 감지 (수신 통화 중일 수 있음): Dn1={Dn1}, Dn2={Dn2}", evt.Dn1, evt.Dn2);
         }
         else if (extLower.Contains("called") || extLower.Contains("answer") || extLower.Contains("connect"))
         {
