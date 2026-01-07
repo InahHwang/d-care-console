@@ -13,6 +13,7 @@ export async function GET(request: NextRequest) {
     const date = searchParams.get('date'); // YYYY-MM-DD
     const status = searchParams.get('status') as CallbackStatus | null;
     const type = searchParams.get('type') as CallbackType | null;
+    const patientId = searchParams.get('patientId'); // 특정 환자의 콜백만 조회
     const page = parseInt(searchParams.get('page') || '1');
     const limit = parseInt(searchParams.get('limit') || '20');
 
@@ -27,6 +28,7 @@ export async function GET(request: NextRequest) {
     }
     if (status) callbackFilter.status = status;
     if (type) callbackFilter.type = type;
+    if (patientId) callbackFilter.patientId = patientId;
 
     const callbacksFromCollection = await db.collection<CallbackV2>('callbacks_v2')
       .aggregate([
@@ -51,6 +53,16 @@ export async function GET(request: NextRequest) {
     const patientFilter: Record<string, unknown> = {
       nextActionDate: { $exists: true, $ne: null }
     };
+
+    // patientId로 필터링 (특정 환자만 조회)
+    if (patientId) {
+      try {
+        patientFilter._id = new ObjectId(patientId);
+      } catch {
+        // ObjectId 변환 실패 시 빈 결과 반환
+        patientFilter._id = null;
+      }
+    }
 
     if (date) {
       // 날짜 문자열 또는 Date 객체 모두 처리

@@ -92,6 +92,8 @@ export async function GET(request: NextRequest) {
       aiAnalysis: 1,
       aiStatus: 1,
       status: 1,
+      callbackType: 1, // 콜백/리콜/감사전화 태그
+      callbackId: 1, // 연결된 콜백 ID
     };
 
     // 병렬 쿼리
@@ -175,6 +177,8 @@ export async function GET(request: NextRequest) {
           summary: log.aiAnalysis?.summary || '',
           temperature: log.aiAnalysis?.temperature || 'unknown',
           status: log.aiStatus || 'completed', // pending, processing, completed
+          callbackType: log.callbackType || null, // 'callback' | 'recall' | 'thanks' | null
+          callbackId: log.callbackId || null,
         };
       }),
       pagination: {
@@ -200,7 +204,7 @@ export async function PATCH(request: NextRequest) {
     const body = await request.json();
     console.log('[CallLogs PATCH] 요청 body:', JSON.stringify(body, null, 2));
 
-    const { callLogId, classification, patientName, interest, temperature, summary, followUp, patientId } = body;
+    const { callLogId, classification, patientName, interest, temperature, summary, followUp, patientId, callbackType, callbackId } = body;
 
     if (!callLogId) {
       console.log('[CallLogs PATCH] callLogId 누락');
@@ -242,6 +246,20 @@ export async function PATCH(request: NextRequest) {
 
     // 삭제할 필드 구성
     const unsetFields: Record<string, unknown> = {};
+
+    // 콜백 태그 업데이트
+    if (callbackType !== undefined) {
+      if (callbackType === null) {
+        // null이면 태그 제거
+        unsetFields.callbackType = '';
+        unsetFields.callbackId = '';
+      } else {
+        updateFields.callbackType = callbackType;
+        if (callbackId) {
+          updateFields.callbackId = callbackId;
+        }
+      }
+    }
 
     // 환자 연결/해제
     if (patientId === null) {
@@ -412,6 +430,8 @@ export async function PATCH(request: NextRequest) {
         temperature: updatedLog?.aiAnalysis?.temperature,
         summary: updatedLog?.aiAnalysis?.summary,
         followUp: updatedLog?.aiAnalysis?.followUp,
+        callbackType: updatedLog?.callbackType || null,
+        callbackId: updatedLog?.callbackId || null,
       },
     });
   } catch (error) {

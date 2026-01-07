@@ -20,6 +20,9 @@ import {
   RotateCcw,
   Wallet,
   CircleDollarSign,
+  Activity,
+  CheckCircle2,
+  AlertTriangle,
 } from 'lucide-react';
 import { Card } from '@/components/v2/ui/Card';
 import { StatusBadge } from '@/components/v2/ui/Badge';
@@ -40,6 +43,21 @@ const statusSteps: Array<{ id: PatientStatus; label: string; color: string }> = 
   { id: 'followup', label: '사후관리', color: 'bg-slate-500' },
 ];
 
+// 콜백 타입 정의
+type CallbackTypeValue = 'callback' | 'recall' | 'thanks';
+
+const CALLBACK_TYPE_LABELS: Record<CallbackTypeValue, string> = {
+  callback: '콜백',
+  recall: '리콜',
+  thanks: '감사전화',
+};
+
+const CALLBACK_TYPE_COLORS: Record<CallbackTypeValue, string> = {
+  callback: 'bg-blue-100 text-blue-700',
+  recall: 'bg-purple-100 text-purple-700',
+  thanks: 'bg-amber-100 text-amber-700',
+};
+
 interface CallLog {
   id: string;
   callTime: string;
@@ -47,6 +65,8 @@ interface CallLog {
   duration: number;
   summary: string;
   classification: string;
+  callbackType?: CallbackTypeValue | null;
+  callbackId?: string | null;
 }
 
 interface StatusHistoryEntry {
@@ -103,6 +123,7 @@ interface PatientDetail {
   name: string;
   phone: string;
   status: PatientStatus;
+  consultationType?: string;
   interest: string;
   source?: string;
   summary: string;
@@ -128,6 +149,9 @@ interface PatientDetail {
   actualAmount?: number;
   paymentStatus?: PaymentStatus;
   treatmentNote?: string;
+  // 치료 진행 관련 필드
+  treatmentStartDate?: string;
+  expectedCompletionDate?: string;
 }
 
 export default function PatientDetailPage() {
@@ -270,6 +294,9 @@ export default function PatientDetailPage() {
           actualAmount: editData.actualAmount,
           paymentStatus: editData.paymentStatus,
           treatmentNote: editData.treatmentNote,
+          // 치료 진행 관련 필드
+          treatmentStartDate: editData.treatmentStartDate,
+          expectedCompletionDate: editData.expectedCompletionDate,
         }),
       });
 
@@ -504,6 +531,11 @@ export default function PatientDetailPage() {
                     />
                   ) : (
                     <h1 className="text-2xl font-bold text-gray-900">{patient.name}</h1>
+                  )}
+                  {patient.consultationType && (
+                    <span className="px-2 py-1 bg-purple-100 text-purple-700 rounded text-sm font-medium">
+                      {patient.consultationType}
+                    </span>
                   )}
                   <StatusBadge status={patient.status} />
                 </div>
@@ -741,6 +773,12 @@ export default function PatientDetailPage() {
                           {log.callType === 'inbound' ? '수신' : '발신'} 통화
                         </span>
                         <span className="text-sm text-gray-400">• {formatDuration(log.duration)}</span>
+                        {/* 콜백 태그 표시 */}
+                        {log.callbackType && (
+                          <span className={`px-2 py-0.5 rounded-full text-xs font-medium ${CALLBACK_TYPE_COLORS[log.callbackType]}`}>
+                            {CALLBACK_TYPE_LABELS[log.callbackType]}
+                          </span>
+                        )}
                       </div>
                       <p className="text-sm text-gray-500 mb-1">
                         {formatDateOnly(log.callTime)} {new Date(log.callTime).getHours().toString().padStart(2, '0')}:{new Date(log.callTime).getMinutes().toString().padStart(2, '0')}
@@ -864,6 +902,138 @@ export default function PatientDetailPage() {
             )}
           </Card>
 
+          {/* 치료 진행 카드 - 치료중/치료완료 상태일 때만 표시 */}
+          {(patient.status === 'treatment' || patient.status === 'completed') && (
+            <Card className="p-5">
+              <div className="flex items-center justify-between mb-4">
+                <div className="flex items-center gap-2">
+                  <Activity size={18} className="text-teal-500" />
+                  <h3 className="font-bold text-gray-900">치료 진행</h3>
+                </div>
+                {patient.status === 'treatment' && (
+                  <span className="px-2 py-1 bg-emerald-100 text-emerald-700 text-xs rounded-full font-medium">
+                    진행중
+                  </span>
+                )}
+                {patient.status === 'completed' && (
+                  <span className="px-2 py-1 bg-green-100 text-green-700 text-xs rounded-full font-medium">
+                    완료
+                  </span>
+                )}
+              </div>
+
+              {isEditing ? (
+                <div className="space-y-3">
+                  <div>
+                    <label className="text-xs text-gray-500 mb-1 block">치료 시작일</label>
+                    <input
+                      type="date"
+                      value={editData.treatmentStartDate ? editData.treatmentStartDate.split('T')[0] : ''}
+                      onChange={(e) => setEditData({ ...editData, treatmentStartDate: e.target.value })}
+                      className="w-full p-2 border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 text-sm"
+                    />
+                  </div>
+                  <div>
+                    <label className="text-xs text-gray-500 mb-1 block">예상 완료일</label>
+                    <input
+                      type="date"
+                      value={editData.expectedCompletionDate ? editData.expectedCompletionDate.split('T')[0] : ''}
+                      onChange={(e) => setEditData({ ...editData, expectedCompletionDate: e.target.value })}
+                      className="w-full p-2 border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 text-sm"
+                    />
+                  </div>
+                </div>
+              ) : (
+                <div className="space-y-3">
+                  {/* 치료 기간 정보 */}
+                  <div className="bg-gray-50 rounded-lg p-4 space-y-2">
+                    <div className="flex justify-between items-center">
+                      <span className="text-sm text-gray-500">시작일</span>
+                      <span className="font-medium text-gray-900">
+                        {patient.treatmentStartDate
+                          ? formatDateOnly(patient.treatmentStartDate)
+                          : patient.statusHistory?.find(h => h.to === 'treatment')?.eventDate
+                            ? formatDateOnly(patient.statusHistory.find(h => h.to === 'treatment')!.eventDate)
+                            : '-'
+                        }
+                      </span>
+                    </div>
+                    <div className="flex justify-between items-center">
+                      <span className="text-sm text-gray-500">예상 완료</span>
+                      <span className={`font-medium ${
+                        patient.expectedCompletionDate && new Date(patient.expectedCompletionDate) < new Date()
+                          ? 'text-red-600'
+                          : 'text-gray-900'
+                      }`}>
+                        {patient.expectedCompletionDate
+                          ? formatDateOnly(patient.expectedCompletionDate)
+                          : '-'
+                        }
+                      </span>
+                    </div>
+                    {/* 경과일 / D-day 표시 */}
+                    {(() => {
+                      const startDate = patient.treatmentStartDate
+                        || patient.statusHistory?.find(h => h.to === 'treatment')?.eventDate;
+                      if (!startDate) return null;
+
+                      const start = new Date(startDate);
+                      const now = new Date();
+                      const elapsedDays = Math.floor((now.getTime() - start.getTime()) / (1000 * 60 * 60 * 24));
+
+                      // 경고 조건: 예상 완료일이 있으면 그 날짜 기준, 없으면 30일 경과
+                      let needsAttention = false;
+                      if (patient.expectedCompletionDate) {
+                        // 예상 완료일이 지났으면 경고
+                        needsAttention = new Date(patient.expectedCompletionDate) < now;
+                      } else {
+                        // 예상 완료일 없으면 30일 이상 경과 시 경고
+                        needsAttention = elapsedDays >= 30;
+                      }
+
+                      return (
+                        <div className={`flex justify-between items-center pt-2 border-t ${needsAttention ? 'border-orange-200' : ''}`}>
+                          <span className="text-sm text-gray-500">경과</span>
+                          <div className="flex items-center gap-2">
+                            <span className={`font-bold ${needsAttention ? 'text-orange-600' : 'text-teal-600'}`}>
+                              {elapsedDays}일
+                            </span>
+                            {needsAttention && (
+                              <span className="flex items-center gap-1 text-xs text-orange-500">
+                                <AlertTriangle size={12} />
+                                확인 필요
+                              </span>
+                            )}
+                          </div>
+                        </div>
+                      );
+                    })()}
+                    {/* 예상 완료일까지 D-day */}
+                    {patient.expectedCompletionDate && (
+                      <div className="flex justify-between items-center">
+                        <span className="text-sm text-gray-500">완료까지</span>
+                        <span className={`font-medium ${getDdayDisplay(patient.expectedCompletionDate).style}`}>
+                          {getDdayDisplay(patient.expectedCompletionDate).text}
+                        </span>
+                      </div>
+                    )}
+                  </div>
+
+                  {/* 치료완료 버튼 - 치료중일 때만 */}
+                  {patient.status === 'treatment' && (
+                    <button
+                      onClick={() => handleStatusClick('completed')}
+                      className="w-full flex items-center justify-center gap-2 py-3 bg-green-500 text-white rounded-lg hover:bg-green-600 transition-colors font-medium"
+                    >
+                      <CheckCircle2 size={18} />
+                      치료완료 처리
+                    </button>
+                  )}
+                </div>
+              )}
+            </Card>
+          )}
+
           <Card className="p-5">
             <div className="flex items-center gap-2 mb-4">
               <Calendar size={18} className="text-blue-500" />
@@ -947,34 +1117,54 @@ export default function PatientDetailPage() {
             </div>
             {isEditing ? (
               <div className="space-y-4">
-                {/* 예상 금액 */}
+                {/* 원래 금액 */}
                 <div>
-                  <label className="text-xs text-gray-500 mb-1 block">예상 치료금액</label>
+                  <label className="text-xs text-gray-500 mb-1 block">원래 금액</label>
                   <div className="relative">
                     <input
-                      type="number"
-                      value={editData.estimatedAmount || ''}
-                      onChange={(e) => setEditData({ ...editData, estimatedAmount: e.target.value ? parseInt(e.target.value, 10) : undefined })}
+                      type="text"
+                      inputMode="numeric"
+                      value={editData.estimatedAmount ? editData.estimatedAmount.toLocaleString() : ''}
+                      onChange={(e) => {
+                        const value = e.target.value.replace(/[^0-9]/g, '');
+                        setEditData({ ...editData, estimatedAmount: value ? Math.round(parseInt(value, 10)) : undefined });
+                      }}
                       placeholder="0"
                       className="w-full p-2 pr-8 border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 text-sm text-right"
                     />
                     <span className="absolute right-3 top-1/2 -translate-y-1/2 text-sm text-gray-400">원</span>
                   </div>
                 </div>
-                {/* 실제 금액 */}
+                {/* 실제 결제(할인금액) */}
                 <div>
-                  <label className="text-xs text-gray-500 mb-1 block">실제 결제금액</label>
+                  <label className="text-xs text-gray-500 mb-1 block">실제 결제 (할인금액)</label>
                   <div className="relative">
                     <input
-                      type="number"
-                      value={editData.actualAmount || ''}
-                      onChange={(e) => setEditData({ ...editData, actualAmount: e.target.value ? parseInt(e.target.value, 10) : undefined })}
+                      type="text"
+                      inputMode="numeric"
+                      value={editData.actualAmount ? editData.actualAmount.toLocaleString() : ''}
+                      onChange={(e) => {
+                        const value = e.target.value.replace(/[^0-9]/g, '');
+                        setEditData({ ...editData, actualAmount: value ? Math.round(parseInt(value, 10)) : undefined });
+                      }}
                       placeholder="0"
                       className="w-full p-2 pr-8 border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 text-sm text-right"
                     />
                     <span className="absolute right-3 top-1/2 -translate-y-1/2 text-sm text-gray-400">원</span>
                   </div>
                 </div>
+                {/* 할인율 자동 계산 표시 */}
+                {editData.estimatedAmount && editData.actualAmount && editData.estimatedAmount > 0 && (
+                  <div className="bg-blue-50 rounded-lg p-3 text-center">
+                    <span className="text-sm text-gray-600">할인율: </span>
+                    <span className="text-lg font-bold text-blue-600">
+                      {Math.round((1 - editData.actualAmount / editData.estimatedAmount) * 100)}%
+                    </span>
+                    <span className="text-sm text-gray-500 ml-2">
+                      ({(editData.estimatedAmount - editData.actualAmount).toLocaleString()}원 할인)
+                    </span>
+                  </div>
+                )}
                 {/* 결제 상태 */}
                 <div>
                   <label className="text-xs text-gray-500 mb-1 block">결제 상태</label>
@@ -1016,17 +1206,29 @@ export default function PatientDetailPage() {
                 {/* 금액 표시 */}
                 <div className="bg-gray-50 rounded-lg p-4 space-y-2">
                   <div className="flex justify-between items-center">
-                    <span className="text-sm text-gray-500">예상 금액</span>
+                    <span className="text-sm text-gray-500">원래 금액</span>
                     <span className="font-medium text-gray-900">
-                      {patient.estimatedAmount ? `${patient.estimatedAmount.toLocaleString()}원` : '-'}
+                      {patient.estimatedAmount ? `${Math.round(patient.estimatedAmount).toLocaleString()}원` : '-'}
                     </span>
                   </div>
                   <div className="flex justify-between items-center">
                     <span className="text-sm text-gray-500">실제 결제</span>
                     <span className="font-bold text-emerald-600">
-                      {patient.actualAmount ? `${patient.actualAmount.toLocaleString()}원` : '-'}
+                      {patient.actualAmount ? `${Math.round(patient.actualAmount).toLocaleString()}원` : '-'}
                     </span>
                   </div>
+                  {/* 할인율 표시 */}
+                  {patient.estimatedAmount && patient.actualAmount && patient.estimatedAmount > 0 && (
+                    <div className="flex justify-between items-center pt-2 border-t border-dashed">
+                      <span className="text-sm text-gray-500">할인율</span>
+                      <span className="font-bold text-blue-600">
+                        {Math.round((1 - patient.actualAmount / patient.estimatedAmount) * 100)}%
+                        <span className="text-xs text-gray-400 font-normal ml-1">
+                          ({Math.round(patient.estimatedAmount - patient.actualAmount).toLocaleString()}원)
+                        </span>
+                      </span>
+                    </div>
+                  )}
                   {patient.paymentStatus && patient.paymentStatus !== 'none' && (
                     <div className="flex justify-between items-center pt-2 border-t">
                       <span className="text-sm text-gray-500">결제 상태</span>

@@ -7,6 +7,7 @@ import {
   PhoneIncoming,
   PhoneOutgoing,
   PhoneMissed,
+  PhoneCall,
   X,
   User,
   ChevronUp,
@@ -14,10 +15,17 @@ import {
   Sparkles,
   Clock,
   Loader2,
+  AlertCircle,
+  CheckCircle2,
+  CalendarCheck,
+  UserPlus,
 } from 'lucide-react';
 import Pusher from 'pusher-js';
 import { TemperatureIcon } from '../ui/TemperatureIcon';
 import type { Temperature } from '@/types/v2';
+
+// CTIBridge 로컬 서버 URL
+const CTI_BRIDGE_URL = 'http://localhost:5080';
 
 interface IncomingCall {
   callLogId: string;
@@ -39,6 +47,30 @@ interface AnalysisResult {
   summary: string;
 }
 
+// 콜백 타입 정의
+type CallbackType = 'callback' | 'recall' | 'thanks';
+
+interface PendingCallback {
+  id: string;
+  patientId: string;
+  type: CallbackType;
+  scheduledAt: string;
+  note?: string;
+  source: 'callbacks_v2' | 'patient';
+}
+
+const CALLBACK_TYPE_LABELS: Record<CallbackType, string> = {
+  callback: '콜백',
+  recall: '리콜',
+  thanks: '감사전화',
+};
+
+const CALLBACK_TYPE_COLORS: Record<CallbackType, string> = {
+  callback: 'bg-blue-500 hover:bg-blue-600',
+  recall: 'bg-purple-500 hover:bg-purple-600',
+  thanks: 'bg-amber-500 hover:bg-amber-600',
+};
+
 function formatPhone(phone: string): string {
   const normalized = phone.replace(/\D/g, '');
   if (normalized.length === 11) {
@@ -58,6 +90,170 @@ export function CTIPanel() {
   const [recentCalls, setRecentCalls] = useState<IncomingCall[]>([]);
   const [latestAnalysis, setLatestAnalysis] = useState<AnalysisResult | null>(null);
   const [isRinging, setIsRinging] = useState(false);
+
+  // ★ ClickCall 발신 관련 상태
+  const [dialNumber, setDialNumber] = useState('');
+  const [isDialing, setIsDialing] = useState(false);
+  const [dialError, setDialError] = useState<string | null>(null);
+  const [ctiStatus, setCtiStatus] = useState<{
+    ctiConnected: boolean;
+    clickCallActive: boolean;
+  } | null>(null);
+
+  // ★ 콜백 처리 관련 상태
+  const [pendingCallbacks, setPendingCallbacks] = useState<PendingCallback[]>([]);
+  const [isCallEnded, setIsCallEnded] = useState(false);
+  const [processingCallback, setProcessingCallback] = useState(false);
+
+  // CTIBridge 상태 확인
+  const checkCtiStatus = useCallback(async () => {
+    try {
+      const res = await fetch(`${CTI_BRIDGE_URL}/api/status`);
+      if (res.ok) {
+        const data = await res.json();
+        setCtiStatus(data);
+      } else {
+        setCtiStatus(null);
+      }
+    } catch {
+      setCtiStatus(null);
+    }
+  }, []);
+
+  // 주기적으로 CTI 상태 확인
+  useEffect(() => {
+    checkCtiStatus();
+    const interval = setInterval(checkCtiStatus, 5000);
+    return () => clearInterval(interval);
+  }, [checkCtiStatus]);
+
+  // 환자에게 예정된 콜백이 있는지 확인
+  const checkPendingCallbacks = useCallback(async (patientId: string) => {
+    try {
+      // 오늘 날짜를 기준으로 콜백 조회 (예정일 이전/이후 모두)
+      const res = await fetch(`/api/v2/callbacks?patientId=${patientId}`);
+      if (res.ok) {
+        const data = await res.json();
+        if (data.success && data.data?.callbacks) {
+          const callbacks = data.data.callbacks
+            .filter((cb: PendingCallback & { patientId: string; status: string }) =>
+              cb.patientId === patientId && cb.status === 'pending'
+            )
+            .map((cb: PendingCallback & { patientId: string }) => ({
+              id: cb.id,
+              patientId: cb.patientId,
+              type: cb.type,
+              scheduledAt: cb.scheduledAt,
+              note: cb.note,
+              source: cb.source || 'callbacks_v2',
+            }));
+          setPendingCallbacks(callbacks);
+        }
+      }
+    } catch (error) {
+      console.error('[CTI v2] 콜백 조회 실패:', error);
+    }
+  }, []);
+
+  // 콜백으로 처리
+  const handleMarkAsCallback = useCallback(async (callback: PendingCallback) => {
+    if (!currentCall?.callLogId) return;
+
+    setProcessingCallback(true);
+    try {
+      // 1. 통화 기록에 callbackType 태그 추가
+      const callLogRes = await fetch('/api/v2/call-logs', {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          callLogId: currentCall.callLogId,
+          callbackType: callback.type,
+          callbackId: callback.id,
+        }),
+      });
+
+      if (!callLogRes.ok) {
+        console.error('[CTI v2] 통화 기록 태그 추가 실패');
+        return;
+      }
+
+      // 2. 콜백 완료 처리
+      const callbackRes = await fetch('/api/v2/callbacks', {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          id: callback.id,
+          status: 'completed',
+          source: callback.source,
+        }),
+      });
+
+      if (callbackRes.ok) {
+        // 성공 시 해당 콜백을 목록에서 제거
+        setPendingCallbacks((prev) => prev.filter((cb) => cb.id !== callback.id));
+        console.log('[CTI v2] 콜백 처리 완료:', callback.type);
+      }
+    } catch (error) {
+      console.error('[CTI v2] 콜백 처리 실패:', error);
+    } finally {
+      setProcessingCallback(false);
+    }
+  }, [currentCall]);
+
+  // ClickCall 발신
+  const handleClickCall = useCallback(async (phoneNumber?: string) => {
+    const numberToDial = phoneNumber || dialNumber;
+    if (!numberToDial.trim()) {
+      setDialError('전화번호를 입력하세요');
+      return;
+    }
+
+    setIsDialing(true);
+    setDialError(null);
+
+    try {
+      const res = await fetch(`${CTI_BRIDGE_URL}/api/click-call`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ phoneNumber: numberToDial.replace(/\D/g, '') }),
+      });
+
+      const data = await res.json();
+
+      if (res.ok && data.success) {
+        setDialNumber('');
+        // 발신 중 상태 표시
+        setCurrentCall({
+          callLogId: `dial-${Date.now()}`,
+          phone: numberToDial,
+          isNewPatient: true,
+          callTime: new Date().toISOString(),
+          direction: 'outbound',
+        });
+        setIsExpanded(true);
+      } else {
+        setDialError(data.error || '발신 실패');
+      }
+    } catch (err) {
+      setDialError('CTI 연결 실패 - CTIBridge가 실행 중인지 확인하세요');
+    } finally {
+      setIsDialing(false);
+    }
+  }, [dialNumber]);
+
+  // 전화번호 입력 핸들러
+  const handleDialNumberChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const value = e.target.value.replace(/[^\d-]/g, '');
+    setDialNumber(value);
+    setDialError(null);
+  };
+
+  // Enter 키로 발신
+  const handleKeyDown = (e: React.KeyboardEvent) => {
+    if (e.key === 'Enter' && !isDialing) {
+      handleClickCall();
+    }
+  };
 
   // Pusher 연결
   useEffect(() => {
@@ -82,12 +278,19 @@ export function CTIPanel() {
       setCurrentCall(inboundCall);
       setIsRinging(true);
       setIsExpanded(true);
+      setIsCallEnded(false);
+      setPendingCallbacks([]);
 
       // 5초 후 링잉 효과 종료
       setTimeout(() => setIsRinging(false), 5000);
 
       // 최근 통화 목록에 추가
       setRecentCalls((prev) => [inboundCall, ...prev].slice(0, 5));
+
+      // 환자ID가 있으면 콜백 확인
+      if (data.patientId) {
+        checkPendingCallbacks(data.patientId);
+      }
     });
 
     // 발신 전화
@@ -96,16 +299,30 @@ export function CTIPanel() {
       const outboundCall: IncomingCall = { ...data, direction: 'outbound' as const };
       setCurrentCall(outboundCall);
       setIsExpanded(true);
+      setIsCallEnded(false);
+      setPendingCallbacks([]);
 
       // 최근 통화 목록에 추가
       setRecentCalls((prev) => [outboundCall, ...prev].slice(0, 5));
+
+      // 환자ID가 있으면 콜백 확인
+      if (data.patientId) {
+        checkPendingCallbacks(data.patientId);
+      }
     });
 
     // 통화 종료
-    channel.bind('call-ended', (data: { callLogId: string; duration: number }) => {
+    channel.bind('call-ended', (data: { callLogId: string; duration: number; patientId?: string }) => {
       console.log('[CTI v2] 통화 종료:', data);
       if (currentCall?.callLogId === data.callLogId) {
         setIsRinging(false);
+        setIsCallEnded(true);
+
+        // 환자ID가 있으면 콜백 확인 (통화 종료 후에도)
+        const patientId = data.patientId || currentCall.patientId;
+        if (patientId) {
+          checkPendingCallbacks(patientId);
+        }
       }
     });
 
@@ -127,25 +344,27 @@ export function CTIPanel() {
       channel.unsubscribe();
       pusher.disconnect();
     };
-  }, [currentCall]);
+  }, [currentCall, checkPendingCallbacks]);
 
-  // 전화 걸기 (CTI 이벤트 수신)
+  // 전화 걸기 (CTI 이벤트 수신) - 다른 컴포넌트에서 발신 요청
   useEffect(() => {
     const handleCtiCall = (e: CustomEvent<{ phone: string }>) => {
       console.log('[CTI v2] 발신 요청:', e.detail.phone);
-      // TODO: CTI Bridge로 발신 명령 전송
+      handleClickCall(e.detail.phone);
     };
 
     window.addEventListener('cti-call', handleCtiCall as EventListener);
     return () => {
       window.removeEventListener('cti-call', handleCtiCall as EventListener);
     };
-  }, []);
+  }, [handleClickCall]);
 
   const handleDismiss = () => {
     setCurrentCall(null);
     setIsRinging(false);
     setLatestAnalysis(null);
+    setIsCallEnded(false);
+    setPendingCallbacks([]);
   };
 
   const handlePatientClick = (patientId?: string) => {
@@ -195,6 +414,12 @@ export function CTIPanel() {
           <div className="flex items-center gap-2">
             <Phone size={18} className="text-gray-500" />
             <span className="font-medium text-gray-700">CTI 패널</span>
+            {/* CTI 연결 상태 표시 */}
+            {ctiStatus ? (
+              <span className={`w-2 h-2 rounded-full ${ctiStatus.ctiConnected ? 'bg-green-500' : 'bg-red-500'}`} title={ctiStatus.ctiConnected ? 'CTI 연결됨' : 'CTI 연결 안됨'} />
+            ) : (
+              <span className="w-2 h-2 rounded-full bg-gray-300" title="CTIBridge 연결 안됨" />
+            )}
           </div>
           <button
             onClick={() => setIsExpanded(false)}
@@ -202,6 +427,44 @@ export function CTIPanel() {
           >
             <ChevronDown size={18} className="text-gray-500" />
           </button>
+        </div>
+
+        {/* 발신 입력 */}
+        <div className="p-3 border-b bg-white">
+          <div className="flex gap-2">
+            <input
+              type="text"
+              value={dialNumber}
+              onChange={handleDialNumberChange}
+              onKeyDown={handleKeyDown}
+              placeholder="전화번호 입력"
+              className="flex-1 px-3 py-2 text-sm border rounded-lg focus:outline-none focus:ring-2 focus:ring-emerald-500 focus:border-transparent"
+              disabled={isDialing}
+            />
+            <button
+              onClick={() => handleClickCall()}
+              disabled={isDialing || !dialNumber.trim()}
+              className={`px-4 py-2 rounded-lg text-sm font-medium transition-colors flex items-center gap-1
+                ${isDialing || !dialNumber.trim()
+                  ? 'bg-gray-100 text-gray-400 cursor-not-allowed'
+                  : 'bg-emerald-500 text-white hover:bg-emerald-600'
+                }
+              `}
+            >
+              {isDialing ? (
+                <Loader2 size={16} className="animate-spin" />
+              ) : (
+                <PhoneOutgoing size={16} />
+              )}
+              발신
+            </button>
+          </div>
+          {dialError && (
+            <div className="mt-2 flex items-center gap-1 text-xs text-red-500">
+              <AlertCircle size={12} />
+              {dialError}
+            </div>
+          )}
         </div>
 
         {/* 현재 통화 */}
@@ -272,6 +535,51 @@ export function CTIPanel() {
                 {currentCall.temperature && (
                   <TemperatureIcon temperature={currentCall.temperature} />
                 )}
+              </button>
+            )}
+
+            {/* 콜백으로 처리 버튼 - 통화 종료 후 예정된 콜백이 있을 때 표시 */}
+            {isCallEnded && pendingCallbacks.length > 0 && (
+              <div className="mt-3 p-3 bg-blue-50 rounded-lg">
+                <div className="flex items-center gap-2 mb-2">
+                  <CalendarCheck size={14} className="text-blue-500" />
+                  <span className="text-xs font-medium text-blue-600">
+                    예정된 콜백이 있습니다
+                  </span>
+                </div>
+                <div className="space-y-2">
+                  {pendingCallbacks.map((callback) => (
+                    <button
+                      key={callback.id}
+                      onClick={() => handleMarkAsCallback(callback)}
+                      disabled={processingCallback}
+                      className={`w-full flex items-center justify-center gap-2 py-2 px-3 rounded-lg text-white text-sm font-medium transition-colors ${CALLBACK_TYPE_COLORS[callback.type]} disabled:opacity-50`}
+                    >
+                      {processingCallback ? (
+                        <Loader2 size={14} className="animate-spin" />
+                      ) : (
+                        <CheckCircle2 size={14} />
+                      )}
+                      {CALLBACK_TYPE_LABELS[callback.type]}으로 처리
+                    </button>
+                  ))}
+                </div>
+              </div>
+            )}
+
+            {/* 신규 환자 등록 버튼 - 신규 환자일 때만 표시 */}
+            {currentCall.isNewPatient && !currentCall.patientId && (
+              <button
+                onClick={() => {
+                  // 전화번호를 가지고 환자 등록 모달 열기
+                  window.dispatchEvent(new CustomEvent('open-patient-modal', {
+                    detail: { phone: currentCall.phone }
+                  }));
+                }}
+                className="mt-3 w-full flex items-center justify-center gap-2 py-2 px-3 bg-emerald-500 hover:bg-emerald-600 rounded-lg text-white text-sm font-medium transition-colors"
+              >
+                <UserPlus size={14} />
+                신규 환자 등록
               </button>
             )}
 

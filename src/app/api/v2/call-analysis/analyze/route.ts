@@ -191,6 +191,15 @@ export async function POST(request: NextRequest) {
     // AI 분석 실행
     const analysis = await analyzeWithGPT(transcript);
 
+    // 같은 전화번호의 기존 이름 확인 (수동 수정 > 최초 인식 > 현재 AI 인식)
+    if (callLog.phone) {
+      const existingName = await getExistingNameForPhone(db, callLog.phone, callLogId);
+      if (existingName) {
+        console.log(`[Analyze v2] 기존 이름 발견: "${existingName}" (현재 AI 인식: "${analysis.patientName}")`);
+        analysis.patientName = existingName;
+      }
+    }
+
     // 분석 결과 저장
     await db.collection('callLogs_v2').updateOne(
       { _id: new ObjectId(callLogId) },
@@ -242,6 +251,50 @@ export async function POST(request: NextRequest) {
   }
 }
 
+// 같은 전화번호의 기존 이름 조회 (수동 수정 > 최초 인식)
+async function getExistingNameForPhone(
+  db: Awaited<ReturnType<typeof connectToDatabase>>['db'],
+  phone: string,
+  currentCallLogId: string
+): Promise<string | null> {
+  try {
+    // 같은 전화번호의 다른 통화 기록 조회 (현재 건 제외)
+    const existingLogs = await db.collection('callLogs_v2')
+      .find({
+        phone: phone,
+        _id: { $ne: new ObjectId(currentCallLogId) },
+        'aiAnalysis.patientName': { $exists: true, $nin: ['', null] },
+      })
+      .sort({ createdAt: 1 }) // 오래된 순 (최초 인식 우선)
+      .toArray();
+
+    if (existingLogs.length === 0) {
+      return null;
+    }
+
+    // 1순위: 수동 수정된 이름 찾기
+    const manuallyEditedLog = existingLogs.find(
+      log => log.aiAnalysis?.manuallyEdited && log.aiAnalysis?.patientName
+    );
+    if (manuallyEditedLog?.aiAnalysis?.patientName) {
+      console.log(`[Analyze v2] 수동 수정된 이름 사용: ${manuallyEditedLog.aiAnalysis.patientName}`);
+      return manuallyEditedLog.aiAnalysis.patientName;
+    }
+
+    // 2순위: 최초 인식된 이름
+    const firstLogWithName = existingLogs.find(log => log.aiAnalysis?.patientName);
+    if (firstLogWithName?.aiAnalysis?.patientName) {
+      console.log(`[Analyze v2] 최초 인식 이름 사용: ${firstLogWithName.aiAnalysis.patientName}`);
+      return firstLogWithName.aiAnalysis.patientName;
+    }
+
+    return null;
+  } catch (error) {
+    console.error('[Analyze v2] 기존 이름 조회 오류:', error);
+    return null;
+  }
+}
+
 // 환자 정보에 분석 결과 반영
 async function updatePatientWithAnalysis(
   db: Awaited<ReturnType<typeof connectToDatabase>>['db'],
@@ -276,11 +329,7 @@ async function updatePatientWithAnalysis(
       updateData.statusChangedAt = new Date().toISOString();
     }
 
-    // 콜백 필요한 경우 다음 액션 설정
-    if (analysis.followUp === '콜백필요' && analysis.recommendedCallback) {
-      updateData.nextAction = '콜백';
-      updateData.nextActionDate = analysis.recommendedCallback;
-    }
+    // 콜백 일정은 상담사가 수동으로 등록 (AI 자동 설정 제거)
 
     await db.collection('patients_v2').updateOne(
       { _id: new ObjectId(patientId) },

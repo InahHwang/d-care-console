@@ -33,6 +33,8 @@ export async function GET(
           duration: 1,
           'aiAnalysis.summary': 1,
           'aiAnalysis.classification': 1,
+          callbackType: 1,
+          callbackId: 1,
         })
         .toArray(),
     ]);
@@ -47,6 +49,7 @@ export async function GET(
         name: patient.name,
         phone: patient.phone,
         status: patient.status,
+        consultationType: patient.consultationType || '',
         temperature: patient.temperature,
         interest: patient.aiAnalysis?.interest || patient.interest || '',
         source: patient.source || '',
@@ -65,11 +68,14 @@ export async function GET(
         statusHistory: patient.statusHistory || [],
         age: patient.age || undefined,
         region: patient.region || undefined,
-        // 금액 관련 필드
-        estimatedAmount: patient.estimatedAmount || 0,
-        actualAmount: patient.actualAmount || 0,
+        // 금액 관련 필드 (정수로 변환하여 부동소수점 오차 방지)
+        estimatedAmount: patient.estimatedAmount ? Math.round(Number(patient.estimatedAmount)) : 0,
+        actualAmount: patient.actualAmount ? Math.round(Number(patient.actualAmount)) : 0,
         paymentStatus: patient.paymentStatus || 'none',
         treatmentNote: patient.treatmentNote || '',
+        // 치료 진행 관련 필드
+        treatmentStartDate: patient.treatmentStartDate || null,
+        expectedCompletionDate: patient.expectedCompletionDate || null,
       },
       callLogs: callLogs.map((log) => ({
         id: log._id.toString(),
@@ -78,6 +84,8 @@ export async function GET(
         duration: log.duration || 0,
         summary: log.aiAnalysis?.summary || '',
         classification: log.aiAnalysis?.classification || '',
+        callbackType: log.callbackType || null,
+        callbackId: log.callbackId || null,
       })),
     });
   } catch (error) {
@@ -120,7 +128,9 @@ export async function PATCH(
       age, region,
       closedReason, isReactivation,
       // 금액 관련 필드
-      estimatedAmount, actualAmount, paymentStatus, treatmentNote
+      estimatedAmount, actualAmount, paymentStatus, treatmentNote,
+      // 치료 진행 관련 필드
+      treatmentStartDate, expectedCompletionDate
     } = body;
 
     const { db } = await connectToDatabase();
@@ -172,6 +182,11 @@ export async function PATCH(
           updateData.nextAction = null;
           updateData.nextActionDate = null;
         }
+
+        // 치료중으로 변경 시 treatmentStartDate 자동 설정
+        if (status === 'treatment') {
+          updateData.treatmentStartDate = eventDate ? new Date(eventDate) : new Date();
+        }
       }
     }
 
@@ -189,11 +204,19 @@ export async function PATCH(
     if (age !== undefined) updateData.age = age;
     if (region !== undefined) updateData.region = region;
 
-    // 금액 관련 필드
-    if (estimatedAmount !== undefined) updateData.estimatedAmount = estimatedAmount;
-    if (actualAmount !== undefined) updateData.actualAmount = actualAmount;
+    // 금액 관련 필드 (정수로 저장하여 부동소수점 오차 방지)
+    if (estimatedAmount !== undefined) updateData.estimatedAmount = Math.round(Number(estimatedAmount));
+    if (actualAmount !== undefined) updateData.actualAmount = Math.round(Number(actualAmount));
     if (paymentStatus !== undefined) updateData.paymentStatus = paymentStatus;
     if (treatmentNote !== undefined) updateData.treatmentNote = treatmentNote;
+
+    // 치료 진행 관련 필드
+    if (treatmentStartDate !== undefined) {
+      updateData.treatmentStartDate = treatmentStartDate ? new Date(treatmentStartDate) : null;
+    }
+    if (expectedCompletionDate !== undefined) {
+      updateData.expectedCompletionDate = expectedCompletionDate ? new Date(expectedCompletionDate) : null;
+    }
 
     // 업데이트 쿼리 준비
     const updateQuery: Record<string, unknown> = { $set: updateData };

@@ -161,6 +161,9 @@ export async function GET(request: NextRequest) {
       actualAmount: 1,
       paymentStatus: 1,
       treatmentNote: 1,
+      // 치료 진행 관련 필드
+      treatmentStartDate: 1,
+      expectedCompletionDate: 1,
     };
 
     // 병렬 쿼리
@@ -230,7 +233,13 @@ export async function GET(request: NextRequest) {
     let urgentStats = { noshow: 0, today: 0, overdue: 0 };
 
     allPatientsForUrgent.forEach((p) => {
-      const statusDate = p.statusChangedAt ? new Date(p.statusChangedAt) : new Date(p.createdAt);
+      // 치료중 상태일 때는 treatmentStartDate 우선 사용
+      let statusDate: Date;
+      if (p.status === 'treatment' && p.treatmentStartDate) {
+        statusDate = new Date(p.treatmentStartDate);
+      } else {
+        statusDate = p.statusChangedAt ? new Date(p.statusChangedAt) : new Date(p.createdAt);
+      }
       const days = Math.floor((now.getTime() - statusDate.getTime()) / (1000 * 60 * 60 * 24));
       const urg = getUrgency(p.status, p.nextActionDate, days);
       if (urg === 'noshow') urgentStats.noshow++;
@@ -240,7 +249,13 @@ export async function GET(request: NextRequest) {
 
     // 환자 데이터 매핑 (긴급도 포함)
     let mappedPatients = patients.map((p) => {
-      const statusDate = p.statusChangedAt ? new Date(p.statusChangedAt) : new Date(p.createdAt);
+      // 치료중 상태일 때는 treatmentStartDate 우선 사용
+      let statusDate: Date;
+      if (p.status === 'treatment' && p.treatmentStartDate) {
+        statusDate = new Date(p.treatmentStartDate);
+      } else {
+        statusDate = p.statusChangedAt ? new Date(p.statusChangedAt) : new Date(p.createdAt);
+      }
       const daysInStatus = Math.floor((now.getTime() - statusDate.getTime()) / (1000 * 60 * 60 * 24));
       const patientUrgency = getUrgency(p.status, p.nextActionDate, daysInStatus);
 
@@ -266,6 +281,8 @@ export async function GET(request: NextRequest) {
         estimatedAmount: p.estimatedAmount || 0,
         actualAmount: p.actualAmount || 0,
         paymentStatus: p.paymentStatus || 'none',
+        // 치료 진행 관련 필드
+        expectedCompletionDate: p.expectedCompletionDate || null,
       };
     });
 
@@ -273,7 +290,13 @@ export async function GET(request: NextRequest) {
     if (urgency && urgency !== 'normal') {
       // 전체 환자를 긴급도 기준으로 필터링
       const allMapped = allPatientsForUrgent.map((p) => {
-        const statusDate = p.statusChangedAt ? new Date(p.statusChangedAt) : new Date(p.createdAt);
+        // 치료중 상태일 때는 treatmentStartDate 우선 사용
+        let statusDate: Date;
+        if (p.status === 'treatment' && p.treatmentStartDate) {
+          statusDate = new Date(p.treatmentStartDate);
+        } else {
+          statusDate = p.statusChangedAt ? new Date(p.statusChangedAt) : new Date(p.createdAt);
+        }
         const days = Math.floor((now.getTime() - statusDate.getTime()) / (1000 * 60 * 60 * 24));
         return {
           id: p._id.toString(),
@@ -297,6 +320,8 @@ export async function GET(request: NextRequest) {
           estimatedAmount: p.estimatedAmount || 0,
           actualAmount: p.actualAmount || 0,
           paymentStatus: p.paymentStatus || 'none',
+          // 치료 진행 관련 필드
+          expectedCompletionDate: p.expectedCompletionDate || null,
         };
       });
 

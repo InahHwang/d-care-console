@@ -2,7 +2,7 @@
 'use client';
 
 import React from 'react';
-import { PhoneCall, ChevronRight, Flame, Thermometer, Snowflake, PhoneIncoming, PhoneOutgoing } from 'lucide-react';
+import { PhoneCall, ChevronRight, Flame, Thermometer, Snowflake, PhoneIncoming, PhoneOutgoing, AlertTriangle } from 'lucide-react';
 import { PatientStatus, Temperature } from '@/types/v2';
 
 type CallDirection = 'inbound' | 'outbound';
@@ -35,6 +35,8 @@ interface Patient {
   estimatedAmount?: number;
   actualAmount?: number;
   paymentStatus?: PaymentStatus;
+  // 치료 진행 관련 필드
+  expectedCompletionDate?: string | null;
 }
 
 interface PatientListProps {
@@ -230,8 +232,7 @@ export function PatientList({ patients, onPatientClick, onCallClick, loading }: 
           <div className="col-span-1">나이</div>
           <div className="col-span-1">금액</div>
           <div className="col-span-2">전화번호</div>
-          <div className="col-span-1">상담타입</div>
-          <div className="col-span-1">관심시술</div>
+          <div className="col-span-2">관심시술</div>
           <div className="col-span-1">상태</div>
           <div className="col-span-1">다음일정</div>
           <div className="col-span-1"></div>
@@ -264,8 +265,7 @@ export function PatientList({ patients, onPatientClick, onCallClick, loading }: 
         <div className="col-span-1">나이</div>
         <div className="col-span-1">금액</div>
         <div className="col-span-2">전화번호</div>
-        <div className="col-span-1">상담타입</div>
-        <div className="col-span-1">관심시술</div>
+        <div className="col-span-2">관심시술</div>
         <div className="col-span-1">상태</div>
         <div className="col-span-1">다음일정</div>
         <div className="col-span-1"></div>
@@ -298,11 +298,26 @@ export function PatientList({ patients, onPatientClick, onCallClick, loading }: 
                 <CallDirectionIcon direction={patient.lastCallDirection} />
               </div>
 
-              {/* 환자명 + 유입경로 */}
-              <div className="col-span-2">
-                <div className="font-medium text-gray-900">{patient.name}</div>
-                {patient.source && (
-                  <div className="text-xs text-gray-400">{patient.source}</div>
+              {/* 환자명 + 상담타입 + 확인필요 배지 */}
+              <div className="col-span-2 flex items-center gap-2">
+                <span className="font-medium text-gray-900">{patient.name}</span>
+                {patient.consultationType && (
+                  <span className="px-1.5 py-0.5 bg-purple-100 text-purple-700 rounded text-xs">
+                    {patient.consultationType}
+                  </span>
+                )}
+                {/* 치료중 상태에서 확인 필요 배지: 예상완료일 지났거나, 없으면 30일 경과 시 */}
+                {patient.status === 'treatment' && (() => {
+                  const now = new Date();
+                  if (patient.expectedCompletionDate) {
+                    return new Date(patient.expectedCompletionDate) < now;
+                  }
+                  return days >= 30;
+                })() && (
+                  <span className="flex items-center gap-0.5 px-1.5 py-0.5 bg-orange-100 text-orange-600 rounded text-xs font-medium">
+                    <AlertTriangle size={10} />
+                    확인
+                  </span>
                 )}
               </div>
 
@@ -331,19 +346,8 @@ export function PatientList({ patients, onPatientClick, onCallClick, loading }: 
                 {formatPhone(patient.phone)}
               </div>
 
-              {/* 상담타입 */}
-              <div className="col-span-1">
-                {patient.consultationType ? (
-                  <span className="px-2 py-1 bg-purple-50 text-purple-700 rounded text-xs">
-                    {patient.consultationType}
-                  </span>
-                ) : (
-                  <span className="text-gray-300">-</span>
-                )}
-              </div>
-
               {/* 관심시술 */}
-              <div className="col-span-1">
+              <div className="col-span-2">
                 {patient.interest ? (
                   <span className="px-2 py-1 bg-blue-50 text-blue-700 rounded text-xs">
                     {patient.interest}
