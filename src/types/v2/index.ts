@@ -3,6 +3,12 @@
 
 import { ObjectId } from 'mongodb';
 
+// 채널 상담 타입 re-export
+export * from './channelChat';
+
+// 상담 매뉴얼 타입 re-export
+export * from './manual';
+
 // ============================================
 // 환자 관련 타입
 // ============================================
@@ -19,10 +25,10 @@ export type PatientStatus =
 
 // 종결 사유 타입
 export type ClosedReason =
+  | '거리멀음'
+  | '연락두절'
   | '연락거부'
   | '타병원이동'
-  | '관심없음'
-  | '연락두절'
   | '기타';
 
 export type Temperature = 'hot' | 'warm' | 'cold';
@@ -38,6 +44,65 @@ export interface StatusHistoryEntry {
 
 // 결제 상태 타입
 export type PaymentStatus = 'none' | 'partial' | 'completed';
+
+// ============================================
+// 콜백 이력 관련 타입
+// ============================================
+
+// 콜백 사유 타입
+export type CallbackReason = 'no_answer' | 'postponed' | 'considering';
+
+export const CALLBACK_REASON_LABELS: Record<CallbackReason, string> = {
+  no_answer: '미연결',
+  postponed: '보류',
+  considering: '검토중',
+};
+
+// 콜백 이력 엔트리
+export interface CallbackHistoryEntry {
+  scheduledAt: Date | string;      // 예정일
+  reason?: CallbackReason;         // 사유
+  note?: string;                   // 메모
+  createdAt: Date | string;        // 생성일
+}
+
+// ============================================
+// 여정(Journey) 관련 타입
+// ============================================
+
+export interface Journey {
+  id: string;                          // 여정 고유 ID
+  treatmentType: string;               // 치료 유형 (임플란트, 교정 등)
+  status: PatientStatus;               // 현재 진행 단계
+  startedAt: Date | string;            // 여정 시작일
+  closedAt?: Date | string;            // 여정 종료일
+  estimatedAmount?: number;            // 예상 치료금액
+  actualAmount?: number;               // 실제 결제금액
+  paymentStatus?: PaymentStatus;       // 결제 상태
+  treatmentNote?: string;              // 시술 내역 메모
+  statusHistory?: StatusHistoryEntry[]; // 상태 변경 이력
+  // 콜백 관련 필드
+  nextActionDate?: Date | string;      // 예정일
+  nextActionNote?: string;             // 예정일 메모
+  callbackHistory?: CallbackHistoryEntry[]; // 콜백 이력
+  isActive: boolean;                   // 현재 진행 중인 여정 여부
+  createdAt: Date | string;
+  updatedAt: Date | string;
+}
+
+// 치료 유형 상수
+export const TREATMENT_TYPES = [
+  '임플란트',
+  '치아교정',
+  '보철치료',
+  '잇몸치료',
+  '심미치료',
+  '충치치료',
+  '일반진료',
+  '기타',
+] as const;
+
+export type TreatmentType = typeof TREATMENT_TYPES[number];
 
 export interface PatientV2 {
   _id?: ObjectId | string;
@@ -58,6 +123,8 @@ export interface PatientV2 {
   aiConfidence?: number;
   nextAction?: string;
   nextActionDate?: Date | string;
+  nextActionNote?: string;                   // 예정일 메모
+  callbackHistory?: CallbackHistoryEntry[];  // 콜백 이력
   lastCallDirection?: 'inbound' | 'outbound';
   lastContactAt?: Date | string;
   callCount?: number;
@@ -70,11 +137,14 @@ export interface PatientV2 {
     classification?: string;
     followUp?: string;
   };
-  // 금액 관련 필드
+  // 금액 관련 필드 (하위 호환성 - activeJourney와 동기화)
   estimatedAmount?: number;      // 예상 치료금액 (원)
   actualAmount?: number;         // 실제 결제금액 (원)
   paymentStatus?: PaymentStatus; // 결제 상태
   treatmentNote?: string;        // 시술 내역 메모
+  // 여정(Journey) 관련 필드
+  journeys?: Journey[];          // 환자의 모든 치료 여정
+  activeJourneyId?: string;      // 현재 활성 여정 ID
   createdAt: Date | string;
   updatedAt: Date | string;
 }
@@ -97,6 +167,16 @@ export type AIStatus = 'pending' | 'processing' | 'completed' | 'failed';
 export type AIClassification = '신환' | '구신환' | '구환' | '거래처' | '스팸' | '부재중' | '기타';
 export type FollowUpType = '콜백필요' | '예약확정' | '종결';
 
+// AI 상담 결과 자동 분류
+export interface AIConsultationResult {
+  status: ConsultationStatus;      // agreed | disagreed | pending
+  statusReason?: string;           // 분류 근거
+  estimatedAmount?: number;        // 언급된 금액 (원)
+  appointmentDate?: string;        // 언급된 예약일
+  disagreeReasons?: string[];      // 미동의 사유
+  confidence?: number;             // 분류 신뢰도 (0-1)
+}
+
 export interface AIAnalysis {
   classification: AIClassification;
   patientName?: string;
@@ -110,6 +190,8 @@ export interface AIAnalysis {
   preferredTime?: string;
   confidence: number;
   transcript?: string;
+  // AI 상담 결과 자동 분류
+  consultationResult?: AIConsultationResult;
 }
 
 export interface CallLogV2 {
@@ -167,12 +249,14 @@ export interface ReferralV2 {
 // ============================================
 
 export type ConsultationStatus = 'agreed' | 'disagreed' | 'pending';
+export type ConsultationType = 'phone' | 'visit';  // 전화상담 / 내원상담
 
 export interface ConsultationV2 {
   _id?: ObjectId | string;
   clinicId?: string;
   patientId: string;
   callLogId?: string;
+  type: ConsultationType;              // 상담 유형 (전화/내원)
   date: Date | string;
   treatment: string;
   originalAmount: number;
@@ -190,6 +274,10 @@ export interface ConsultationV2 {
   inquiry?: string;
   memo?: string;
   aiSummary?: string;
+  // AI 자동 생성 관련
+  aiGenerated?: boolean;               // AI 자동 생성 여부
+  editedAt?: Date | string;            // 상담사 수정 시간
+  editedBy?: string;                   // 수정한 상담사
   createdAt: Date | string;
 }
 
@@ -388,9 +476,9 @@ export const PATIENT_STATUS_CONFIG: StatusConfig = {
 
 // 종결 사유 옵션
 export const CLOSED_REASON_OPTIONS: { value: ClosedReason; label: string }[] = [
-  { value: '연락거부', label: '연락 거부' },
-  { value: '타병원이동', label: '타 병원 이동' },
-  { value: '관심없음', label: '관심 없음' },
+  { value: '거리멀음', label: '거리가 멀어요' },
   { value: '연락두절', label: '연락 두절' },
+  { value: '연락거부', label: '연락 거부' },
+  { value: '타병원이동', label: '타병원 이동' },
   { value: '기타', label: '기타' },
 ];
