@@ -88,6 +88,7 @@ export async function GET(request: NextRequest) {
       direction: 1,
       duration: 1,
       phone: 1,
+      calledNumber: 1, // ★ 착신번호 (031 or 070)
       patientId: 1,
       aiAnalysis: 1,
       aiStatus: 1,
@@ -129,12 +130,15 @@ export async function GET(request: NextRequest) {
       .map(log => new ObjectId(log.patientId));
 
     const patientNameMap: Record<string, string> = {};
+    const existingPatientIds = new Set<string>(); // 실제 존재하는 환자 ID 추적
     if (patientIds.length > 0) {
       const patients = await db.collection('patients_v2')
         .find({ _id: { $in: patientIds } }, { projection: { name: 1 } })
         .toArray();
       patients.forEach(p => {
-        patientNameMap[p._id.toString()] = p.name || '';
+        const idStr = p._id.toString();
+        patientNameMap[idStr] = p.name || '';
+        existingPatientIds.add(idStr); // 존재하는 환자 ID 기록
       });
     }
 
@@ -158,9 +162,14 @@ export async function GET(request: NextRequest) {
 
     return NextResponse.json({
       callLogs: callLogs.map((log) => {
-        // patientId가 있으면 실제 환자 이름 사용, 없으면 AI 분석 결과 사용
-        const actualPatientName = (log.patientId && patientNameMap[log.patientId])
-          ? patientNameMap[log.patientId]
+        // patientId가 있지만 환자가 삭제된 경우 null 처리 (orphaned patientId)
+        const validPatientId = log.patientId && existingPatientIds.has(log.patientId)
+          ? log.patientId
+          : null;
+
+        // patientId가 유효하면 실제 환자 이름 사용, 아니면 AI 분석 결과 사용
+        const actualPatientName = validPatientId
+          ? patientNameMap[validPatientId]
           : (log.aiAnalysis?.patientName || '');
 
         return {
@@ -169,8 +178,9 @@ export async function GET(request: NextRequest) {
           callType: log.direction,
           duration: log.duration,
           phone: log.phone || '',
+          calledNumber: log.calledNumber || '', // ★ 착신번호 (031 or 070)
           callerName: actualPatientName,
-          patientId: log.patientId || null,
+          patientId: validPatientId, // 삭제된 환자면 null 반환
           patientName: actualPatientName,
           classification: normalizeClassification(log.aiAnalysis?.classification),
           interest: log.aiAnalysis?.interest || '',

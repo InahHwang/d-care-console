@@ -12,6 +12,8 @@ import {
   RecentPatientsCard,
   CallClassificationCard,
   RevenueCard,
+  TodayTasksCard,
+  TodayTasks,
 } from '@/components/v2/dashboard';
 import { Temperature } from '@/types/v2';
 
@@ -30,7 +32,7 @@ interface RevenueData {
     estimated: number;
     patientCount: number;
   };
-  conversionRate: number;
+  discountRate: number;
   avgRevenue: number;
   growthRate: number;
 }
@@ -76,6 +78,7 @@ interface DashboardData {
     progress: number;
   }>;
   revenue?: RevenueData;
+  todayTasks?: TodayTasks;
 }
 
 export default function DashboardPage() {
@@ -159,22 +162,33 @@ export default function DashboardPage() {
         onRefresh={handleRefresh}
       />
 
-      {/* 오늘의 통계 카드 */}
-      <StatsCards
-        stats={{
-          totalCalls: data?.today.totalCalls ?? 0,
-          newPatients: data?.today.newPatients ?? 0,
-          callbackCount: data?.callbacks?.length ?? 0,
-          missed: data?.today.missed ?? 0,
-        }}
-        loading={loading}
-      />
+      {/* 2단 그리드: 오늘 통계 + 오늘 할 일 */}
+      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+        <div className="lg:col-span-2">
+          {/* 오늘의 통계 카드 */}
+          <StatsCards
+            stats={{
+              totalCalls: data?.today.totalCalls ?? 0,
+              newPatients: data?.today.newPatients ?? 0,
+              callbackCount: data?.callbacks?.length ?? 0,
+              missed: data?.today.missed ?? 0,
+            }}
+            loading={loading}
+          />
+        </div>
+
+        {/* 오늘 할 일 카드 */}
+        <TodayTasksCard
+          tasks={data?.todayTasks ?? null}
+          loading={loading}
+        />
+      </div>
 
       {/* 매출 통계 카드 */}
       <RevenueCard
         thisMonth={data?.revenue?.thisMonth ?? { actual: 0, estimated: 0, patientCount: 0, paidCount: 0 }}
         lastMonth={data?.revenue?.lastMonth ?? { actual: 0 }}
-        conversionRate={data?.revenue?.conversionRate ?? 0}
+        discountRate={data?.revenue?.discountRate ?? 0}
         avgRevenue={data?.revenue?.avgRevenue ?? 0}
         growthRate={data?.revenue?.growthRate ?? 0}
         loading={loading}

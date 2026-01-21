@@ -3,7 +3,7 @@
 
 export const dynamic = 'force-dynamic';
 
-import React, { useState, useEffect, useCallback, Suspense } from 'react';
+import React, { useState, useEffect, useCallback, Suspense, useRef } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import {
   Search,
@@ -13,6 +13,8 @@ import {
   Loader2,
   CheckCircle2,
   Play,
+  Pause,
+  Square,
   X,
   UserPlus,
   PhoneCall,
@@ -27,6 +29,7 @@ import {
   Calendar,
   ChevronLeft,
   ChevronRight,
+  AlertCircle,
 } from 'lucide-react';
 import { Pagination } from '@/components/v2/ui/Pagination';
 import { Temperature } from '@/types/v2';
@@ -37,6 +40,7 @@ interface CallLog {
   callType: 'inbound' | 'outbound';
   duration: number;
   phone: string;
+  calledNumber?: string;  // ★ 착신번호 (031 or 070)
   patientId: string | null;
   patientName: string;
   classification: string;
@@ -799,6 +803,16 @@ function formatCallTimeOneLine(dateString: string) {
   return `${month}/${day} ${hours}:${minutes}`;
 }
 
+// ★ 착신번호 간략 표시 (031-xxx → 031, 070-xxx → 070)
+function formatCalledNumber(calledNumber?: string) {
+  if (!calledNumber) return '-';
+  const normalized = calledNumber.replace(/\D/g, '');
+  if (normalized.startsWith('031')) return '031';
+  if (normalized.startsWith('070')) return '070';
+  if (normalized.startsWith('02')) return '02';
+  return normalized.slice(0, 3);
+}
+
 function CallLogsPageContent() {
   const router = useRouter();
   const searchParams = useSearchParams();
@@ -823,6 +837,12 @@ function CallLogsPageContent() {
 
   // 수신/발신 필터 상태
   const [directionFilter, setDirectionFilter] = useState<'all' | 'inbound' | 'outbound'>('all');
+
+  // 녹취 재생 상태
+  const [isPlaying, setIsPlaying] = useState(false);
+  const [audioLoading, setAudioLoading] = useState(false);
+  const [audioError, setAudioError] = useState<string | null>(null);
+  const audioRef = useRef<HTMLAudioElement | null>(null);
 
   const fetchCallLogs = useCallback(async () => {
     setLoading(true);
@@ -968,6 +988,81 @@ function CallLogsPageContent() {
   const handleViewPatient = (patientId: string) => {
     router.push(`/v2/patients/${patientId}`);
   };
+
+  // 녹취 재생 핸들러
+  const handlePlayRecording = async () => {
+    console.log('[녹취재생] 버튼 클릭됨, selectedCall:', selectedCall?.id);
+    if (!selectedCall) return;
+
+    // 이미 재생 중이면 일시정지
+    if (audioRef.current && isPlaying) {
+      audioRef.current.pause();
+      setIsPlaying(false);
+      return;
+    }
+
+    // 이미 로드된 오디오가 있으면 재생
+    if (audioRef.current && !isPlaying) {
+      audioRef.current.play();
+      setIsPlaying(true);
+      return;
+    }
+
+    // 새로 로드
+    setAudioLoading(true);
+    setAudioError(null);
+
+    try {
+      const recordingUrl = `/api/v2/call-logs/${selectedCall.id}/recording`;
+      const response = await fetch(recordingUrl);
+
+      if (!response.ok) {
+        if (response.status === 404) {
+          throw new Error('녹취 파일을 찾을 수 없습니다');
+        }
+        throw new Error('녹취 파일 로드 실패');
+      }
+
+      const blob = await response.blob();
+      const blobUrl = URL.createObjectURL(blob);
+
+      const audio = new Audio(blobUrl);
+      audio.onended = () => setIsPlaying(false);
+      audio.onerror = () => {
+        setAudioError('녹취 파일 재생 실패');
+        setIsPlaying(false);
+      };
+
+      await audio.play();
+      audioRef.current = audio;
+      setIsPlaying(true);
+    } catch (err) {
+      setAudioError(err instanceof Error ? err.message : '녹취 파일 로드 실패');
+    } finally {
+      setAudioLoading(false);
+    }
+  };
+
+  const handleStopRecording = () => {
+    if (audioRef.current) {
+      audioRef.current.pause();
+      audioRef.current.currentTime = 0;
+      setIsPlaying(false);
+    }
+  };
+
+  // selectedCall 변경 시 오디오 정리
+  useEffect(() => {
+    return () => {
+      if (audioRef.current) {
+        audioRef.current.pause();
+        audioRef.current = null;
+      }
+      setIsPlaying(false);
+      setAudioLoading(false);
+      setAudioError(null);
+    };
+  }, [selectedCall?.id]);
 
   const handleRegisterPatient = (call: CallLog) => {
     setRegisteringCall(call);
@@ -1333,12 +1428,13 @@ function CallLogsPageContent() {
             {/* 테이블 헤더 */}
             <div className="grid grid-cols-12 gap-2 px-5 py-3 bg-gray-50 border-b text-sm font-medium text-gray-500">
               <div className="col-span-1">유형</div>
+              <div className="col-span-1">착신</div>
               <div className="col-span-2">전화번호</div>
               <div className="col-span-2">환자</div>
-              <div className="col-span-1">착신 시각</div>
+              <div className="col-span-1">시간</div>
               <div className="col-span-1">통화시간</div>
               <div className="col-span-1">관심 진료</div>
-              <div className="col-span-3">AI 요약</div>
+              <div className="col-span-2">AI 요약</div>
               <div className="col-span-1">상태</div>
             </div>
 
@@ -1348,12 +1444,13 @@ function CallLogsPageContent() {
                 {Array.from({ length: 5 }).map((_, i) => (
                   <div key={i} className="grid grid-cols-12 gap-2 px-5 py-4 animate-pulse">
                     <div className="col-span-1"><div className="w-8 h-8 bg-gray-200 rounded-full" /></div>
+                    <div className="col-span-1"><div className="h-4 bg-gray-200 rounded w-10" /></div>
                     <div className="col-span-2"><div className="h-4 bg-gray-200 rounded w-24" /></div>
                     <div className="col-span-2"><div className="h-4 bg-gray-200 rounded w-20" /></div>
                     <div className="col-span-1"><div className="h-4 bg-gray-200 rounded w-16" /></div>
                     <div className="col-span-1"><div className="h-4 bg-gray-200 rounded w-10" /></div>
                     <div className="col-span-1"><div className="h-4 bg-gray-200 rounded w-12" /></div>
-                    <div className="col-span-3"><div className="h-4 bg-gray-200 rounded w-full" /></div>
+                    <div className="col-span-2"><div className="h-4 bg-gray-200 rounded w-full" /></div>
                     <div className="col-span-1"><div className="h-4 bg-gray-200 rounded w-12" /></div>
                   </div>
                 ))}
@@ -1388,6 +1485,19 @@ function CallLogsPageContent() {
                         </div>
                       </div>
 
+                      {/* 착신번호 */}
+                      <div className="col-span-1">
+                        <span className={`text-xs font-medium px-2 py-1 rounded ${
+                          call.calledNumber?.includes('070')
+                            ? 'bg-purple-100 text-purple-700'
+                            : call.calledNumber?.includes('031')
+                            ? 'bg-blue-100 text-blue-700'
+                            : 'bg-gray-100 text-gray-600'
+                        }`}>
+                          {formatCalledNumber(call.calledNumber)}
+                        </span>
+                      </div>
+
                       {/* 전화번호 */}
                       <div className="col-span-2">
                         <div className="font-medium text-gray-900">{call.phone}</div>
@@ -1411,7 +1521,7 @@ function CallLogsPageContent() {
                         </div>
                       </div>
 
-                      {/* 착신 시각 (한 줄로) */}
+                      {/* 시간 */}
                       <div className="col-span-1 text-sm text-gray-600 whitespace-nowrap">
                         {formatCallTimeOneLine(call.callTime)}
                       </div>
@@ -1427,7 +1537,7 @@ function CallLogsPageContent() {
                       </div>
 
                       {/* AI 요약 */}
-                      <div className="col-span-3">
+                      <div className="col-span-2">
                         {call.status === 'analyzing' ? (
                           <div className="h-4 bg-gray-100 rounded animate-pulse w-3/4" />
                         ) : (
@@ -1513,10 +1623,56 @@ function CallLogsPageContent() {
               </div>
 
               {selectedCall.duration > 0 && (
-                <button className="w-full py-2 bg-white border border-gray-200 rounded-lg text-sm hover:bg-gray-50 flex items-center justify-center gap-2">
-                  <Play size={16} className="text-blue-500" />
-                  녹취 재생
-                </button>
+                <div className="space-y-2">
+                  <div className="flex gap-2">
+                    <button
+                      type="button"
+                      onClick={() => {
+                        console.log('[녹취] 버튼 직접 클릭');
+                        handlePlayRecording();
+                      }}
+                      disabled={audioLoading}
+                      className={`flex-1 py-2 rounded-lg text-sm flex items-center justify-center gap-2 transition-colors ${
+                        audioLoading
+                          ? 'bg-gray-400 text-white cursor-wait'
+                          : isPlaying
+                            ? 'bg-amber-500 text-white hover:bg-amber-600'
+                            : 'bg-blue-500 text-white hover:bg-blue-600'
+                      }`}
+                    >
+                      {audioLoading ? (
+                        <>
+                          <Loader2 size={16} className="animate-spin" />
+                          로딩중...
+                        </>
+                      ) : isPlaying ? (
+                        <>
+                          <Pause size={16} />
+                          일시정지
+                        </>
+                      ) : (
+                        <>
+                          <Play size={16} />
+                          녹취 재생
+                        </>
+                      )}
+                    </button>
+                    {isPlaying && (
+                      <button
+                        onClick={handleStopRecording}
+                        className="px-3 py-2 bg-red-500 text-white rounded-lg hover:bg-red-600 transition-colors"
+                      >
+                        <Square size={14} />
+                      </button>
+                    )}
+                  </div>
+                  {audioError && (
+                    <div className="p-2 bg-red-100 text-red-600 text-sm rounded-lg flex items-center gap-2">
+                      <AlertCircle size={16} />
+                      {audioError}
+                    </div>
+                  )}
+                </div>
               )}
             </div>
 
@@ -1572,7 +1728,7 @@ function CallLogsPageContent() {
 
                 {selectedCall.summary && (
                   <div className="mt-3 pt-3 border-t border-purple-100">
-                    <p className="text-sm text-gray-700">{selectedCall.summary}</p>
+                    <p className="text-sm text-gray-700 whitespace-pre-line">{selectedCall.summary}</p>
                   </div>
                 )}
               </div>

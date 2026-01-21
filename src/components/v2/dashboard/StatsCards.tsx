@@ -10,6 +10,10 @@ interface TodayStats {
   newPatients: number;
   callbackCount: number;
   missed: number;
+  trend?: {
+    totalCalls: number;
+    newPatients: number;
+  };
 }
 
 interface StatsCardsProps {
@@ -42,11 +46,13 @@ export function StatsCards({ stats, loading }: StatsCardsProps) {
         value={stats.totalCalls}
         icon={<Phone size={20} />}
         iconBgColor="text-gray-400"
-        trend={{
-          value: 5,
-          isPositive: true,
-          label: '어제보다 5건 증가',
-        }}
+        trend={stats.trend ? {
+          value: Math.abs(stats.trend.totalCalls),
+          isPositive: stats.trend.totalCalls >= 0,
+          label: stats.trend.totalCalls !== 0
+            ? `어제보다 ${Math.abs(stats.trend.totalCalls)}건 ${stats.trend.totalCalls >= 0 ? '증가' : '감소'}`
+            : '어제와 동일',
+        } : undefined}
       />
 
       <StatsCard

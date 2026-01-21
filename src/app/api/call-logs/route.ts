@@ -40,6 +40,7 @@ function normalizePhone(phone: string): string {
 // 🔥 제외할 전화번호 목록 (통화기록에 저장하지 않음)
 const EXCLUDED_PHONE_NUMBERS = [
   '07047414471',  // 070-4741-4471
+  '0315672278',   // 031-567-2278 치과 대표번호 (내부 통화 제외)
 ];
 
 // 전화번호 포맷팅 (010-1234-5678 형식)
@@ -333,32 +334,77 @@ export async function POST(request: NextRequest) {
       const fiveMinutesAgo = new Date(Date.now() - 5 * 60 * 1000).toISOString();
       const formattedCaller = formatPhone(callerNumber);
 
-      // 🔥 전화번호 매칭 개선: 포맷된 형식과 정규화된 형식 둘 다 검색
-      const existingCall = await callLogsCollection.findOne(
-        {
-          $or: [
-            { callerNumber: formattedCaller },
-            { callerNumber: normalizedCaller },
-            { callerNumber: callerNumber }
-          ],
-          callStatus: 'ringing',
-          ringTime: { $gte: fiveMinutesAgo }
-        },
-        { sort: { ringTime: -1 } }
-      );
+      // 🔥 재시도 로직: ring 이벤트와 거의 동시에 올 수 있어서 최대 3회 재시도
+      let existingCall = null;
+      const maxRetries = 3;
+      const retryDelayMs = 500; // 0.5초
+
+      for (let attempt = 1; attempt <= maxRetries; attempt++) {
+        existingCall = await callLogsCollection.findOne(
+          {
+            $or: [
+              { callerNumber: formattedCaller },
+              { callerNumber: normalizedCaller },
+              { callerNumber: callerNumber }
+            ],
+            callStatus: 'ringing',
+            ringTime: { $gte: fiveMinutesAgo }
+          },
+          { sort: { ringTime: -1 } }
+        );
+
+        if (existingCall) {
+          break;
+        }
+
+        if (attempt < maxRetries) {
+          console.log(`[CallLog] start 이벤트: ringing 기록 없음, 재시도 ${attempt}/${maxRetries}...`);
+          await new Promise(resolve => setTimeout(resolve, retryDelayMs));
+        }
+      }
 
       if (existingCall) {
+        // ★ 착신번호(calledNumber)도 업데이트 - 실제로 받은 전화기 번호
+        const actualCalledNumber = calledNumber ? formatPhone(calledNumber) : existingCall.calledNumber;
         await callLogsCollection.updateOne(
           { _id: existingCall._id },
           {
             $set: {
               callStatus: 'answered',
               callStartTime: timestamp || now,
+              calledNumber: actualCalledNumber,  // 실제로 받은 착신번호
               updatedAt: now
             }
           }
         );
-        console.log(`[CallLog] 통화 시작 업데이트: ${existingCall.callId}`);
+        console.log(`[CallLog] 통화 시작 업데이트: ${existingCall.callId} (착신: ${actualCalledNumber})`);
+
+        // 🔥 V2 컬렉션도 함께 업데이트
+        try {
+          const { db } = await connectToDatabase();
+          const fiveMinutesAgo = new Date(Date.now() - 5 * 60 * 1000);
+          const v2Result = await db.collection('callLogs_v2').findOneAndUpdate(
+            {
+              phone: formattedCaller,
+              direction: 'inbound',
+              status: 'ringing',
+              createdAt: { $gte: fiveMinutesAgo }
+            },
+            {
+              $set: {
+                status: 'connected',
+                calledNumber: actualCalledNumber,  // ★ 착신번호 업데이트
+                updatedAt: new Date()
+              }
+            },
+            { sort: { createdAt: -1 }, returnDocument: 'after' }
+          );
+          if (v2Result) {
+            console.log(`[CallLog V2] 통화 시작 업데이트 완료 (착신: ${actualCalledNumber})`);
+          }
+        } catch (v2Error) {
+          console.error(`[CallLog V2] 업데이트 실패:`, v2Error);
+        }
 
         return NextResponse.json({
           success: true,
@@ -367,11 +413,57 @@ export async function POST(request: NextRequest) {
         });
       }
 
-      // 🔥 기존 기록이 없으면 새로 생성하지 않음 (ring 이벤트가 먼저 와야 함)
-      console.log(`[CallLog] start 이벤트: 매칭되는 ringing 기록 없음 (무시)`);
+      // 🔥 재시도 후에도 없으면 새로 생성 (ring 이벤트 유실 대비)
+      console.log(`[CallLog] start 이벤트: ringing 기록 없음, 새로 생성`);
+      const newCallId = callId || `call-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`;
+      const newCallLog: CallLog = {
+        callId: newCallId,
+        callDirection: 'inbound',
+        callerNumber: formatPhone(callerNumber),
+        calledNumber: formatPhone(calledNumber || ''),
+        phoneNumber: formatPhone(callerNumber),
+        callStatus: 'answered',  // 바로 answered로 생성
+        ringTime: timestamp || now,
+        callStartTime: timestamp || now,
+        isMissed: false,
+        patientId: patient?._id?.toString(),
+        patientName: patient?.name,
+        createdAt: now,
+        updatedAt: now
+      };
+
+      await callLogsCollection.insertOne(newCallLog);
+      console.log(`[CallLog] start로 새 통화기록 생성: ${newCallId}`);
+
+      // 🔥 V2에도 새 레코드 생성 (ring 이벤트 유실 대비)
+      try {
+        const { db } = await connectToDatabase();
+        const v2CallLog = {
+          phone: formatPhone(callerNumber),
+          patientId: patient?._id?.toString() || null,
+          direction: 'inbound',
+          status: 'connected',
+          duration: 0,
+          startedAt: new Date(timestamp || now),
+          endedAt: null,
+          callerNumber: callerNumber || '',
+          calledNumber: calledNumber || '',
+          recordingUrl: null,
+          aiStatus: 'pending',
+          aiAnalysis: null,
+          createdAt: new Date(),
+          updatedAt: new Date(),
+        };
+        await db.collection('callLogs_v2').insertOne(v2CallLog);
+        console.log(`[CallLog V2] start로 새 통화기록 생성`);
+      } catch (v2Error) {
+        console.error(`[CallLog V2] 새 레코드 생성 실패:`, v2Error);
+      }
+
       return NextResponse.json({
         success: true,
-        message: 'No matching ringing call found, ignored'
+        message: 'Call started (new record created)',
+        callId: newCallId
       });
 
     } else if (eventType === 'end') {
@@ -401,6 +493,8 @@ export async function POST(request: NextRequest) {
           );
         }
 
+        const wasMissed = existingCall.callStatus === 'ringing'; // ringing에서 바로 end면 부재중
+
         await callLogsCollection.updateOne(
           { _id: existingCall._id },
           {
@@ -408,12 +502,48 @@ export async function POST(request: NextRequest) {
               callStatus: 'ended',
               callEndTime: endTime,
               duration: duration,
-              isMissed: existingCall.callStatus === 'ringing', // ringing에서 바로 end면 부재중
+              isMissed: wasMissed,
               updatedAt: now
             }
           }
         );
         console.log(`[CallLog] 통화 종료 업데이트: ${existingCall.callId}, 통화시간: ${duration}초`);
+
+        // 🔥 V2 컬렉션도 함께 업데이트
+        try {
+          const { db } = await connectToDatabase();
+          const fiveMinutesAgo = new Date(Date.now() - 5 * 60 * 1000);
+          const v2Status = wasMissed ? 'missed' : 'connected';
+
+          const v2UpdateData: Record<string, unknown> = {
+            status: v2Status,
+            duration: duration,
+            endedAt: new Date(endTime),
+            updatedAt: new Date()
+          };
+
+          // 부재중이면 aiAnalysis도 설정
+          if (wasMissed) {
+            v2UpdateData.aiStatus = 'completed';
+            v2UpdateData.aiAnalysis = { classification: '부재중', summary: '부재중 통화' };
+          }
+
+          const v2Result = await db.collection('callLogs_v2').findOneAndUpdate(
+            {
+              phone: formattedCaller,
+              direction: 'inbound',
+              status: { $in: ['ringing', 'connected'] },
+              createdAt: { $gte: fiveMinutesAgo }
+            },
+            { $set: v2UpdateData },
+            { sort: { createdAt: -1 }, returnDocument: 'after' }
+          );
+          if (v2Result) {
+            console.log(`[CallLog V2] 통화 종료 업데이트 완료 (${v2Status})`);
+          }
+        } catch (v2Error) {
+          console.error(`[CallLog V2] 종료 업데이트 실패:`, v2Error);
+        }
 
         return NextResponse.json({
           success: true,
@@ -460,6 +590,33 @@ export async function POST(request: NextRequest) {
           }
         );
         console.log(`[CallLog] 부재중 업데이트: ${existingCall.callId}`);
+
+        // 🔥 V2 컬렉션도 함께 업데이트
+        try {
+          const { db } = await connectToDatabase();
+          const v2Result = await db.collection('callLogs_v2').findOneAndUpdate(
+            {
+              phone: formattedCaller,
+              direction: 'inbound',
+              status: 'ringing',
+              createdAt: { $gte: new Date(fiveMinutesAgo) }
+            },
+            {
+              $set: {
+                status: 'missed',
+                aiStatus: 'completed',
+                aiAnalysis: { classification: '부재중', summary: '부재중 통화' },
+                updatedAt: new Date()
+              }
+            },
+            { sort: { createdAt: -1 }, returnDocument: 'after' }
+          );
+          if (v2Result) {
+            console.log(`[CallLog V2] 부재중 업데이트 완료`);
+          }
+        } catch (v2Error) {
+          console.error(`[CallLog V2] 부재중 업데이트 실패:`, v2Error);
+        }
 
         return NextResponse.json({
           success: true,
@@ -586,10 +743,12 @@ export async function POST(request: NextRequest) {
       });
     }
 
-    return NextResponse.json(
-      { success: false, error: 'Invalid eventType' },
-      { status: 400 }
-    );
+    // 🔥 지원하지 않는 eventType은 에러 대신 무시 (timeout, caller_answered 등)
+    console.log(`[CallLog] 지원하지 않는 eventType: ${eventType} (무시)`);
+    return NextResponse.json({
+      success: true,
+      message: `Unsupported eventType: ${eventType}, ignored`
+    });
 
   } catch (error) {
     console.error('[CallLog API] POST 오류:', error);

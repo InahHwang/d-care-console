@@ -1,0 +1,812 @@
+// src/app/v2/reports/page.tsx
+'use client';
+
+export const dynamic = 'force-dynamic';
+
+import React, { useState, useEffect, useCallback, Suspense } from 'react';
+import { useSearchParams } from 'next/navigation';
+import {
+  Calendar,
+  BarChart3,
+  TrendingUp,
+  TrendingDown,
+  Users,
+  Phone,
+  DollarSign,
+  CheckCircle,
+  XCircle,
+  Clock,
+  ChevronLeft,
+  ChevronRight,
+  Sparkles,
+} from 'lucide-react';
+import { PageHeader } from '@/components/v2/layout/PageHeader';
+
+interface DailyReportData {
+  date: string;
+  dayOfWeek: string;
+  summary: {
+    total: number;
+    agreed: number;
+    disagreed: number;
+    pending: number;
+    expectedRevenue: number;
+    actualRevenue: number;
+    totalDiscount: number;
+    avgDiscountRate: number;
+    callbackCount: number;
+    newPatients: number;
+    existingPatients: number;
+    phoneConsultations: number;
+    visitConsultations: number;
+  };
+  patients: Array<{
+    id: string;
+    name: string;
+    phone: string;
+    status: 'agreed' | 'disagreed' | 'pending';
+    type: 'phone' | 'visit';
+    treatment: string;
+    originalAmount: number;
+    finalAmount: number;
+    discountRate: number;
+    discountAmount: number;
+    disagreeReasons: string[];
+    correctionPlan?: string;
+    appointmentDate?: string;
+    callbackDate?: string;
+    consultantName: string;
+    time: string;
+    aiSummary?: string;
+    gender?: '남' | '여';
+    age?: number;
+    memo?: string;
+    inquiry?: string;
+  }>;
+}
+
+interface MonthlyReportData {
+  yearMonth: string;
+  year: number;
+  month: number;
+  stats: {
+    totalCalls: number;
+    connectedCalls: number;
+    missedCalls: number;
+    avgCallDuration: number;
+    newPatients: number;
+    existingPatients: number;
+    conversionRate: number;
+    funnel: Record<string, number>;
+    expectedRevenue: number;
+    actualRevenue: number;
+    avgDealSize: number;
+    totalConsultations: number;
+    agreed: number;
+    disagreed: number;
+    pending: number;
+    agreementRate: number;
+    dailyTrends: Array<{
+      date: string;
+      calls: number;
+      newPatients: number;
+      agreed: number;
+      revenue: number;
+    }>;
+    interestBreakdown: Array<{
+      interest: string;
+      count: number;
+      agreed: number;
+      revenue: number;
+    }>;
+    disagreeReasons: Array<{
+      reason: string;
+      count: number;
+      percentage: number;
+    }>;
+  };
+}
+
+function ReportsPageContent() {
+  const searchParams = useSearchParams();
+  const initialTab = searchParams.get('tab') === 'monthly' ? 'monthly' : 'daily';
+
+  const [activeTab, setActiveTab] = useState<'daily' | 'monthly'>(initialTab);
+  const [selectedDate, setSelectedDate] = useState(
+    new Date().toISOString().split('T')[0]
+  );
+  const [selectedYearMonth, setSelectedYearMonth] = useState(
+    `${new Date().getFullYear()}-${(new Date().getMonth() + 1).toString().padStart(2, '0')}`
+  );
+  const [dailyData, setDailyData] = useState<DailyReportData | null>(null);
+  const [monthlyData, setMonthlyData] = useState<MonthlyReportData | null>(null);
+  const [loading, setLoading] = useState(true);
+
+  const fetchDailyReport = useCallback(async () => {
+    setLoading(true);
+    try {
+      const response = await fetch(`/api/v2/reports/daily/${selectedDate}`);
+      if (!response.ok) throw new Error('Failed to fetch');
+      const result = await response.json();
+      setDailyData(result.data);
+    } catch (error) {
+      console.error('Error fetching daily report:', error);
+    } finally {
+      setLoading(false);
+    }
+  }, [selectedDate]);
+
+  const fetchMonthlyReport = useCallback(async () => {
+    setLoading(true);
+    try {
+      const response = await fetch(`/api/v2/reports/monthly/${selectedYearMonth}`);
+      if (!response.ok) throw new Error('Failed to fetch');
+      const result = await response.json();
+      setMonthlyData(result.data);
+    } catch (error) {
+      console.error('Error fetching monthly report:', error);
+    } finally {
+      setLoading(false);
+    }
+  }, [selectedYearMonth]);
+
+  useEffect(() => {
+    if (activeTab === 'daily') {
+      fetchDailyReport();
+    } else {
+      fetchMonthlyReport();
+    }
+  }, [activeTab, fetchDailyReport, fetchMonthlyReport]);
+
+  const handlePrevDate = () => {
+    const date = new Date(selectedDate);
+    date.setDate(date.getDate() - 1);
+    setSelectedDate(date.toISOString().split('T')[0]);
+  };
+
+  const handleNextDate = () => {
+    const date = new Date(selectedDate);
+    date.setDate(date.getDate() + 1);
+    setSelectedDate(date.toISOString().split('T')[0]);
+  };
+
+  const handlePrevMonth = () => {
+    const [year, month] = selectedYearMonth.split('-').map(Number);
+    const newDate = new Date(year, month - 2, 1);
+    setSelectedYearMonth(
+      `${newDate.getFullYear()}-${(newDate.getMonth() + 1).toString().padStart(2, '0')}`
+    );
+  };
+
+  const handleNextMonth = () => {
+    const [year, month] = selectedYearMonth.split('-').map(Number);
+    const newDate = new Date(year, month, 1);
+    setSelectedYearMonth(
+      `${newDate.getFullYear()}-${(newDate.getMonth() + 1).toString().padStart(2, '0')}`
+    );
+  };
+
+  const getStatusBadge = (status: string) => {
+    switch (status) {
+      case 'agreed':
+        return (
+          <span className="px-2 py-1 text-xs rounded-full bg-green-100 text-green-700">
+            동의
+          </span>
+        );
+      case 'disagreed':
+        return (
+          <span className="px-2 py-1 text-xs rounded-full bg-red-100 text-red-700">
+            미동의
+          </span>
+        );
+      default:
+        return (
+          <span className="px-2 py-1 text-xs rounded-full bg-gray-100 text-gray-700">
+            보류
+          </span>
+        );
+    }
+  };
+
+  return (
+    <div className="p-6 space-y-4">
+      <PageHeader title="리포트" subtitle="일별/월별 상담 및 매출 현황" />
+
+      {/* 탭 */}
+      <div className="bg-white rounded-xl shadow-sm">
+        <div className="flex border-b">
+          <button
+            onClick={() => setActiveTab('daily')}
+            className={`flex-1 py-3 text-center font-medium transition-colors ${
+              activeTab === 'daily'
+                ? 'text-blue-600 border-b-2 border-blue-600'
+                : 'text-gray-500 hover:text-gray-700'
+            }`}
+          >
+            <div className="flex items-center justify-center gap-2">
+              <BarChart3 size={18} />
+              일별 마감
+            </div>
+          </button>
+          <button
+            onClick={() => setActiveTab('monthly')}
+            className={`flex-1 py-3 text-center font-medium transition-colors ${
+              activeTab === 'monthly'
+                ? 'text-blue-600 border-b-2 border-blue-600'
+                : 'text-gray-500 hover:text-gray-700'
+            }`}
+          >
+            <div className="flex items-center justify-center gap-2">
+              <Calendar size={18} />
+              월별 리포트
+            </div>
+          </button>
+        </div>
+
+        {/* 날짜 선택 */}
+        <div className="p-4 border-b">
+          {activeTab === 'daily' ? (
+            <div className="flex items-center justify-center gap-4">
+              <button
+                onClick={handlePrevDate}
+                className="p-2 hover:bg-gray-100 rounded-lg"
+              >
+                <ChevronLeft size={20} />
+              </button>
+              <input
+                type="date"
+                value={selectedDate}
+                onChange={(e) => setSelectedDate(e.target.value)}
+                className="px-4 py-2 border rounded-lg text-center"
+              />
+              <button
+                onClick={handleNextDate}
+                className="p-2 hover:bg-gray-100 rounded-lg"
+              >
+                <ChevronRight size={20} />
+              </button>
+            </div>
+          ) : (
+            <div className="flex items-center justify-center gap-4">
+              <button
+                onClick={handlePrevMonth}
+                className="p-2 hover:bg-gray-100 rounded-lg"
+              >
+                <ChevronLeft size={20} />
+              </button>
+              <input
+                type="month"
+                value={selectedYearMonth}
+                onChange={(e) => setSelectedYearMonth(e.target.value)}
+                className="px-4 py-2 border rounded-lg text-center"
+              />
+              <button
+                onClick={handleNextMonth}
+                className="p-2 hover:bg-gray-100 rounded-lg"
+              >
+                <ChevronRight size={20} />
+              </button>
+            </div>
+          )}
+        </div>
+      </div>
+
+      {loading ? (
+        <div className="bg-white rounded-xl p-12 text-center">
+          <div className="animate-spin w-8 h-8 border-4 border-blue-200 border-t-blue-600 rounded-full mx-auto mb-4" />
+          <p className="text-gray-500">로딩 중...</p>
+        </div>
+      ) : activeTab === 'daily' && dailyData ? (
+        <DailyReportView data={dailyData} getStatusBadge={getStatusBadge} />
+      ) : activeTab === 'monthly' && monthlyData ? (
+        <MonthlyReportView data={monthlyData} />
+      ) : (
+        <div className="bg-white rounded-xl p-12 text-center text-gray-500">
+          데이터가 없습니다.
+        </div>
+      )}
+    </div>
+  );
+}
+
+// 일별 리포트 뷰 - 좌우 분할 레이아웃
+function DailyReportView({
+  data,
+  getStatusBadge,
+}: {
+  data: DailyReportData;
+  getStatusBadge: (status: string) => React.ReactNode;
+}) {
+  const { summary, patients } = data;
+  const [filter, setFilter] = useState<'all' | 'agreed' | 'disagreed' | 'pending'>('all');
+  const [selectedPatientId, setSelectedPatientId] = useState<string | null>(null);
+
+  // 필터된 환자 목록
+  const filteredPatients = patients.filter((p) => {
+    if (filter === 'all') return true;
+    return p.status === filter;
+  });
+
+  // 선택된 환자
+  const selectedPatient = patients.find((p) => p.id === selectedPatientId);
+
+  // 전환율 계산
+  const conversionRate = summary.total > 0
+    ? Math.round((summary.agreed / summary.total) * 100)
+    : 0;
+
+  return (
+    <div className="space-y-4">
+      {/* 요약 카드 */}
+      <div className="grid grid-cols-5 gap-3">
+        <div className="bg-white rounded-xl p-4">
+          <div className="flex items-center gap-2 text-gray-500 mb-2">
+            <Users size={18} />
+            <span className="text-sm">총 상담</span>
+          </div>
+          <div className="text-2xl font-bold">{summary.total}건</div>
+          <div className="text-xs text-gray-400 mt-1">
+            전화 {summary.phoneConsultations || 0} / 내원 {summary.visitConsultations || 0}
+          </div>
+        </div>
+        <div className="bg-green-50 rounded-xl p-4">
+          <div className="flex items-center gap-2 text-green-600 mb-2">
+            <CheckCircle size={18} />
+            <span className="text-sm">동의</span>
+          </div>
+          <div className="text-2xl font-bold text-green-700">{summary.agreed}건</div>
+          <div className="text-xs text-green-500 mt-1">전환율 {conversionRate}%</div>
+        </div>
+        <div className="bg-red-50 rounded-xl p-4">
+          <div className="flex items-center gap-2 text-red-600 mb-2">
+            <XCircle size={18} />
+            <span className="text-sm">미동의</span>
+          </div>
+          <div className="text-2xl font-bold text-red-700">{summary.disagreed}건</div>
+        </div>
+        <div className="bg-amber-50 rounded-xl p-4">
+          <div className="flex items-center gap-2 text-amber-600 mb-2">
+            <Clock size={18} />
+            <span className="text-sm">보류</span>
+          </div>
+          <div className="text-2xl font-bold text-amber-700">{summary.pending}건</div>
+        </div>
+        <div className="bg-blue-50 rounded-xl p-4">
+          <div className="flex items-center gap-2 text-blue-600 mb-2">
+            <DollarSign size={18} />
+            <span className="text-sm">실매출</span>
+          </div>
+          <div className="text-2xl font-bold text-blue-700">{summary.actualRevenue.toLocaleString()}<span className="text-sm font-normal">만원</span></div>
+          <div className="text-xs text-blue-500 mt-1">예상 {summary.expectedRevenue.toLocaleString()}만원</div>
+        </div>
+      </div>
+
+      {/* 진행률 바 */}
+      <div className="bg-white rounded-xl p-4">
+        <div className="flex items-center gap-4 mb-2">
+          <span className="text-sm font-medium text-gray-700">상담 결과 비율</span>
+          <span className="text-xs text-gray-400">총 {summary.total}건</span>
+        </div>
+        <div className="flex h-3 rounded-full overflow-hidden bg-gray-100">
+          {summary.total > 0 && (
+            <>
+              <div
+                className="bg-green-500 transition-all"
+                style={{ width: `${(summary.agreed / summary.total) * 100}%` }}
+                title={`동의 ${summary.agreed}건`}
+              />
+              <div
+                className="bg-red-400 transition-all"
+                style={{ width: `${(summary.disagreed / summary.total) * 100}%` }}
+                title={`미동의 ${summary.disagreed}건`}
+              />
+              <div
+                className="bg-amber-400 transition-all"
+                style={{ width: `${(summary.pending / summary.total) * 100}%` }}
+                title={`보류 ${summary.pending}건`}
+              />
+            </>
+          )}
+        </div>
+        <div className="flex justify-between text-xs mt-2 text-gray-500">
+          <span className="flex items-center gap-1"><span className="w-2 h-2 rounded-full bg-green-500"></span>동의 {summary.agreed}건 ({summary.total > 0 ? Math.round(summary.agreed / summary.total * 100) : 0}%)</span>
+          <span className="flex items-center gap-1"><span className="w-2 h-2 rounded-full bg-red-400"></span>미동의 {summary.disagreed}건 ({summary.total > 0 ? Math.round(summary.disagreed / summary.total * 100) : 0}%)</span>
+          <span className="flex items-center gap-1"><span className="w-2 h-2 rounded-full bg-amber-400"></span>보류 {summary.pending}건 ({summary.total > 0 ? Math.round(summary.pending / summary.total * 100) : 0}%)</span>
+        </div>
+      </div>
+
+      {/* 좌우 분할 - 목록 + 상세 */}
+      <div className="grid grid-cols-2 gap-4" style={{ minHeight: '500px' }}>
+        {/* 왼쪽: 환자 목록 */}
+        <div className="bg-white rounded-xl overflow-hidden flex flex-col">
+          {/* 필터 탭 */}
+          <div className="flex border-b">
+            {[
+              { key: 'all', label: '전체', count: summary.total },
+              { key: 'agreed', label: '동의', count: summary.agreed, color: 'text-green-600' },
+              { key: 'disagreed', label: '미동의', count: summary.disagreed, color: 'text-red-600' },
+              { key: 'pending', label: '보류', count: summary.pending, color: 'text-amber-600' },
+            ].map((tab) => (
+              <button
+                key={tab.key}
+                onClick={() => setFilter(tab.key as typeof filter)}
+                className={`flex-1 py-2.5 text-sm font-medium transition-colors ${
+                  filter === tab.key
+                    ? `${tab.color || 'text-blue-600'} border-b-2 border-current bg-gray-50`
+                    : 'text-gray-500 hover:text-gray-700'
+                }`}
+              >
+                {tab.label} ({tab.count})
+              </button>
+            ))}
+          </div>
+
+          {/* 환자 목록 */}
+          <div className="flex-1 overflow-auto divide-y">
+            {filteredPatients.length === 0 ? (
+              <div className="p-8 text-center text-gray-500">해당 조건의 상담 내역이 없습니다.</div>
+            ) : (
+              filteredPatients.map((patient) => (
+                <button
+                  key={patient.id}
+                  onClick={() => setSelectedPatientId(patient.id)}
+                  className={`w-full p-3 text-left hover:bg-gray-50 transition-colors ${
+                    selectedPatientId === patient.id ? 'bg-blue-50 border-l-4 border-blue-500' : ''
+                  }`}
+                >
+                  <div className="flex items-center justify-between mb-1">
+                    <div className="flex items-center gap-2">
+                      <span className="font-medium">{patient.name}</span>
+                      {patient.gender && patient.age && (
+                        <span className="text-xs text-gray-400">{patient.gender}/{patient.age}세</span>
+                      )}
+                      {getStatusBadge(patient.status)}
+                    </div>
+                    <span className="text-xs text-gray-400">{patient.time}</span>
+                  </div>
+                  <div className="flex items-center gap-2 text-sm text-gray-500">
+                    <span className={`px-1.5 py-0.5 rounded text-xs ${patient.type === 'phone' ? 'bg-blue-100 text-blue-600' : 'bg-purple-100 text-purple-600'}`}>
+                      {patient.type === 'phone' ? '전화' : '내원'}
+                    </span>
+                    <span>{patient.treatment}</span>
+                    {patient.status === 'agreed' && patient.finalAmount > 0 && (
+                      <span className="text-green-600 font-medium">{patient.finalAmount.toLocaleString()}만원</span>
+                    )}
+                  </div>
+                  {patient.status === 'disagreed' && patient.disagreeReasons.length > 0 && (
+                    <div className="text-xs text-red-500 mt-1 truncate">
+                      {patient.disagreeReasons[0]}{patient.disagreeReasons.length > 1 && ` 외 ${patient.disagreeReasons.length - 1}건`}
+                    </div>
+                  )}
+                </button>
+              ))
+            )}
+          </div>
+        </div>
+
+        {/* 오른쪽: 상세 패널 */}
+        <div className="bg-white rounded-xl overflow-hidden">
+          {selectedPatient ? (
+            <div className="h-full overflow-auto">
+              {/* 헤더 */}
+              <div className="p-4 border-b bg-gray-50">
+                <div className="flex items-center justify-between mb-2">
+                  <div className="flex items-center gap-3">
+                    <span className="text-lg font-bold">{selectedPatient.name}</span>
+                    {selectedPatient.gender && selectedPatient.age && (
+                      <span className="text-sm text-gray-500">{selectedPatient.gender} / {selectedPatient.age}세</span>
+                    )}
+                  </div>
+                  {getStatusBadge(selectedPatient.status)}
+                </div>
+                <div className="flex items-center gap-4 text-sm text-gray-500">
+                  <span>{selectedPatient.phone}</span>
+                  <span>·</span>
+                  <span className={`px-2 py-0.5 rounded text-xs font-medium ${selectedPatient.type === 'phone' ? 'bg-blue-100 text-blue-600' : 'bg-purple-100 text-purple-600'}`}>
+                    {selectedPatient.type === 'phone' ? '전화상담' : '내원상담'}
+                  </span>
+                  <span>·</span>
+                  <span>{selectedPatient.time}</span>
+                </div>
+              </div>
+
+              {/* 상담 정보 */}
+              <div className="p-4 space-y-4">
+                {/* 치료 및 금액 */}
+                <div className="grid grid-cols-2 gap-4">
+                  <div>
+                    <div className="text-xs text-gray-500 mb-1">관심 치료</div>
+                    <div className="font-medium text-blue-600">{selectedPatient.treatment}</div>
+                  </div>
+                  <div>
+                    <div className="text-xs text-gray-500 mb-1">담당자</div>
+                    <div className="font-medium">{selectedPatient.consultantName}</div>
+                  </div>
+                </div>
+
+                {/* 금액 정보 (동의 시) */}
+                {selectedPatient.status === 'agreed' && selectedPatient.originalAmount > 0 && (
+                  <div className="bg-green-50 rounded-lg p-4">
+                    <div className="flex items-center gap-2 text-green-700 font-medium mb-3">
+                      <CheckCircle size={16} />
+                      동의 - 예약 확정
+                    </div>
+                    <div className="grid grid-cols-3 gap-4 text-sm">
+                      <div>
+                        <div className="text-gray-500">원래 금액</div>
+                        <div className="font-medium">{selectedPatient.originalAmount.toLocaleString()}만원</div>
+                      </div>
+                      <div>
+                        <div className="text-gray-500">할인</div>
+                        <div className="font-medium text-orange-600">
+                          {selectedPatient.discountRate}% ({selectedPatient.discountAmount?.toLocaleString() || 0}만원)
+                        </div>
+                      </div>
+                      <div>
+                        <div className="text-gray-500">최종 금액</div>
+                        <div className="font-bold text-green-700">{selectedPatient.finalAmount.toLocaleString()}만원</div>
+                      </div>
+                    </div>
+                    {selectedPatient.appointmentDate && (
+                      <div className="mt-3 pt-3 border-t border-green-200 flex items-center gap-2 text-green-700">
+                        <Calendar size={14} />
+                        <span className="text-sm">예약일: {selectedPatient.appointmentDate}</span>
+                      </div>
+                    )}
+                  </div>
+                )}
+
+                {/* 미동의 정보 */}
+                {selectedPatient.status === 'disagreed' && (
+                  <div className="bg-red-50 rounded-lg p-4">
+                    <div className="flex items-center gap-2 text-red-700 font-medium mb-3">
+                      <XCircle size={16} />
+                      미동의
+                    </div>
+                    {selectedPatient.disagreeReasons.length > 0 && (
+                      <div className="mb-3">
+                        <div className="text-xs text-gray-500 mb-2">미동의 사유</div>
+                        <div className="flex flex-wrap gap-1">
+                          {selectedPatient.disagreeReasons.map((reason, idx) => (
+                            <span key={idx} className="px-2 py-1 bg-red-100 text-red-700 text-xs rounded">
+                              {reason}
+                            </span>
+                          ))}
+                        </div>
+                      </div>
+                    )}
+                    {selectedPatient.correctionPlan && (
+                      <div>
+                        <div className="text-xs text-gray-500 mb-1">시정 계획</div>
+                        <div className="text-sm p-2 bg-white rounded border">{selectedPatient.correctionPlan}</div>
+                      </div>
+                    )}
+                    {selectedPatient.callbackDate && (
+                      <div className="mt-3 pt-3 border-t border-red-200 flex items-center gap-2 text-red-700">
+                        <Calendar size={14} />
+                        <span className="text-sm">콜백 예정: {selectedPatient.callbackDate}</span>
+                      </div>
+                    )}
+                  </div>
+                )}
+
+                {/* 보류 정보 */}
+                {selectedPatient.status === 'pending' && (
+                  <div className="bg-amber-50 rounded-lg p-4">
+                    <div className="flex items-center gap-2 text-amber-700 font-medium mb-3">
+                      <Clock size={16} />
+                      보류
+                    </div>
+                    {selectedPatient.callbackDate && (
+                      <div className="flex items-center gap-2 text-amber-700">
+                        <Calendar size={14} />
+                        <span className="text-sm">콜백 예정: {selectedPatient.callbackDate}</span>
+                      </div>
+                    )}
+                  </div>
+                )}
+
+                {/* 문의 내용 */}
+                {selectedPatient.inquiry && (
+                  <div>
+                    <div className="text-xs text-gray-500 mb-1">환자 문의사항</div>
+                    <div className="text-sm p-3 bg-gray-50 rounded-lg">{selectedPatient.inquiry}</div>
+                  </div>
+                )}
+
+                {/* 메모 */}
+                {selectedPatient.memo && (
+                  <div>
+                    <div className="text-xs text-gray-500 mb-1">상담사 메모</div>
+                    <div className="text-sm p-3 bg-gray-50 rounded-lg">{selectedPatient.memo}</div>
+                  </div>
+                )}
+
+                {/* AI 요약 */}
+                {selectedPatient.aiSummary && (
+                  <div className="p-3 bg-purple-50 rounded-lg">
+                    <div className="flex items-center gap-2 text-purple-700 mb-2">
+                      <Sparkles size={14} />
+                      <span className="text-xs font-medium">AI 요약</span>
+                    </div>
+                    <div className="text-sm text-purple-700">{selectedPatient.aiSummary}</div>
+                  </div>
+                )}
+              </div>
+            </div>
+          ) : (
+            <div className="h-full flex items-center justify-center text-gray-400">
+              <div className="text-center">
+                <Users size={48} className="mx-auto mb-3 opacity-50" />
+                <p>환자를 선택하면 상세 정보가 표시됩니다</p>
+              </div>
+            </div>
+          )}
+        </div>
+      </div>
+    </div>
+  );
+}
+
+// 월별 리포트 뷰
+function MonthlyReportView({ data }: { data: MonthlyReportData }) {
+  const { stats } = data;
+
+  return (
+    <div className="space-y-4">
+      {/* 주요 지표 */}
+      <div className="grid grid-cols-4 gap-4">
+        <div className="bg-white rounded-xl p-4">
+          <div className="flex items-center gap-2 text-gray-500 mb-2">
+            <Phone size={18} />
+            <span className="text-sm">총 통화</span>
+          </div>
+          <div className="text-2xl font-bold">{stats.totalCalls}건</div>
+          <div className="text-xs text-gray-400 mt-1">
+            연결 {stats.connectedCalls} / 부재 {stats.missedCalls}
+          </div>
+        </div>
+        <div className="bg-blue-50 rounded-xl p-4">
+          <div className="flex items-center gap-2 text-blue-600 mb-2">
+            <Users size={18} />
+            <span className="text-sm">신규 환자</span>
+          </div>
+          <div className="text-2xl font-bold text-blue-700">{stats.newPatients}명</div>
+          <div className="text-xs text-blue-500 mt-1">
+            전환율 {stats.conversionRate}%
+          </div>
+        </div>
+        <div className="bg-green-50 rounded-xl p-4">
+          <div className="flex items-center gap-2 text-green-600 mb-2">
+            <DollarSign size={18} />
+            <span className="text-sm">실제 매출</span>
+          </div>
+          <div className="text-2xl font-bold text-green-700">
+            {stats.actualRevenue.toLocaleString()}만원
+          </div>
+          <div className="text-xs text-green-500 mt-1">
+            평균 {stats.avgDealSize.toLocaleString()}만원
+          </div>
+        </div>
+        <div className="bg-purple-50 rounded-xl p-4">
+          <div className="flex items-center gap-2 text-purple-600 mb-2">
+            <TrendingUp size={18} />
+            <span className="text-sm">동의율</span>
+          </div>
+          <div className="text-2xl font-bold text-purple-700">{stats.agreementRate}%</div>
+          <div className="text-xs text-purple-500 mt-1">
+            {stats.agreed}/{stats.totalConsultations}건
+          </div>
+        </div>
+      </div>
+
+      {/* 퍼널 현황 */}
+      <div className="bg-white rounded-xl p-4">
+        <h3 className="font-medium mb-4">퍼널 현황</h3>
+        <div className="flex items-center gap-2">
+          {Object.entries(stats.funnel).map(([stage, count], index, arr) => (
+            <React.Fragment key={stage}>
+              <div className="flex-1 text-center">
+                <div className="text-2xl font-bold text-gray-700">{count}</div>
+                <div className="text-xs text-gray-500">
+                  {stage === 'consulting' && '전화상담'}
+                  {stage === 'reserved' && '내원예약'}
+                  {stage === 'visited' && '내원완료'}
+                  {stage === 'treatment' && '치료중'}
+                  {stage === 'completed' && '치료완료'}
+                  {stage === 'followup' && '사후관리'}
+                </div>
+              </div>
+              {index < arr.length - 1 && (
+                <div className="text-gray-300">→</div>
+              )}
+            </React.Fragment>
+          ))}
+        </div>
+      </div>
+
+      {/* 관심분야별 & 미동의 사유 */}
+      <div className="grid grid-cols-2 gap-4">
+        {/* 관심분야별 */}
+        <div className="bg-white rounded-xl p-4">
+          <h3 className="font-medium mb-4">관심분야별 현황</h3>
+          <div className="space-y-3">
+            {stats.interestBreakdown.slice(0, 5).map((item) => (
+              <div key={item.interest} className="flex items-center justify-between">
+                <span className="text-gray-700">{item.interest}</span>
+                <div className="text-right">
+                  <span className="font-medium">{item.count}건</span>
+                  <span className="text-sm text-gray-400 ml-2">
+                    ({item.revenue.toLocaleString()}만원)
+                  </span>
+                </div>
+              </div>
+            ))}
+          </div>
+        </div>
+
+        {/* 미동의 사유 */}
+        <div className="bg-white rounded-xl p-4">
+          <h3 className="font-medium mb-4">미동의 사유 분석</h3>
+          <div className="space-y-3">
+            {stats.disagreeReasons.slice(0, 5).map((item) => (
+              <div key={item.reason} className="flex items-center justify-between">
+                <span className="text-gray-700">{item.reason}</span>
+                <div className="flex items-center gap-2">
+                  <div className="w-24 h-2 bg-gray-100 rounded-full overflow-hidden">
+                    <div
+                      className="h-full bg-red-400 rounded-full"
+                      style={{ width: `${item.percentage}%` }}
+                    />
+                  </div>
+                  <span className="text-sm text-gray-500 w-12 text-right">
+                    {item.percentage}%
+                  </span>
+                </div>
+              </div>
+            ))}
+            {stats.disagreeReasons.length === 0 && (
+              <div className="text-gray-400 text-center py-4">데이터 없음</div>
+            )}
+          </div>
+        </div>
+      </div>
+
+      {/* 일별 추이 (간단 차트) */}
+      <div className="bg-white rounded-xl p-4">
+        <h3 className="font-medium mb-4">일별 추이</h3>
+        <div className="h-48 flex items-end gap-1">
+          {stats.dailyTrends.map((day) => {
+            const maxCalls = Math.max(...stats.dailyTrends.map((d) => d.calls), 1);
+            const height = (day.calls / maxCalls) * 100;
+
+            return (
+              <div
+                key={day.date}
+                className="flex-1 flex flex-col items-center"
+                title={`${day.date}: ${day.calls}건`}
+              >
+                <div
+                  className="w-full bg-blue-400 rounded-t hover:bg-blue-500 transition-colors"
+                  style={{ height: `${height}%`, minHeight: day.calls > 0 ? '4px' : '0' }}
+                />
+                <span className="text-[10px] text-gray-400 mt-1">
+                  {day.date.split('-')[2]}
+                </span>
+              </div>
+            );
+          })}
+        </div>
+      </div>
+    </div>
+  );
+}
+
+export default function ReportsPage() {
+  return (
+    <Suspense fallback={<div className="p-6 animate-pulse">로딩 중...</div>}>
+      <ReportsPageContent />
+    </Suspense>
+  );
+}

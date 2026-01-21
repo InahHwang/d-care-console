@@ -14,6 +14,7 @@ import {
   Award,
   TrendingUp,
   Filter,
+  Trash2,
 } from 'lucide-react';
 import type { PatientStatus } from '@/types/v2';
 
@@ -105,6 +106,30 @@ export default function ReferralsPage() {
       }
     } catch (error) {
       console.error('Failed to update thanks status:', error);
+    }
+  };
+
+  const handleDelete = async (id: string, referrerName: string, referredName: string) => {
+    const confirmed = window.confirm(
+      `"${referrerName} → ${referredName}" 소개 관계를 삭제하시겠습니까?\n\n삭제 후 복구할 수 없습니다.`
+    );
+
+    if (!confirmed) return;
+
+    try {
+      const response = await fetch(`/api/v2/referrals?id=${id}`, {
+        method: 'DELETE',
+      });
+
+      if (response.ok) {
+        fetchReferrals();
+      } else {
+        const result = await response.json();
+        alert(result.error || '삭제에 실패했습니다.');
+      }
+    } catch (error) {
+      console.error('Failed to delete referral:', error);
+      alert('삭제에 실패했습니다.');
     }
   };
 
@@ -210,12 +235,12 @@ export default function ReferralsPage() {
                     key={referral.id}
                     className="p-4 hover:bg-gray-50 transition-colors"
                   >
-                    <div className="flex items-center gap-4">
+                    <div className="flex items-center justify-between gap-4">
                       {/* 소개자 */}
-                      <div className="flex-1">
+                      <div className="flex-1 min-w-0">
                         <div className="text-xs text-gray-400 mb-1">소개자</div>
                         <div
-                          className="font-medium text-gray-900 cursor-pointer hover:text-blue-600"
+                          className="font-medium text-gray-900 cursor-pointer hover:text-blue-600 truncate"
                           onClick={() => handlePatientClick(referral.referrerId)}
                         >
                           {referral.referrerName}
@@ -229,10 +254,10 @@ export default function ReferralsPage() {
                       <div className="text-gray-300">→</div>
 
                       {/* 피소개자 */}
-                      <div className="flex-1">
+                      <div className="flex-1 min-w-0">
                         <div className="text-xs text-gray-400 mb-1">피소개자</div>
                         <div
-                          className="font-medium text-gray-900 cursor-pointer hover:text-blue-600"
+                          className="font-medium text-gray-900 cursor-pointer hover:text-blue-600 truncate"
                           onClick={() => handlePatientClick(referral.referredId)}
                         >
                           {referral.referredName}
@@ -246,30 +271,30 @@ export default function ReferralsPage() {
                       </div>
 
                       {/* 관심분야 */}
-                      <div className="w-24 text-center">
+                      <div className="flex-1 min-w-0 text-center">
                         <div className="text-xs text-gray-400 mb-1">관심분야</div>
-                        <div className="text-sm font-medium text-gray-700">
+                        <div className="text-sm font-medium text-gray-700 truncate">
                           {referral.referredInterest || '-'}
                         </div>
                       </div>
 
                       {/* 등록일 */}
-                      <div className="w-24 text-center">
+                      <div className="flex-1 min-w-0 text-center">
                         <div className="text-xs text-gray-400 mb-1">등록일</div>
-                        <div className="text-sm text-gray-600">
+                        <div className="text-sm text-gray-600 whitespace-nowrap">
                           {formatDate(referral.createdAt)}
                         </div>
                       </div>
 
                       {/* 감사 상태 */}
-                      <div className="flex items-center gap-2">
+                      <div className="flex-1 min-w-0 text-center">
                         {referral.thanksSent ? (
-                          <div className="flex items-center gap-1 text-green-600 text-sm">
+                          <div className="flex items-center justify-center gap-1 text-green-600 text-sm whitespace-nowrap">
                             <CheckCircle className="w-4 h-4" />
                             감사 완료
                           </div>
                         ) : (
-                          <div className="flex items-center gap-1 text-amber-600 text-sm">
+                          <div className="flex items-center justify-center gap-1 text-amber-600 text-sm whitespace-nowrap">
                             <Clock className="w-4 h-4" />
                             감사 대기
                           </div>
@@ -295,6 +320,13 @@ export default function ReferralsPage() {
                           title={referral.thanksSent ? '감사 취소' : '감사 완료'}
                         >
                           <Gift className="w-4 h-4" />
+                        </button>
+                        <button
+                          onClick={() => handleDelete(referral.id, referral.referrerName, referral.referredName)}
+                          className="p-2 bg-red-100 text-red-600 rounded-lg hover:bg-red-200 transition-colors"
+                          title="삭제"
+                        >
+                          <Trash2 className="w-4 h-4" />
                         </button>
                       </div>
                     </div>

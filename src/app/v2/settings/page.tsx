@@ -14,7 +14,11 @@ import {
   CheckCircle,
   Building,
   Tags,
+  BookOpen,
+  RefreshCw,
 } from 'lucide-react';
+import ManualSettings from '@/components/v2/settings/ManualSettings';
+import RecallSettings from '@/components/v2/settings/RecallSettings';
 
 interface SettingsData {
   clinicName: string;
@@ -40,7 +44,7 @@ interface SettingsData {
   };
 }
 
-type TabType = 'general' | 'categories';
+type TabType = 'general' | 'categories' | 'manuals' | 'recall';
 
 export default function SettingsPage() {
   const [activeTab, setActiveTab] = useState<TabType>('general');
@@ -162,12 +166,48 @@ export default function SettingsPage() {
           <Tags className="w-4 h-4" />
           카테고리 관리
         </button>
+        <button
+          onClick={() => setActiveTab('manuals')}
+          className={`flex items-center gap-2 px-4 py-2 rounded-t-lg font-medium text-sm transition-colors ${
+            activeTab === 'manuals'
+              ? 'bg-white border border-b-white border-gray-200 -mb-[3px] text-blue-600'
+              : 'text-gray-500 hover:text-gray-700 hover:bg-gray-50'
+          }`}
+        >
+          <BookOpen className="w-4 h-4" />
+          상담 매뉴얼
+        </button>
+        <button
+          onClick={() => setActiveTab('recall')}
+          className={`flex items-center gap-2 px-4 py-2 rounded-t-lg font-medium text-sm transition-colors ${
+            activeTab === 'recall'
+              ? 'bg-white border border-b-white border-gray-200 -mb-[3px] text-blue-600'
+              : 'text-gray-500 hover:text-gray-700 hover:bg-gray-50'
+          }`}
+        >
+          <RefreshCw className="w-4 h-4" />
+          리콜 발송 설정
+        </button>
       </div>
 
       {/* 카테고리 관리 탭 */}
       {activeTab === 'categories' && (
         <section className="bg-white rounded-xl border border-gray-100 p-6">
           <PatientCategorySettings />
+        </section>
+      )}
+
+      {/* 상담 매뉴얼 탭 */}
+      {activeTab === 'manuals' && (
+        <section className="bg-white rounded-xl border border-gray-100 p-6">
+          <ManualSettings />
+        </section>
+      )}
+
+      {/* 리콜 발송 설정 탭 */}
+      {activeTab === 'recall' && (
+        <section className="bg-white rounded-xl border border-gray-100 p-6">
+          <RecallSettings />
         </section>
       )}
 

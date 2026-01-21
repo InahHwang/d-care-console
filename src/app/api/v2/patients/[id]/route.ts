@@ -2,7 +2,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { connectToDatabase } from '@/utils/mongodb';
 import { ObjectId } from 'mongodb';
-import { PatientStatus, Temperature } from '@/types/v2';
+import { PatientStatus, Temperature, CallbackReason, CallbackHistoryEntry } from '@/types/v2';
 
 export const dynamic = 'force-dynamic';
 
@@ -62,6 +62,7 @@ export async function GET(
         statusChangedAt: patient.statusChangedAt,
         nextAction: patient.nextAction || '',
         nextActionDate: patient.nextActionDate,
+        callbackHistory: patient.callbackHistory || [],
         callCount: patient.callCount || 0,
         memo: patient.memo || '',
         tags: patient.tags || [],
@@ -76,6 +77,9 @@ export async function GET(
         // 치료 진행 관련 필드
         treatmentStartDate: patient.treatmentStartDate || null,
         expectedCompletionDate: patient.expectedCompletionDate || null,
+        // 여정(Journey) 관련 필드
+        journeys: patient.journeys || [],
+        activeJourneyId: patient.activeJourneyId || null,
       },
       callLogs: callLogs.map((log) => ({
         id: log._id.toString(),
@@ -130,7 +134,12 @@ export async function PATCH(
       // 금액 관련 필드
       estimatedAmount, actualAmount, paymentStatus, treatmentNote,
       // 치료 진행 관련 필드
-      treatmentStartDate, expectedCompletionDate
+      treatmentStartDate, expectedCompletionDate,
+      // 🆕 예정일 변경 관련 필드
+      updateType,          // 'status' | 'schedule' - schedule이면 예정일만 변경
+      callbackReason,      // 콜백 사유: 'no_answer' | 'postponed' | 'considering'
+      callbackNote,        // 콜백 메모
+      newScheduleDate,     // 새 예정일 (updateType === 'schedule'일 때)
     } = body;
 
     const { db } = await connectToDatabase();
@@ -144,6 +153,54 @@ export async function PATCH(
 
     // statusHistory에 추가할 항목
     let statusHistoryEntry = null;
+
+    // 콜백 이력에 추가할 항목
+    let callbackHistoryEntry: CallbackHistoryEntry | null = null;
+
+    // 🆕 예정일만 변경하는 경우 (updateType === 'schedule')
+    if (updateType === 'schedule' && newScheduleDate !== undefined) {
+      // 이전 예정일을 콜백 이력에 저장
+      if (currentPatient?.nextActionDate) {
+        callbackHistoryEntry = {
+          scheduledAt: currentPatient.nextActionDate,
+          reason: callbackReason as CallbackReason || undefined,
+          note: callbackNote || undefined,
+          createdAt: new Date(),
+        };
+      }
+
+      // 새 예정일 설정
+      updateData.nextActionDate = newScheduleDate ? new Date(newScheduleDate) : null;
+      // 🆕 현재 예정일에 대한 메모도 저장
+      updateData.nextActionNote = callbackNote || null;
+
+      // 활성 여정에도 예정일 업데이트
+      if (currentPatient?.activeJourneyId) {
+        await db.collection('patients_v2').updateOne(
+          { _id: new ObjectId(id) },
+          {
+            $set: {
+              'journeys.$[journey].nextActionDate': newScheduleDate ? new Date(newScheduleDate) : null,
+              'journeys.$[journey].nextActionNote': callbackNote || null,
+              'journeys.$[journey].updatedAt': new Date(),
+            }
+          },
+          { arrayFilters: [{ 'journey.id': currentPatient.activeJourneyId }] }
+        );
+
+        // 여정에도 콜백 이력 추가
+        if (callbackHistoryEntry) {
+          // eslint-disable-next-line @typescript-eslint/no-explicit-any
+          await db.collection('patients_v2').updateOne(
+            { _id: new ObjectId(id) },
+            { $push: { 'journeys.$[journey].callbackHistory': callbackHistoryEntry } } as any,
+            { arrayFilters: [{ 'journey.id': currentPatient.activeJourneyId }] }
+          );
+        }
+      }
+
+      console.log(`[Patient PATCH] 예정일 변경: ${currentPatient?.nextActionDate} → ${newScheduleDate}, 사유: ${callbackReason || '없음'}`);
+    }
 
     if (name !== undefined) updateData.name = name;
     if (phone !== undefined) updateData.phone = phone;
@@ -165,6 +222,10 @@ export async function PATCH(
         };
 
         // 상태별 다음 일정 처리
+        // 🆕 백엔드에서 상태 자체를 체크 (프론트 플래그에 의존하지 않음)
+        const RESERVATION_STATUSES = ['reserved', 'treatmentBooked'];
+        const isReservationStatus = RESERVATION_STATUSES.includes(status);
+
         if (status === 'closed') {
           // 종결: 다음 일정 초기화
           updateData.nextAction = null;
@@ -173,12 +234,13 @@ export async function PATCH(
           // 재활성화: 다음 일정은 그대로 두거나 초기화
           updateData.nextAction = null;
           updateData.nextActionDate = null;
-        } else if (isReservation) {
+        } else if (isReservationStatus || isReservation) {
           // 예약 상태 (reserved, treatmentBooked): 다음 일정 설정
           updateData.nextAction = STATUS_LABELS[status as PatientStatus] || status;
           updateData.nextActionDate = eventDate ? new Date(eventDate) : null;
         } else {
-          // 완료 상태 (visited, treatment, completed, followup): 다음 일정 초기화
+          // 완료/진행 상태 (visited, treatment, completed, followup, consulting): 다음 일정 초기화
+          // → 상태가 앞으로 진행되면 기존 예정일 자동 클리어
           updateData.nextAction = null;
           updateData.nextActionDate = null;
         }
@@ -221,9 +283,16 @@ export async function PATCH(
     // 업데이트 쿼리 준비
     const updateQuery: Record<string, unknown> = { $set: updateData };
 
-    // statusHistory가 있으면 push
+    // statusHistory, callbackHistory push 처리
+    const pushOps: Record<string, unknown> = {};
     if (statusHistoryEntry) {
-      updateQuery.$push = { statusHistory: statusHistoryEntry };
+      pushOps.statusHistory = statusHistoryEntry;
+    }
+    if (callbackHistoryEntry) {
+      pushOps.callbackHistory = callbackHistoryEntry;
+    }
+    if (Object.keys(pushOps).length > 0) {
+      updateQuery.$push = pushOps;
     }
 
     const result = await db.collection('patients_v2').updateOne(
@@ -231,8 +300,141 @@ export async function PATCH(
       updateQuery
     );
 
+    // 🆕 활성 여정(Journey)의 금액/결제 정보도 함께 업데이트
+    if (currentPatient?.activeJourneyId) {
+      const journeyDataUpdate: Record<string, unknown> = {
+        'journeys.$[journey].updatedAt': new Date(),
+      };
+      let hasJourneyUpdate = false;
+
+      if (estimatedAmount !== undefined) {
+        journeyDataUpdate['journeys.$[journey].estimatedAmount'] = Math.round(Number(estimatedAmount));
+        hasJourneyUpdate = true;
+      }
+      if (actualAmount !== undefined) {
+        journeyDataUpdate['journeys.$[journey].actualAmount'] = Math.round(Number(actualAmount));
+        hasJourneyUpdate = true;
+      }
+      if (paymentStatus !== undefined) {
+        journeyDataUpdate['journeys.$[journey].paymentStatus'] = paymentStatus;
+        hasJourneyUpdate = true;
+      }
+      if (treatmentNote !== undefined) {
+        journeyDataUpdate['journeys.$[journey].treatmentNote'] = treatmentNote;
+        hasJourneyUpdate = true;
+      }
+
+      if (hasJourneyUpdate) {
+        await db.collection('patients_v2').updateOne(
+          { _id: new ObjectId(id) },
+          { $set: journeyDataUpdate },
+          { arrayFilters: [{ 'journey.id': currentPatient.activeJourneyId }] }
+        );
+        console.log(`[Patient PATCH] 여정 금액 동기화: journeyId=${currentPatient.activeJourneyId}`);
+      }
+    }
+
+    // 🆕 활성 여정(Journey)의 상태도 함께 업데이트
+    if (statusHistoryEntry && currentPatient?.activeJourneyId) {
+      const journeyUpdate: Record<string, unknown> = {
+        'journeys.$[journey].status': status,
+        'journeys.$[journey].updatedAt': new Date(),
+      };
+
+      // 종결 상태면 closedAt 설정
+      if (status === 'closed' || status === 'completed') {
+        journeyUpdate['journeys.$[journey].closedAt'] = eventDate ? new Date(eventDate) : new Date();
+      }
+
+      // 🆕 여정의 nextActionDate도 환자 레벨과 동기화
+      // 예약 상태면 eventDate로 설정, 아니면 클리어
+      const RESERVATION_STATUSES = ['reserved', 'treatmentBooked'];
+      const isReservationStatus = RESERVATION_STATUSES.includes(status);
+      if (isReservationStatus) {
+        journeyUpdate['journeys.$[journey].nextActionDate'] = eventDate ? new Date(eventDate) : null;
+      } else {
+        journeyUpdate['journeys.$[journey].nextActionDate'] = null;
+      }
+
+      // 여정 status 업데이트
+      await db.collection('patients_v2').updateOne(
+        { _id: new ObjectId(id) },
+        { $set: journeyUpdate },
+        { arrayFilters: [{ 'journey.id': currentPatient.activeJourneyId }] }
+      );
+
+      // 여정 statusHistory도 push
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      await db.collection('patients_v2').updateOne(
+        { _id: new ObjectId(id) },
+        { $push: { 'journeys.$[journey].statusHistory': statusHistoryEntry } } as any,
+        { arrayFilters: [{ 'journey.id': currentPatient.activeJourneyId }] }
+      );
+
+      console.log(`[Patient PATCH] 여정 상태 동기화: journeyId=${currentPatient.activeJourneyId}, status=${status}`);
+    }
+
     if (result.matchedCount === 0) {
       return NextResponse.json({ error: 'Patient not found' }, { status: 404 });
+    }
+
+    // 치료완료(completed)로 상태 변경 시 리콜 메시지 자동 생성
+    if (status === 'completed' && currentPatient && currentPatient.status !== 'completed') {
+      try {
+        // 환자의 관심 시술(치료 종류) 가져오기
+        const treatment = currentPatient.aiAnalysis?.interest || currentPatient.interest || '';
+
+        if (treatment) {
+          // 리콜 메시지 생성 API 호출 (내부 함수 직접 호출)
+          const recallSetting = await db.collection('recall_settings').findOne({ treatment });
+
+          if (recallSetting && recallSetting.schedules) {
+            const enabledSchedules = recallSetting.schedules.filter((s: { enabled: boolean }) => s.enabled);
+            const baseDate = eventDate ? new Date(eventDate) : new Date();
+            const now = new Date();
+
+            // 중복 체크
+            const existingMessages = await db.collection('recall_messages').find({
+              patientId: id,
+              treatment: treatment,
+              status: 'pending',
+            }).toArray();
+            const existingTimings = new Set(existingMessages.map(m => m.timing));
+
+            const messagesToInsert = enabledSchedules
+              .filter((schedule: { timing: string }) => !existingTimings.has(schedule.timing))
+              .map((schedule: { timing: string; timingDays: number; message: string }) => {
+                const scheduledAt = new Date(baseDate);
+                scheduledAt.setDate(scheduledAt.getDate() + schedule.timingDays);
+                scheduledAt.setHours(10, 0, 0, 0);
+
+                const personalizedMessage = schedule.message
+                  .replace(/\{환자명\}/g, currentPatient.name || '고객')
+                  .replace(/\{이름\}/g, currentPatient.name || '고객');
+
+                return {
+                  patientId: id,
+                  treatment: treatment,
+                  timing: schedule.timing,
+                  timingDays: schedule.timingDays,
+                  message: personalizedMessage,
+                  status: 'pending',
+                  scheduledAt: scheduledAt,
+                  lastVisit: baseDate,
+                  createdAt: now.toISOString(),
+                };
+              });
+
+            if (messagesToInsert.length > 0) {
+              await db.collection('recall_messages').insertMany(messagesToInsert);
+              console.log(`[Patient PATCH] 리콜 메시지 ${messagesToInsert.length}개 자동 생성 (환자: ${currentPatient.name}, 치료: ${treatment})`);
+            }
+          }
+        }
+      } catch (recallError) {
+        console.error('[Patient PATCH] 리콜 메시지 생성 실패:', recallError);
+        // 리콜 메시지 생성 실패해도 환자 상태 변경은 성공했으므로 계속 진행
+      }
     }
 
     // 이름이 변경되면 연결된 통화기록의 patientName도 업데이트

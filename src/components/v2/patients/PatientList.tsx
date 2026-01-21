@@ -2,13 +2,21 @@
 'use client';
 
 import React from 'react';
-import { PhoneCall, ChevronRight, Flame, Thermometer, Snowflake, PhoneIncoming, PhoneOutgoing, AlertTriangle } from 'lucide-react';
+import { PhoneCall, ChevronRight, Flame, Thermometer, Snowflake, PhoneIncoming, PhoneOutgoing, AlertTriangle, Layers } from 'lucide-react';
 import { PatientStatus, Temperature } from '@/types/v2';
 
 type CallDirection = 'inbound' | 'outbound';
 type UrgencyType = 'noshow' | 'today' | 'overdue' | 'normal';
 
 type PaymentStatus = 'none' | 'partial' | 'completed';
+
+// 간소화된 여정 정보 (목록 표시용)
+interface JourneySummary {
+  id: string;
+  treatmentType: string;
+  status: PatientStatus;
+  isActive: boolean;
+}
 
 interface Patient {
   id: string;
@@ -24,6 +32,7 @@ interface Patient {
   lastCallDirection?: CallDirection;
   nextAction?: string;
   nextActionDate?: string | null;
+  nextActionNote?: string;
   daysInStatus?: number;
   urgency?: UrgencyType;
   age?: number;
@@ -37,6 +46,9 @@ interface Patient {
   paymentStatus?: PaymentStatus;
   // 치료 진행 관련 필드
   expectedCompletionDate?: string | null;
+  // 여정(Journey) 관련 필드
+  journeys?: JourneySummary[];
+  activeJourneyId?: string;
 }
 
 interface PatientListProps {
@@ -226,16 +238,16 @@ export function PatientList({ patients, onPatientClick, onCallClick, loading }: 
   if (loading) {
     return (
       <div className="bg-white rounded-2xl shadow-sm overflow-hidden">
-        <div className="grid grid-cols-12 gap-3 px-5 py-3 bg-gray-50 border-b text-sm font-medium text-gray-500">
-          <div className="col-span-1">유형</div>
-          <div className="col-span-2">환자명</div>
-          <div className="col-span-1">나이</div>
-          <div className="col-span-1">금액</div>
-          <div className="col-span-2">전화번호</div>
-          <div className="col-span-2">관심시술</div>
-          <div className="col-span-1">상태</div>
-          <div className="col-span-1">다음일정</div>
-          <div className="col-span-1"></div>
+        <div className="flex items-center px-5 py-3 bg-gray-50 border-b text-sm font-medium text-gray-500">
+          <div className="w-[5%] min-w-[40px]">유형</div>
+          <div className="w-[14%] min-w-[100px]">환자명</div>
+          <div className="w-[6%] min-w-[45px]">나이</div>
+          <div className="w-[10%] min-w-[95px]">금액</div>
+          <div className="w-[14%] min-w-[110px]">전화번호</div>
+          <div className="w-[12%] min-w-[80px]">관심시술</div>
+          <div className="w-[10%] min-w-[70px]">상태</div>
+          <div className="w-[23%] min-w-[150px]">예정일</div>
+          <div className="w-[6%] min-w-[50px]"></div>
         </div>
         <div className="divide-y divide-gray-100">
           {Array.from({ length: 5 }).map((_, i) => (
@@ -259,16 +271,16 @@ export function PatientList({ patients, onPatientClick, onCallClick, loading }: 
   return (
     <div className="bg-white rounded-2xl shadow-sm overflow-hidden">
       {/* 테이블 헤더 */}
-      <div className="grid grid-cols-12 gap-3 px-5 py-3 bg-gray-50 border-b text-sm font-medium text-gray-500">
-        <div className="col-span-1">유형</div>
-        <div className="col-span-2">환자명</div>
-        <div className="col-span-1">나이</div>
-        <div className="col-span-1">금액</div>
-        <div className="col-span-2">전화번호</div>
-        <div className="col-span-2">관심시술</div>
-        <div className="col-span-1">상태</div>
-        <div className="col-span-1">다음일정</div>
-        <div className="col-span-1"></div>
+      <div className="flex items-center px-5 py-3 bg-gray-50 border-b text-sm font-medium text-gray-500">
+        <div className="w-[5%] min-w-[40px]">유형</div>
+        <div className="w-[14%] min-w-[100px]">환자명</div>
+        <div className="w-[6%] min-w-[45px]">나이</div>
+        <div className="w-[10%] min-w-[95px]">금액</div>
+        <div className="w-[14%] min-w-[110px]">전화번호</div>
+        <div className="w-[12%] min-w-[80px]">관심시술</div>
+        <div className="w-[10%] min-w-[70px]">상태</div>
+        <div className="w-[23%] min-w-[150px]">예정일</div>
+        <div className="w-[6%] min-w-[50px]"></div>
       </div>
 
       {/* 테이블 바디 */}
@@ -288,25 +300,25 @@ export function PatientList({ patients, onPatientClick, onCallClick, loading }: 
             <div
               key={patient.id}
               onClick={() => onPatientClick?.(patient)}
-              className={`grid grid-cols-12 gap-3 px-5 py-3 cursor-pointer items-center transition-colors
+              className={`flex items-center px-5 py-3 cursor-pointer transition-colors
                 ${urgencyStyle || 'hover:bg-gray-50'}
                 ${patient.urgency && patient.urgency !== 'normal' ? 'hover:opacity-90' : ''}
               `}
             >
               {/* 수발신 유형 */}
-              <div className="col-span-1">
+              <div className="w-[5%] min-w-[40px]">
                 <CallDirectionIcon direction={patient.lastCallDirection} />
               </div>
 
-              {/* 환자명 + 상담타입 + 확인필요 배지 */}
-              <div className="col-span-2 flex items-center gap-2">
-                <span className="font-medium text-gray-900">{patient.name}</span>
-                {patient.consultationType && (
-                  <span className="px-1.5 py-0.5 bg-purple-100 text-purple-700 rounded text-xs">
-                    {patient.consultationType}
+              {/* 환자명 + 배지들 */}
+              <div className="w-[14%] min-w-[100px] flex items-center gap-1 overflow-hidden">
+                <span className="font-medium text-gray-900 truncate">{patient.name}</span>
+                {patient.journeys && patient.journeys.length > 1 && (
+                  <span className="flex items-center gap-0.5 px-1 py-0.5 bg-indigo-100 text-indigo-700 rounded text-xs font-medium shrink-0" title={`${patient.journeys.length}개 치료 여정`}>
+                    <Layers size={10} />
+                    {patient.journeys.length}
                   </span>
                 )}
-                {/* 치료중 상태에서 확인 필요 배지: 예상완료일 지났거나, 없으면 30일 경과 시 */}
                 {patient.status === 'treatment' && (() => {
                   const now = new Date();
                   if (patient.expectedCompletionDate) {
@@ -314,27 +326,32 @@ export function PatientList({ patients, onPatientClick, onCallClick, loading }: 
                   }
                   return days >= 30;
                 })() && (
-                  <span className="flex items-center gap-0.5 px-1.5 py-0.5 bg-orange-100 text-orange-600 rounded text-xs font-medium">
+                  <span className="flex items-center px-1 py-0.5 bg-orange-100 text-orange-600 rounded text-xs font-medium shrink-0">
                     <AlertTriangle size={10} />
-                    확인
                   </span>
                 )}
               </div>
 
               {/* 나이 */}
-              <div className="col-span-1 text-sm text-gray-600">
+              <div className="w-[6%] min-w-[45px] text-sm text-gray-600">
                 {patient.age ? `${patient.age}세` : '-'}
               </div>
 
               {/* 금액 */}
-              <div className="col-span-1 text-sm">
+              <div className="w-[10%] min-w-[95px] text-sm">
                 {patient.actualAmount ? (
-                  <span className="text-emerald-600 font-medium">
-                    {(patient.actualAmount / 10000).toLocaleString()}만
+                  <span className={`font-medium ${
+                    patient.paymentStatus === 'completed'
+                      ? 'text-emerald-600'
+                      : patient.paymentStatus === 'partial'
+                        ? 'text-amber-600'
+                        : 'text-red-600'
+                  }`}>
+                    {patient.actualAmount.toLocaleString()}원
                   </span>
                 ) : patient.estimatedAmount ? (
-                  <span className="text-gray-400">
-                    ({(patient.estimatedAmount / 10000).toLocaleString()}만)
+                  <span className="text-gray-400 text-xs">
+                    ({patient.estimatedAmount.toLocaleString()}원)
                   </span>
                 ) : (
                   <span className="text-gray-300">-</span>
@@ -342,35 +359,75 @@ export function PatientList({ patients, onPatientClick, onCallClick, loading }: 
               </div>
 
               {/* 전화번호 */}
-              <div className="col-span-2 text-gray-600">
+              <div className="w-[14%] min-w-[110px] text-sm text-gray-600">
                 {formatPhone(patient.phone)}
               </div>
 
               {/* 관심시술 */}
-              <div className="col-span-2">
-                {patient.interest ? (
-                  <span className="px-2 py-1 bg-blue-50 text-blue-700 rounded text-xs">
-                    {patient.interest}
-                  </span>
-                ) : (
-                  <span className="text-gray-300">-</span>
-                )}
+              <div className="w-[12%] min-w-[80px]">
+                {(() => {
+                  const activeJourney = patient.journeys?.find(j => j.isActive);
+                  const displayInterest = activeJourney?.treatmentType || patient.interest;
+
+                  if (displayInterest) {
+                    return (
+                      <span className={`px-1.5 py-0.5 rounded text-xs inline-block max-w-full truncate ${
+                        activeJourney ? 'bg-indigo-50 text-indigo-700' : 'bg-blue-50 text-blue-700'
+                      }`} title={displayInterest}>
+                        {displayInterest}
+                      </span>
+                    );
+                  }
+                  return <span className="text-gray-300">-</span>;
+                })()}
               </div>
 
               {/* 상태 */}
-              <div className="col-span-1">
-                <span className={`px-2 py-1 rounded-full text-xs font-medium ${getStatusStyle(patient.status)}`}>
+              <div className="w-[10%] min-w-[70px]">
+                <span className={`px-1.5 py-0.5 rounded-full text-xs font-medium whitespace-nowrap ${getStatusStyle(patient.status)}`}>
                   {getStatusLabel(patient.status)}
                 </span>
               </div>
 
-              {/* 다음 일정 (통합) */}
-              <div className={`col-span-1 text-sm truncate ${scheduleDisplay.style}`}>
-                {scheduleDisplay.text}
+              {/* 예정일 + 메모 */}
+              <div className="w-[23%] min-w-[150px] text-sm">
+                {patient.nextActionDate ? (
+                  <div className="flex items-center gap-2">
+                    <div className="flex flex-col shrink-0">
+                      <span className={`font-medium ${scheduleDisplay.style}`}>
+                        {(() => {
+                          const date = new Date(patient.nextActionDate);
+                          return `${date.getMonth() + 1}/${date.getDate()}`;
+                        })()}
+                      </span>
+                      <span className={`text-xs ${scheduleDisplay.style}`}>
+                        {(() => {
+                          const now = new Date();
+                          now.setHours(0, 0, 0, 0);
+                          const target = new Date(patient.nextActionDate);
+                          target.setHours(0, 0, 0, 0);
+                          const diff = Math.round((target.getTime() - now.getTime()) / (1000 * 60 * 60 * 24));
+                          if (diff > 0) return `D-${diff}`;
+                          if (diff === 0) return 'D-Day';
+                          return `D+${Math.abs(diff)}`;
+                        })()}
+                      </span>
+                    </div>
+                    {patient.nextActionNote && (
+                      <span className="text-xs text-gray-600 bg-amber-50 px-1.5 py-0.5 rounded truncate" title={patient.nextActionNote}>
+                        {patient.nextActionNote}
+                      </span>
+                    )}
+                  </div>
+                ) : (
+                  <span className={`truncate block ${scheduleDisplay.style}`}>
+                    {scheduleDisplay.text}
+                  </span>
+                )}
               </div>
 
               {/* 액션 버튼 */}
-              <div className="col-span-1 flex justify-end gap-1">
+              <div className="w-[6%] min-w-[50px] flex justify-end gap-1">
                 <button
                   onClick={(e) => {
                     e.stopPropagation();

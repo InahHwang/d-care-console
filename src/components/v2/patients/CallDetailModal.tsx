@@ -1,8 +1,38 @@
 // src/components/v2/patients/CallDetailModal.tsx
 'use client';
 
-import React, { useState, useEffect } from 'react';
-import { X, Phone, Clock, FileText, Play, Pause, Volume2, AlertCircle, Loader2 } from 'lucide-react';
+import React, { useState, useEffect, useRef } from 'react';
+import { X, Phone, Clock, FileText, Play, Pause, Volume2, AlertCircle, Loader2, Square } from 'lucide-react';
+
+// AI 요약 텍스트를 bullet point로 포맷팅하는 함수
+function formatSummaryWithBullets(summary: string): string[] {
+  if (!summary) return [];
+
+  // 1. 이미 bullet point가 있으면 그대로 분리
+  if (summary.includes('•') || summary.includes('-')) {
+    return summary
+      .split(/[•\-]/)
+      .map(s => s.trim())
+      .filter(s => s.length > 0);
+  }
+
+  // 2. 문장 단위로 분리 (마침표, 느낌표, 물음표 기준)
+  const sentences = summary
+    .split(/(?<=[.!?])\s+/)
+    .map(s => s.trim())
+    .filter(s => s.length > 0);
+
+  // 3. 문장이 1개면 쉼표로 분리 시도
+  if (sentences.length === 1 && summary.includes(',')) {
+    const parts = summary
+      .split(/,\s*/)
+      .map(s => s.trim())
+      .filter(s => s.length > 3);
+    if (parts.length > 1) return parts;
+  }
+
+  return sentences;
+}
 
 interface CallDetail {
   id: string;
@@ -36,20 +66,21 @@ interface CallDetailModalProps {
   isOpen: boolean;
   onClose: () => void;
   callLogId: string;
-  isMaster: boolean; // 마스터 관리자 여부
+  isMaster?: boolean; // 더 이상 사용하지 않음 (하위 호환성 유지)
 }
 
 export function CallDetailModal({
   isOpen,
   onClose,
   callLogId,
-  isMaster,
 }: CallDetailModalProps) {
   const [callDetail, setCallDetail] = useState<CallDetail | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [isPlaying, setIsPlaying] = useState(false);
-  const [audioRef, setAudioRef] = useState<HTMLAudioElement | null>(null);
+  const [audioLoading, setAudioLoading] = useState(false);
+  const [audioError, setAudioError] = useState<string | null>(null);
+  const audioRef = useRef<HTMLAudioElement | null>(null);
 
   useEffect(() => {
     if (!isOpen || !callLogId) return;
@@ -75,10 +106,13 @@ export function CallDetailModal({
 
     // Cleanup audio on close
     return () => {
-      if (audioRef) {
-        audioRef.pause();
-        setAudioRef(null);
+      if (audioRef.current) {
+        audioRef.current.pause();
+        audioRef.current = null;
       }
+      setIsPlaying(false);
+      setAudioLoading(false);
+      setAudioError(null);
     };
   }, [isOpen, callLogId]);
 
@@ -95,23 +129,65 @@ export function CallDetailModal({
     return `${date.getFullYear()}.${(date.getMonth() + 1).toString().padStart(2, '0')}.${date.getDate().toString().padStart(2, '0')} ${date.getHours().toString().padStart(2, '0')}:${date.getMinutes().toString().padStart(2, '0')}`;
   };
 
-  const handlePlayRecording = () => {
-    if (!callDetail?.recordingUrl) return;
+  const handlePlayRecording = async () => {
+    if (!callLogId) return;
 
-    if (audioRef) {
-      if (isPlaying) {
-        audioRef.pause();
-        setIsPlaying(false);
-      } else {
-        audioRef.play();
-        setIsPlaying(true);
-      }
-    } else {
-      const audio = new Audio(callDetail.recordingUrl);
-      audio.onended = () => setIsPlaying(false);
-      audio.play();
+    // 이미 재생 중이면 일시정지
+    if (audioRef.current && isPlaying) {
+      audioRef.current.pause();
+      setIsPlaying(false);
+      return;
+    }
+
+    // 이미 로드된 오디오가 있으면 재생
+    if (audioRef.current && !isPlaying) {
+      audioRef.current.play();
       setIsPlaying(true);
-      setAudioRef(audio);
+      return;
+    }
+
+    // 새로 로드
+    setAudioLoading(true);
+    setAudioError(null);
+
+    try {
+      // 우리 API에서 녹취 파일 가져오기
+      const recordingUrl = `/api/v2/call-logs/${callLogId}/recording`;
+      const response = await fetch(recordingUrl);
+
+      if (!response.ok) {
+        if (response.status === 404) {
+          throw new Error('녹취 파일을 찾을 수 없습니다');
+        }
+        throw new Error('녹취 파일 로드 실패');
+      }
+
+      // Blob으로 변환하여 URL 생성
+      const blob = await response.blob();
+      const blobUrl = URL.createObjectURL(blob);
+
+      const audio = new Audio(blobUrl);
+      audio.onended = () => setIsPlaying(false);
+      audio.onerror = () => {
+        setAudioError('녹취 파일 재생 실패');
+        setIsPlaying(false);
+      };
+
+      await audio.play();
+      audioRef.current = audio;
+      setIsPlaying(true);
+    } catch (err) {
+      setAudioError(err instanceof Error ? err.message : '녹취 파일 로드 실패');
+    } finally {
+      setAudioLoading(false);
+    }
+  };
+
+  const handleStopRecording = () => {
+    if (audioRef.current) {
+      audioRef.current.pause();
+      audioRef.current.currentTime = 0;
+      setIsPlaying(false);
     }
   };
 
@@ -182,7 +258,7 @@ export function CallDetailModal({
                 </div>
               </div>
 
-              {/* 녹취 재생 - 마스터만 */}
+              {/* 녹취 재생 */}
               {callDetail.recordingUrl && (
                 <div className="bg-gradient-to-r from-purple-50 to-blue-50 rounded-xl p-4">
                   <div className="flex items-center justify-between">
@@ -190,16 +266,25 @@ export function CallDetailModal({
                       <Volume2 size={20} className="text-purple-500" />
                       <span className="font-medium text-gray-900">녹취 파일</span>
                     </div>
-                    {isMaster ? (
+                    <div className="flex items-center gap-2">
                       <button
+                        type="button"
                         onClick={handlePlayRecording}
+                        disabled={audioLoading}
                         className={`flex items-center gap-2 px-4 py-2 rounded-lg transition-colors ${
-                          isPlaying
-                            ? 'bg-red-500 text-white hover:bg-red-600'
-                            : 'bg-purple-500 text-white hover:bg-purple-600'
+                          audioLoading
+                            ? 'bg-gray-400 text-white cursor-wait'
+                            : isPlaying
+                              ? 'bg-amber-500 text-white hover:bg-amber-600'
+                              : 'bg-purple-500 text-white hover:bg-purple-600'
                         }`}
                       >
-                        {isPlaying ? (
+                        {audioLoading ? (
+                          <>
+                            <Loader2 size={16} className="animate-spin" />
+                            로딩중...
+                          </>
+                        ) : isPlaying ? (
                           <>
                             <Pause size={16} />
                             일시정지
@@ -211,12 +296,25 @@ export function CallDetailModal({
                           </>
                         )}
                       </button>
-                    ) : (
-                      <span className="text-sm text-gray-400 bg-gray-100 px-3 py-1.5 rounded-lg">
-                        관리자만 재생 가능
-                      </span>
-                    )}
+                      {isPlaying && (
+                        <button
+                          type="button"
+                          onClick={handleStopRecording}
+                          className="flex items-center gap-2 px-3 py-2 bg-red-500 text-white rounded-lg hover:bg-red-600 transition-colors"
+                        >
+                          <Square size={14} />
+                          정지
+                        </button>
+                      )}
+                    </div>
                   </div>
+                  {/* 에러 메시지 */}
+                  {audioError && (
+                    <div className="mt-3 p-2 bg-red-100 text-red-600 text-sm rounded-lg flex items-center gap-2">
+                      <AlertCircle size={16} />
+                      {audioError}
+                    </div>
+                  )}
                 </div>
               )}
 
@@ -259,8 +357,15 @@ export function CallDetailModal({
                     )}
 
                     <div className="bg-gray-50 rounded-lg p-4">
-                      <p className="text-xs text-gray-500 mb-1">통화 요약</p>
-                      <p className="text-gray-700">{callDetail.aiAnalysis.summary}</p>
+                      <p className="text-xs text-gray-500 mb-2">통화 요약</p>
+                      <ul className="space-y-1.5">
+                        {formatSummaryWithBullets(callDetail.aiAnalysis.summary).map((item, idx) => (
+                          <li key={idx} className="text-gray-700 flex items-start gap-2">
+                            <span className="text-purple-400 mt-0.5">•</span>
+                            <span>{item}</span>
+                          </li>
+                        ))}
+                      </ul>
                     </div>
 
                     {callDetail.aiAnalysis.concerns && callDetail.aiAnalysis.concerns.length > 0 && (

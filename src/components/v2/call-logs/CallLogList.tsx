@@ -13,6 +13,7 @@ interface CallLog {
   callType: 'inbound' | 'outbound';
   duration: number;
   phone: string;
+  calledNumber?: string;  // ★ 착신번호 (031 or 070)
   callerName: string;
   patientId: string | null;
   patientName: string;
@@ -36,6 +37,7 @@ function TableSkeleton() {
     <tr className="animate-pulse">
       <td className="px-4 py-3"><div className="h-4 w-16 bg-gray-200 rounded" /></td>
       <td className="px-4 py-3"><div className="h-4 w-16 bg-gray-200 rounded" /></td>
+      <td className="px-4 py-3"><div className="h-4 w-10 bg-gray-200 rounded" /></td>
       <td className="px-4 py-3"><div className="h-4 w-24 bg-gray-200 rounded" /></td>
       <td className="px-4 py-3"><div className="h-4 w-28 bg-gray-200 rounded" /></td>
       <td className="px-4 py-3"><div className="h-4 w-16 bg-gray-200 rounded" /></td>
@@ -81,6 +83,17 @@ function getCallTypeLabel(callType: string, duration: number) {
   return callType === 'inbound' ? '수신' : '발신';
 }
 
+// ★ 착신번호 간략 표시 (031-xxx → 031, 070-xxx → 070)
+function formatCalledNumber(calledNumber?: string) {
+  if (!calledNumber) return '-';
+  const normalized = calledNumber.replace(/\D/g, '');
+  if (normalized.startsWith('031')) return '031';
+  if (normalized.startsWith('070')) return '070';
+  if (normalized.startsWith('02')) return '02';
+  // 그 외에는 앞 3자리
+  return normalized.slice(0, 3);
+}
+
 export function CallLogList({
   callLogs,
   onCallLogClick,
@@ -96,6 +109,7 @@ export function CallLogList({
             <tr>
               <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">시간</th>
               <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">유형</th>
+              <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">착신</th>
               <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">전화번호</th>
               <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">환자명</th>
               <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">분류</th>
@@ -131,6 +145,7 @@ export function CallLogList({
           <tr>
             <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">시간</th>
             <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">유형</th>
+            <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">착신</th>
             <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">전화번호</th>
             <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">환자명</th>
             <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">분류</th>
@@ -162,6 +177,19 @@ export function CallLogList({
                     {getCallTypeLabel(log.callType, log.duration)}
                   </span>
                 </div>
+              </td>
+
+              {/* 착신번호 */}
+              <td className="px-4 py-3">
+                <span className={`text-xs font-medium px-2 py-1 rounded ${
+                  log.calledNumber?.includes('070')
+                    ? 'bg-purple-100 text-purple-700'
+                    : log.calledNumber?.includes('031')
+                    ? 'bg-blue-100 text-blue-700'
+                    : 'bg-gray-100 text-gray-600'
+                }`}>
+                  {formatCalledNumber(log.calledNumber)}
+                </span>
               </td>
 
               {/* 전화번호 */}

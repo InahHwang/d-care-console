@@ -15,7 +15,7 @@ interface RevenueCardProps {
   lastMonth: {
     actual: number;
   };
-  conversionRate: number;
+  discountRate: number;
   avgRevenue: number;
   growthRate: number;
   loading?: boolean;
@@ -58,7 +58,7 @@ function Skeleton() {
 export function RevenueCard({
   thisMonth,
   lastMonth,
-  conversionRate,
+  discountRate,
   avgRevenue,
   growthRate,
   loading,
@@ -120,14 +120,14 @@ export function RevenueCard({
           </p>
         </div>
 
-        {/* 전환율 */}
+        {/* 평균 할인율 */}
         <div className="text-center border-x">
-          <p className="text-xs text-gray-400 mb-1">전환율</p>
+          <p className="text-xs text-gray-400 mb-1">평균 할인율</p>
           <p className={`text-sm font-semibold ${
-            conversionRate >= 70 ? 'text-emerald-600' :
-            conversionRate >= 50 ? 'text-amber-600' : 'text-red-500'
+            discountRate <= 10 ? 'text-emerald-600' :
+            discountRate <= 30 ? 'text-amber-600' : 'text-red-500'
           }`}>
-            {conversionRate}%
+            {discountRate}%
           </p>
         </div>
 

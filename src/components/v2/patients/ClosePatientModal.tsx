@@ -8,7 +8,7 @@ import { ClosedReason, CLOSED_REASON_OPTIONS, PatientStatus, PATIENT_STATUS_CONF
 interface ClosePatientModalProps {
   isOpen: boolean;
   onClose: () => void;
-  onConfirm: (reason: ClosedReason) => void;
+  onConfirm: (reason: ClosedReason, customReason?: string) => void;
   patientName: string;
   currentStatus: PatientStatus;
 }
@@ -21,6 +21,7 @@ export function ClosePatientModal({
   currentStatus,
 }: ClosePatientModalProps) {
   const [selectedReason, setSelectedReason] = useState<ClosedReason | null>(null);
+  const [customReason, setCustomReason] = useState('');
 
   if (!isOpen) return null;
 
@@ -28,15 +29,20 @@ export function ClosePatientModal({
 
   const handleConfirm = () => {
     if (selectedReason) {
-      onConfirm(selectedReason);
+      onConfirm(selectedReason, selectedReason === '기타' ? customReason : undefined);
       setSelectedReason(null);
+      setCustomReason('');
     }
   };
 
   const handleClose = () => {
     setSelectedReason(null);
+    setCustomReason('');
     onClose();
   };
+
+  // 기타 선택 시 사유 입력 필요
+  const isConfirmDisabled = !selectedReason || (selectedReason === '기타' && !customReason.trim());
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center">
@@ -89,6 +95,20 @@ export function ClosePatientModal({
                 </button>
               ))}
             </div>
+
+            {/* 기타 선택 시 직접 입력 */}
+            {selectedReason === '기타' && (
+              <div className="mt-3">
+                <input
+                  type="text"
+                  value={customReason}
+                  onChange={(e) => setCustomReason(e.target.value)}
+                  placeholder="종결 사유를 입력해주세요"
+                  className="w-full px-4 py-3 border-2 border-gray-200 rounded-xl focus:outline-none focus:border-gray-400 transition-colors"
+                  autoFocus
+                />
+              </div>
+            )}
           </div>
 
           <div className="p-3 bg-amber-50 rounded-xl text-sm text-amber-700">
@@ -106,7 +126,7 @@ export function ClosePatientModal({
           </button>
           <button
             onClick={handleConfirm}
-            disabled={!selectedReason}
+            disabled={isConfirmDisabled}
             className="flex-1 px-4 py-3 text-white bg-gray-900 rounded-xl hover:bg-gray-800 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
           >
             종결 처리

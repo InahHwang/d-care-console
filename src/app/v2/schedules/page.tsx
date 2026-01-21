@@ -3,7 +3,6 @@
 
 import React, { useState, useEffect, useCallback, Suspense } from 'react';
 import { useSearchParams, useRouter } from 'next/navigation';
-import { PageHeader } from '@/components/v2/layout/PageHeader';
 import {
   Phone,
   Calendar,
@@ -12,21 +11,13 @@ import {
   XCircle,
   AlertCircle,
   Plus,
-  Filter,
   ChevronLeft,
   ChevronRight,
-  Settings,
   History,
   PhoneMissed,
   Send,
   RefreshCw,
-  Gift,
-  Heart,
   MessageSquare,
-  MoreVertical,
-  Edit2,
-  Trash2,
-  Search,
   X,
   Check,
 } from 'lucide-react';
@@ -56,7 +47,6 @@ interface TodayStats {
   missed: number;
   callback: number;
   recall: number;
-  thanks: number;
 }
 
 interface RecallSchedule {
@@ -88,22 +78,9 @@ interface RecallMessage {
   daysPassed?: number;
 }
 
-interface ThanksItem {
-  id: string;
-  referrerId: string;
-  referrerName: string;
-  referrerPhone: string;
-  referredId: string;
-  referredName: string;
-  referredPhone: string;
-  status: string;
-  note?: string;
-  referredAt: string;
-  completedAt?: string;
-}
 
 // ============= Constants =============
-type RecallSubTab = 'settings' | 'pending' | 'history' | 'call-needed';
+type RecallSubTab = 'pending' | 'history' | 'call-needed';
 
 const TIMING_OPTIONS = [
   { label: '1주 후', days: 7 },
@@ -118,10 +95,10 @@ const TIMING_OPTIONS = [
 function SchedulesContent() {
   const router = useRouter();
   const searchParams = useSearchParams();
-  const tabParam = searchParams.get('tab') as 'callback' | 'recall' | 'thanks' | null;
+  const tabParam = searchParams.get('tab') as 'callback' | 'recall' | null;
 
   // Main state
-  const [activeTab, setActiveTab] = useState<'callback' | 'recall' | 'thanks'>(tabParam || 'callback');
+  const [activeTab, setActiveTab] = useState<'callback' | 'recall'>(tabParam || 'callback');
   const [selectedDate, setSelectedDate] = useState<string>(new Date().toISOString().split('T')[0]);
   const [statusFilter, setStatusFilter] = useState<CallbackStatus | 'all'>('all');
   const [searchQuery, setSearchQuery] = useState('');
@@ -139,10 +116,6 @@ function SchedulesContent() {
   const [recallStats, setRecallStats] = useState({ pending: 0, sent: 0, booked: 0, noResponse: 0, callNeeded: 0 });
   const [showAddTreatmentModal, setShowAddTreatmentModal] = useState(false);
   const [editingSchedule, setEditingSchedule] = useState<{ settingId: string; schedule?: RecallSchedule } | null>(null);
-
-  // Thanks state
-  const [thanks, setThanks] = useState<ThanksItem[]>([]);
-  const [thanksStats, setThanksStats] = useState({ pending: 0, completed: 0, total: 0 });
 
   // ============= Callbacks API =============
   const fetchCallbacks = useCallback(async () => {
@@ -204,43 +177,20 @@ function SchedulesContent() {
     }
   }, []);
 
-  // ============= Thanks API =============
-  const fetchThanks = useCallback(async () => {
-    try {
-      const params = new URLSearchParams();
-      if (statusFilter !== 'all') params.set('status', statusFilter);
-      if (searchQuery) params.set('search', searchQuery);
-
-      const response = await fetch(`/api/v2/thanks?${params}`);
-      const result = await response.json();
-
-      if (result.success) {
-        setThanks(result.data.thanks);
-        setThanksStats(result.data.stats);
-      }
-    } catch (error) {
-      console.error('Failed to fetch thanks:', error);
-    }
-  }, [statusFilter, searchQuery]);
-
   // ============= Effects =============
   useEffect(() => {
     if (activeTab === 'callback') {
       fetchCallbacks();
     } else if (activeTab === 'recall') {
-      if (recallSubTab === 'settings') {
-        fetchRecallSettings();
-      } else if (recallSubTab === 'pending') {
+      if (recallSubTab === 'pending') {
         fetchRecallMessages('pending');
       } else if (recallSubTab === 'history') {
         fetchRecallMessages();
       } else if (recallSubTab === 'call-needed') {
         fetchRecallMessages('call-needed');
       }
-    } else if (activeTab === 'thanks') {
-      fetchThanks();
     }
-  }, [activeTab, recallSubTab, fetchCallbacks, fetchRecallSettings, fetchRecallMessages, fetchThanks]);
+  }, [activeTab, recallSubTab, fetchCallbacks, fetchRecallMessages]);
 
   // ============= Handlers =============
   const handleDateChange = (days: number) => {
@@ -283,7 +233,7 @@ function SchedulesContent() {
   };
 
   const handleRecallCancel = async (id: string) => {
-    if (!confirm('발송을 취소하시겠습니까?')) return;
+    if (!confirm('이 리콜 일정을 제거하시겠습니까?')) return;
     try {
       const response = await fetch(`/api/v2/recall-messages/${id}/cancel`, {
         method: 'POST',
@@ -308,21 +258,6 @@ function SchedulesContent() {
       }
     } catch (error) {
       console.error('Failed to complete:', error);
-    }
-  };
-
-  const handleThanksComplete = async (id: string, method: 'call' | 'message') => {
-    try {
-      const response = await fetch('/api/v2/thanks', {
-        method: 'PATCH',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ id, status: 'completed', method }),
-      });
-      if (response.ok) {
-        fetchThanks();
-      }
-    } catch (error) {
-      console.error('Failed to complete thanks:', error);
     }
   };
 
@@ -455,176 +390,322 @@ function SchedulesContent() {
     return date.toLocaleDateString('ko-KR', { month: 'long', day: 'numeric', weekday: 'short' });
   };
 
-  const getTemperatureIcon = (temp: Temperature) => {
-    switch (temp) {
-      case 'hot': return <span className="text-lg">🔥</span>;
-      case 'warm': return <span className="text-lg">🌡️</span>;
-      case 'cold': return <span className="text-lg">❄️</span>;
-      default: return null;
-    }
-  };
-
   const tabs = [
     { id: 'callback' as const, label: '콜백', icon: <Phone size={18} />, count: todayStats?.callback ?? 0 },
     { id: 'recall' as const, label: '리콜', icon: <RefreshCw size={18} />, count: recallStats.pending + recallStats.callNeeded },
-    { id: 'thanks' as const, label: '감사인사', icon: <Gift size={18} />, count: thanksStats.pending },
   ];
 
   const recallSubTabs = [
-    { id: 'settings' as const, label: '발송 설정', icon: <Settings size={16} /> },
     { id: 'pending' as const, label: '발송 대기', icon: <Clock size={16} />, count: recallStats.pending },
     { id: 'history' as const, label: '발송 이력', icon: <History size={16} /> },
     { id: 'call-needed' as const, label: '전화 필요', icon: <PhoneMissed size={16} />, count: recallStats.callNeeded },
   ];
 
+  // 선택된 콜백/리콜 항목
+  const [selectedItem, setSelectedItem] = useState<CallbackItem | null>(null);
+  const [selectedRecallItem, setSelectedRecallItem] = useState<RecallMessage | null>(null);
+
+  // 첫 번째 항목 자동 선택 (콜백)
+  useEffect(() => {
+    if (callbacks.length > 0 && !selectedItem) {
+      setSelectedItem(callbacks[0]);
+    }
+  }, [callbacks, selectedItem]);
+
+  // 첫 번째 항목 자동 선택 (리콜)
+  useEffect(() => {
+    if (recallMessages.length > 0 && !selectedRecallItem) {
+      setSelectedRecallItem(recallMessages[0]);
+    }
+  }, [recallMessages, selectedRecallItem]);
+
   // ============= Render =============
   return (
-    <div className="p-6 space-y-6">
-      <PageHeader
-        title="일정 관리"
-        subtitle="콜백, 리콜, 감사전화 일정을 관리하세요"
-        action={{
-          label: '일정 추가',
-          icon: <Plus className="w-4 h-4" />,
-          onClick: () => setShowAddModal(true),
-        }}
-      />
-
-      {/* 요약 카드 */}
-      <div className="grid grid-cols-3 gap-4">
-        <div className="bg-white rounded-xl p-4 border border-gray-100">
-          <div className="flex items-center gap-3 mb-3">
-            <div className="w-10 h-10 bg-blue-100 rounded-lg flex items-center justify-center">
-              <Phone size={20} className="text-blue-600" />
-            </div>
-            <div>
-              <div className="text-sm text-gray-500">오늘 콜백</div>
-              <div className="text-xl font-bold text-gray-900">{todayStats?.callback ?? 0}건</div>
-            </div>
-          </div>
-          <div className="flex gap-3 text-xs">
-            <span className="text-amber-600">대기 {todayStats?.pending ?? 0}</span>
-            <span className="text-emerald-600">완료 {todayStats?.completed ?? 0}</span>
-            <span className="text-red-600">미연결 {todayStats?.missed ?? 0}</span>
+    <div className="p-6 space-y-4 h-[calc(100vh-64px)] flex flex-col">
+      {/* 상단 헤더 + 컴팩트 통계 */}
+      <div className="flex items-center justify-between">
+        <div className="flex items-center gap-6">
+          <h1 className="text-xl font-bold text-gray-900">일정 관리</h1>
+          <div className="flex items-center gap-4 text-sm">
+            <span className="flex items-center gap-1.5">
+              <Phone size={14} className="text-blue-600" />
+              <span className="text-gray-500">콜백</span>
+              <span className="font-bold text-gray-900">{todayStats?.callback ?? 0}</span>
+              <span className="text-amber-600">({todayStats?.pending ?? 0}대기)</span>
+            </span>
+            <span className="text-gray-300">|</span>
+            <span className="flex items-center gap-1.5">
+              <RefreshCw size={14} className="text-purple-600" />
+              <span className="text-gray-500">리콜</span>
+              <span className="font-bold text-gray-900">{recallStats.pending + recallStats.callNeeded}</span>
+            </span>
           </div>
         </div>
-
-        <div className="bg-white rounded-xl p-4 border border-gray-100">
-          <div className="flex items-center gap-3 mb-3">
-            <div className="w-10 h-10 bg-purple-100 rounded-lg flex items-center justify-center">
-              <RefreshCw size={20} className="text-purple-600" />
-            </div>
-            <div>
-              <div className="text-sm text-gray-500">오늘 리콜</div>
-              <div className="text-xl font-bold text-gray-900">{recallStats.pending + recallStats.callNeeded}건</div>
-            </div>
+        <div className="flex items-center gap-3">
+          {/* 날짜 네비게이션 */}
+          <div className="flex items-center gap-1 bg-gray-100 rounded-lg px-2 py-1">
+            <button onClick={() => handleDateChange(-1)} className="p-1 hover:bg-gray-200 rounded">
+              <ChevronLeft size={16} />
+            </button>
+            <span className="text-sm font-medium min-w-[90px] text-center">{formatDateLabel(selectedDate)}</span>
+            <button onClick={() => handleDateChange(1)} className="p-1 hover:bg-gray-200 rounded">
+              <ChevronRight size={16} />
+            </button>
           </div>
-          <div className="flex gap-3 text-xs">
-            <span className="text-amber-600">발송대기 {recallStats.pending}</span>
-            <span className="text-red-600">전화필요 {recallStats.callNeeded}</span>
-          </div>
-        </div>
-
-        <div className="bg-white rounded-xl p-4 border border-gray-100">
-          <div className="flex items-center gap-3 mb-3">
-            <div className="w-10 h-10 bg-rose-100 rounded-lg flex items-center justify-center">
-              <Gift size={20} className="text-rose-600" />
-            </div>
-            <div>
-              <div className="text-sm text-gray-500">감사인사</div>
-              <div className="text-xl font-bold text-gray-900">{thanksStats.total}건</div>
-            </div>
-          </div>
-          <div className="flex gap-3 text-xs">
-            <span className="text-amber-600">대기 {thanksStats.pending}</span>
-            <span className="text-emerald-600">완료 {thanksStats.completed}</span>
-          </div>
+          <button
+            onClick={() => setShowAddModal(true)}
+            className="flex items-center gap-1.5 px-3 py-1.5 bg-blue-600 text-white rounded-lg text-sm font-medium hover:bg-blue-700"
+          >
+            <Plus size={16} />
+            일정 추가
+          </button>
         </div>
       </div>
 
       {/* 메인 탭 */}
-      <div className="bg-white rounded-xl border border-gray-100">
-        <div className="flex border-b">
-          {tabs.map(tab => (
-            <button
-              key={tab.id}
-              onClick={() => setActiveTab(tab.id)}
-              className={`flex items-center gap-2 px-6 py-4 font-medium transition-colors relative ${
-                activeTab === tab.id ? 'text-blue-600' : 'text-gray-500 hover:text-gray-700'
-              }`}
-            >
-              {tab.icon}
-              {tab.label}
-              <span className={`px-2 py-0.5 rounded-full text-xs ${
-                activeTab === tab.id ? 'bg-blue-100 text-blue-600' : 'bg-gray-100 text-gray-600'
-              }`}>
-                {tab.count}
-              </span>
-              {activeTab === tab.id && (
-                <div className="absolute bottom-0 left-0 right-0 h-0.5 bg-blue-600" />
-              )}
-            </button>
-          ))}
-        </div>
-
-        {/* 콜백 탭 */}
-        {activeTab === 'callback' && (
-          <CallbackTab
-            callbacks={callbacks}
-            loading={loading}
-            selectedDate={selectedDate}
-            statusFilter={statusFilter}
-            searchQuery={searchQuery}
-            onDateChange={handleDateChange}
-            onStatusFilterChange={setStatusFilter}
-            onSearchChange={setSearchQuery}
-            onCall={handleCall}
-            onStatusChange={handleCallbackStatusChange}
-            onPatientClick={handlePatientClick}
-            formatTime={formatTime}
-            formatDateLabel={formatDateLabel}
-            getTemperatureIcon={getTemperatureIcon}
-          />
-        )}
-
-        {/* 리콜 탭 */}
-        {activeTab === 'recall' && (
-          <RecallTab
-            subTab={recallSubTab}
-            subTabs={recallSubTabs}
-            settings={recallSettings}
-            messages={recallMessages}
-            onSubTabChange={setRecallSubTab}
-            onSend={handleRecallSend}
-            onCancel={handleRecallCancel}
-            onComplete={handleRecallComplete}
-            onCall={handleCall}
-            onAddTreatment={() => setShowAddTreatmentModal(true)}
-            onDeleteTreatment={handleDeleteTreatment}
-            onEditSchedule={(settingId, schedule) => setEditingSchedule({ settingId, schedule })}
-            onAddSchedule={(settingId) => setEditingSchedule({ settingId })}
-            onDeleteSchedule={handleDeleteSchedule}
-            onToggleSchedule={handleToggleSchedule}
-            formatDate={formatDate}
-          />
-        )}
-
-        {/* 감사인사 탭 */}
-        {activeTab === 'thanks' && (
-          <ThanksTab
-            thanks={thanks}
-            statusFilter={statusFilter}
-            searchQuery={searchQuery}
-            onStatusFilterChange={setStatusFilter}
-            onSearchChange={setSearchQuery}
-            onCall={handleCall}
-            onComplete={handleThanksComplete}
-          />
-        )}
+      <div className="flex items-center gap-1 border-b">
+        {tabs.map(tab => (
+          <button
+            key={tab.id}
+            onClick={() => { setActiveTab(tab.id); setSelectedItem(null); }}
+            className={`flex items-center gap-2 px-4 py-2.5 font-medium transition-colors relative ${
+              activeTab === tab.id ? 'text-blue-600' : 'text-gray-500 hover:text-gray-700'
+            }`}
+          >
+            {tab.icon}
+            {tab.label}
+            <span className={`px-1.5 py-0.5 rounded-full text-xs ${
+              activeTab === tab.id ? 'bg-blue-100 text-blue-600' : 'bg-gray-100 text-gray-600'
+            }`}>
+              {tab.count}
+            </span>
+            {activeTab === tab.id && (
+              <div className="absolute bottom-0 left-0 right-0 h-0.5 bg-blue-600" />
+            )}
+          </button>
+        ))}
       </div>
 
-      {/* 이번 주 요약 */}
-      <WeeklySummary />
+      {/* 콜백 탭: 타임라인 + 상세 */}
+      {activeTab === 'callback' && (
+        <div className="flex-1 flex gap-4 min-h-0">
+          {/* 좌측: 타임라인 */}
+          <div className="w-80 flex flex-col bg-white rounded-xl border border-gray-100 overflow-hidden">
+            {/* 필터 */}
+            <div className="p-3 border-b flex items-center gap-2">
+              {(['all', 'pending', 'completed', 'missed'] as const).map(status => (
+                <button
+                  key={status}
+                  onClick={() => setStatusFilter(status)}
+                  className={`px-2.5 py-1 rounded-lg text-xs font-medium transition-colors ${
+                    statusFilter === status
+                      ? status === 'pending' ? 'bg-amber-500 text-white'
+                        : status === 'completed' ? 'bg-emerald-500 text-white'
+                        : status === 'missed' ? 'bg-red-500 text-white'
+                        : 'bg-gray-900 text-white'
+                      : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
+                  }`}
+                >
+                  {status === 'all' ? '전체' : status === 'pending' ? '대기' : status === 'completed' ? '완료' : '미연결'}
+                </button>
+              ))}
+            </div>
+            {/* 타임라인 목록 */}
+            <div className="flex-1 overflow-y-auto">
+              {loading ? (
+                <div className="p-8 text-center text-gray-500">로딩 중...</div>
+              ) : callbacks.length === 0 ? (
+                <div className="p-8 text-center">
+                  <Calendar className="w-10 h-10 text-gray-300 mx-auto mb-2" />
+                  <p className="text-sm text-gray-500">등록된 콜백이 없습니다</p>
+                </div>
+              ) : (
+                <div className="p-2">
+                  {callbacks.map((callback, idx) => (
+                    <button
+                      key={callback.id}
+                      onClick={() => setSelectedItem(callback)}
+                      className={`w-full text-left p-3 rounded-lg mb-1 transition-colors ${
+                        selectedItem?.id === callback.id
+                          ? 'bg-blue-50 border border-blue-200'
+                          : callback.status === 'completed'
+                          ? 'bg-gray-50 opacity-60 hover:bg-gray-100'
+                          : 'hover:bg-gray-50'
+                      }`}
+                    >
+                      <div className="flex items-start gap-3">
+                        {/* 타임라인 인디케이터 */}
+                        <div className="flex flex-col items-center">
+                          <div className={`w-3 h-3 rounded-full ${
+                            callback.status === 'completed' ? 'bg-emerald-500' :
+                            callback.status === 'missed' ? 'bg-red-500' : 'bg-blue-500'
+                          }`} />
+                          {idx < callbacks.length - 1 && (
+                            <div className="w-0.5 h-12 bg-gray-200 mt-1" />
+                          )}
+                        </div>
+                        {/* 내용 */}
+                        <div className="flex-1 min-w-0">
+                          <div className="flex items-center gap-2 mb-1">
+                            <span className="text-sm font-bold text-gray-900">{formatTime(callback.scheduledAt)}</span>
+                            <span className={`px-1.5 py-0.5 rounded text-xs font-medium ${
+                              callback.status === 'pending' ? 'bg-amber-100 text-amber-700' :
+                              callback.status === 'completed' ? 'bg-emerald-100 text-emerald-700' :
+                              'bg-red-100 text-red-700'
+                            }`}>
+                              {callback.status === 'pending' ? '대기' : callback.status === 'completed' ? '완료' : '미연결'}
+                            </span>
+                          </div>
+                          <div className="flex items-center gap-1.5">
+                            <span className="font-medium text-gray-900 truncate">{callback.patientName}</span>
+                            <TemperatureIcon temperature={callback.patientTemperature} size={14} />
+                          </div>
+                          <div className="text-xs text-gray-500 mt-0.5">{callback.patientInterest}</div>
+                        </div>
+                      </div>
+                    </button>
+                  ))}
+                </div>
+              )}
+            </div>
+          </div>
+
+          {/* 우측: 상세 패널 */}
+          <div className="flex-1 bg-white rounded-xl border border-gray-100 overflow-hidden">
+            {selectedItem ? (
+              <CallbackDetailPanel
+                callback={selectedItem}
+                onCall={handleCall}
+                onStatusChange={handleCallbackStatusChange}
+                onPatientClick={handlePatientClick}
+              />
+            ) : (
+              <div className="h-full flex items-center justify-center text-gray-400">
+                <div className="text-center">
+                  <Phone size={48} className="mx-auto mb-3 opacity-30" />
+                  <p>좌측에서 콜백을 선택하세요</p>
+                </div>
+              </div>
+            )}
+          </div>
+        </div>
+      )}
+
+      {/* 리콜 탭: 타임라인 + 상세 */}
+      {activeTab === 'recall' && (
+        <div className="flex-1 flex gap-4 min-h-0">
+          {/* 좌측: 리콜 목록 */}
+          <div className="w-96 flex flex-col bg-white rounded-xl border border-gray-100 overflow-hidden">
+            {/* 서브탭 */}
+            <div className="p-3 border-b flex items-center gap-2">
+              {recallSubTabs.map(tab => (
+                <button
+                  key={tab.id}
+                  onClick={() => { setRecallSubTab(tab.id); setSelectedRecallItem(null); }}
+                  className={`flex items-center gap-1.5 px-2.5 py-1 rounded-lg text-xs font-medium transition-colors ${
+                    recallSubTab === tab.id
+                      ? 'bg-purple-100 text-purple-700'
+                      : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
+                  }`}
+                >
+                  {tab.icon}
+                  {tab.label}
+                  {tab.count !== undefined && (
+                    <span className={`px-1 py-0.5 rounded-full text-xs ${
+                      recallSubTab === tab.id ? 'bg-purple-200' : 'bg-gray-200'
+                    }`}>
+                      {tab.count}
+                    </span>
+                  )}
+                </button>
+              ))}
+            </div>
+            {/* 리콜 목록 */}
+            <div className="flex-1 overflow-y-auto">
+              {recallMessages.length === 0 ? (
+                <div className="p-8 text-center">
+                  <RefreshCw className="w-10 h-10 text-gray-300 mx-auto mb-2" />
+                  <p className="text-sm text-gray-500">
+                    {recallSubTab === 'pending' ? '발송 대기 중인 리콜이 없습니다' :
+                     recallSubTab === 'call-needed' ? '전화가 필요한 환자가 없습니다' :
+                     '발송 이력이 없습니다'}
+                  </p>
+                </div>
+              ) : (
+                <div className="p-2">
+                  {recallMessages.map((msg, idx) => (
+                    <button
+                      key={msg.id}
+                      onClick={() => setSelectedRecallItem(msg)}
+                      className={`w-full text-left p-3 rounded-lg mb-1 transition-colors ${
+                        selectedRecallItem?.id === msg.id
+                          ? 'bg-purple-50 border border-purple-200'
+                          : msg.status === 'booked'
+                          ? 'bg-gray-50 opacity-60 hover:bg-gray-100'
+                          : 'hover:bg-gray-50'
+                      }`}
+                    >
+                      <div className="flex items-start gap-3">
+                        {/* 타임라인 인디케이터 */}
+                        <div className="flex flex-col items-center">
+                          <div className={`w-3 h-3 rounded-full ${
+                            msg.status === 'booked' ? 'bg-emerald-500' :
+                            msg.status === 'call-needed' || msg.status === 'no-response' ? 'bg-red-500' :
+                            'bg-purple-500'
+                          }`} />
+                          {idx < recallMessages.length - 1 && (
+                            <div className="w-0.5 h-12 bg-gray-200 mt-1" />
+                          )}
+                        </div>
+                        {/* 내용 */}
+                        <div className="flex-1 min-w-0">
+                          <div className="flex items-center gap-2 mb-1">
+                            <span className="font-medium text-gray-900 truncate">{msg.patientName}</span>
+                            <span className={`px-1.5 py-0.5 rounded text-xs font-medium ${
+                              msg.status === 'pending' ? 'bg-amber-100 text-amber-700' :
+                              msg.status === 'booked' ? 'bg-emerald-100 text-emerald-700' :
+                              'bg-red-100 text-red-700'
+                            }`}>
+                              {msg.status === 'pending' ? '대기' :
+                               msg.status === 'booked' ? '예약완료' :
+                               msg.status === 'call-needed' ? '전화필요' : '미응답'}
+                            </span>
+                          </div>
+                          <div className="text-xs text-purple-600 font-medium">{msg.treatment} {msg.timing}</div>
+                          <div className="text-xs text-gray-500 mt-0.5">{msg.patientPhone}</div>
+                        </div>
+                      </div>
+                    </button>
+                  ))}
+                </div>
+              )}
+            </div>
+          </div>
+
+          {/* 우측: 상세 패널 */}
+          <div className="flex-1 bg-white rounded-xl border border-gray-100 overflow-hidden">
+            {selectedRecallItem ? (
+              <RecallDetailPanel
+                recall={selectedRecallItem}
+                allRecalls={recallMessages}
+                onCall={handleCall}
+                onSend={handleRecallSend}
+                onCancel={handleRecallCancel}
+                onComplete={handleRecallComplete}
+                onSelectRecall={setSelectedRecallItem}
+                formatDate={formatDate}
+              />
+            ) : (
+              <div className="h-full flex items-center justify-center text-gray-400">
+                <div className="text-center">
+                  <RefreshCw size={48} className="mx-auto mb-3 opacity-30" />
+                  <p>좌측에서 리콜을 선택하세요</p>
+                </div>
+              </div>
+            )}
+          </div>
+        </div>
+      )}
 
       {/* 모달들 */}
       {showAddModal && (
@@ -658,691 +739,473 @@ function SchedulesContent() {
 
 // ============= Sub Components =============
 
-// 콜백 탭 컴포넌트
-function CallbackTab({
-  callbacks,
-  loading,
-  selectedDate,
-  statusFilter,
-  searchQuery,
-  onDateChange,
-  onStatusFilterChange,
-  onSearchChange,
+// 콜백 상세 패널 컴포넌트
+function CallbackDetailPanel({
+  callback,
   onCall,
   onStatusChange,
   onPatientClick,
-  formatTime,
-  formatDateLabel,
-  getTemperatureIcon,
 }: {
-  callbacks: CallbackItem[];
-  loading: boolean;
-  selectedDate: string;
-  statusFilter: string;
-  searchQuery: string;
-  onDateChange: (days: number) => void;
-  onStatusFilterChange: (status: CallbackStatus | 'all') => void;
-  onSearchChange: (query: string) => void;
+  callback: CallbackItem;
   onCall: (phone: string) => void;
   onStatusChange: (id: string, status: CallbackStatus) => void;
   onPatientClick: (id: string) => void;
-  formatTime: (date: string) => string;
-  formatDateLabel: (date: string) => string;
-  getTemperatureIcon: (temp: Temperature) => React.ReactNode;
 }) {
+  const formatDateTime = (dateStr: string) => {
+    const date = new Date(dateStr);
+    return date.toLocaleString('ko-KR', {
+      month: 'long',
+      day: 'numeric',
+      weekday: 'short',
+      hour: '2-digit',
+      minute: '2-digit',
+    });
+  };
+
   return (
-    <>
-      {/* 필터 */}
-      <div className="p-4 border-b flex items-center justify-between">
-        <div className="flex items-center gap-2">
-          {(['all', 'pending', 'completed', 'missed'] as const).map(status => (
-            <button
-              key={status}
-              onClick={() => onStatusFilterChange(status)}
-              className={`px-3 py-1.5 rounded-lg text-sm font-medium transition-colors ${
-                statusFilter === status
-                  ? status === 'pending' ? 'bg-amber-500 text-white'
-                    : status === 'completed' ? 'bg-emerald-500 text-white'
-                    : status === 'missed' ? 'bg-red-500 text-white'
-                    : 'bg-gray-900 text-white'
-                  : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
-              }`}
-            >
-              {status === 'all' ? '전체' : status === 'pending' ? '대기' : status === 'completed' ? '완료' : '미연결'}
-            </button>
-          ))}
+    <div className="h-full flex flex-col">
+      {/* 헤더 */}
+      <div className="p-6 border-b">
+        <div className="flex items-start justify-between mb-4">
+          <div>
+            <div className="flex items-center gap-3 mb-2">
+              <h2 className="text-2xl font-bold text-gray-900">{callback.patientName}</h2>
+              <TemperatureIcon temperature={callback.patientTemperature} size={20} />
+              <span className={`px-2.5 py-1 rounded-full text-sm font-medium ${
+                callback.status === 'pending' ? 'bg-amber-100 text-amber-700' :
+                callback.status === 'completed' ? 'bg-emerald-100 text-emerald-700' :
+                'bg-red-100 text-red-700'
+              }`}>
+                {callback.status === 'pending' ? '대기' : callback.status === 'completed' ? '완료' : '미연결'}
+              </span>
+            </div>
+            <p className="text-lg text-gray-600">{callback.patientPhone}</p>
+          </div>
+          <button
+            onClick={() => onPatientClick(callback.patientId)}
+            className="text-sm text-blue-600 hover:text-blue-700 hover:underline"
+          >
+            환자 상세 →
+          </button>
         </div>
 
+        {/* 액션 버튼 */}
         <div className="flex items-center gap-3">
-          <div className="flex items-center gap-2 bg-gray-100 rounded-lg px-3 py-1.5">
-            <button onClick={() => onDateChange(-1)} className="p-1 hover:bg-gray-200 rounded">
-              <ChevronLeft size={16} />
-            </button>
-            <span className="text-sm font-medium min-w-[100px] text-center">{formatDateLabel(selectedDate)}</span>
-            <button onClick={() => onDateChange(1)} className="p-1 hover:bg-gray-200 rounded">
-              <ChevronRight size={16} />
-            </button>
-          </div>
-
-          <div className="relative">
-            <Search size={18} className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" />
-            <input
-              type="text"
-              value={searchQuery}
-              onChange={(e) => onSearchChange(e.target.value)}
-              placeholder="환자명, 전화번호 검색"
-              className="pl-10 pr-4 py-2 border rounded-lg text-sm w-64 focus:outline-none focus:ring-2 focus:ring-blue-500"
-            />
-          </div>
+          {callback.status === 'pending' && (
+            <>
+              <button
+                onClick={() => onCall(callback.patientPhone)}
+                className="flex-1 flex items-center justify-center gap-2 px-4 py-3 bg-blue-600 text-white rounded-xl font-medium hover:bg-blue-700 transition-colors"
+              >
+                <Phone size={20} />
+                전화하기
+              </button>
+              <button
+                onClick={() => onStatusChange(callback.id, 'completed')}
+                className="flex items-center justify-center gap-2 px-4 py-3 bg-emerald-600 text-white rounded-xl font-medium hover:bg-emerald-700 transition-colors"
+              >
+                <CheckCircle size={20} />
+                완료
+              </button>
+              <button
+                onClick={() => onStatusChange(callback.id, 'missed')}
+                className="flex items-center justify-center gap-2 px-4 py-3 bg-gray-200 text-gray-700 rounded-xl font-medium hover:bg-gray-300 transition-colors"
+              >
+                <XCircle size={20} />
+                미연결
+              </button>
+            </>
+          )}
+          {callback.status === 'missed' && (
+            <>
+              <button
+                onClick={() => onCall(callback.patientPhone)}
+                className="flex-1 flex items-center justify-center gap-2 px-4 py-3 bg-blue-600 text-white rounded-xl font-medium hover:bg-blue-700 transition-colors"
+              >
+                <Phone size={20} />
+                재시도
+              </button>
+              <button
+                onClick={() => onStatusChange(callback.id, 'pending')}
+                className="flex items-center justify-center gap-2 px-4 py-3 bg-amber-500 text-white rounded-xl font-medium hover:bg-amber-600 transition-colors"
+              >
+                <RefreshCw size={20} />
+                대기로 변경
+              </button>
+            </>
+          )}
+          {callback.status === 'completed' && (
+            <div className="flex-1 flex items-center justify-center gap-2 px-4 py-3 bg-emerald-50 text-emerald-700 rounded-xl">
+              <CheckCircle size={20} />
+              {callback.completedAt ? `${callback.completedAt.slice(0, 16).replace('T', ' ')} 완료` : '완료됨'}
+            </div>
+          )}
         </div>
       </div>
 
-      {/* 목록 */}
-      <div className="divide-y">
-        {loading ? (
-          <div className="p-8 text-center text-gray-500">로딩 중...</div>
-        ) : callbacks.length === 0 ? (
-          <div className="p-8 text-center">
-            <Calendar className="w-12 h-12 text-gray-300 mx-auto mb-3" />
-            <p className="text-gray-500">등록된 콜백이 없습니다</p>
-          </div>
-        ) : (
-          callbacks.map(callback => (
-            <div
-              key={callback.id}
-              className={`p-4 hover:bg-gray-50 transition-colors ${
-                callback.status === 'completed' ? 'bg-gray-50 opacity-60' : ''
-              }`}
-            >
-              <div className="flex items-start justify-between">
-                <div className="flex items-start gap-4">
-                  <div className="text-center min-w-[60px]">
-                    <div className="text-lg font-bold text-gray-900">{formatTime(callback.scheduledAt)}</div>
-                    <div className="text-xs text-gray-500">{callback.scheduledAt.split('T')[0].slice(5)}</div>
-                  </div>
-
-                  <div className="w-px h-16 bg-gray-200" />
-
-                  <div className="flex-1 cursor-pointer" onClick={() => onPatientClick(callback.patientId)}>
-                    <div className="flex items-center gap-2 mb-1">
-                      <span className="font-bold text-gray-900">{callback.patientName}</span>
-                      {getTemperatureIcon(callback.patientTemperature)}
-                      <span className={`px-2 py-1 rounded-full text-xs font-medium ${
-                        callback.status === 'pending' ? 'bg-amber-100 text-amber-700'
-                          : callback.status === 'completed' ? 'bg-emerald-100 text-emerald-700'
-                          : 'bg-red-100 text-red-700'
-                      }`}>
-                        {callback.status === 'pending' ? '대기' : callback.status === 'completed' ? '완료' : '미연결'}
-                      </span>
-                    </div>
-                    <div className="text-sm text-gray-500 mb-2">{callback.patientPhone}</div>
-                    <div className="flex items-center gap-2">
-                      <span className="px-2 py-0.5 bg-blue-100 text-blue-700 rounded text-xs">
-                        {callback.patientInterest}
-                      </span>
-                    </div>
-                    {callback.note && (
-                      <div className="text-sm text-gray-500 mt-2 flex items-center gap-1">
-                        <MessageSquare size={14} />
-                        {callback.note}
-                      </div>
-                    )}
-                  </div>
+      {/* 상세 정보 */}
+      <div className="flex-1 p-6 overflow-y-auto">
+        <div className="space-y-6">
+          {/* 예약 정보 */}
+          <div>
+            <h3 className="text-sm font-medium text-gray-500 mb-3">콜백 정보</h3>
+            <div className="bg-gray-50 rounded-xl p-4 space-y-3">
+              <div className="flex items-center gap-3">
+                <Clock size={18} className="text-gray-400" />
+                <div>
+                  <div className="text-sm text-gray-500">예정 시간</div>
+                  <div className="font-medium text-gray-900">{formatDateTime(callback.scheduledAt)}</div>
                 </div>
-
-                <div className="flex items-center gap-2">
-                  {callback.status === 'pending' && (
-                    <>
-                      <button
-                        onClick={() => onCall(callback.patientPhone)}
-                        className="flex items-center gap-1 px-3 py-2 bg-blue-600 text-white rounded-lg text-sm font-medium hover:bg-blue-700"
-                      >
-                        <Phone size={16} />
-                        전화
-                      </button>
-                      <button
-                        onClick={() => onStatusChange(callback.id, 'completed')}
-                        className="flex items-center gap-1 px-3 py-2 bg-emerald-600 text-white rounded-lg text-sm font-medium hover:bg-emerald-700"
-                      >
-                        <Check size={16} />
-                        완료
-                      </button>
-                    </>
-                  )}
-                  {callback.status === 'missed' && (
-                    <button
-                      onClick={() => onStatusChange(callback.id, 'pending')}
-                      className="flex items-center gap-1 px-3 py-2 bg-amber-500 text-white rounded-lg text-sm font-medium hover:bg-amber-600"
-                    >
-                      <RefreshCw size={16} />
-                      재시도
-                    </button>
-                  )}
-                  {callback.status === 'completed' && callback.completedAt && (
-                    <span className="text-sm text-gray-500">{callback.completedAt.slice(0, 16).replace('T', ' ')} 완료</span>
-                  )}
+              </div>
+              <div className="flex items-center gap-3">
+                <Calendar size={18} className="text-gray-400" />
+                <div>
+                  <div className="text-sm text-gray-500">관심 분야</div>
+                  <div className="font-medium text-gray-900">{callback.patientInterest}</div>
                 </div>
               </div>
             </div>
-          ))
-        )}
+          </div>
+
+          {/* 메모 */}
+          {callback.note && (
+            <div>
+              <h3 className="text-sm font-medium text-gray-500 mb-3">메모</h3>
+              <div className="bg-amber-50 rounded-xl p-4">
+                <div className="flex items-start gap-3">
+                  <MessageSquare size={18} className="text-amber-600 mt-0.5" />
+                  <p className="text-gray-900">{callback.note}</p>
+                </div>
+              </div>
+            </div>
+          )}
+
+          {/* 환자 상태 */}
+          <div>
+            <h3 className="text-sm font-medium text-gray-500 mb-3">환자 상태</h3>
+            <div className="bg-gray-50 rounded-xl p-4">
+              <div className="flex items-center gap-2">
+                <span className="px-3 py-1.5 bg-blue-100 text-blue-700 rounded-lg text-sm font-medium">
+                  {callback.patientStatus || '신규'}
+                </span>
+                <span className="px-3 py-1.5 bg-purple-100 text-purple-700 rounded-lg text-sm font-medium">
+                  {callback.patientInterest}
+                </span>
+              </div>
+            </div>
+          </div>
+        </div>
       </div>
-    </>
+    </div>
   );
 }
 
-// 리콜 탭 컴포넌트
-function RecallTab({
-  subTab,
-  subTabs,
-  settings,
-  messages,
-  onSubTabChange,
+// 리콜 상세 패널 컴포넌트
+function RecallDetailPanel({
+  recall,
+  allRecalls,
+  onCall,
   onSend,
   onCancel,
   onComplete,
-  onCall,
-  onAddTreatment,
-  onDeleteTreatment,
-  onEditSchedule,
-  onAddSchedule,
-  onDeleteSchedule,
-  onToggleSchedule,
+  onSelectRecall,
   formatDate,
 }: {
-  subTab: RecallSubTab;
-  subTabs: { id: RecallSubTab; label: string; icon: React.ReactNode; count?: number }[];
-  settings: RecallSetting[];
-  messages: RecallMessage[];
-  onSubTabChange: (tab: RecallSubTab) => void;
+  recall: RecallMessage;
+  allRecalls: RecallMessage[];
+  onCall: (phone: string) => void;
   onSend: (id: string) => void;
   onCancel: (id: string) => void;
   onComplete: (id: string) => void;
-  onCall: (phone: string) => void;
-  onAddTreatment: () => void;
-  onDeleteTreatment: (id: string) => void;
-  onEditSchedule: (settingId: string, schedule: RecallSchedule) => void;
-  onAddSchedule: (settingId: string) => void;
-  onDeleteSchedule: (settingId: string, scheduleId: string) => void;
-  onToggleSchedule: (settingId: string, scheduleId: string, enabled: boolean) => void;
+  onSelectRecall: (recall: RecallMessage) => void;
   formatDate: (date: string) => string;
 }) {
+  const [showPatientModal, setShowPatientModal] = useState(false);
+
+  // 같은 환자 + 같은 치료의 모든 리콜 찾기
+  const relatedRecalls = allRecalls
+    .filter(r => r.patientId === recall.patientId && r.treatment === recall.treatment)
+    .sort((a, b) => {
+      const getTimingDays = (timing: string) => {
+        if (timing.includes('1주')) return 7;
+        if (timing.includes('2주')) return 14;
+        if (timing.includes('1개월')) return 30;
+        if (timing.includes('3개월')) return 90;
+        if (timing.includes('6개월')) return 180;
+        if (timing.includes('1년')) return 365;
+        return 0;
+      };
+      return getTimingDays(a.timing) - getTimingDays(b.timing);
+    });
+
   return (
-    <>
-      {/* 서브탭 */}
-      <div className="p-4 border-b flex items-center gap-2">
-        {subTabs.map(tab => (
-          <button
-            key={tab.id}
-            onClick={() => onSubTabChange(tab.id)}
-            className={`flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-medium transition-colors ${
-              subTab === tab.id
-                ? 'bg-purple-100 text-purple-700'
-                : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
-            }`}
-          >
-            {tab.icon}
-            {tab.label}
-            {tab.count !== undefined && (
-              <span className={`px-1.5 py-0.5 rounded-full text-xs ${
-                subTab === tab.id ? 'bg-purple-200 text-purple-700' : 'bg-gray-200 text-gray-600'
-              }`}>
-                {tab.count}
+    <div className="h-full flex flex-col">
+      {/* 헤더 - 심플하게 */}
+      <div className="p-5 border-b">
+        <div className="flex items-start justify-between">
+          <div>
+            <div className="flex items-center gap-3 mb-1">
+              <h2 className="text-xl font-bold text-gray-900">{recall.patientName}</h2>
+              <span className="px-3 py-1 bg-purple-100 text-purple-700 rounded-lg text-sm font-medium">
+                {recall.treatment}
               </span>
-            )}
-          </button>
-        ))}
-      </div>
-
-      {/* 발송 설정 */}
-      {subTab === 'settings' && (
-        <div className="p-6">
-          <div className="flex items-center justify-between mb-6">
-            <div>
-              <h3 className="font-bold text-gray-900">치료별 자동 발송 설정</h3>
-              <p className="text-sm text-gray-500 mt-1">치료 완료 후 자동으로 알림톡이 발송됩니다</p>
             </div>
+            <p className="text-gray-500">{recall.patientPhone}</p>
+          </div>
+          <div className="flex items-center gap-2">
             <button
-              onClick={onAddTreatment}
-              className="flex items-center gap-2 px-4 py-2 bg-purple-600 text-white rounded-lg text-sm font-medium hover:bg-purple-700"
+              onClick={() => onCall(recall.patientPhone)}
+              className="flex items-center gap-2 px-4 py-2 bg-blue-600 text-white rounded-lg text-sm font-medium hover:bg-blue-700 transition-colors"
             >
-              <Plus size={16} />
-              치료 추가
+              <Phone size={16} />
+              전화하기
+            </button>
+            <button
+              onClick={() => setShowPatientModal(true)}
+              className="flex items-center gap-2 px-4 py-2 bg-gray-100 text-gray-700 rounded-lg text-sm font-medium hover:bg-gray-200 transition-colors"
+            >
+              환자상세
             </button>
           </div>
-
-          <div className="space-y-4">
-            {settings.length === 0 ? (
-              <div className="text-center py-8 text-gray-500">
-                등록된 치료 설정이 없습니다
-              </div>
-            ) : (
-              settings.map(setting => (
-                <div key={setting.id} className="border rounded-xl overflow-hidden">
-                  <div className="bg-gray-50 px-4 py-3 flex items-center justify-between">
-                    <span className="font-medium text-gray-900">{setting.treatment}</span>
-                    <button
-                      onClick={() => onDeleteTreatment(setting.id)}
-                      className="text-gray-400 hover:text-red-600"
-                    >
-                      <Trash2 size={18} />
-                    </button>
-                  </div>
-                  <div className="divide-y">
-                    {setting.schedules.map(schedule => (
-                      <div key={schedule.id} className="px-4 py-3 flex items-center justify-between">
-                        <div className="flex items-center gap-4">
-                          <label className="relative inline-flex items-center cursor-pointer">
-                            <input
-                              type="checkbox"
-                              checked={schedule.enabled}
-                              onChange={(e) => onToggleSchedule(setting.id, schedule.id, e.target.checked)}
-                              className="sr-only peer"
-                            />
-                            <div className="w-9 h-5 bg-gray-200 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-4 after:w-4 after:transition-all peer-checked:bg-purple-600" />
-                          </label>
-                          <div>
-                            <span className="text-sm font-medium text-gray-900">{schedule.timing}</span>
-                            <p className="text-sm text-gray-500 mt-0.5 max-w-md truncate">{schedule.message}</p>
-                          </div>
-                        </div>
-                        <div className="flex items-center gap-2">
-                          <button
-                            onClick={() => onEditSchedule(setting.id, schedule)}
-                            className="p-2 hover:bg-gray-100 rounded-lg"
-                          >
-                            <Edit2 size={16} className="text-gray-400" />
-                          </button>
-                          <button
-                            onClick={() => onDeleteSchedule(setting.id, schedule.id)}
-                            className="p-2 hover:bg-gray-100 rounded-lg"
-                          >
-                            <Trash2 size={16} className="text-gray-400" />
-                          </button>
-                        </div>
-                      </div>
-                    ))}
-                    <div className="px-4 py-3">
-                      <button
-                        onClick={() => onAddSchedule(setting.id)}
-                        className="flex items-center gap-1 text-sm text-purple-600 hover:text-purple-700"
-                      >
-                        <Plus size={16} />
-                        발송 시점 추가
-                      </button>
-                    </div>
-                  </div>
-                </div>
-              ))
-            )}
-          </div>
-        </div>
-      )}
-
-      {/* 발송 대기 */}
-      {subTab === 'pending' && (
-        <div className="divide-y">
-          {messages.filter(m => m.status === 'pending').length === 0 ? (
-            <div className="p-8 text-center text-gray-500">발송 대기 중인 메시지가 없습니다</div>
-          ) : (
-            <>
-              <div className="p-4 bg-amber-50 flex items-center gap-3">
-                <Clock size={18} className="text-amber-600" />
-                <span className="text-sm text-amber-700">
-                  오늘 발송 예정 <strong>{messages.filter(m => m.status === 'pending').length}건</strong>
-                </span>
-              </div>
-              {messages.filter(m => m.status === 'pending').map(msg => (
-                <div key={msg.id} className="p-4 hover:bg-gray-50">
-                  <div className="flex items-start justify-between">
-                    <div className="flex items-start gap-4">
-                      <div className="w-10 h-10 bg-purple-100 rounded-full flex items-center justify-center">
-                        <Send size={18} className="text-purple-600" />
-                      </div>
-                      <div>
-                        <div className="flex items-center gap-2 mb-1">
-                          <span className="font-bold text-gray-900">{msg.patientName}</span>
-                          <span className="px-2 py-0.5 bg-purple-100 text-purple-700 rounded text-xs">
-                            {msg.treatment} {msg.timing}
-                          </span>
-                        </div>
-                        <div className="text-sm text-gray-500 mb-1">{msg.patientPhone}</div>
-                        <div className="text-sm text-gray-500">
-                          마지막 방문: {formatDate(msg.lastVisit)} · 발송 예정: {formatDate(msg.scheduledAt)}
-                        </div>
-                      </div>
-                    </div>
-                    <div className="flex items-center gap-2">
-                      <button
-                        onClick={() => onSend(msg.id)}
-                        className="flex items-center gap-1 px-3 py-2 bg-purple-600 text-white rounded-lg text-sm font-medium hover:bg-purple-700"
-                      >
-                        <Send size={16} />
-                        즉시 발송
-                      </button>
-                      <button
-                        onClick={() => onCancel(msg.id)}
-                        className="flex items-center gap-1 px-3 py-2 bg-gray-200 text-gray-700 rounded-lg text-sm font-medium hover:bg-gray-300"
-                      >
-                        <X size={16} />
-                        취소
-                      </button>
-                    </div>
-                  </div>
-                </div>
-              ))}
-            </>
-          )}
-        </div>
-      )}
-
-      {/* 발송 이력 */}
-      {subTab === 'history' && (
-        <div className="divide-y">
-          {messages.length === 0 ? (
-            <div className="p-8 text-center text-gray-500">발송 이력이 없습니다</div>
-          ) : (
-            messages.map(msg => (
-              <div key={msg.id} className="p-4 hover:bg-gray-50">
-                <div className="flex items-start justify-between">
-                  <div className="flex items-start gap-4">
-                    <div className={`w-10 h-10 rounded-full flex items-center justify-center ${
-                      msg.status === 'booked' ? 'bg-emerald-100' : 'bg-red-100'
-                    }`}>
-                      {msg.status === 'booked' ? (
-                        <Check size={18} className="text-emerald-600" />
-                      ) : (
-                        <PhoneMissed size={18} className="text-red-600" />
-                      )}
-                    </div>
-                    <div>
-                      <div className="flex items-center gap-2 mb-1">
-                        <span className="font-bold text-gray-900">{msg.patientName}</span>
-                        <span className="px-2 py-0.5 bg-purple-100 text-purple-700 rounded text-xs">
-                          {msg.treatment} {msg.timing}
-                        </span>
-                        <span className={`px-2 py-1 rounded-full text-xs font-medium ${
-                          msg.status === 'booked' ? 'bg-emerald-100 text-emerald-700' : 'bg-red-100 text-red-700'
-                        }`}>
-                          {msg.status === 'booked' ? '예약완료' : '미응답'}
-                        </span>
-                      </div>
-                      <div className="text-sm text-gray-500 mb-1">{msg.patientPhone}</div>
-                      <div className="text-sm text-gray-500">
-                        발송: {msg.sentAt ? formatDate(msg.sentAt) : '-'}
-                        {msg.status === 'booked' && msg.bookedAt && (
-                          <span className="text-emerald-600 ml-2">→ {formatDate(msg.bookedAt)} 예약</span>
-                        )}
-                        {msg.status === 'no-response' && msg.daysPassed && (
-                          <span className="text-red-600 ml-2">→ {msg.daysPassed}일 경과</span>
-                        )}
-                      </div>
-                    </div>
-                  </div>
-                  {msg.status === 'no-response' && (
-                    <button
-                      onClick={() => onCall(msg.patientPhone)}
-                      className="flex items-center gap-1 px-3 py-2 bg-blue-600 text-white rounded-lg text-sm font-medium hover:bg-blue-700"
-                    >
-                      <Phone size={16} />
-                      전화하기
-                    </button>
-                  )}
-                </div>
-              </div>
-            ))
-          )}
-        </div>
-      )}
-
-      {/* 전화 필요 */}
-      {subTab === 'call-needed' && (
-        <div className="divide-y">
-          {messages.filter(m => m.status === 'call-needed').length === 0 ? (
-            <div className="p-8 text-center text-gray-500">전화가 필요한 환자가 없습니다</div>
-          ) : (
-            <>
-              <div className="p-4 bg-red-50 flex items-center gap-3">
-                <AlertCircle size={18} className="text-red-600" />
-                <span className="text-sm text-red-700">
-                  알림톡 발송 후 3일 내 예약이 없는 환자입니다. 직접 전화해주세요.
-                </span>
-              </div>
-              {messages.filter(m => m.status === 'call-needed').map(msg => (
-                <div key={msg.id} className="p-4 hover:bg-gray-50">
-                  <div className="flex items-start justify-between">
-                    <div className="flex items-start gap-4">
-                      <div className="w-10 h-10 bg-red-100 rounded-full flex items-center justify-center">
-                        <PhoneMissed size={18} className="text-red-600" />
-                      </div>
-                      <div>
-                        <div className="flex items-center gap-2 mb-1">
-                          <span className="font-bold text-gray-900">{msg.patientName}</span>
-                          <span className="px-2 py-0.5 bg-purple-100 text-purple-700 rounded text-xs">
-                            {msg.treatment} {msg.timing}
-                          </span>
-                          <span className="px-2 py-0.5 bg-red-100 text-red-700 rounded text-xs">
-                            {msg.daysPassed}일 경과
-                          </span>
-                        </div>
-                        <div className="text-sm text-gray-500 mb-1">{msg.patientPhone}</div>
-                        <div className="text-sm text-gray-500">
-                          발송일: {msg.sentAt ? formatDate(msg.sentAt) : '-'}
-                        </div>
-                      </div>
-                    </div>
-                    <div className="flex items-center gap-2">
-                      <button
-                        onClick={() => onCall(msg.patientPhone)}
-                        className="flex items-center gap-1 px-3 py-2 bg-blue-600 text-white rounded-lg text-sm font-medium hover:bg-blue-700"
-                      >
-                        <Phone size={16} />
-                        전화
-                      </button>
-                      <button
-                        onClick={() => onComplete(msg.id)}
-                        className="flex items-center gap-1 px-3 py-2 bg-emerald-600 text-white rounded-lg text-sm font-medium hover:bg-emerald-700"
-                      >
-                        <Check size={16} />
-                        완료
-                      </button>
-                    </div>
-                  </div>
-                </div>
-              ))}
-            </>
-          )}
-        </div>
-      )}
-    </>
-  );
-}
-
-// 감사인사 탭 컴포넌트
-function ThanksTab({
-  thanks,
-  statusFilter,
-  searchQuery,
-  onStatusFilterChange,
-  onSearchChange,
-  onCall,
-  onComplete,
-}: {
-  thanks: ThanksItem[];
-  statusFilter: string;
-  searchQuery: string;
-  onStatusFilterChange: (status: CallbackStatus | 'all') => void;
-  onSearchChange: (query: string) => void;
-  onCall: (phone: string) => void;
-  onComplete: (id: string, method: 'call' | 'message') => void;
-}) {
-  return (
-    <>
-      <div className="p-4 border-b flex items-center justify-between">
-        <div className="flex items-center gap-2">
-          {(['all', 'pending', 'completed'] as const).map(status => (
-            <button
-              key={status}
-              onClick={() => onStatusFilterChange(status as CallbackStatus | 'all')}
-              className={`px-3 py-1.5 rounded-lg text-sm font-medium transition-colors ${
-                statusFilter === status
-                  ? status === 'pending' ? 'bg-amber-500 text-white'
-                    : status === 'completed' ? 'bg-emerald-500 text-white'
-                    : 'bg-gray-900 text-white'
-                  : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
-              }`}
-            >
-              {status === 'all' ? '전체' : status === 'pending' ? '대기' : '완료'}
-            </button>
-          ))}
-        </div>
-
-        <div className="relative">
-          <Search size={18} className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" />
-          <input
-            type="text"
-            value={searchQuery}
-            onChange={(e) => onSearchChange(e.target.value)}
-            placeholder="환자명, 전화번호 검색"
-            className="pl-10 pr-4 py-2 border rounded-lg text-sm w-64 focus:outline-none focus:ring-2 focus:ring-blue-500"
-          />
         </div>
       </div>
 
-      <div className="divide-y">
-        {thanks.length === 0 ? (
-          <div className="p-8 text-center">
-            <Heart className="w-12 h-12 text-gray-300 mx-auto mb-3" />
-            <p className="text-gray-500">감사인사 대상이 없습니다</p>
-          </div>
-        ) : (
-          thanks.map(item => (
-            <div
-              key={item.id}
-              className={`p-4 hover:bg-gray-50 transition-colors ${
-                item.status === 'completed' ? 'bg-gray-50 opacity-60' : ''
-              }`}
-            >
-              <div className="flex items-start justify-between">
-                <div className="flex items-start gap-4">
-                  <div className="w-12 h-12 bg-rose-100 rounded-full flex items-center justify-center">
-                    <Heart size={24} className="text-rose-500" />
+      {/* 전체 리콜 일정 */}
+      <div className="flex-1 p-5 overflow-y-auto">
+        <div className="bg-purple-50 rounded-xl p-4">
+          <h3 className="text-sm font-medium text-purple-900 mb-4">
+            {recall.treatment} 전체 리콜 일정
+            <span className="ml-2 text-xs text-purple-600">({relatedRecalls.length}회)</span>
+          </h3>
+          <div className="space-y-2">
+            {relatedRecalls.map((r, idx) => {
+              const isCurrent = r.id === recall.id;
+              const isBooked = r.status === 'booked';
+              const isSent = r.sentAt && r.status !== 'booked';
+              const isPending = r.status === 'pending' && !r.sentAt;
+              const isCallNeeded = r.status === 'call-needed' || r.status === 'no-response';
+
+              return (
+                <div
+                  key={r.id}
+                  className={`flex items-center gap-3 p-3 rounded-lg transition-colors ${
+                    isCurrent
+                      ? 'bg-purple-200 border-2 border-purple-400'
+                      : 'bg-white'
+                  }`}
+                >
+                  {/* 상태 아이콘 */}
+                  <div className={`w-7 h-7 rounded-full flex items-center justify-center flex-shrink-0 ${
+                    isBooked ? 'bg-emerald-500 text-white' :
+                    isSent ? 'bg-blue-500 text-white' :
+                    isCallNeeded ? 'bg-red-500 text-white' :
+                    'bg-gray-200 text-gray-500'
+                  }`}>
+                    {isBooked ? <Check size={14} /> :
+                     isSent ? <Check size={14} /> :
+                     isCallNeeded ? <Phone size={12} /> :
+                     <span className="text-xs font-bold">{idx + 1}</span>}
                   </div>
 
-                  <div className="flex-1">
-                    <div className="flex items-center gap-2 mb-2">
-                      <span className="font-bold text-gray-900">{item.referrerName}</span>
-                      <span className="text-gray-400">님이</span>
-                      <span className="font-bold text-blue-600">{item.referredName}</span>
-                      <span className="text-gray-400">님을 소개해주셨어요</span>
-                      <span className={`px-2 py-1 rounded-full text-xs font-medium ${
-                        item.status === 'pending' ? 'bg-amber-100 text-amber-700' : 'bg-emerald-100 text-emerald-700'
-                      }`}>
-                        {item.status === 'pending' ? '대기' : '완료'}
+                  {/* 내용 */}
+                  <div className="flex-1 min-w-0">
+                    <div className="flex items-center gap-2">
+                      <span className={`text-sm font-medium ${isCurrent ? 'text-purple-900' : 'text-gray-900'}`}>
+                        {r.timing}
+                      </span>
+                      <span className="text-xs text-gray-500">
+                        {r.sentAt ? `${formatDate(r.sentAt)} 발송` :
+                         r.scheduledAt ? `${formatDate(r.scheduledAt)} 예정` : ''}
                       </span>
                     </div>
-                    <div className="flex items-center gap-4 text-sm text-gray-500">
-                      <span>소개자: {item.referrerPhone}</span>
-                      <span>피소개자: {item.referredPhone}</span>
-                      <span>소개일: {item.referredAt.split('T')[0]}</span>
-                    </div>
-                    {item.note && (
-                      <div className="text-sm text-gray-500 mt-2 flex items-center gap-1">
-                        <MessageSquare size={14} />
-                        {item.note}
-                      </div>
-                    )}
                   </div>
-                </div>
 
-                <div className="flex items-center gap-2">
-                  {item.status === 'pending' && (
-                    <>
+                  {/* 상태 배지 */}
+                  <span className={`text-xs px-2 py-1 rounded-full flex-shrink-0 ${
+                    isBooked ? 'bg-emerald-100 text-emerald-700' :
+                    isSent ? 'bg-blue-100 text-blue-700' :
+                    isCallNeeded ? 'bg-red-100 text-red-700' :
+                    'bg-amber-100 text-amber-700'
+                  }`}>
+                    {isBooked ? '예약완료' :
+                     isSent ? '발송완료' :
+                     isCallNeeded ? '전화필요' : '대기'}
+                  </span>
+
+                  {/* 액션 버튼 - 대기 또는 전화필요 상태만 */}
+                  {(isPending || isCallNeeded) && (
+                    <div className="flex items-center gap-1.5 flex-shrink-0">
+                      {isPending && (
+                        <button
+                          onClick={(e) => { e.stopPropagation(); onSend(r.id); }}
+                          className="px-3 py-1.5 bg-purple-600 text-white rounded-lg text-xs font-medium hover:bg-purple-700 transition-colors"
+                        >
+                          발송
+                        </button>
+                      )}
+                      {isCallNeeded && (
+                        <button
+                          onClick={(e) => { e.stopPropagation(); onComplete(r.id); }}
+                          className="px-3 py-1.5 bg-emerald-600 text-white rounded-lg text-xs font-medium hover:bg-emerald-700 transition-colors"
+                        >
+                          완료
+                        </button>
+                      )}
                       <button
-                        onClick={() => { onCall(item.referrerPhone); onComplete(item.id, 'call'); }}
-                        className="flex items-center gap-1 px-3 py-2 bg-blue-600 text-white rounded-lg text-sm font-medium hover:bg-blue-700"
+                        onClick={(e) => { e.stopPropagation(); onCancel(r.id); }}
+                        className="px-3 py-1.5 bg-gray-200 text-gray-600 rounded-lg text-xs font-medium hover:bg-gray-300 transition-colors"
                       >
-                        <Phone size={16} />
-                        전화
+                        제거
                       </button>
-                      <button
-                        onClick={() => onComplete(item.id, 'message')}
-                        className="flex items-center gap-1 px-3 py-2 bg-rose-500 text-white rounded-lg text-sm font-medium hover:bg-rose-600"
-                      >
-                        <MessageSquare size={16} />
-                        문자
-                      </button>
-                      <button
-                        onClick={() => onComplete(item.id, 'call')}
-                        className="flex items-center gap-1 px-3 py-2 bg-emerald-600 text-white rounded-lg text-sm font-medium hover:bg-emerald-700"
-                      >
-                        <Check size={16} />
-                        완료
-                      </button>
-                    </>
-                  )}
-                  {item.status === 'completed' && item.completedAt && (
-                    <span className="text-sm text-gray-500">{item.completedAt.slice(0, 10)} 완료</span>
+                    </div>
                   )}
                 </div>
-              </div>
-            </div>
-          ))
-        )}
+              );
+            })}
+          </div>
+        </div>
+
+        {/* 하단 정보 - 심플하게 */}
+        <div className="mt-4 flex items-center gap-6 text-sm text-gray-500">
+          <span>마지막 방문: <strong className="text-gray-900">{formatDate(recall.lastVisit)}</strong></span>
+          {recall.daysPassed && (
+            <span>경과: <strong className="text-red-600">{recall.daysPassed}일</strong></span>
+          )}
+        </div>
       </div>
-    </>
+
+      {/* 환자 정보 모달 */}
+      {showPatientModal && (
+        <PatientInfoModal
+          patientId={recall.patientId}
+          onClose={() => setShowPatientModal(false)}
+        />
+      )}
+    </div>
   );
 }
 
-// 이번 주 요약 컴포넌트
-function WeeklySummary() {
-  const today = new Date();
-  const dayOfWeek = today.getDay();
-  const monday = new Date(today);
-  monday.setDate(today.getDate() - (dayOfWeek === 0 ? 6 : dayOfWeek - 1));
+// 간소화된 환자 정보 모달
+function PatientInfoModal({
+  patientId,
+  onClose,
+}: {
+  patientId: string;
+  onClose: () => void;
+}) {
+  const router = useRouter();
+  const [patient, setPatient] = useState<{
+    name: string;
+    phone: string;
+    temperature: Temperature;
+    interest: string;
+    status: string;
+    memo?: string;
+    consultations?: Array<{ date: string; content: string }>;
+  } | null>(null);
+  const [loading, setLoading] = useState(true);
 
-  const days = ['월', '화', '수', '목', '금', '토', '일'];
-  const todayIndex = dayOfWeek === 0 ? 6 : dayOfWeek - 1;
+  useEffect(() => {
+    const fetchPatient = async () => {
+      try {
+        const res = await fetch(`/api/v2/patients/${patientId}`);
+        const data = await res.json();
+        if (data.success || data.patient) {
+          const p = data.patient || data;
+          setPatient({
+            name: p.name,
+            phone: p.phone,
+            temperature: p.temperature || 'cold',
+            interest: p.interest || '-',
+            status: p.status || '신규',
+            memo: p.memo,
+            consultations: p.consultations?.slice(0, 3) || [],
+          });
+        }
+      } catch (error) {
+        console.error('Failed to fetch patient:', error);
+      } finally {
+        setLoading(false);
+      }
+    };
+    fetchPatient();
+  }, [patientId]);
 
   return (
-    <div className="bg-white rounded-xl border border-gray-100 p-4">
-      <h3 className="font-bold text-gray-900 mb-4">이번 주 일정 요약</h3>
-      <div className="grid grid-cols-7 gap-2">
-        {days.map((day, idx) => {
-          const date = new Date(monday);
-          date.setDate(monday.getDate() + idx);
-          return (
-            <div
-              key={day}
-              className={`text-center p-3 rounded-lg ${
-                idx === todayIndex ? 'bg-blue-50 ring-2 ring-blue-500' : 'bg-gray-50'
-              }`}
-            >
-              <div className="text-xs text-gray-500 mb-1">{day}</div>
-              <div className="text-lg font-bold text-gray-900">{date.getDate()}</div>
-              <div className="flex justify-center gap-1 mt-2">
-                {idx <= todayIndex && <div className="w-2 h-2 bg-blue-500 rounded-full" title="콜백" />}
-                {idx <= todayIndex && <div className="w-2 h-2 bg-purple-500 rounded-full" title="리콜" />}
-                {idx === todayIndex && <div className="w-2 h-2 bg-rose-500 rounded-full" title="감사인사" />}
-              </div>
-            </div>
-          );
-        })}
-      </div>
+    <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50">
+      <div className="bg-white rounded-2xl w-full max-w-md mx-4 overflow-hidden">
+        {/* 헤더 */}
+        <div className="flex items-center justify-between p-4 border-b">
+          <h3 className="text-lg font-bold text-gray-900">환자 정보</h3>
+          <button onClick={onClose} className="p-1 hover:bg-gray-100 rounded-lg">
+            <X size={20} className="text-gray-500" />
+          </button>
+        </div>
 
-      <div className="flex items-center gap-4 mt-4 text-xs text-gray-500">
-        <span className="flex items-center gap-1">
-          <div className="w-2 h-2 bg-blue-500 rounded-full" />
-          콜백
-        </span>
-        <span className="flex items-center gap-1">
-          <div className="w-2 h-2 bg-purple-500 rounded-full" />
-          리콜
-        </span>
-        <span className="flex items-center gap-1">
-          <div className="w-2 h-2 bg-rose-500 rounded-full" />
-          감사인사
-        </span>
+        {/* 내용 */}
+        <div className="p-4">
+          {loading ? (
+            <div className="py-8 text-center text-gray-500">로딩 중...</div>
+          ) : patient ? (
+            <div className="space-y-4">
+              {/* 기본 정보 */}
+              <div className="flex items-center gap-3">
+                <div className="flex-1">
+                  <div className="flex items-center gap-2 mb-1">
+                    <span className="text-xl font-bold text-gray-900">{patient.name}</span>
+                    <TemperatureIcon temperature={patient.temperature} size={18} />
+                  </div>
+                  <p className="text-gray-500">{patient.phone}</p>
+                </div>
+              </div>
+
+              {/* 상태 정보 */}
+              <div className="flex items-center gap-2">
+                <span className="px-3 py-1.5 bg-blue-100 text-blue-700 rounded-lg text-sm font-medium">
+                  {patient.status}
+                </span>
+                <span className="px-3 py-1.5 bg-purple-100 text-purple-700 rounded-lg text-sm font-medium">
+                  {patient.interest}
+                </span>
+              </div>
+
+              {/* 메모 */}
+              {patient.memo && (
+                <div className="bg-amber-50 rounded-xl p-3">
+                  <div className="text-xs text-amber-600 mb-1">메모</div>
+                  <p className="text-sm text-gray-900">{patient.memo}</p>
+                </div>
+              )}
+
+              {/* 최근 상담 이력 */}
+              {patient.consultations && patient.consultations.length > 0 && (
+                <div className="bg-gray-50 rounded-xl p-3">
+                  <div className="text-xs text-gray-500 mb-2">최근 상담 이력</div>
+                  <div className="space-y-2">
+                    {patient.consultations.map((c, idx) => (
+                      <div key={idx} className="flex items-start gap-2 text-sm">
+                        <span className="text-gray-400 flex-shrink-0">{c.date?.slice(5, 10)}</span>
+                        <span className="text-gray-700 line-clamp-1">{c.content}</span>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
+            </div>
+          ) : (
+            <div className="py-8 text-center text-gray-500">환자 정보를 불러올 수 없습니다</div>
+          )}
+        </div>
+
+        {/* 하단 버튼 */}
+        <div className="p-4 border-t">
+          <button
+            onClick={() => router.push(`/v2/patients/${patientId}`)}
+            className="w-full py-2.5 text-center text-blue-600 hover:bg-blue-50 rounded-lg text-sm font-medium transition-colors"
+          >
+            전체 상세 페이지로 이동 →
+          </button>
+        </div>
       </div>
     </div>
   );
@@ -1414,11 +1277,10 @@ function AddCallbackModal({ onClose, onSuccess }: { onClose: () => void; onSucce
     }
   };
 
-  const TYPE_LABELS: Record<CallbackType, string> = { callback: '콜백', recall: '리콜', thanks: '감사전화' };
-  const TYPE_COLORS: Record<CallbackType, string> = {
+  const TYPE_LABELS: Record<'callback' | 'recall', string> = { callback: '콜백', recall: '리콜' };
+  const TYPE_COLORS: Record<'callback' | 'recall', string> = {
     callback: 'bg-blue-100 text-blue-700',
     recall: 'bg-purple-100 text-purple-700',
-    thanks: 'bg-green-100 text-green-700',
   };
 
   return (
@@ -1453,7 +1315,7 @@ function AddCallbackModal({ onClose, onSuccess }: { onClose: () => void; onSucce
           <div>
             <label className="block text-sm font-medium text-gray-700 mb-1">일정 타입</label>
             <div className="flex gap-2">
-              {(['callback', 'recall', 'thanks'] as CallbackType[]).map((t) => (
+              {(['callback', 'recall'] as const).map((t) => (
                 <button
                   key={t}
                   type="button"

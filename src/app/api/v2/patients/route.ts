@@ -1,7 +1,8 @@
 // src/app/api/v2/patients/route.ts
 import { NextRequest, NextResponse } from 'next/server';
 import { connectToDatabase } from '@/utils/mongodb';
-import { PatientStatus, Temperature } from '@/types/v2';
+import { ObjectId } from 'mongodb';
+import { PatientStatus, Temperature, Journey } from '@/types/v2';
 
 export const dynamic = 'force-dynamic';
 
@@ -100,10 +101,8 @@ export async function GET(request: NextRequest) {
     if (status) {
       // 특정 상태 필터링 (closed 포함)
       query.status = status;
-    } else {
-      // 상태 필터가 없으면 기본적으로 종결 환자 제외
-      query.status = { $ne: 'closed' };
     }
+    // 상태 필터가 없으면 전체 환자 표시 (종결 포함)
 
     if (temperature) {
       query.temperature = temperature;
@@ -114,10 +113,29 @@ export async function GET(request: NextRequest) {
     }
 
     if (search) {
-      query.$or = [
+      // 전화번호 검색: 대시 유무와 관계없이 검색
+      const phoneDigits = search.replace(/\D/g, ''); // 숫자만 추출
+      const orConditions: Array<{ name?: { $regex: string; $options: string }; phone?: { $regex: string } }> = [
         { name: { $regex: search, $options: 'i' } },
-        { phone: { $regex: search.replace(/-/g, '') } },
+        { phone: { $regex: search } },  // 원본 그대로 검색
       ];
+
+      // 숫자가 4자리 이상이면 뒷자리로도 검색 (더 유연한 매칭)
+      if (phoneDigits.length >= 4) {
+        // 마지막 4자리로 검색
+        const last4 = phoneDigits.slice(-4);
+        orConditions.push({ phone: { $regex: last4 } });
+
+        // 마지막 8자리로 검색 (전화번호 뒷부분)
+        if (phoneDigits.length >= 8) {
+          const last8 = phoneDigits.slice(-8);
+          // 대시 포함 패턴으로 변환: 3051-1241 형태
+          const pattern8 = last8.slice(0, 4) + '-?' + last8.slice(4);
+          orConditions.push({ phone: { $regex: pattern8 } });
+        }
+      }
+
+      query.$or = orConditions;
     }
 
     // 기간 필터 적용 (startDate/endDate가 없으면 period 사용)
@@ -152,6 +170,7 @@ export async function GET(request: NextRequest) {
       lastContactAt: 1,
       nextAction: 1,
       nextActionDate: 1,
+      nextActionNote: 1,
       statusChangedAt: 1,
       lastCallDirection: 1,
       age: 1,
@@ -164,6 +183,12 @@ export async function GET(request: NextRequest) {
       // 치료 진행 관련 필드
       treatmentStartDate: 1,
       expectedCompletionDate: 1,
+      // 여정(Journey) 관련 필드 (간소화된 정보만)
+      'journeys.id': 1,
+      'journeys.treatmentType': 1,
+      'journeys.status': 1,
+      'journeys.isActive': 1,
+      activeJourneyId: 1,
     };
 
     // 병렬 쿼리
@@ -175,11 +200,11 @@ export async function GET(request: NextRequest) {
         .limit(limit)
         .toArray(),
       collection.countDocuments(query),
-      // 필터 통계 (종결 환자 제외한 전체 + 각 상태별)
+      // 필터 통계 (전체 + 각 상태별)
       collection.aggregate([
         {
           $facet: {
-            all: [{ $match: { status: { $ne: 'closed' } } }, { $count: 'count' }],
+            all: [{ $count: 'count' }],
             consulting: [{ $match: { status: 'consulting' } }, { $count: 'count' }],
             reserved: [{ $match: { status: 'reserved' } }, { $count: 'count' }],
             visited: [{ $match: { status: 'visited' } }, { $count: 'count' }],
@@ -273,6 +298,7 @@ export async function GET(request: NextRequest) {
         lastCallDirection: p.lastCallDirection || undefined,
         nextAction: p.nextAction || '',
         nextActionDate: p.nextActionDate || null,
+        nextActionNote: p.nextActionNote || '',
         daysInStatus,
         urgency: patientUrgency,
         age: p.age || undefined,
@@ -283,6 +309,14 @@ export async function GET(request: NextRequest) {
         paymentStatus: p.paymentStatus || 'none',
         // 치료 진행 관련 필드
         expectedCompletionDate: p.expectedCompletionDate || null,
+        // 여정(Journey) 관련 필드
+        journeys: p.journeys?.map((j: { id: string; treatmentType: string; status: PatientStatus; isActive: boolean }) => ({
+          id: j.id,
+          treatmentType: j.treatmentType,
+          status: j.status,
+          isActive: j.isActive,
+        })) || [],
+        activeJourneyId: p.activeJourneyId || undefined,
       };
     });
 
@@ -312,6 +346,7 @@ export async function GET(request: NextRequest) {
           lastCallDirection: p.lastCallDirection || undefined,
           nextAction: p.nextAction || '',
           nextActionDate: p.nextActionDate || null,
+          nextActionNote: p.nextActionNote || '',
           daysInStatus: days,
           urgency: getUrgency(p.status, p.nextActionDate, days),
           age: p.age || undefined,
@@ -322,6 +357,14 @@ export async function GET(request: NextRequest) {
           paymentStatus: p.paymentStatus || 'none',
           // 치료 진행 관련 필드
           expectedCompletionDate: p.expectedCompletionDate || null,
+          // 여정(Journey) 관련 필드
+          journeys: p.journeys?.map((j: { id: string; treatmentType: string; status: PatientStatus; isActive: boolean }) => ({
+            id: j.id,
+            treatmentType: j.treatmentType,
+            status: j.status,
+            isActive: j.isActive,
+          })) || [],
+          activeJourneyId: p.activeJourneyId || undefined,
         };
       });
 
@@ -388,6 +431,28 @@ export async function POST(request: NextRequest) {
     }
 
     const now = new Date();
+    const journeyId = new ObjectId().toString();
+    const treatmentType = interest || '일반진료';
+
+    // 첫 번째 여정 생성
+    const firstJourney: Journey = {
+      id: journeyId,
+      treatmentType,
+      status: 'consulting' as PatientStatus,
+      startedAt: now,
+      paymentStatus: 'none',
+      statusHistory: [{
+        from: 'consulting' as PatientStatus,
+        to: 'consulting' as PatientStatus,
+        eventDate: now,
+        changedAt: now,
+        changedBy: '시스템',
+      }],
+      isActive: true,
+      createdAt: now,
+      updatedAt: now,
+    };
+
     const newPatient: Record<string, unknown> = {
       name,
       phone,
@@ -395,11 +460,16 @@ export async function POST(request: NextRequest) {
       temperature: temperature as Temperature,
       consultationType: consultationType || '',
       source: source || '',
+      interest: treatmentType,
       aiAnalysis: {
         interest: interest || '',
         summary: '',
         classification: 'new_patient',
       },
+      // Journey 시스템
+      journeys: [firstJourney],
+      activeJourneyId: journeyId,
+      // 시간 필드
       createdAt: now,
       updatedAt: now,
       lastContactAt: now,

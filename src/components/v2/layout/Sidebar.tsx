@@ -14,6 +14,7 @@ import {
   Settings,
   User,
   Sparkles,
+  MessageCircle,
 } from 'lucide-react';
 
 interface NavItem {
@@ -29,6 +30,7 @@ const navItems: NavItem[] = [
   { id: 'call-logs', label: '통화 기록', href: '/v2/call-logs', icon: <Phone size={20} /> },
   { id: 'patients', label: '환자 관리', href: '/v2/patients', icon: <Users size={20} /> },
   { id: 'schedules', label: '일정 관리', href: '/v2/schedules', icon: <Bell size={20} /> },
+  { id: 'channel-chat', label: '채널 상담', href: '/v2/channel-chat', icon: <MessageCircle size={20} /> },
   { id: 'referrals', label: '소개 관리', href: '/v2/referrals', icon: <Gift size={20} /> },
   { id: 'reports', label: '리포트', href: '/v2/reports', icon: <BarChart3 size={20} /> },
   { id: 'settings', label: '설정', href: '/v2/settings', icon: <Settings size={20} /> },
@@ -37,9 +39,10 @@ const navItems: NavItem[] = [
 interface SidebarProps {
   analysisPending?: number;
   callbackCount?: number;
+  unreadChatCount?: number;
 }
 
-export function Sidebar({ analysisPending = 0, callbackCount = 0 }: SidebarProps) {
+export function Sidebar({ analysisPending = 0, callbackCount = 0, unreadChatCount = 0 }: SidebarProps) {
   const pathname = usePathname();
 
   const isActive = (href: string) => {
@@ -52,6 +55,7 @@ export function Sidebar({ analysisPending = 0, callbackCount = 0 }: SidebarProps
   const getBadge = (id: string) => {
     if (id === 'call-logs' && analysisPending > 0) return analysisPending;
     if (id === 'schedules' && callbackCount > 0) return callbackCount;
+    if (id === 'channel-chat' && unreadChatCount > 0) return unreadChatCount;
     return undefined;
   };
 
@@ -60,7 +64,7 @@ export function Sidebar({ analysisPending = 0, callbackCount = 0 }: SidebarProps
       {/* 로고 */}
       <div className="p-5 border-b">
         <Link href="/v2/dashboard" className="flex items-center gap-2">
-          <h1 className="text-xl font-bold text-blue-600">CatchAll</h1>
+          <h1 className="text-xl font-bold text-blue-600">D-care</h1>
           <span className="text-xs bg-blue-100 text-blue-600 px-1.5 py-0.5 rounded font-medium">v2</span>
         </Link>
         <p className="text-xs text-gray-400 mt-1">치과 상담 관리</p>
@@ -89,6 +93,8 @@ export function Sidebar({ analysisPending = 0, callbackCount = 0 }: SidebarProps
                   <span className={`ml-auto text-xs px-2 py-0.5 rounded-full ${
                     item.id === 'call-logs'
                       ? 'bg-purple-500 text-white'
+                      : item.id === 'channel-chat'
+                      ? 'bg-green-500 text-white'
                       : 'bg-amber-500 text-white'
                   }`}>
                     {badge}

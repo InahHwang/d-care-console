@@ -1,5 +1,7 @@
 // src/app/api/v2/thanks/route.ts
-// 감사인사 관리 API
+// ⚠️ DEPRECATED: 이 API는 더 이상 사용되지 않습니다.
+// 감사인사 기능은 소개관리(referrals_v2)의 thanksSent 필드로 통합되었습니다.
+// 기존 데이터 호환성을 위해 유지하지만, 신규 기능은 /api/v2/referrals를 사용하세요.
 
 import { NextRequest, NextResponse } from 'next/server';
 import { connectToDatabase } from '@/utils/mongodb';
@@ -92,6 +94,8 @@ export async function GET(request: NextRequest) {
 
     return NextResponse.json({
       success: true,
+      deprecated: true,
+      deprecationMessage: '이 API는 더 이상 사용되지 않습니다. /api/v2/referrals를 사용하세요.',
       data: {
         thanks: filteredThanks.map(t => {
           const item = t as any;

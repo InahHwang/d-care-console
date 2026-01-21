@@ -23,14 +23,21 @@ import {
   Activity,
   CheckCircle2,
   AlertTriangle,
+  ChevronDown,
+  Plus,
+  AlertCircle,
 } from 'lucide-react';
 import { Card } from '@/components/v2/ui/Card';
 import { StatusBadge } from '@/components/v2/ui/Badge';
-import { PatientStatus, ClosedReason, CLOSED_REASON_OPTIONS } from '@/types/v2';
+import { PatientStatus, ClosedReason, CLOSED_REASON_OPTIONS, Journey, TREATMENT_TYPES, CallbackReason, CALLBACK_REASON_LABELS, CallbackHistoryEntry } from '@/types/v2';
 import { StatusChangeModal, StatusChangeData } from '@/components/v2/patients/StatusChangeModal';
 import { CallDetailModal } from '@/components/v2/patients/CallDetailModal';
 import { ClosePatientModal } from '@/components/v2/patients/ClosePatientModal';
+import { ConsultationInputModal, ConsultationFormData, ExistingConsultationData } from '@/components/v2/patients/ConsultationInputModal';
+import { ConsultationHistory } from '@/components/v2/patients/ConsultationHistory';
+import { ConsultationHistoryCard } from '@/components/v2/patients/ConsultationHistoryCard';
 import { useAppSelector } from '@/hooks/reduxHooks';
+import { ClipboardList } from 'lucide-react';
 
 // 상태 진행 단계 정의 (7단계 퍼널)
 const statusSteps: Array<{ id: PatientStatus; label: string; color: string }> = [
@@ -135,10 +142,12 @@ interface PatientDetail {
   statusChangedAt?: string;
   nextAction?: string;
   nextActionDate?: string;
+  nextActionNote?: string;
   callCount: number;
   memo: string;
   tags: string[];
   statusHistory?: StatusHistoryEntry[];
+  callbackHistory?: CallbackHistoryEntry[];
   age?: number;
   region?: {
     province: string;
@@ -152,6 +161,9 @@ interface PatientDetail {
   // 치료 진행 관련 필드
   treatmentStartDate?: string;
   expectedCompletionDate?: string;
+  // 여정 관련 필드
+  journeys?: Journey[];
+  activeJourneyId?: string;
 }
 
 export default function PatientDetailPage() {
@@ -181,8 +193,49 @@ export default function PatientDetailPage() {
   // 종결 모달
   const [closeModalOpen, setCloseModalOpen] = useState(false);
 
+  // 상담 결과 모달
+  const [consultationModalOpen, setConsultationModalOpen] = useState(false);
+  const [consultationType, setConsultationType] = useState<'phone' | 'visit'>('phone');
+  const [existingConsultation, setExistingConsultation] = useState<ExistingConsultationData | undefined>(undefined);
+
+  // 상담 이력
+  const [consultations, setConsultations] = useState<any[]>([]);
+  const [consultationsLoading, setConsultationsLoading] = useState(false);
+
+  // 🆕 예정일 변경 모달
+  const [scheduleModalOpen, setScheduleModalOpen] = useState(false);
+
   // 마스터 권한 확인
   const isMaster = user?.role === 'master';
+
+  // 🆕 여정(Journey) 관련 상태
+  const [journeys, setJourneys] = useState<Journey[]>([]);
+  const [selectedJourneyId, setSelectedJourneyId] = useState<string>('');
+  const [isJourneyDropdownOpen, setIsJourneyDropdownOpen] = useState(false);
+  const [isNewJourneyModalOpen, setIsNewJourneyModalOpen] = useState(false);
+
+  const selectedJourney = journeys.find(j => j.id === selectedJourneyId);
+
+  // 🆕 선택된 여정 기준 데이터 (여정별 독립적인 데이터 표시)
+  const displayStatus = selectedJourney?.status || patient?.status || 'consulting';
+  const displayEstimatedAmount = selectedJourney?.estimatedAmount ?? patient?.estimatedAmount;
+  const displayActualAmount = selectedJourney?.actualAmount ?? patient?.actualAmount;
+  const displayPaymentStatus = selectedJourney?.paymentStatus ?? patient?.paymentStatus;
+  const displayTreatmentNote = selectedJourney?.treatmentNote ?? patient?.treatmentNote;
+  const displayInterest = selectedJourney?.treatmentType || patient?.interest;
+  const displayStatusHistory = selectedJourney?.statusHistory || patient?.statusHistory;
+  const displayCallbackHistory = selectedJourney?.callbackHistory || patient?.callbackHistory;
+  const displayNextActionDate = selectedJourney?.nextActionDate || patient?.nextActionDate;
+  const displayNextActionNote = selectedJourney?.nextActionNote || patient?.nextActionNote;
+  const isActiveJourney = selectedJourney?.isActive ?? true;
+
+  const getStatusColor = (status: PatientStatus) => {
+    return statusSteps.find(s => s.id === status)?.color || 'bg-gray-500';
+  };
+
+  const getStatusLabel = (status: PatientStatus) => {
+    return statusSteps.find(s => s.id === status)?.label || status;
+  };
 
   const fetchPatient = useCallback(async () => {
     try {
@@ -200,6 +253,19 @@ export default function PatientDetailPage() {
       setPatient(data.patient);
       setCallLogs(data.callLogs);
       setEditData(data.patient);
+
+      // 여정 데이터 설정
+      const patientJourneys = data.patient.journeys || [];
+      setJourneys(patientJourneys);
+
+      // 활성 여정 또는 첫 번째 여정 선택
+      const activeJourneyId = data.patient.activeJourneyId;
+      if (activeJourneyId) {
+        setSelectedJourneyId(activeJourneyId);
+      } else if (patientJourneys.length > 0) {
+        const activeJ = patientJourneys.find((j: Journey) => j.isActive);
+        setSelectedJourneyId(activeJ?.id || patientJourneys[0].id);
+      }
     } catch (err) {
       setError('환자 정보를 불러오는 중 오류가 발생했습니다');
     } finally {
@@ -207,9 +273,111 @@ export default function PatientDetailPage() {
     }
   }, [patientId]);
 
+  // 상담 이력 조회
+  const fetchConsultations = useCallback(async () => {
+    setConsultationsLoading(true);
+    try {
+      const response = await fetch(`/api/v2/consultations?patientId=${patientId}`);
+      if (response.ok) {
+        const data = await response.json();
+        setConsultations(data.data?.consultations || []);
+      }
+    } catch (err) {
+      console.error('상담 이력 조회 실패:', err);
+    } finally {
+      setConsultationsLoading(false);
+    }
+  }, [patientId]);
+
   useEffect(() => {
     fetchPatient();
-  }, [fetchPatient]);
+    fetchConsultations();
+  }, [fetchPatient, fetchConsultations]);
+
+  // 상담 결과 저장 (신규 생성 또는 수정)
+  const handleConsultationSubmit = async (formData: ConsultationFormData, existingId?: string) => {
+    try {
+      // 수정 모드 (existingId가 있으면)
+      if (existingId) {
+        const response = await fetch('/api/v2/consultations', {
+          method: 'PATCH',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            id: existingId,
+            ...formData,
+            editedBy: user?.name || '알 수 없음',
+          }),
+        });
+
+        if (!response.ok) {
+          throw new Error('상담 결과 수정 실패');
+        }
+      } else {
+        // 신규 생성 모드
+        const response = await fetch('/api/v2/consultations', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            patientId,
+            ...formData,
+          }),
+        });
+
+        if (!response.ok) {
+          throw new Error('상담 결과 저장 실패');
+        }
+      }
+
+      // 환자 정보와 상담 이력 새로고침
+      await fetchPatient();
+      await fetchConsultations();
+    } catch (err) {
+      console.error('상담 결과 저장 실패:', err);
+      throw err;
+    }
+  };
+
+  // 상담 결과 입력 모달 열기 (전화상담은 기존 데이터 확인)
+  const openConsultationModal = (type: 'phone' | 'visit') => {
+    setConsultationType(type);
+
+    // 전화상담인 경우: 기존 AI 자동분류 데이터 확인
+    if (type === 'phone') {
+      // 최근 전화상담 기록 중 가장 최신 것 찾기
+      const latestPhoneConsultation = consultations.find(c => c.type === 'phone');
+
+      if (latestPhoneConsultation) {
+        // 기존 데이터를 수정 모드로 전달
+        setExistingConsultation({
+          id: latestPhoneConsultation.id,
+          status: latestPhoneConsultation.status,
+          treatment: latestPhoneConsultation.treatment,
+          originalAmount: latestPhoneConsultation.originalAmount,
+          discountRate: latestPhoneConsultation.discountRate,
+          discountReason: latestPhoneConsultation.discountReason,
+          disagreeReasons: latestPhoneConsultation.disagreeReasons,
+          correctionPlan: latestPhoneConsultation.correctionPlan,
+          appointmentDate: latestPhoneConsultation.appointmentDate
+            ? new Date(latestPhoneConsultation.appointmentDate).toISOString().split('T')[0]
+            : undefined,
+          callbackDate: latestPhoneConsultation.callbackDate
+            ? new Date(latestPhoneConsultation.callbackDate).toISOString().split('T')[0]
+            : undefined,
+          consultantName: latestPhoneConsultation.consultantName,
+          memo: latestPhoneConsultation.memo,
+          aiGenerated: latestPhoneConsultation.aiGenerated,
+          aiSummary: latestPhoneConsultation.aiSummary,
+        });
+      } else {
+        setExistingConsultation(undefined);
+      }
+    } else {
+      // 내원상담은 항상 신규 입력
+      setExistingConsultation(undefined);
+    }
+
+    setConsultationModalOpen(true);
+  };
 
   const handleCall = () => {
     if (patient) {
@@ -219,7 +387,7 @@ export default function PatientDetailPage() {
 
   // 상태 버튼 클릭 시 모달 열기
   const handleStatusClick = (newStatus: PatientStatus) => {
-    if (!patient || newStatus === patient.status) return;
+    if (!patient || newStatus === displayStatus) return;
     setPendingStatus(newStatus);
     setStatusModalOpen(true);
   };
@@ -329,16 +497,19 @@ export default function PatientDetailPage() {
   };
 
   // 종결 처리
-  const handleClosePatient = async (reason: ClosedReason) => {
+  const handleClosePatient = async (reason: ClosedReason, customReason?: string) => {
     if (!patient) return;
 
     try {
+      // 기타 선택 시 사용자 입력 사유 사용
+      const finalReason = reason === '기타' && customReason ? `기타: ${customReason}` : reason;
+
       const response = await fetch(`/api/v2/patients/${patientId}`, {
         method: 'PATCH',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           status: 'closed',
-          closedReason: reason,
+          closedReason: finalReason,
           changedBy: user?.name || '알 수 없음',
         }),
       });
@@ -380,19 +551,44 @@ export default function PatientDetailPage() {
     }
   };
 
+  // 🆕 예정일 변경 핸들러
+  const handleScheduleChange = async (data: { newDate: string; reason?: CallbackReason; note?: string }) => {
+    if (!patient) return;
+
+    try {
+      const response = await fetch(`/api/v2/patients/${patientId}`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          updateType: 'schedule',
+          newScheduleDate: data.newDate,
+          callbackReason: data.reason,
+          callbackNote: data.note,
+        }),
+      });
+
+      if (response.ok) {
+        await fetchPatient();
+        setScheduleModalOpen(false);
+      }
+    } catch (err) {
+      console.error('Error updating schedule:', err);
+    }
+  };
+
   const formatDuration = (seconds: number) => {
     const mins = Math.floor(seconds / 60);
     const secs = seconds % 60;
     return `${mins}:${secs.toString().padStart(2, '0')}`;
   };
 
-  const formatDate = (dateString: string) => {
-    const date = new Date(dateString);
+  const formatDate = (dateValue: string | Date) => {
+    const date = typeof dateValue === 'string' ? new Date(dateValue) : dateValue;
     return `${date.getMonth() + 1}/${date.getDate()} ${date.getHours().toString().padStart(2, '0')}:${date.getMinutes().toString().padStart(2, '0')}`;
   };
 
-  const formatDateOnly = (dateString: string) => {
-    const date = new Date(dateString);
+  const formatDateOnly = (dateValue: string | Date) => {
+    const date = typeof dateValue === 'string' ? new Date(dateValue) : dateValue;
     return `${date.getFullYear()}.${(date.getMonth() + 1).toString().padStart(2, '0')}.${date.getDate().toString().padStart(2, '0')}`;
   };
 
@@ -434,11 +630,11 @@ export default function PatientDetailPage() {
     return (
       <div className="p-6">
         <button
-          onClick={() => router.back()}
+          onClick={() => router.push('/v2/patients')}
           className="flex items-center gap-2 text-gray-600 hover:text-gray-900 mb-6"
         >
           <ArrowLeft size={20} />
-          돌아가기
+          환자 목록
         </button>
         <div className="bg-red-50 border border-red-200 rounded-xl p-6 text-center">
           <p className="text-red-600">{error}</p>
@@ -453,7 +649,7 @@ export default function PatientDetailPage() {
     <div className="p-6">
       <div className="flex items-center justify-between mb-6">
         <button
-          onClick={() => router.back()}
+          onClick={() => router.push('/v2/patients')}
           className="flex items-center gap-2 text-gray-600 hover:text-gray-900"
         >
           <ArrowLeft size={20} />
@@ -516,6 +712,125 @@ export default function PatientDetailPage() {
         </div>
       </div>
 
+      {/* ============================================ */}
+      {/* 🆕 여정 선택 영역 */}
+      {/* ============================================ */}
+      <Card className="p-4 mb-6 border-2 border-blue-200 bg-blue-50/30">
+        <div className="flex items-center justify-between flex-wrap gap-4">
+          <div className="flex items-center gap-4">
+            {/* 여정 선택 드롭다운 */}
+            <div className="relative">
+              <button
+                onClick={() => setIsJourneyDropdownOpen(!isJourneyDropdownOpen)}
+                className="flex items-center gap-2 px-4 py-2 bg-white border border-gray-200 rounded-lg hover:bg-gray-50 transition-colors"
+              >
+                <span className="text-sm text-gray-500">현재 여정:</span>
+                <span className="font-medium text-gray-900">
+                  {selectedJourney?.treatmentType || '선택'}
+                </span>
+                {selectedJourney && (
+                  <span className={`px-2 py-0.5 rounded text-xs text-white ${getStatusColor(selectedJourney.status)}`}>
+                    {getStatusLabel(selectedJourney.status)}
+                  </span>
+                )}
+                <ChevronDown size={16} className={`text-gray-400 transition-transform ${isJourneyDropdownOpen ? 'rotate-180' : ''}`} />
+              </button>
+
+              {/* 드롭다운 메뉴 */}
+              {isJourneyDropdownOpen && (
+                <>
+                  <div className="fixed inset-0 z-40" onClick={() => setIsJourneyDropdownOpen(false)} />
+                  <div className="absolute top-full left-0 mt-1 w-80 bg-white border border-gray-200 rounded-lg shadow-lg z-50">
+                    <div className="p-2 border-b border-gray-100">
+                      <p className="text-xs text-gray-500 px-2">치료 여정 목록</p>
+                    </div>
+                    <div className="max-h-64 overflow-y-auto">
+                      {journeys.map((journey) => (
+                        <button
+                          key={journey.id}
+                          onClick={() => {
+                            setSelectedJourneyId(journey.id);
+                            setIsJourneyDropdownOpen(false);
+                          }}
+                          className={`w-full px-4 py-3 flex items-center justify-between hover:bg-gray-50 transition-colors ${
+                            selectedJourneyId === journey.id ? 'bg-blue-50' : ''
+                          }`}
+                        >
+                          <div className="flex items-center gap-3">
+                            {journey.isActive ? (
+                              <div className="w-2 h-2 rounded-full bg-green-500 animate-pulse" />
+                            ) : (
+                              <div className="w-2 h-2 rounded-full bg-gray-300" />
+                            )}
+                            <div className="text-left">
+                              <p className="font-medium text-gray-900">{journey.treatmentType}</p>
+                              <p className="text-xs text-gray-500">
+                                {formatDateOnly(journey.startedAt)}
+                                {journey.closedAt && ` ~ ${formatDateOnly(journey.closedAt)}`}
+                              </p>
+                            </div>
+                          </div>
+                          <div className="flex items-center gap-2">
+                            <span className={`px-2 py-0.5 rounded text-xs text-white ${getStatusColor(journey.status)}`}>
+                              {getStatusLabel(journey.status)}
+                            </span>
+                            {journey.isActive && (
+                              <span className="px-2 py-0.5 bg-green-100 text-green-700 rounded text-xs">
+                                진행중
+                              </span>
+                            )}
+                          </div>
+                        </button>
+                      ))}
+                    </div>
+                    <div className="p-2 border-t border-gray-100">
+                      <button
+                        onClick={() => {
+                          setIsNewJourneyModalOpen(true);
+                          setIsJourneyDropdownOpen(false);
+                        }}
+                        className="w-full flex items-center justify-center gap-2 px-4 py-2 text-blue-600 hover:bg-blue-50 rounded-lg transition-colors"
+                      >
+                        <Plus size={16} />
+                        새 여정 시작 (구신환)
+                      </button>
+                    </div>
+                  </div>
+                </>
+              )}
+            </div>
+
+            {/* 진행중 여정 표시 */}
+            {journeys.find(j => j.isActive) && (
+              <div className="hidden sm:flex items-center gap-2 text-sm text-green-600">
+                <div className="w-2 h-2 rounded-full bg-green-500 animate-pulse" />
+                <span>진행중: {journeys.find(j => j.isActive)?.treatmentType}</span>
+              </div>
+            )}
+          </div>
+
+          {/* 여정 요약 통계 */}
+          <div className="flex items-center gap-6 text-sm">
+            <div className="text-center">
+              <p className="text-gray-500">총 여정</p>
+              <p className="text-xl font-bold text-gray-900">{journeys.length}개</p>
+            </div>
+            <div className="text-center">
+              <p className="text-gray-500">완료</p>
+              <p className="text-xl font-bold text-green-600">
+                {journeys.filter(j => j.status === 'completed' || j.closedAt).length}개
+              </p>
+            </div>
+            <div className="text-center">
+              <p className="text-gray-500">진행중</p>
+              <p className="text-xl font-bold text-blue-600">
+                {journeys.filter(j => j.isActive).length}개
+              </p>
+            </div>
+          </div>
+        </div>
+      </Card>
+
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
         <div className="lg:col-span-2 space-y-6">
           <Card className="p-6">
@@ -537,7 +852,7 @@ export default function PatientDetailPage() {
                       {patient.consultationType}
                     </span>
                   )}
-                  <StatusBadge status={patient.status} />
+                  <StatusBadge status={displayStatus} />
                 </div>
                 <div className="flex items-center gap-3">
                   <p className="text-gray-500">{patient.phone}</p>
@@ -548,13 +863,25 @@ export default function PatientDetailPage() {
                   )}
                 </div>
               </div>
-              <button
-                onClick={handleCall}
-                className="flex items-center gap-2 px-6 py-3 bg-emerald-500 text-white rounded-xl hover:bg-emerald-600 transition-colors"
-              >
-                <Phone size={20} />
-                전화하기
-              </button>
+              <div className="flex items-center gap-2">
+                {/* 상담 결과 입력 버튼 - consulting 또는 visited 상태일 때 표시 (활성 여정만) */}
+                {isActiveJourney && (displayStatus === 'consulting' || displayStatus === 'visited') && (
+                  <button
+                    onClick={() => openConsultationModal(displayStatus === 'consulting' ? 'phone' : 'visit')}
+                    className="flex items-center gap-2 px-5 py-3 bg-purple-500 text-white rounded-xl hover:bg-purple-600 transition-colors"
+                  >
+                    <ClipboardList size={20} />
+                    {displayStatus === 'consulting' ? '전화상담 결과' : '내원상담 결과'}
+                  </button>
+                )}
+                <button
+                  onClick={handleCall}
+                  className="flex items-center gap-2 px-6 py-3 bg-emerald-500 text-white rounded-xl hover:bg-emerald-600 transition-colors"
+                >
+                  <Phone size={20} />
+                  전화하기
+                </button>
+              </div>
             </div>
 
             {/* 나이/지역 정보 */}
@@ -628,16 +955,16 @@ export default function PatientDetailPage() {
               )}
             </div>
 
-            {/* 종결된 환자인 경우 종결 정보 표시 */}
-            {patient.status === 'closed' ? (
+            {/* 종결된 여정인 경우 종결 정보 표시 */}
+            {displayStatus === 'closed' ? (
               <div className="py-4 border-t">
                 <div className="bg-gray-100 rounded-xl p-4">
                   <div className="flex items-center gap-2 mb-3">
                     <XCircle size={20} className="text-gray-500" />
-                    <p className="font-medium text-gray-700">종결된 환자</p>
+                    <p className="font-medium text-gray-700">종결된 {isActiveJourney ? '환자' : '여정'}</p>
                   </div>
                   {(() => {
-                    const closedEntry = patient.statusHistory?.find(h => h.to === 'closed');
+                    const closedEntry = displayStatusHistory?.find(h => h.to === 'closed');
                     const previousStatus = closedEntry?.from;
                     const previousLabel = statusSteps.find(s => s.id === previousStatus)?.label || previousStatus;
                     return (
@@ -669,12 +996,19 @@ export default function PatientDetailPage() {
               </div>
             ) : (
               <div className="py-4 border-t">
-                <p className="text-sm text-gray-500 mb-3">상담 진행 단계</p>
+                <div className="flex items-center justify-between mb-3">
+                  <p className="text-sm text-gray-500">상담 진행 단계</p>
+                  {!isActiveJourney && (
+                    <span className="text-xs text-amber-600 bg-amber-50 px-2 py-1 rounded">
+                      과거 여정 (읽기 전용)
+                    </span>
+                  )}
+                </div>
                 <div className="flex items-center gap-2">
                   {statusSteps.map((step, index) => {
-                    const currentIndex = statusSteps.findIndex(s => s.id === patient.status);
+                    const currentIndex = statusSteps.findIndex(s => s.id === displayStatus);
                     const isPast = index < currentIndex;
-                    const isCurrent = step.id === patient.status;
+                    const isCurrent = step.id === displayStatus;
 
                     return (
                       <React.Fragment key={step.id}>
@@ -682,8 +1016,8 @@ export default function PatientDetailPage() {
                           <div className={`w-8 h-0.5 ${isPast ? 'bg-emerald-400' : 'bg-gray-200'}`} />
                         )}
                         <button
-                          onClick={() => handleStatusClick(step.id)}
-                          disabled={isCurrent}
+                          onClick={() => isActiveJourney && handleStatusClick(step.id)}
+                          disabled={isCurrent || !isActiveJourney}
                           className={`
                             flex items-center gap-1.5 px-3 py-1.5 rounded-full text-sm transition-all
                             ${isCurrent
@@ -692,6 +1026,7 @@ export default function PatientDetailPage() {
                                 ? 'bg-emerald-100 text-emerald-700 hover:bg-emerald-200'
                                 : 'bg-gray-100 text-gray-500 hover:bg-gray-200'
                             }
+                            ${!isActiveJourney ? 'opacity-60 cursor-not-allowed' : ''}
                           `}
                         >
                           {step.label}
@@ -700,6 +1035,84 @@ export default function PatientDetailPage() {
                     );
                   })}
                 </div>
+
+                {/* 🆕 예정일 표시 및 버튼 */}
+                {isActiveJourney && (
+                  <div className="mt-4 pt-4 border-t border-gray-100">
+                    <div className="flex items-center justify-between flex-wrap gap-3">
+                      {/* 예정일 표시 */}
+                      <div className="flex items-center gap-3">
+                        <span className="text-sm text-gray-500">예정일:</span>
+                        {displayNextActionDate ? (
+                          <div className="flex items-center gap-2">
+                            <span className="font-medium text-gray-900">
+                              {formatDateOnly(displayNextActionDate)}
+                            </span>
+                            <span className={`text-sm font-medium px-2 py-0.5 rounded ${
+                              getDdayDisplay(displayNextActionDate as string).style.includes('red')
+                                ? 'bg-red-100 text-red-600'
+                                : getDdayDisplay(displayNextActionDate as string).style.includes('blue')
+                                  ? 'bg-blue-100 text-blue-600'
+                                  : getDdayDisplay(displayNextActionDate as string).style.includes('orange')
+                                    ? 'bg-orange-100 text-orange-600'
+                                    : 'bg-gray-100 text-gray-600'
+                            }`}>
+                              {getDdayDisplay(displayNextActionDate as string).text}
+                            </span>
+                            {displayNextActionNote && (
+                              <span className="text-xs text-gray-600 bg-amber-50 px-2 py-0.5 rounded border border-amber-200">
+                                📝 {displayNextActionNote}
+                              </span>
+                            )}
+                          </div>
+                        ) : (
+                          <span className="text-gray-400">미설정</span>
+                        )}
+                      </div>
+
+                      {/* 버튼 영역 */}
+                      <div className="flex items-center gap-2">
+                        <button
+                          onClick={() => setScheduleModalOpen(true)}
+                          className="flex items-center gap-1.5 px-3 py-1.5 text-sm bg-blue-50 text-blue-600 rounded-lg hover:bg-blue-100 transition-colors"
+                        >
+                          <Calendar size={14} />
+                          {displayNextActionDate ? '예정일 변경' : '예정일 설정'}
+                        </button>
+                      </div>
+                    </div>
+
+                    {/* 🆕 콜백 이력 표시 */}
+                    {displayCallbackHistory && displayCallbackHistory.length > 0 && (
+                      <div className="mt-3 pt-3 border-t border-gray-100">
+                        <p className="text-xs text-gray-500 mb-2">콜백 이력</p>
+                        <div className="space-y-1 max-h-24 overflow-y-auto">
+                          {displayCallbackHistory.slice().reverse().slice(0, 5).map((entry, idx) => (
+                            <div key={idx} className="flex items-center gap-2 text-xs">
+                              <span className="text-gray-400">
+                                {formatDateOnly(entry.scheduledAt)}
+                              </span>
+                              {entry.reason && (
+                                <span className={`px-1.5 py-0.5 rounded ${
+                                  entry.reason === 'no_answer' ? 'bg-red-100 text-red-600' :
+                                  entry.reason === 'postponed' ? 'bg-amber-100 text-amber-600' :
+                                  'bg-purple-100 text-purple-600'
+                                }`}>
+                                  {CALLBACK_REASON_LABELS[entry.reason]}
+                                </span>
+                              )}
+                              {entry.note && (
+                                <span className="text-gray-500 truncate max-w-[200px]">
+                                  &quot;{entry.note}&quot;
+                                </span>
+                              )}
+                            </div>
+                          ))}
+                        </div>
+                      </div>
+                    )}
+                  </div>
+                )}
               </div>
             )}
           </Card>
@@ -711,12 +1124,13 @@ export default function PatientDetailPage() {
             </div>
 
             <div className="space-y-4">
-              {patient.interest && (
-                <div>
-                  <p className="text-sm text-gray-500 mb-1">관심 분야</p>
-                  <p className="text-blue-600 font-medium">{patient.interest}</p>
-                </div>
-              )}
+              <InterestEditSection
+                displayInterest={displayInterest}
+                selectedJourney={selectedJourney}
+                patientId={patientId}
+                journeyId={selectedJourneyId}
+                onUpdate={fetchPatient}
+              />
               {patient.summary && (
                 <div>
                   <p className="text-sm text-gray-500 mb-1">상담 요약</p>
@@ -729,7 +1143,7 @@ export default function PatientDetailPage() {
                   <p className="text-gray-700">{patient.followUp}</p>
                 </div>
               )}
-              {!patient.interest && !patient.summary && !patient.followUp && (
+              {!displayInterest && !patient.summary && !patient.followUp && (
                 <p className="text-gray-400 text-center py-4">
                   아직 AI 분석 결과가 없습니다
                 </p>
@@ -737,66 +1151,15 @@ export default function PatientDetailPage() {
             </div>
           </Card>
 
-          <Card className="p-6">
-            <div className="flex items-center justify-between mb-4">
-              <div className="flex items-center gap-2">
-                <Phone size={20} className="text-gray-400" />
-                <h2 className="font-bold text-gray-900">통화 이력</h2>
-                <span className="text-sm text-gray-400">({patient.callCount}회)</span>
-              </div>
-            </div>
-
-            {callLogs.length > 0 ? (
-              <div className="space-y-3">
-                {callLogs.map((log) => (
-                  <button
-                    key={log.id}
-                    onClick={() => {
-                      setSelectedCallLogId(log.id);
-                      setCallDetailModalOpen(true);
-                    }}
-                    className="w-full flex items-start gap-4 p-4 bg-gray-50 rounded-xl hover:bg-gray-100 transition-colors text-left"
-                  >
-                    <div
-                      className={`w-10 h-10 rounded-lg flex items-center justify-center ${
-                        log.callType === 'inbound' ? 'bg-blue-100' : 'bg-emerald-100'
-                      }`}
-                    >
-                      <Phone
-                        size={18}
-                        className={log.callType === 'inbound' ? 'text-blue-600' : 'text-emerald-600'}
-                      />
-                    </div>
-                    <div className="flex-1">
-                      <div className="flex items-center gap-2 mb-1">
-                        <span className="font-medium text-gray-900">
-                          {log.callType === 'inbound' ? '수신' : '발신'} 통화
-                        </span>
-                        <span className="text-sm text-gray-400">• {formatDuration(log.duration)}</span>
-                        {/* 콜백 태그 표시 */}
-                        {log.callbackType && (
-                          <span className={`px-2 py-0.5 rounded-full text-xs font-medium ${CALLBACK_TYPE_COLORS[log.callbackType]}`}>
-                            {CALLBACK_TYPE_LABELS[log.callbackType]}
-                          </span>
-                        )}
-                      </div>
-                      <p className="text-sm text-gray-500 mb-1">
-                        {formatDateOnly(log.callTime)} {new Date(log.callTime).getHours().toString().padStart(2, '0')}:{new Date(log.callTime).getMinutes().toString().padStart(2, '0')}
-                      </p>
-                      {log.summary && (
-                        <p className="text-sm text-gray-600 mt-2 line-clamp-2">{log.summary}</p>
-                      )}
-                    </div>
-                    <div className="text-xs text-blue-500 self-center">
-                      상세보기
-                    </div>
-                  </button>
-                ))}
-              </div>
-            ) : (
-              <p className="text-gray-400 text-center py-8">통화 이력이 없습니다</p>
-            )}
-          </Card>
+          {/* 통합 상담 이력 (전화 + 채팅 + 수동) */}
+          <ConsultationHistoryCard
+            patientId={patientId}
+            patientName={patient?.name}
+            onSelectCall={(callId) => {
+              setSelectedCallLogId(callId);
+              setCallDetailModalOpen(true);
+            }}
+          />
         </div>
 
         <div className="space-y-6">
@@ -830,15 +1193,18 @@ export default function PatientDetailPage() {
             </div>
           </Card>
 
-          {/* 상태 변경 히스토리 */}
-          {patient.statusHistory && patient.statusHistory.length > 0 && (
+          {/* 상태 변경 히스토리 - 선택된 여정 기준 */}
+          {displayStatusHistory && displayStatusHistory.length > 0 && (
             <Card className="p-5">
               <div className="flex items-center gap-2 mb-4">
                 <History size={18} className="text-purple-500" />
-                <h3 className="font-bold text-gray-900">상태 변경 이력</h3>
+                <h3 className="font-bold text-gray-900">
+                  상태 변경 이력
+                  {!isActiveJourney && <span className="text-xs text-gray-400 ml-2">(이 여정)</span>}
+                </h3>
               </div>
               <div className="space-y-3">
-                {patient.statusHistory.slice().reverse().map((entry, index) => {
+                {displayStatusHistory.slice().reverse().map((entry, index) => {
                   const fromLabel = statusSteps.find(s => s.id === entry.from)?.label || entry.from;
                   const toLabel = entry.to === 'closed' ? '종결' : (statusSteps.find(s => s.id === entry.to)?.label || entry.to);
                   const toColor = entry.to === 'closed' ? 'bg-gray-500' : (statusSteps.find(s => s.id === entry.to)?.color || 'bg-gray-500');
@@ -883,6 +1249,14 @@ export default function PatientDetailPage() {
             </Card>
           )}
 
+          {/* 상담 이력 */}
+          <Card className="p-5">
+            <ConsultationHistory
+              consultations={consultations}
+              loading={consultationsLoading}
+            />
+          </Card>
+
           <Card className="p-5">
             <div className="flex items-center gap-2 mb-4">
               <MessageSquare size={18} className="text-gray-400" />
@@ -903,19 +1277,19 @@ export default function PatientDetailPage() {
           </Card>
 
           {/* 치료 진행 카드 - 치료중/치료완료 상태일 때만 표시 */}
-          {(patient.status === 'treatment' || patient.status === 'completed') && (
+          {(displayStatus === 'treatment' || displayStatus === 'completed') && (
             <Card className="p-5">
               <div className="flex items-center justify-between mb-4">
                 <div className="flex items-center gap-2">
                   <Activity size={18} className="text-teal-500" />
                   <h3 className="font-bold text-gray-900">치료 진행</h3>
                 </div>
-                {patient.status === 'treatment' && (
+                {displayStatus === 'treatment' && (
                   <span className="px-2 py-1 bg-emerald-100 text-emerald-700 text-xs rounded-full font-medium">
                     진행중
                   </span>
                 )}
-                {patient.status === 'completed' && (
+                {displayStatus === 'completed' && (
                   <span className="px-2 py-1 bg-green-100 text-green-700 text-xs rounded-full font-medium">
                     완료
                   </span>
@@ -950,11 +1324,13 @@ export default function PatientDetailPage() {
                     <div className="flex justify-between items-center">
                       <span className="text-sm text-gray-500">시작일</span>
                       <span className="font-medium text-gray-900">
-                        {patient.treatmentStartDate
-                          ? formatDateOnly(patient.treatmentStartDate)
-                          : patient.statusHistory?.find(h => h.to === 'treatment')?.eventDate
-                            ? formatDateOnly(patient.statusHistory.find(h => h.to === 'treatment')!.eventDate)
-                            : '-'
+                        {selectedJourney?.startedAt
+                          ? formatDateOnly(selectedJourney.startedAt)
+                          : patient.treatmentStartDate
+                            ? formatDateOnly(patient.treatmentStartDate)
+                            : displayStatusHistory?.find(h => h.to === 'treatment')?.eventDate
+                              ? formatDateOnly(displayStatusHistory.find(h => h.to === 'treatment')!.eventDate)
+                              : '-'
                         }
                       </span>
                     </div>
@@ -973,8 +1349,9 @@ export default function PatientDetailPage() {
                     </div>
                     {/* 경과일 / D-day 표시 */}
                     {(() => {
-                      const startDate = patient.treatmentStartDate
-                        || patient.statusHistory?.find(h => h.to === 'treatment')?.eventDate;
+                      const startDate = selectedJourney?.startedAt
+                        || patient.treatmentStartDate
+                        || displayStatusHistory?.find(h => h.to === 'treatment')?.eventDate;
                       if (!startDate) return null;
 
                       const start = new Date(startDate);
@@ -1019,8 +1396,8 @@ export default function PatientDetailPage() {
                     )}
                   </div>
 
-                  {/* 치료완료 버튼 - 치료중일 때만 */}
-                  {patient.status === 'treatment' && (
+                  {/* 치료완료 버튼 - 치료중일 때만 (활성 여정만) */}
+                  {displayStatus === 'treatment' && isActiveJourney && (
                     <button
                       onClick={() => handleStatusClick('completed')}
                       className="w-full flex items-center justify-center gap-2 py-3 bg-green-500 text-white rounded-lg hover:bg-green-600 transition-colors font-medium"
@@ -1033,81 +1410,6 @@ export default function PatientDetailPage() {
               )}
             </Card>
           )}
-
-          <Card className="p-5">
-            <div className="flex items-center gap-2 mb-4">
-              <Calendar size={18} className="text-blue-500" />
-              <h3 className="font-bold text-gray-900">다음 일정</h3>
-            </div>
-            {isEditing ? (
-              <div className="space-y-3">
-                <div>
-                  <label className="text-xs text-gray-500 mb-1 block">다음 액션</label>
-                  <div className="flex flex-wrap gap-2">
-                    {['콜백', '내원예약', '치료예약', '치료시작', '재상담'].map((action) => (
-                      <button
-                        key={action}
-                        type="button"
-                        onClick={() => setEditData({ ...editData, nextAction: action })}
-                        className={`px-3 py-1.5 rounded-lg text-sm transition-colors ${
-                          editData.nextAction === action
-                            ? 'bg-blue-500 text-white'
-                            : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
-                        }`}
-                      >
-                        {action}
-                      </button>
-                    ))}
-                  </div>
-                  <input
-                    type="text"
-                    value={editData.nextAction || ''}
-                    onChange={(e) => setEditData({ ...editData, nextAction: e.target.value })}
-                    placeholder="직접 입력..."
-                    className="w-full mt-2 p-2 border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 text-sm"
-                  />
-                </div>
-                <div>
-                  <label className="text-xs text-gray-500 mb-1 block">예정일</label>
-                  <input
-                    type="date"
-                    value={editData.nextActionDate ? editData.nextActionDate.split('T')[0] : ''}
-                    onChange={(e) => setEditData({ ...editData, nextActionDate: e.target.value })}
-                    className="w-full p-2 border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 text-sm"
-                  />
-                </div>
-              </div>
-            ) : patient.nextAction || patient.nextActionDate ? (
-              <div className={`rounded-lg p-4 ${
-                patient.nextActionDate && getDdayDisplay(patient.nextActionDate).style.includes('red')
-                  ? 'bg-red-50'
-                  : patient.nextActionDate && getDdayDisplay(patient.nextActionDate).style.includes('blue')
-                    ? 'bg-blue-50'
-                    : 'bg-gray-50'
-              }`}>
-                {patient.nextAction && (
-                  <p className="font-medium text-gray-900 mb-1">{patient.nextAction}</p>
-                )}
-                {patient.nextActionDate && (
-                  <div className="flex items-center justify-between">
-                    <span className="text-sm text-gray-500">
-                      {formatDateOnly(patient.nextActionDate)}
-                    </span>
-                    <span className={`text-sm font-medium ${getDdayDisplay(patient.nextActionDate).style}`}>
-                      {getDdayDisplay(patient.nextActionDate).text}
-                    </span>
-                  </div>
-                )}
-              </div>
-            ) : (
-              <button
-                onClick={() => setIsEditing(true)}
-                className="w-full py-3 border-2 border-dashed border-gray-200 rounded-lg text-gray-400 hover:border-blue-300 hover:text-blue-500 transition-colors"
-              >
-                다음 일정 추가
-              </button>
-            )}
-          </Card>
 
           {/* 치료금액 카드 */}
           <Card className="p-5">
@@ -1201,52 +1503,52 @@ export default function PatientDetailPage() {
                   />
                 </div>
               </div>
-            ) : (patient.estimatedAmount || patient.actualAmount) ? (
+            ) : (displayEstimatedAmount || displayActualAmount) ? (
               <div className="space-y-3">
-                {/* 금액 표시 */}
+                {/* 금액 표시 - 선택된 여정 기준 */}
                 <div className="bg-gray-50 rounded-lg p-4 space-y-2">
                   <div className="flex justify-between items-center">
                     <span className="text-sm text-gray-500">원래 금액</span>
                     <span className="font-medium text-gray-900">
-                      {patient.estimatedAmount ? `${Math.round(patient.estimatedAmount).toLocaleString()}원` : '-'}
+                      {displayEstimatedAmount ? `${Math.round(displayEstimatedAmount).toLocaleString()}원` : '-'}
                     </span>
                   </div>
                   <div className="flex justify-between items-center">
                     <span className="text-sm text-gray-500">실제 결제</span>
                     <span className="font-bold text-emerald-600">
-                      {patient.actualAmount ? `${Math.round(patient.actualAmount).toLocaleString()}원` : '-'}
+                      {displayActualAmount ? `${Math.round(displayActualAmount).toLocaleString()}원` : '-'}
                     </span>
                   </div>
                   {/* 할인율 표시 */}
-                  {patient.estimatedAmount && patient.actualAmount && patient.estimatedAmount > 0 && (
+                  {displayEstimatedAmount && displayActualAmount && displayEstimatedAmount > 0 && (
                     <div className="flex justify-between items-center pt-2 border-t border-dashed">
                       <span className="text-sm text-gray-500">할인율</span>
                       <span className="font-bold text-blue-600">
-                        {Math.round((1 - patient.actualAmount / patient.estimatedAmount) * 100)}%
+                        {Math.round((1 - displayActualAmount / displayEstimatedAmount) * 100)}%
                         <span className="text-xs text-gray-400 font-normal ml-1">
-                          ({Math.round(patient.estimatedAmount - patient.actualAmount).toLocaleString()}원)
+                          ({Math.round(displayEstimatedAmount - displayActualAmount).toLocaleString()}원)
                         </span>
                       </span>
                     </div>
                   )}
-                  {patient.paymentStatus && patient.paymentStatus !== 'none' && (
+                  {displayPaymentStatus && displayPaymentStatus !== 'none' && (
                     <div className="flex justify-between items-center pt-2 border-t">
                       <span className="text-sm text-gray-500">결제 상태</span>
                       <span className={`px-2 py-0.5 rounded text-xs font-medium ${
-                        patient.paymentStatus === 'completed'
+                        displayPaymentStatus === 'completed'
                           ? 'bg-emerald-100 text-emerald-700'
                           : 'bg-amber-100 text-amber-700'
                       }`}>
-                        {patient.paymentStatus === 'completed' ? '완납' : '부분결제'}
+                        {displayPaymentStatus === 'completed' ? '완납' : '부분결제'}
                       </span>
                     </div>
                   )}
                 </div>
                 {/* 시술 내역 */}
-                {patient.treatmentNote && (
+                {displayTreatmentNote && (
                   <div className="text-sm">
                     <span className="text-gray-500">시술: </span>
-                    <span className="text-gray-700">{patient.treatmentNote}</span>
+                    <span className="text-gray-700">{displayTreatmentNote}</span>
                   </div>
                 )}
               </div>
@@ -1300,6 +1602,518 @@ export default function PatientDetailPage() {
         patientName={patient.name}
         currentStatus={patient.status}
       />
+
+      {/* 상담 결과 입력 모달 */}
+      <ConsultationInputModal
+        isOpen={consultationModalOpen}
+        onClose={() => {
+          setConsultationModalOpen(false);
+          setExistingConsultation(undefined);  // 모달 닫을 때 초기화
+        }}
+        onSubmit={handleConsultationSubmit}
+        type={consultationType}
+        patientName={patient.name}
+        patientInterest={patient.interest}
+        consultantName={user?.name}
+        existingData={existingConsultation}
+      />
+
+      {/* 🆕 새 여정 시작 모달 */}
+      {isNewJourneyModalOpen && (
+        <NewJourneyModal
+          onClose={() => setIsNewJourneyModalOpen(false)}
+          patientName={patient.name}
+          patientId={patientId}
+          onSuccess={fetchPatient}
+          changedBy={user?.name}
+        />
+      )}
+
+      {/* 🆕 예정일 변경 모달 */}
+      <ScheduleChangeModal
+        isOpen={scheduleModalOpen}
+        onClose={() => setScheduleModalOpen(false)}
+        onConfirm={handleScheduleChange}
+        currentDate={displayNextActionDate as string | undefined}
+        patientName={patient.name}
+      />
+    </div>
+  );
+}
+
+// ============================================
+// 🆕 관심 분야 / 치료 유형 편집 섹션
+// ============================================
+interface InterestEditSectionProps {
+  displayInterest: string | undefined;
+  selectedJourney: Journey | undefined;
+  patientId: string;
+  journeyId: string;
+  onUpdate: () => void;
+}
+
+function InterestEditSection({ displayInterest, selectedJourney, patientId, journeyId, onUpdate }: InterestEditSectionProps) {
+  const [isEditing, setIsEditing] = useState(false);
+  const [selectedType, setSelectedType] = useState('');
+  const [customType, setCustomType] = useState('');
+  const [isSaving, setIsSaving] = useState(false);
+
+  // 편집 시작 시 현재 값으로 초기화
+  const handleStartEdit = () => {
+    const currentValue = displayInterest || '';
+    // TREATMENT_TYPES에 있는 값인지 확인
+    if ((TREATMENT_TYPES as readonly string[]).includes(currentValue)) {
+      setSelectedType(currentValue);
+      setCustomType('');
+    } else if (currentValue) {
+      setSelectedType('기타');
+      setCustomType(currentValue);
+    } else {
+      setSelectedType('');
+      setCustomType('');
+    }
+    setIsEditing(true);
+  };
+
+  const handleSave = async () => {
+    const newValue = selectedType === '기타' ? customType : selectedType;
+    if (!newValue) {
+      setIsEditing(false);
+      return;
+    }
+
+    setIsSaving(true);
+    try {
+      if (selectedJourney) {
+        // 여정의 treatmentType 업데이트
+        const response = await fetch(`/api/v2/patients/${patientId}/journeys/${journeyId}`, {
+          method: 'PATCH',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ treatmentType: newValue }),
+        });
+        if (!response.ok) throw new Error('여정 업데이트 실패');
+      } else {
+        // 환자의 interest 업데이트
+        const response = await fetch(`/api/v2/patients/${patientId}`, {
+          method: 'PATCH',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ interest: newValue }),
+        });
+        if (!response.ok) throw new Error('환자 업데이트 실패');
+      }
+      await onUpdate();
+      setIsEditing(false);
+    } catch (err) {
+      console.error('치료 유형 업데이트 실패:', err);
+      alert('저장에 실패했습니다.');
+    } finally {
+      setIsSaving(false);
+    }
+  };
+
+  const handleCancel = () => {
+    setIsEditing(false);
+    setSelectedType('');
+    setCustomType('');
+  };
+
+  if (isEditing) {
+    return (
+      <div className="bg-blue-50 rounded-lg p-4">
+        <p className="text-sm text-gray-500 mb-2">관심 분야 / 치료 유형</p>
+        <div className="space-y-3">
+          {/* 치료 유형 선택 그리드 */}
+          <div className="grid grid-cols-3 gap-2">
+            {TREATMENT_TYPES.map((type) => (
+              <button
+                key={type}
+                onClick={() => setSelectedType(type)}
+                disabled={isSaving}
+                className={`px-3 py-2 rounded-lg text-sm transition-colors ${
+                  selectedType === type
+                    ? 'bg-blue-500 text-white'
+                    : 'bg-white text-gray-700 hover:bg-gray-100 border border-gray-200'
+                } disabled:opacity-50`}
+              >
+                {type}
+              </button>
+            ))}
+          </div>
+
+          {/* 기타 직접 입력 */}
+          {selectedType === '기타' && (
+            <input
+              type="text"
+              value={customType}
+              onChange={(e) => setCustomType(e.target.value)}
+              placeholder="치료 유형 직접 입력"
+              disabled={isSaving}
+              className="w-full px-3 py-2 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 disabled:bg-gray-100"
+            />
+          )}
+
+          {/* 버튼 */}
+          <div className="flex justify-end gap-2 pt-2">
+            <button
+              onClick={handleCancel}
+              disabled={isSaving}
+              className="px-3 py-1.5 text-sm text-gray-600 hover:bg-gray-100 rounded-lg transition-colors disabled:opacity-50"
+            >
+              취소
+            </button>
+            <button
+              onClick={handleSave}
+              disabled={isSaving || (!selectedType || (selectedType === '기타' && !customType))}
+              className="px-3 py-1.5 text-sm bg-blue-500 text-white rounded-lg hover:bg-blue-600 transition-colors disabled:opacity-50"
+            >
+              {isSaving ? '저장 중...' : '저장'}
+            </button>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
+  return (
+    <div className="group">
+      <p className="text-sm text-gray-500 mb-1">관심 분야 / 치료 유형</p>
+      <div className="flex items-center gap-2">
+        {displayInterest ? (
+          <p className="text-blue-600 font-medium">{displayInterest}</p>
+        ) : (
+          <p className="text-gray-400">미설정</p>
+        )}
+        <button
+          onClick={handleStartEdit}
+          className="p-1 text-gray-400 hover:text-blue-500 hover:bg-blue-50 rounded transition-colors opacity-0 group-hover:opacity-100"
+          title="치료 유형 수정"
+        >
+          <Edit2 size={14} />
+        </button>
+      </div>
+    </div>
+  );
+}
+
+// ============================================
+// 🆕 새 여정 시작 모달 컴포넌트
+// ============================================
+interface NewJourneyModalProps {
+  onClose: () => void;
+  patientName: string;
+  patientId: string;
+  onSuccess: () => void;
+  changedBy?: string;
+}
+
+function NewJourneyModal({ onClose, patientName, patientId, onSuccess, changedBy }: NewJourneyModalProps) {
+  const [treatmentType, setTreatmentType] = useState('');
+  const [customType, setCustomType] = useState('');
+  const [isSubmitting, setIsSubmitting] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+
+  const handleSubmit = async () => {
+    const type = treatmentType === '기타' ? customType : treatmentType;
+    if (!type) {
+      setError('치료 유형을 선택해주세요');
+      return;
+    }
+
+    setIsSubmitting(true);
+    setError(null);
+
+    try {
+      const response = await fetch(`/api/v2/patients/${patientId}/journeys`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          treatmentType: type,
+          changedBy: changedBy || '시스템',
+        }),
+      });
+
+      if (!response.ok) {
+        const data = await response.json();
+        throw new Error(data.error || '여정 생성에 실패했습니다');
+      }
+
+      // 성공 시 데이터 새로고침 후 모달 닫기
+      await onSuccess();
+      onClose();
+    } catch (err) {
+      setError(err instanceof Error ? err.message : '여정 생성에 실패했습니다');
+    } finally {
+      setIsSubmitting(false);
+    }
+  };
+
+  return (
+    <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50">
+      <div className="bg-white rounded-xl w-full max-w-md mx-4 overflow-hidden">
+        <div className="px-6 py-4 border-b border-gray-100">
+          <h2 className="text-lg font-bold text-gray-900">새 여정 시작</h2>
+          <p className="text-sm text-gray-500 mt-1">
+            {patientName} 님의 새로운 치료 여정을 시작합니다
+          </p>
+        </div>
+
+        <div className="p-6 space-y-4">
+          {/* 안내 메시지 */}
+          <div className="flex items-start gap-3 p-3 bg-blue-50 rounded-lg">
+            <AlertCircle size={18} className="text-blue-500 mt-0.5" />
+            <div className="text-sm text-blue-700">
+              <p className="font-medium">구신환 등록</p>
+              <p className="text-blue-600 mt-1">
+                기존 치료가 완료된 환자가 새로운 치료를 시작할 때 사용합니다.
+                이전 여정 기록은 그대로 유지됩니다.
+              </p>
+            </div>
+          </div>
+
+          {/* 에러 메시지 */}
+          {error && (
+            <div className="flex items-center gap-2 p-3 bg-red-50 rounded-lg text-red-700 text-sm">
+              <AlertCircle size={16} />
+              {error}
+            </div>
+          )}
+
+          {/* 치료 유형 선택 */}
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-2">
+              치료 유형
+            </label>
+            <div className="grid grid-cols-2 gap-2">
+              {TREATMENT_TYPES.map((type) => (
+                <button
+                  key={type}
+                  onClick={() => {
+                    setTreatmentType(type);
+                    setError(null);
+                  }}
+                  disabled={isSubmitting}
+                  className={`px-4 py-2 rounded-lg text-sm transition-colors ${
+                    treatmentType === type
+                      ? 'bg-blue-500 text-white'
+                      : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
+                  } disabled:opacity-50`}
+                >
+                  {type}
+                </button>
+              ))}
+            </div>
+
+            {treatmentType === '기타' && (
+              <input
+                type="text"
+                value={customType}
+                onChange={(e) => setCustomType(e.target.value)}
+                placeholder="치료 유형 직접 입력"
+                disabled={isSubmitting}
+                className="w-full mt-2 px-4 py-2 border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 disabled:bg-gray-100"
+              />
+            )}
+          </div>
+
+          {/* 시작 상태 안내 */}
+          <div className="p-3 bg-gray-50 rounded-lg">
+            <p className="text-sm text-gray-600">
+              <span className="font-medium">시작 단계:</span> 전화상담
+            </p>
+            <p className="text-xs text-gray-500 mt-1">
+              새 여정은 &apos;전화상담&apos; 단계부터 시작됩니다
+            </p>
+          </div>
+        </div>
+
+        <div className="px-6 py-4 border-t border-gray-100 flex justify-end gap-2">
+          <button
+            onClick={onClose}
+            disabled={isSubmitting}
+            className="px-4 py-2 text-gray-600 hover:bg-gray-100 rounded-lg transition-colors disabled:opacity-50"
+          >
+            취소
+          </button>
+          <button
+            onClick={handleSubmit}
+            disabled={isSubmitting}
+            className="px-4 py-2 bg-blue-500 text-white rounded-lg hover:bg-blue-600 transition-colors disabled:opacity-50 min-w-[100px]"
+          >
+            {isSubmitting ? '생성 중...' : '여정 시작'}
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+// ============================================
+// 🆕 예정일 변경 모달 컴포넌트
+// ============================================
+interface ScheduleChangeModalProps {
+  isOpen: boolean;
+  onClose: () => void;
+  onConfirm: (data: { newDate: string; reason?: CallbackReason; note?: string }) => void;
+  currentDate?: string;
+  patientName: string;
+}
+
+function ScheduleChangeModal({ isOpen, onClose, onConfirm, currentDate, patientName }: ScheduleChangeModalProps) {
+  const [newDate, setNewDate] = useState('');
+  const [reason, setReason] = useState<CallbackReason | ''>('');
+  const [note, setNote] = useState('');
+  const [isSubmitting, setIsSubmitting] = useState(false);
+
+  // 모달이 열릴 때 기본값 설정
+  useEffect(() => {
+    if (isOpen) {
+      // 다음 영업일로 기본 날짜 설정
+      const tomorrow = new Date();
+      tomorrow.setDate(tomorrow.getDate() + 1);
+      setNewDate(tomorrow.toISOString().split('T')[0]);
+      setReason('');
+      setNote('');
+    }
+  }, [isOpen]);
+
+  const handleSubmit = async () => {
+    if (!newDate) return;
+
+    setIsSubmitting(true);
+    try {
+      await onConfirm({
+        newDate,
+        reason: reason || undefined,
+        note: note || undefined,
+      });
+    } finally {
+      setIsSubmitting(false);
+    }
+  };
+
+  if (!isOpen) return null;
+
+  const reasonOptions: { value: CallbackReason; label: string; color: string }[] = [
+    { value: 'no_answer', label: '미연결', color: 'bg-red-100 text-red-700 border-red-200' },
+    { value: 'postponed', label: '보류', color: 'bg-amber-100 text-amber-700 border-amber-200' },
+    { value: 'considering', label: '검토중', color: 'bg-purple-100 text-purple-700 border-purple-200' },
+  ];
+
+  return (
+    <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50">
+      <div className="bg-white rounded-xl w-full max-w-md mx-4 overflow-hidden">
+        <div className="px-6 py-4 border-b border-gray-100">
+          <h2 className="text-lg font-bold text-gray-900">예정일 변경</h2>
+          <p className="text-sm text-gray-500 mt-1">{patientName} 님</p>
+        </div>
+
+        <div className="p-6 space-y-5">
+          {/* 현재 예정일 표시 */}
+          {currentDate && (
+            <div className="flex items-center gap-2 p-3 bg-gray-50 rounded-lg">
+              <span className="text-sm text-gray-500">현재 예정일:</span>
+              <span className="font-medium text-gray-900">
+                {new Date(currentDate).toLocaleDateString('ko-KR', { year: 'numeric', month: 'long', day: 'numeric' })}
+              </span>
+            </div>
+          )}
+
+          {/* 사유 선택 */}
+          {currentDate && (
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-2">
+                변경 사유 <span className="text-gray-400 text-xs">(선택)</span>
+              </label>
+              <div className="flex gap-2">
+                {reasonOptions.map((opt) => (
+                  <button
+                    key={opt.value}
+                    onClick={() => setReason(reason === opt.value ? '' : opt.value)}
+                    className={`flex-1 px-3 py-2 rounded-lg text-sm font-medium border transition-colors ${
+                      reason === opt.value
+                        ? opt.color + ' border-current'
+                        : 'bg-gray-50 text-gray-600 border-gray-200 hover:bg-gray-100'
+                    }`}
+                  >
+                    {opt.label}
+                  </button>
+                ))}
+              </div>
+            </div>
+          )}
+
+          {/* 메모 */}
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-2">
+              메모 <span className="text-gray-400 text-xs">(선택)</span>
+            </label>
+            <textarea
+              value={note}
+              onChange={(e) => setNote(e.target.value)}
+              placeholder="예: 다음주 수요일에 전화 요청"
+              className="w-full p-3 border border-gray-200 rounded-lg text-sm resize-none focus:outline-none focus:ring-2 focus:ring-blue-500"
+              rows={2}
+            />
+          </div>
+
+          {/* 새 예정일 */}
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-2">
+              새 예정일 <span className="text-red-500">*</span>
+            </label>
+            <input
+              type="date"
+              value={newDate}
+              onChange={(e) => setNewDate(e.target.value)}
+              min={new Date().toISOString().split('T')[0]}
+              className="w-full p-3 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+            />
+            {/* 빠른 선택 버튼 */}
+            <div className="flex gap-2 mt-2">
+              {[
+                { label: '내일', days: 1 },
+                { label: '3일 후', days: 3 },
+                { label: '1주 후', days: 7 },
+                { label: '2주 후', days: 14 },
+              ].map((opt) => {
+                const targetDate = new Date();
+                targetDate.setDate(targetDate.getDate() + opt.days);
+                const dateStr = targetDate.toISOString().split('T')[0];
+                return (
+                  <button
+                    key={opt.label}
+                    onClick={() => setNewDate(dateStr)}
+                    className={`flex-1 px-2 py-1.5 rounded text-xs transition-colors ${
+                      newDate === dateStr
+                        ? 'bg-blue-500 text-white'
+                        : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
+                    }`}
+                  >
+                    {opt.label}
+                  </button>
+                );
+              })}
+            </div>
+          </div>
+        </div>
+
+        <div className="px-6 py-4 border-t border-gray-100 flex justify-end gap-2">
+          <button
+            onClick={onClose}
+            disabled={isSubmitting}
+            className="px-4 py-2 text-gray-600 hover:bg-gray-100 rounded-lg transition-colors disabled:opacity-50"
+          >
+            취소
+          </button>
+          <button
+            onClick={handleSubmit}
+            disabled={isSubmitting || !newDate}
+            className="px-4 py-2 bg-blue-500 text-white rounded-lg hover:bg-blue-600 transition-colors disabled:opacity-50 min-w-[80px]"
+          >
+            {isSubmitting ? '저장 중...' : '저장'}
+          </button>
+        </div>
+      </div>
     </div>
   );
 }

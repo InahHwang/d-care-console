@@ -19,7 +19,9 @@ import {
   CheckCircle2,
   CalendarCheck,
   UserPlus,
+  BookOpen,
 } from 'lucide-react';
+import ManualSidePanel from '../manual/ManualSidePanel';
 import Pusher from 'pusher-js';
 import { TemperatureIcon } from '../ui/TemperatureIcon';
 import type { Temperature } from '@/types/v2';
@@ -104,6 +106,9 @@ export function CTIPanel() {
   const [pendingCallbacks, setPendingCallbacks] = useState<PendingCallback[]>([]);
   const [isCallEnded, setIsCallEnded] = useState(false);
   const [processingCallback, setProcessingCallback] = useState(false);
+
+  // ★ 매뉴얼 패널 상태
+  const [showManualPanel, setShowManualPanel] = useState(false);
 
   // CTIBridge 상태 확인
   const checkCtiStatus = useCallback(async () => {
@@ -402,13 +407,26 @@ export function CTIPanel() {
 
   // 펼쳐진 상태
   return (
-    <div className="fixed bottom-4 left-64 z-50 w-80">
-      <div
-        className={`
-          bg-white rounded-xl shadow-xl overflow-hidden
-          ${isRinging ? 'ring-2 ring-blue-500 ring-offset-2' : ''}
-        `}
-      >
+    <div className="fixed bottom-4 left-64 z-50 flex gap-2">
+      {/* 매뉴얼 패널 */}
+      {showManualPanel && (
+        <div className="w-80 h-[500px] bg-white rounded-xl shadow-xl overflow-hidden">
+          <ManualSidePanel
+            isOpen={showManualPanel}
+            onClose={() => setShowManualPanel(false)}
+            mode="phone"
+          />
+        </div>
+      )}
+
+      {/* CTI 메인 패널 */}
+      <div className="w-80">
+        <div
+          className={`
+            bg-white rounded-xl shadow-xl overflow-hidden
+            ${isRinging ? 'ring-2 ring-blue-500 ring-offset-2' : ''}
+          `}
+        >
         {/* 헤더 */}
         <div className="flex items-center justify-between px-4 py-3 bg-gray-50 border-b">
           <div className="flex items-center gap-2">
@@ -421,12 +439,21 @@ export function CTIPanel() {
               <span className="w-2 h-2 rounded-full bg-gray-300" title="CTIBridge 연결 안됨" />
             )}
           </div>
-          <button
-            onClick={() => setIsExpanded(false)}
-            className="p-1 hover:bg-gray-200 rounded"
-          >
-            <ChevronDown size={18} className="text-gray-500" />
-          </button>
+          <div className="flex items-center gap-1">
+            <button
+              onClick={() => setShowManualPanel(!showManualPanel)}
+              className={`p-1.5 rounded transition-colors ${showManualPanel ? 'bg-blue-100 text-blue-600' : 'hover:bg-gray-200 text-gray-500'}`}
+              title="상담 매뉴얼"
+            >
+              <BookOpen size={16} />
+            </button>
+            <button
+              onClick={() => setIsExpanded(false)}
+              className="p-1 hover:bg-gray-200 rounded"
+            >
+              <ChevronDown size={18} className="text-gray-500" />
+            </button>
+          </div>
         </div>
 
         {/* 발신 입력 */}
@@ -656,6 +683,7 @@ export function CTIPanel() {
             <p className="text-sm text-gray-400">대기 중...</p>
           </div>
         )}
+        </div>
       </div>
     </div>
   );
