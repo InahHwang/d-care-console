@@ -9,9 +9,11 @@ import type { ConsultationV2, PatientV2, CallLogV2 } from '@/types/v2';
 
 interface DailyReportPatient {
   id: string;
+  patientId: string;  // 환자 상세 페이지 링크용
   name: string;
   phone: string;
   status: 'agreed' | 'disagreed' | 'pending';
+  type: 'phone' | 'visit';  // 상담 유형
   treatment: string;
   originalAmount: number;
   discountRate: number;
@@ -23,8 +25,16 @@ interface DailyReportPatient {
   appointmentDate?: string;
   callbackDate?: string;
   consultantName: string;
-  time: string;
+  time: string;  // 통화 시작 시간
+  duration?: number;  // 통화 시간 (초)
   aiSummary?: string;
+  // 환자 추가 정보
+  gender?: '남' | '여';
+  age?: number;
+  memo?: string;
+  inquiry?: string;
+  // 상담 회차 정보
+  consultationNumber?: number;  // 1차, 2차, 3차...
 }
 
 interface DailyReportSummary {
@@ -39,6 +49,9 @@ interface DailyReportSummary {
   callbackCount: number;
   newPatients: number;
   existingPatients: number;
+  // 상담 유형별 통계
+  phoneConsultations: number;
+  visitConsultations: number;
 }
 
 export async function GET(
@@ -94,15 +107,47 @@ export async function GET(
 
     const patientMap = new Map(patients.map((p) => [p._id?.toString(), p]));
 
+    // 상담 회차 계산: 각 환자별 "오늘 이전" 상담 수 조회
+    const consultationPatientIdList = Array.from(new Set(consultations.map((c) => c.patientId)));
+    const previousConsultationCounts = consultationPatientIdList.length > 0
+      ? await db.collection('consultations_v2')
+          .aggregate([
+            {
+              $match: {
+                patientId: { $in: consultationPatientIdList },
+                date: { $lt: new Date(startOfDay) },
+              },
+            },
+            {
+              $group: {
+                _id: '$patientId',
+                count: { $sum: 1 },
+              },
+            },
+          ])
+          .toArray()
+      : [];
+    const prevCountMap = new Map(
+      previousConsultationCounts.map((p) => [p._id as string, p.count as number])
+    );
+
+    // callLogs를 patientId로 매핑 (duration 조회용)
+    const callLogMap = new Map(
+      callLogs.map((c) => [c.patientId, c])
+    );
+
     // 상담 기록 기반 리포트 데이터 생성
     const reportPatients: DailyReportPatient[] = consultations.map((consultation) => {
       const patient = patientMap.get(consultation.patientId);
+      const callLog = callLogMap.get(consultation.patientId);
 
       return {
         id: consultation._id?.toString() || '',
+        patientId: consultation.patientId,
         name: patient?.name || '미확인',
         phone: patient?.phone || '',
         status: consultation.status,
+        type: consultation.type || 'phone',  // 상담 유형
         treatment: consultation.treatment,
         originalAmount: Math.round(consultation.originalAmount / 10000),
         discountRate: consultation.discountRate,
@@ -122,7 +167,15 @@ export async function GET(
           hour: '2-digit',
           minute: '2-digit',
         }),
-        aiSummary: consultation.aiSummary,
+        duration: callLog?.duration,  // 통화 시간 (초)
+        aiSummary: consultation.aiSummary || callLog?.aiAnalysis?.summary,
+        // 환자 추가 정보
+        gender: patient?.gender,
+        age: patient?.age,
+        memo: consultation.memo,
+        inquiry: consultation.inquiry,
+        // 상담 회차: 이전 상담 수 + 1
+        consultationNumber: (prevCountMap.get(consultation.patientId) || 0) + 1,
       };
     });
 
@@ -134,9 +187,11 @@ export async function GET(
         if (patient) {
           reportPatients.push({
             id: call._id?.toString() || '',
+            patientId: call.patientId,  // 환자 상세 페이지 링크용
             name: patient.name,
             phone: patient.phone,
             status: 'pending',
+            type: 'phone',  // 통화 기록은 전화상담
             treatment: patient.interest || '미정',
             originalAmount: 0,
             discountRate: 0,
@@ -148,7 +203,12 @@ export async function GET(
               hour: '2-digit',
               minute: '2-digit',
             }),
+            duration: call.duration,  // 통화 시간 (초)
             aiSummary: call.aiAnalysis?.summary,
+            // 환자 추가 정보
+            gender: patient.gender,
+            age: patient.age,
+            memo: patient.memo,
           });
         }
       }
@@ -169,6 +229,10 @@ export async function GET(
       (c) => c.aiAnalysis?.classification === '신환' || c.aiAnalysis?.classification === '구신환'
     ).length;
 
+    // 상담 유형별 통계
+    const phoneConsultations = reportPatients.filter((p) => p.type === 'phone').length;
+    const visitConsultations = reportPatients.filter((p) => p.type === 'visit').length;
+
     const summary: DailyReportSummary = {
       total: reportPatients.length,
       agreed: agreed.length,
@@ -183,6 +247,8 @@ export async function GET(
       callbackCount: reportPatients.filter((p) => p.callbackDate).length,
       newPatients: newPatientCount,
       existingPatients: callLogs.length - newPatientCount,
+      phoneConsultations,
+      visitConsultations,
     };
 
     // 요일 계산
