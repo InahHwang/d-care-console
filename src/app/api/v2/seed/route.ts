@@ -399,6 +399,7 @@ export async function POST(request: NextRequest) {
 
       consultations.push({
         patientId,
+        type: randomPick(['phone', 'visit'] as const),  // 상담 유형 추가
         date: randomDate(7),
         treatment: patient.interest || randomPick(INTERESTS),
         originalAmount,
@@ -420,20 +421,51 @@ export async function POST(request: NextRequest) {
     await db.collection('consultations_v2').insertMany(consultations);
     console.log(`[Seed] 상담기록 ${consultations.length}건 생성 완료`);
 
-    // 4. 콜백/리콜 일정 생성 (15건)
+    // 4. 콜백/리콜 일정 생성 (20건)
     const callbacks: Array<Omit<CallbackV2, '_id'>> = [];
-    const callbackTypes: CallbackType[] = ['callback', 'recall', 'thanks'];
 
-    for (let i = 0; i < 15; i++) {
+    // 오늘 콜백 6건 (대기/완료/미연결 혼합)
+    const todayCallbackData = [
+      { name: '김민수', time: [9, 0], status: 'pending', note: '임플란트 가격 재문의' },
+      { name: '이영희', time: [10, 30], status: 'pending', note: '교정 상담 후속 연락' },
+      { name: '박철수', time: [11, 0], status: 'pending', note: '충치 치료 예약 확정 필요' },
+      { name: '정미영', time: [13, 30], status: 'pending', note: '스케일링 예약 확인' },
+      { name: '최준호', time: [14, 0], status: 'completed', note: '상담 완료 - 다음주 내원 확정' },
+      { name: '강수진', time: [15, 30], status: 'missed', note: '3회 부재중' },
+    ];
+
+    for (let i = 0; i < todayCallbackData.length; i++) {
+      const data = todayCallbackData[i];
       const patientId = patientIds[i % patientIds.length];
-      const type = callbackTypes[i % 3];
 
-      // 오늘 기준 -2일 ~ +5일 사이의 일정
-      const scheduledDate = new Date();
-      scheduledDate.setDate(scheduledDate.getDate() + Math.floor(Math.random() * 7) - 2);
+      const scheduledDate = new Date(today);
+      scheduledDate.setHours(data.time[0], data.time[1], 0, 0);
+
+      callbacks.push({
+        patientId,
+        type: 'callback',
+        scheduledAt: scheduledDate,
+        status: data.status as 'pending' | 'completed' | 'missed',
+        note: data.note,
+        completedAt: data.status === 'completed' ? now.toISOString() : undefined,
+        createdAt: now.toISOString(),
+      });
+    }
+
+    // 추가 콜백 (과거/미래 분포)
+    for (let i = 6; i < 20; i++) {
+      const patientId = patientIds[i % patientIds.length];
+      const type: CallbackType = i % 3 === 0 ? 'callback' : i % 3 === 1 ? 'recall' : 'thanks';
+
+      // -3일 ~ +7일 사이의 일정 (오늘 제외)
+      let dayOffset = Math.floor(Math.random() * 10) - 3;
+      if (dayOffset === 0) dayOffset = 1; // 오늘은 이미 위에서 생성했으므로 제외
+
+      const scheduledDate = new Date(today);
+      scheduledDate.setDate(scheduledDate.getDate() + dayOffset);
       scheduledDate.setHours(9 + Math.floor(Math.random() * 9), Math.floor(Math.random() * 4) * 15, 0, 0);
 
-      const isPast = scheduledDate < now;
+      const isPast = dayOffset < 0;
       const status = isPast
         ? (Math.random() > 0.3 ? 'completed' : 'missed')
         : 'pending';
