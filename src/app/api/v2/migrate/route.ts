@@ -366,3 +366,101 @@ export async function POST(request: NextRequest) {
     );
   }
 }
+
+// PATCH: 내원 상담 내용 마이그레이션 (V1 → V2 수동 상담 이력)
+export async function PATCH() {
+  try {
+    const { db } = await connectToDatabase();
+    const v1Collection = db.collection('patients');
+    const v2Collection = db.collection('patients_v2');
+    const manualConsultationsCollection = db.collection('manualConsultations_v2');
+
+    // V1에서 내원 환자 중 상담 내용이 있는 환자 조회
+    const v1Patients = await v1Collection.find({
+      visitConfirmed: true,
+      $or: [
+        { 'postVisitConsultation.firstVisitConsultationContent': { $exists: true, $ne: '' } },
+        { 'postVisitConsultation.consultationContent': { $exists: true, $ne: '' } },
+      ]
+    }).toArray();
+
+    const results = {
+      total: v1Patients.length,
+      migrated: 0,
+      skipped: 0,
+      failed: 0,
+      errors: [] as string[],
+    };
+
+    const now = new Date();
+
+    for (const v1Patient of v1Patients) {
+      try {
+        // V2에서 해당 환자 찾기 (전화번호로)
+        const v2Patient = await v2Collection.findOne({ phone: v1Patient.phoneNumber });
+
+        if (!v2Patient) {
+          results.skipped++;
+          continue;
+        }
+
+        const v2PatientId = v2Patient._id.toString();
+
+        // 이미 마이그레이션된 상담 내용이 있는지 확인
+        const existingConsultation = await manualConsultationsCollection.findOne({
+          patientId: v2PatientId,
+          migratedFrom: 'v1',
+        });
+
+        if (existingConsultation) {
+          results.skipped++;
+          continue;
+        }
+
+        // 상담 내용 가져오기
+        const consultationContent =
+          v1Patient.postVisitConsultation?.firstVisitConsultationContent ||
+          v1Patient.postVisitConsultation?.consultationContent ||
+          '';
+
+        if (!consultationContent.trim()) {
+          results.skipped++;
+          continue;
+        }
+
+        // 수동 상담 이력 생성
+        const newConsultation = {
+          patientId: v2PatientId,
+          type: 'visit', // 내원 상담
+          date: v1Patient.visitDate ? new Date(v1Patient.visitDate) : (v1Patient.createdAt ? new Date(v1Patient.createdAt) : now),
+          content: consultationContent.trim(),
+          consultantName: v1Patient.createdByName || v1Patient.lastModifiedByName || '마이그레이션',
+          source: 'manual',
+          migratedFrom: 'v1',
+          migratedAt: now,
+          createdAt: now,
+          updatedAt: now,
+        };
+
+        await manualConsultationsCollection.insertOne(newConsultation);
+        results.migrated++;
+
+      } catch (patientError) {
+        results.failed++;
+        results.errors.push(`${v1Patient.name} (${v1Patient.phoneNumber}): ${(patientError as Error).message}`);
+      }
+    }
+
+    return NextResponse.json({
+      success: true,
+      message: '내원 상담 내용 마이그레이션 완료',
+      results,
+    });
+  } catch (error) {
+    console.error('[Migrate PATCH] Error:', error);
+    return NextResponse.json(
+      { error: '내원 상담 마이그레이션 실패', details: (error as Error).message },
+      { status: 500 }
+    );
+  }
+}
