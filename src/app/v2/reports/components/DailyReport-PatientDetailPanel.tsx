@@ -140,14 +140,21 @@ export function DailyReportPatientDetailPanel({
 
       {/* 본문 섹션 */}
       <div className="p-6 space-y-4">
-        {/* 상담 내용 (AI 요약) */}
+        {/* 상담 내용 (AI 요약) - 불렛포인트로 표시 */}
         {patient.aiSummary && (
           <div className="bg-white rounded-xl p-5 shadow-sm">
             <h3 className="font-semibold text-gray-900 mb-3 flex items-center gap-2">
               <span>📞</span> 상담 내용
               <span className="text-xs text-gray-400 font-normal">(AI 요약)</span>
             </h3>
-            <p className="text-gray-700 leading-relaxed whitespace-pre-wrap">{patient.aiSummary}</p>
+            <ul className="space-y-2">
+              {patient.aiSummary.split('\n').filter(line => line.trim()).map((line, idx) => (
+                <li key={idx} className="flex items-start gap-2 text-gray-700">
+                  <span className="text-blue-500 mt-1">•</span>
+                  <span>{line.trim()}</span>
+                </li>
+              ))}
+            </ul>
           </div>
         )}
 
