@@ -367,6 +367,119 @@ export async function POST(request: NextRequest) {
   }
 }
 
+// DELETE: 내원 환자 날짜 수정 (nextActionDate를 올바른 값으로 업데이트)
+export async function DELETE() {
+  try {
+    const { db } = await connectToDatabase();
+    const v1Collection = db.collection('patients');
+    const v2Collection = db.collection('patients_v2');
+
+    // V1에서 내원 환자 조회
+    const v1Patients = await v1Collection.find({
+      visitConfirmed: true
+    }).toArray();
+
+    const results = {
+      total: v1Patients.length,
+      updated: 0,
+      skipped: 0,
+      failed: 0,
+      details: [] as { name: string; phone: string; oldDate: string | null; newDate: string | null; source: string }[],
+      errors: [] as string[],
+    };
+
+    for (const v1Patient of v1Patients) {
+      try {
+        // V2에서 해당 환자 찾기 (전화번호로)
+        const v2Patient = await v2Collection.findOne({ phone: v1Patient.phoneNumber });
+
+        if (!v2Patient) {
+          results.skipped++;
+          continue;
+        }
+
+        // 내원 후 상태에 따른 올바른 날짜 결정
+        let correctDate: string | null = null;
+        let dateSource = '';
+
+        const postVisitStatus = v1Patient.postVisitStatus;
+        const postVisitConsultation = v1Patient.postVisitConsultation;
+
+        if (postVisitStatus === '치료동의') {
+          // 치료동의: treatmentConsentInfo.treatmentStartDate 사용
+          correctDate = postVisitConsultation?.treatmentConsentInfo?.treatmentStartDate || null;
+          dateSource = 'treatmentConsentInfo.treatmentStartDate';
+        } else if (postVisitStatus === '치료시작') {
+          // 치료시작: nextVisitDate 사용 (다음 내원 예정일)
+          correctDate = postVisitConsultation?.nextVisitDate || v1Patient.nextVisitDate || null;
+          dateSource = 'nextVisitDate';
+        } else if (postVisitStatus === '재콜백필요') {
+          // 재콜백필요: nextCallbackDate 사용
+          correctDate = postVisitConsultation?.nextCallbackDate || v1Patient.nextCallbackDate || null;
+          dateSource = 'nextCallbackDate';
+        } else if (postVisitStatus === '종결') {
+          // 종결: 날짜 필요 없음
+          correctDate = null;
+          dateSource = 'none (completed)';
+        } else {
+          // 기타 (내원완료 상태): 콜백 날짜가 있으면 사용
+          correctDate = postVisitConsultation?.nextCallbackDate || v1Patient.nextCallbackDate || null;
+          dateSource = 'nextCallbackDate (visited)';
+        }
+
+        // 기존 V2 날짜
+        const oldDate = v2Patient.nextActionDate ? new Date(v2Patient.nextActionDate).toISOString().split('T')[0] : null;
+        const newDate = correctDate;
+
+        // 날짜가 다르면 업데이트
+        if (newDate !== oldDate) {
+          const updateData: Record<string, unknown> = {
+            updatedAt: new Date(),
+          };
+
+          if (newDate) {
+            updateData.nextActionDate = new Date(newDate);
+          } else {
+            updateData.nextActionDate = null;
+          }
+
+          await v2Collection.updateOne(
+            { _id: v2Patient._id },
+            { $set: updateData }
+          );
+
+          results.updated++;
+          results.details.push({
+            name: v1Patient.name,
+            phone: v1Patient.phoneNumber,
+            oldDate,
+            newDate,
+            source: dateSource,
+          });
+        } else {
+          results.skipped++;
+        }
+
+      } catch (patientError) {
+        results.failed++;
+        results.errors.push(`${v1Patient.name} (${v1Patient.phoneNumber}): ${(patientError as Error).message}`);
+      }
+    }
+
+    return NextResponse.json({
+      success: true,
+      message: '내원 환자 날짜 수정 완료',
+      results,
+    });
+  } catch (error) {
+    console.error('[Migrate DELETE] Error:', error);
+    return NextResponse.json(
+      { error: '날짜 수정 실패', details: (error as Error).message },
+      { status: 500 }
+    );
+  }
+}
+
 // PATCH: 내원 상담 내용 마이그레이션 (V1 → V2 수동 상담 이력)
 export async function PATCH() {
   try {
