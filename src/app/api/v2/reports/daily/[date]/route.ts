@@ -132,14 +132,21 @@ export async function GET(
     );
 
     // callLogs를 patientId로 매핑 (duration 조회용)
-    const callLogMap = new Map(
+    const callLogByPatientMap = new Map(
       callLogs.map((c) => [c.patientId, c])
+    );
+    // callLogs를 _id로도 매핑 (callLogId로 직접 찾기 위함)
+    const callLogByIdMap = new Map(
+      callLogs.map((c) => [c._id?.toString(), c])
     );
 
     // 상담 기록 기반 리포트 데이터 생성
     const reportPatients: DailyReportPatient[] = consultations.map((consultation) => {
       const patient = patientMap.get(consultation.patientId);
-      const callLog = callLogMap.get(consultation.patientId);
+      // callLogId가 있으면 그걸로 찾고, 없으면 patientId로 찾기
+      const callLog = consultation.callLogId
+        ? callLogByIdMap.get(consultation.callLogId)
+        : callLogByPatientMap.get(consultation.patientId);
 
       return {
         id: consultation._id?.toString() || '',
