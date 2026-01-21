@@ -85,10 +85,11 @@ export async function GET(
     }).toArray();
 
     // 해당 날짜 통화 기록 조회 (상담 기록이 없는 경우 통화 기반으로)
+    // createdAt이 Date 객체이므로 Date로 변환하여 비교
     const callLogs = await db.collection<CallLogV2>('callLogs_v2').find({
       createdAt: {
-        $gte: startOfDay,
-        $lte: endOfDay,
+        $gte: new Date(startOfDay),
+        $lte: new Date(endOfDay),
       },
       aiStatus: 'completed',
     }).toArray();
