@@ -582,13 +582,17 @@ export default function PatientDetailPage() {
     return `${mins}:${secs.toString().padStart(2, '0')}`;
   };
 
-  const formatDate = (dateValue: string | Date) => {
+  const formatDate = (dateValue: string | Date | null | undefined) => {
+    if (!dateValue) return '-';
     const date = typeof dateValue === 'string' ? new Date(dateValue) : dateValue;
+    if (isNaN(date.getTime())) return '-';
     return `${date.getMonth() + 1}/${date.getDate()} ${date.getHours().toString().padStart(2, '0')}:${date.getMinutes().toString().padStart(2, '0')}`;
   };
 
-  const formatDateOnly = (dateValue: string | Date) => {
+  const formatDateOnly = (dateValue: string | Date | null | undefined) => {
+    if (!dateValue) return '-';
     const date = typeof dateValue === 'string' ? new Date(dateValue) : dateValue;
+    if (isNaN(date.getTime())) return '-';
     return `${date.getFullYear()}.${(date.getMonth() + 1).toString().padStart(2, '0')}.${date.getDate().toString().padStart(2, '0')}`;
   };
 
