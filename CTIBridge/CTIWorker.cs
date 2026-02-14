@@ -32,6 +32,7 @@ public class CallEvent
     public string? EventType { get; set; }      // ring, start, end, missed, outbound_end
     public string? ExtInfo { get; set; }
     public string? RecordingInfo { get; set; }
+    public string? CallLogId { get; set; }      // ★ V2 callLogId (큐 enqueue 시점에 저장, 레이스컨디션 방지)
     public int Duration { get; set; }
     public DateTime CreatedAt { get; set; } = DateTime.Now;
     public int RetryCount { get; set; } = 0;
@@ -55,6 +56,12 @@ public class CTIWorker : BackgroundService
     private bool _gotSvcInfo = false;
     private bool _needReconnect = false;
     private bool _isConnected = false;
+    private int _consecutiveAuthErrors = 0;  // 0x800B 연속 발생 카운터
+    private const int MAX_AUTH_ERRORS_BEFORE_RECONNECT = 3;  // 3회 연속 시 재연결
+    private int _consecutiveLoopErrors = 0;  // 메인 루프 연속 오류 카운터
+    private const int MAX_LOOP_ERRORS_BEFORE_RECONNECT = 5;  // 5회 연속 시 재연결
+    private DateTime _lastHealthCheckTime = DateTime.Now;  // 마지막 건강체크 시각
+    private const int HEALTH_CHECK_INTERVAL_SEC = 180;  // 3분마다 세션 유효성 확인
 
     // 착신녹취 상태
     private bool _isRecordingReady = false;
@@ -69,9 +76,18 @@ public class CTIWorker : BackgroundService
     private string _clickCallCallerDn = "";  // 발신자 (치과)
     private string _clickCallCalledDn = "";  // 착신자 (환자)
     private DateTime _clickCallStartTime;
+    private string _clickCallLogId = "";     // ★ 서버에서 반환한 V2 callLogId (녹취 매칭용)
     private HttpListener? _httpListener;
     private const int HTTP_PORT = 5080;  // 발신 요청 수신 포트
-    private const int CLICKCALL_TIMEOUT_SEC = 180;  // ★ ClickCall 타임아웃 (3분)
+    private const int CLICKCALL_TIMEOUT_SEC = 3600;  // ★ ClickCall 타임아웃 (1시간) - 상태 꼬임 방지용 안전장치
+
+    // ★ 수신 통화 중복 방지 상태 (동시착신 대응)
+    private bool _inboundCallStartSent = false;  // start 이벤트 전송 여부
+    private string _inboundCallerNumber = "";    // 현재 수신 중인 발신자 번호
+    private string _inboundCalledNumber = "";    // 실제로 받은 착신 번호 (031 or 070)
+    private DateTime _inboundCallTime;           // ring 시점 (부재중 판단용)
+    private DateTime _inboundCallStartTime;      // ★ 실제 통화 연결 시점 (duration 계산용)
+    private const int INBOUND_CALL_TIMEOUT_SEC = 300;  // 5분 후 상태 자동 리셋
 
     // ★ 비동기 큐 관련
     private readonly ConcurrentQueue<CallEvent> _eventQueue = new();
@@ -181,8 +197,8 @@ public class CTIWorker : BackgroundService
     public const int EVT_CONNECTED = 0x0101;
     public const int EVT_LOGIN = 0x0104;
     public const int EVT_SERVICE_INFO = 0x0300;
-    public const int IMS_SVC_TERMCALL_START = 11;  // 발신 시작 (Svc=11)
-    public const int IMS_SVC_TERMCALL_END = 12;    // 발신 종료 (Svc=12)
+    public const int IMS_SVC_TERMCALL_START = 11;  // 착신(수신) 시작 (TERM = Terminating)
+    public const int IMS_SVC_TERMCALL_END = 12;    // 착신(수신) 종료 (TERM = Terminating)
     public const int IMS_SVC_CALL_ANSWERED = 13;
     public const int IMS_SVC_CALL_END = 14;
     public const int IMS_SVC_CALL_STATUS = 15;
@@ -265,7 +281,8 @@ public class CTIWorker : BackgroundService
         // 초기 연결
         if (!await ConnectToCTI())
         {
-            _logger.LogError("CTI 초기 연결 실패");
+            _logger.LogError("CTI 초기 연결 실패 - 자동 재연결 예정");
+            _needReconnect = true;
         }
 
         // ★ SendWorker 태스크 시작 (별도 스레드에서 전송 처리)
@@ -290,6 +307,9 @@ public class CTIWorker : BackgroundService
                     if (await ConnectToCTI())
                     {
                         _logger.LogInformation("CTI 재연결 성공");
+                        _consecutiveAuthErrors = 0;
+                        _consecutiveLoopErrors = 0;
+                        _lastHealthCheckTime = DateTime.Now;
                     }
                     else
                     {
@@ -306,6 +326,16 @@ public class CTIWorker : BackgroundService
                     PollAllEvents();
                 }
 
+                // ★ Fix 3: 주기적 세션 건강체크 (무소식 끊김 감지)
+                if (_isConnected && (DateTime.Now - _lastHealthCheckTime).TotalSeconds > HEALTH_CHECK_INTERVAL_SEC)
+                {
+                    _lastHealthCheckTime = DateTime.Now;
+                    CheckSessionHealth();
+                }
+
+                // ★ 수신 통화 타임아웃 체크 (end 이벤트 누락 시 상태 리셋)
+                CheckInboundCallTimeout();
+
                 // ★ ClickCall 타임아웃 체크
                 CheckClickCallTimeout();
 
@@ -316,6 +346,7 @@ public class CTIWorker : BackgroundService
                     LoadPendingEvents();
                 }
 
+                _consecutiveLoopErrors = 0;  // 정상 루프 완료 시 리셋
                 await Task.Delay(100, stoppingToken); // 100ms로 단축
             }
             catch (OperationCanceledException)
@@ -324,7 +355,16 @@ public class CTIWorker : BackgroundService
             }
             catch (Exception ex)
             {
-                _logger.LogError(ex, "CTI 이벤트 처리 오류");
+                // ★ Fix 2: 메인 루프 연속 오류 시 재연결
+                _consecutiveLoopErrors++;
+                _logger.LogError(ex, "CTI 이벤트 처리 오류 ({Count}/{Max})",
+                    _consecutiveLoopErrors, MAX_LOOP_ERRORS_BEFORE_RECONNECT);
+                if (_consecutiveLoopErrors >= MAX_LOOP_ERRORS_BEFORE_RECONNECT)
+                {
+                    _logger.LogError("메인 루프 오류 {Count}회 연속 - 재연결 시도", _consecutiveLoopErrors);
+                    _consecutiveLoopErrors = 0;
+                    _needReconnect = true;
+                }
                 await Task.Delay(1000, stoppingToken);
             }
         }
@@ -435,7 +475,7 @@ public class CTIWorker : BackgroundService
 
         var json = JsonSerializer.Serialize(payload);
         var response = await _http.PostAsync(
-            $"{_nextJsUrl}/api/cti/incoming-call",
+            $"{_nextJsUrl}/api/v2/cti/incoming-call",
             new StringContent(json, Encoding.UTF8, "application/json")
         );
 
@@ -450,12 +490,14 @@ public class CTIWorker : BackgroundService
             callerNumber = evt.CallerNumber,
             calledNumber = evt.CalledNumber,
             timestamp = evt.CreatedAt.ToString("yyyy-MM-ddTHH:mm:ss.fffzzz"),
+            duration = evt.Duration,
+            callLogId = evt.CallLogId,
             extInfo = evt.ExtInfo
         };
 
         var json = JsonSerializer.Serialize(payload);
         var response = await _http.PostAsync(
-            $"{_nextJsUrl}/api/call-logs",
+            $"{_nextJsUrl}/api/v2/cti/call-logs",
             new StringContent(json, Encoding.UTF8, "application/json")
         );
 
@@ -480,9 +522,29 @@ public class CTIWorker : BackgroundService
 
         var json = JsonSerializer.Serialize(payload);
         var response = await _http.PostAsync(
-            $"{_nextJsUrl}/api/cti/outgoing-call",
+            $"{_nextJsUrl}/api/v2/cti/outgoing-call",
             new StringContent(json, Encoding.UTF8, "application/json")
         );
+
+        // ★ 응답에서 callLogId 추출하여 저장 (녹취 매칭에 사용)
+        if (response.IsSuccessStatusCode)
+        {
+            try
+            {
+                var responseBody = await response.Content.ReadAsStringAsync();
+                using var doc = JsonDocument.Parse(responseBody);
+
+                if (doc.RootElement.TryGetProperty("callLogId", out var callLogIdElement))
+                {
+                    _clickCallLogId = callLogIdElement.GetString() ?? "";
+                    _logger.LogInformation("[OutgoingCall] V2 callLogId 저장: {CallLogId}", _clickCallLogId);
+                }
+            }
+            catch (Exception ex)
+            {
+                _logger.LogWarning(ex, "[OutgoingCall] V2 callLogId 파싱 실패");
+            }
+        }
 
         return response.IsSuccessStatusCode;
     }
@@ -524,6 +586,19 @@ public class CTIWorker : BackgroundService
             }
         }
 
+        // ★ ClickCall 녹취인 경우 callLogId 포함 (정확한 매칭을 위해)
+        // 이벤트 객체에 저장된 CallLogId 우선 사용 (레이스컨디션 방지)
+        // fallback: 인스턴스 변수 (아직 리셋 안 된 경우)
+        string? callLogId = evt.CallLogId;
+        if (string.IsNullOrEmpty(callLogId) && (_isClickCallActive || !string.IsNullOrEmpty(_clickCallLogId)))
+        {
+            callLogId = _clickCallLogId;
+        }
+        if (!string.IsNullOrEmpty(callLogId))
+        {
+            _logger.LogInformation("[Recording] ClickCall 녹취 - callLogId 포함: {CallLogId}", callLogId);
+        }
+
         var payload = new
         {
             callerNumber = evt.CallerNumber,
@@ -532,12 +607,13 @@ public class CTIWorker : BackgroundService
             recordingUrl = isUrl ? evt.RecordingInfo : (string?)null,
             recordingBase64 = recordingBase64,
             duration = evt.Duration,
-            timestamp = evt.CreatedAt.ToString("yyyy-MM-ddTHH:mm:ss.fffzzz")
+            timestamp = evt.CreatedAt.ToString("yyyy-MM-ddTHH:mm:ss.fffzzz"),
+            callLogId = callLogId  // ★ V2 callLogId 추가 (전화번호 매칭 대신 사용)
         };
 
         var json = JsonSerializer.Serialize(payload);
         var response = await _http.PostAsync(
-            $"{_nextJsUrl}/api/call-analysis/recording",
+            $"{_nextJsUrl}/api/v2/call-analysis/recording",
             new StringContent(json, Encoding.UTF8, "application/json")
         );
 
@@ -714,6 +790,7 @@ public class CTIWorker : BackgroundService
             {
                 _logger.LogInformation("CTI 로그인 성공");
                 _isConnected = true;
+                _lastHealthCheckTime = DateTime.Now;
 
                 // ★ Sub DN 목록 조회 (가입자 소속 전화번호 확인)
                 _logger.LogInformation("═══════════════════════════════════════════════════════");
@@ -808,12 +885,33 @@ public class CTIWorker : BackgroundService
                 var evt = ParseRaw(raw);
                 if (!HasPayload(evt)) break;
 
-                // 연결 끊김 감지
-                if (evt.Result == 0x8000 || (evt.Service == 30 && evt.EvtType == 0x102 && evt.Result != SUCCESS))
+                // 연결 끊김 감지 (0x8000=기타오류, 0x0102=Disconnected, 0x8002=Heartbeat Timeout)
+                if (evt.Result == 0x8000 || evt.Result == 0x8002 ||
+                    (evt.Service == 30 && evt.EvtType == 0x102 && evt.Result != SUCCESS))
                 {
-                    _logger.LogWarning("CTI 연결 끊김 감지");
+                    _logger.LogWarning("CTI 연결 끊김 감지 (Result=0x{Result:X}, EvtType=0x{EvtType:X})",
+                        evt.Result, evt.EvtType);
                     _needReconnect = true;
                     break;
+                }
+
+                // 0x800B(미인증) 연속 발생 감지 → 재연결 트리거
+                if (evt.Result == 0x800B)
+                {
+                    _consecutiveAuthErrors++;
+                    _logger.LogWarning("CTI 미인증 오류 (0x800B) 발생 ({Count}/{Max})",
+                        _consecutiveAuthErrors, MAX_AUTH_ERRORS_BEFORE_RECONNECT);
+                    if (_consecutiveAuthErrors >= MAX_AUTH_ERRORS_BEFORE_RECONNECT)
+                    {
+                        _logger.LogError("CTI 미인증 오류 {Count}회 연속 - 재연결 시도", _consecutiveAuthErrors);
+                        _consecutiveAuthErrors = 0;
+                        _needReconnect = true;
+                        break;
+                    }
+                }
+                else if (evt.Result == SUCCESS)
+                {
+                    _consecutiveAuthErrors = 0;  // 정상 응답 시 카운터 리셋
                 }
 
                 // 이벤트 처리 (큐에 넣기)
@@ -845,8 +943,16 @@ public class CTIWorker : BackgroundService
         }
         else if (evt.EvtType == EVT_LOGIN)
         {
-            _logger.LogInformation("로그인 완료");
-            _gotLogin = true;
+            if (evt.Result == SUCCESS)
+            {
+                _logger.LogInformation("로그인 완료");
+                _gotLogin = true;
+            }
+            else
+            {
+                _logger.LogError("로그인 실패 (Result=0x{Result:X}) - 중복 로그인 또는 인증 오류 가능성", evt.Result);
+                _gotLogin = false;
+            }
         }
         else if (evt.EvtType == EVT_SERVICE_INFO)
         {
@@ -881,7 +987,7 @@ public class CTIWorker : BackgroundService
             {
                 _logger.LogInformation("📞 전화 수신: {Caller} → {Called}", evt.Dn1, evt.Dn2);
 
-                // 수신 전화 알림
+                // ★ 수신 전화 알림 (Pusher 팝업용)
                 _eventQueue.Enqueue(new CallEvent
                 {
                     Type = CallEventType.IncomingCall,
@@ -889,60 +995,128 @@ public class CTIWorker : BackgroundService
                     CalledNumber = evt.Dn2
                 });
 
-                // 통화 로그 (ring)
-                _eventQueue.Enqueue(new CallEvent
+                // ★ 동시착신 중복 방지: 같은 발신번호가 이미 처리 중이면 ring 무시
+                // 첫 번째 ring만 CallLog 생성 (부재중 처리를 위해)
+                if (string.IsNullOrEmpty(_inboundCallerNumber) || _inboundCallerNumber != evt.Dn1)
                 {
-                    Type = CallEventType.CallLog,
-                    EventType = "ring",
-                    CallerNumber = evt.Dn1,
-                    CalledNumber = evt.Dn2,
-                    ExtInfo = evt.ExtInfo
-                });
+                    // 새로운 수신 통화 - 상태 초기화
+                    _inboundCallerNumber = evt.Dn1;
+                    _inboundCalledNumber = evt.Dn2;  // 첫 번째 ring의 착신번호 (나중에 start에서 업데이트됨)
+                    _inboundCallStartSent = false;
+                    _inboundCallTime = DateTime.Now;
+
+                    _logger.LogInformation("📞 [신규 수신] ring 이벤트 생성: {Caller} → {Called}", evt.Dn1, evt.Dn2);
+                    _eventQueue.Enqueue(new CallEvent
+                    {
+                        Type = CallEventType.CallLog,
+                        EventType = "ring",
+                        CallerNumber = evt.Dn1,
+                        CalledNumber = evt.Dn2,
+                        ExtInfo = evt.ExtInfo
+                    });
+                }
+                else
+                {
+                    // 동시착신으로 인한 중복 ring - 무시
+                    _logger.LogDebug("📞 [동시착신 중복 무시] ring: {Caller} → {Called}", evt.Dn1, evt.Dn2);
+                }
             }
         }
         else if (evt.Service == IMS_SVC_CONNECTED)
         {
             if (!string.IsNullOrEmpty(evt.Dn1))
             {
-                _logger.LogInformation("📱 통화 연결: {Caller}", evt.Dn1);
-                _eventQueue.Enqueue(new CallEvent
+                // ★ 중복 방지: 이미 start를 보냈으면 무시
+                if (!_inboundCallStartSent)
                 {
-                    Type = CallEventType.CallLog,
-                    EventType = "start",
-                    CallerNumber = evt.Dn1,
-                    CalledNumber = evt.Dn2,
-                    ExtInfo = evt.ExtInfo
-                });
+                    _inboundCallStartSent = true;
+                    _inboundCallStartTime = DateTime.Now;  // ★ 실제 통화 연결 시점 기록 (duration 계산용)
+                    _inboundCalledNumber = evt.Dn2;  // 실제로 받은 전화기 번호 저장
+                    _logger.LogInformation("📱 통화 연결: {Caller} → {Called} (착신번호 확정)", evt.Dn1, evt.Dn2);
+                    _eventQueue.Enqueue(new CallEvent
+                    {
+                        Type = CallEventType.CallLog,
+                        EventType = "start",
+                        CallerNumber = evt.Dn1,
+                        CalledNumber = evt.Dn2,
+                        ExtInfo = evt.ExtInfo
+                    });
+
+                    // ★ EVT_READY_SERVICE가 안 온 경우 능동적으로 녹취 시작 시도
+                    if (!_isRecordingReady && !_isRecording && !_isClickCallActive)
+                    {
+                        _logger.LogInformation("🎙️ [Svc=9] EVT_READY_SERVICE 미수신 → 녹취 직접 시작 시도: {Caller} → {Called}", evt.Dn1, evt.Dn2);
+                        _currentCallerId = evt.Dn1;
+                        _currentCalledId = evt.Dn2;
+                        int startResult = IMS_TermRec_Start();
+                        if (startResult == SUCCESS)
+                        {
+                            _isRecordingReady = true;
+                            _recordingStartTime = DateTime.Now;
+                            _logger.LogInformation("✅ [Svc=9] 녹취 시작 요청 성공!");
+                        }
+                        else
+                        {
+                            _logger.LogWarning("⚠️ [Svc=9] 녹취 시작 실패 (코드: 0x{Code:X}) - 녹취 불가 통화", startResult);
+                        }
+                    }
+                }
+                else
+                {
+                    _logger.LogDebug("📱 [중복 무시] 통화 연결: {Caller} → {Called}", evt.Dn1, evt.Dn2);
+                }
             }
         }
         else if (evt.Service == IMS_SVC_TERMCALL_START)
         {
             if (!string.IsNullOrEmpty(evt.Dn1))
             {
-                _logger.LogInformation("📱 통화 시작: {Caller}", evt.Dn1);
-                _eventQueue.Enqueue(new CallEvent
+                // ★ 중복 방지: 이미 start를 보냈으면 무시
+                if (!_inboundCallStartSent)
                 {
-                    Type = CallEventType.CallLog,
-                    EventType = "start",
-                    CallerNumber = evt.Dn1,
-                    CalledNumber = evt.Dn2,
-                    ExtInfo = evt.ExtInfo
-                });
+                    _inboundCallStartSent = true;
+                    _inboundCallStartTime = DateTime.Now;  // ★ 실제 통화 연결 시점
+                    _inboundCalledNumber = evt.Dn2;
+                    _logger.LogInformation("📱 통화 시작: {Caller} → {Called} (착신번호 확정)", evt.Dn1, evt.Dn2);
+                    _eventQueue.Enqueue(new CallEvent
+                    {
+                        Type = CallEventType.CallLog,
+                        EventType = "start",
+                        CallerNumber = evt.Dn1,
+                        CalledNumber = evt.Dn2,
+                        ExtInfo = evt.ExtInfo
+                    });
+                }
+                else
+                {
+                    _logger.LogDebug("📱 [중복 무시] 통화 시작: {Caller} → {Called}", evt.Dn1, evt.Dn2);
+                }
             }
         }
         else if (evt.Service == IMS_SVC_CALL_ANSWERED)
         {
             if (!string.IsNullOrEmpty(evt.Dn1))
             {
-                _logger.LogInformation("📱 통화 응답: {Caller}", evt.Dn1);
-                _eventQueue.Enqueue(new CallEvent
+                // ★ 중복 방지: 이미 start를 보냈으면 무시
+                if (!_inboundCallStartSent)
                 {
-                    Type = CallEventType.CallLog,
-                    EventType = "start",
-                    CallerNumber = evt.Dn1,
-                    CalledNumber = evt.Dn2,
-                    ExtInfo = evt.ExtInfo
-                });
+                    _inboundCallStartSent = true;
+                    _inboundCallStartTime = DateTime.Now;  // ★ 실제 통화 연결 시점
+                    _inboundCalledNumber = evt.Dn2;
+                    _logger.LogInformation("📱 통화 응답: {Caller} → {Called} (착신번호 확정)", evt.Dn1, evt.Dn2);
+                    _eventQueue.Enqueue(new CallEvent
+                    {
+                        Type = CallEventType.CallLog,
+                        EventType = "start",
+                        CallerNumber = evt.Dn1,
+                        CalledNumber = evt.Dn2,
+                        ExtInfo = evt.ExtInfo
+                    });
+                }
+                else
+                {
+                    _logger.LogDebug("📱 [중복 무시] 통화 응답: {Caller} → {Called}", evt.Dn1, evt.Dn2);
+                }
             }
         }
         // ★ IMS_SVC_TERMCALL_START (Svc=11)와 IMS_SVC_TERMCALL_END (Svc=12)는
@@ -953,15 +1127,38 @@ public class CTIWorker : BackgroundService
         {
             if (!string.IsNullOrEmpty(evt.Dn1))
             {
-                _logger.LogInformation("📴 통화 종료: {Caller}", evt.Dn1);
-                _eventQueue.Enqueue(new CallEvent
+                // ★ 동시착신 대응: 처리 중인 발신번호와 일치하고, 착신번호도 일치하는 경우에만 end 전송
+                // - start를 보냈으면: 해당 착신번호와 일치해야 함
+                // - start를 안 보냈으면 (부재중): ring을 보냈던 착신번호와 일치해야 함
+                bool isMatchingCall = !string.IsNullOrEmpty(_inboundCallerNumber) &&
+                    evt.Dn1 == _inboundCallerNumber &&
+                    (string.IsNullOrEmpty(_inboundCalledNumber) || evt.Dn2 == _inboundCalledNumber);
+
+                if (isMatchingCall)
                 {
-                    Type = CallEventType.CallLog,
-                    EventType = "end",
-                    CallerNumber = evt.Dn1,
-                    CalledNumber = evt.Dn2,
-                    ExtInfo = evt.ExtInfo
-                });
+                    string eventType = _inboundCallStartSent ? "end" : "missed";
+                    // ★ 수신 통화도 Duration 계산 (_inboundCallStartTime = 실제 연결 시점, 벨소리 시간 제외)
+                    int inboundDuration = _inboundCallStartSent
+                        ? (int)(DateTime.Now - _inboundCallStartTime).TotalSeconds
+                        : 0;
+                    _logger.LogInformation("📴 통화 종료 ({EventType}): {Caller} ← {Called} ({Duration}초)", eventType, evt.Dn1, evt.Dn2, inboundDuration);
+                    _eventQueue.Enqueue(new CallEvent
+                    {
+                        Type = CallEventType.CallLog,
+                        EventType = eventType,
+                        CallerNumber = evt.Dn1,
+                        CalledNumber = evt.Dn2,
+                        Duration = inboundDuration,
+                        ExtInfo = evt.ExtInfo
+                    });
+
+                    // ★ 수신 통화 상태 리셋
+                    ResetInboundCallState();
+                }
+                else
+                {
+                    _logger.LogDebug("📴 [동시착신 중복 무시] 통화 종료: {Caller} ← {Called}", evt.Dn1, evt.Dn2);
+                }
             }
         }
         else if (evt.Service == IMS_SVC_CALL_STATUS && evt.EvtType == EVT_CALL_STATUS_CHANGE)
@@ -973,9 +1170,11 @@ public class CTIWorker : BackgroundService
             string ourNumber = evt.Dn1;
             string patientNumber = evt.Dn2;
 
-            if (!string.IsNullOrEmpty(patientNumber))
+            // ★ ClickCall이 활성화된 경우에만 발신 통화 이벤트 생성
+            // 전화기로 직접 발신하는 경우는 통화기록에 남기지 않음
+            if (_isClickCallActive && !string.IsNullOrEmpty(patientNumber))
             {
-                _logger.LogInformation("📱 발신 시작: {Our} → {Patient}", ourNumber, patientNumber);
+                _logger.LogInformation("📱 [ClickCall] 발신 시작: {Our} → {Patient}", ourNumber, patientNumber);
                 _eventQueue.Enqueue(new CallEvent
                 {
                     Type = CallEventType.OutgoingCall,
@@ -983,15 +1182,22 @@ public class CTIWorker : BackgroundService
                     CalledNumber = ourNumber      // 치과번호
                 });
             }
+            else if (!string.IsNullOrEmpty(patientNumber))
+            {
+                // 전화기 직접 발신은 로그만 남기고 이벤트는 생성하지 않음
+                _logger.LogDebug("📞 [전화기 발신] 무시: {Our} → {Patient} (ClickCall 아님)", ourNumber, patientNumber);
+            }
         }
         else if (evt.Service == IMS_SVC_ORIGCALL_END_NOTI)
         {
             string ourNumber = evt.Dn1;
             string patientNumber = evt.Dn2;
 
-            if (!string.IsNullOrEmpty(patientNumber))
+            // ★ ClickCall이 활성화된 경우에만 발신 종료 이벤트 생성
+            // 전화기로 직접 발신한 경우는 무시
+            if (_isClickCallActive && !string.IsNullOrEmpty(patientNumber))
             {
-                _logger.LogInformation("📴 발신 종료: {Our} → {Patient}", ourNumber, patientNumber);
+                _logger.LogInformation("📴 [ClickCall] 발신 종료: {Our} → {Patient}", ourNumber, patientNumber);
                 _logger.LogInformation("    ExtInfo: {ExtInfo}", evt.ExtInfo);
 
                 _eventQueue.Enqueue(new CallEvent
@@ -1007,16 +1213,22 @@ public class CTIWorker : BackgroundService
                 if (!string.IsNullOrEmpty(evt.ExtInfo) &&
                     (evt.ExtInfo.StartsWith("http://") || evt.ExtInfo.StartsWith("https://")))
                 {
-                    _logger.LogInformation("📼 발신 통화 녹취 파일 감지: {Url}", evt.ExtInfo);
+                    _logger.LogInformation("📼 [ClickCall] 발신 통화 녹취 파일 감지: {Url}", evt.ExtInfo);
                     _eventQueue.Enqueue(new CallEvent
                     {
                         Type = CallEventType.Recording,
                         CallerNumber = patientNumber,
                         CalledNumber = ourNumber,
                         RecordingInfo = evt.ExtInfo,
-                        Duration = 0
+                        Duration = 0,
+                        CallLogId = _clickCallLogId  // ★ callLogId 저장 (레이스컨디션 방지)
                     });
                 }
+            }
+            else if (!string.IsNullOrEmpty(patientNumber))
+            {
+                // 전화기 직접 발신 종료는 로그만 남기고 이벤트는 생성하지 않음
+                _logger.LogDebug("📞 [전화기 발신 종료] 무시: {Our} → {Patient} (ClickCall 아님)", ourNumber, patientNumber);
             }
         }
         else if (evt.Service == IMS_SVC_TERM_REC)
@@ -1045,47 +1257,150 @@ public class CTIWorker : BackgroundService
         }
         else if (extLower.Contains("called") || extLower.Contains("answer") || extLower.Contains("connect"))
         {
-            _logger.LogInformation("📱 통화 연결: {Caller}", callerNum);
-            _eventQueue.Enqueue(new CallEvent
+            // ★ 중복 방지: 이미 start를 보냈으면 무시
+            if (!_inboundCallStartSent)
             {
-                Type = CallEventType.CallLog,
-                EventType = "start",
-                CallerNumber = callerNum,
-                CalledNumber = calledNum,
-                ExtInfo = evt.ExtInfo
-            });
+                _inboundCallStartSent = true;
+                _inboundCallStartTime = DateTime.Now;  // ★ 실제 통화 연결 시점
+                _inboundCalledNumber = calledNum;
+                _logger.LogInformation("📱 [CallStatus] 통화 연결: {Caller} → {Called} (착신번호 확정)", callerNum, calledNum);
+                _eventQueue.Enqueue(new CallEvent
+                {
+                    Type = CallEventType.CallLog,
+                    EventType = "start",
+                    CallerNumber = callerNum,
+                    CalledNumber = calledNum,
+                    ExtInfo = evt.ExtInfo
+                });
+            }
+            else
+            {
+                _logger.LogDebug("📱 [CallStatus 중복 무시] 통화 연결: {Caller} → {Called}", callerNum, calledNum);
+            }
         }
         else if (extLower.Contains("release") || extLower.Contains("disconnect") || extLower.Contains("end") || extLower.Contains("bye"))
         {
-            _logger.LogInformation("📴 통화 종료: {Caller}", callerNum);
-            _eventQueue.Enqueue(new CallEvent
-            {
-                Type = CallEventType.CallLog,
-                EventType = "end",
-                CallerNumber = callerNum,
-                CalledNumber = calledNum,
-                ExtInfo = evt.ExtInfo
-            });
+            // ★ 동시착신 대응: 처리 중인 발신번호와 일치하고, 착신번호도 일치하는 경우에만 end 전송
+            bool isMatchingCall = !string.IsNullOrEmpty(_inboundCallerNumber) &&
+                callerNum == _inboundCallerNumber &&
+                (string.IsNullOrEmpty(_inboundCalledNumber) || calledNum == _inboundCalledNumber);
 
-            // 녹음 URL 확인
-            string originalExt = evt.ExtInfo ?? "";
-            if (originalExt.Contains("http://") || originalExt.Contains("https://"))
+            if (isMatchingCall)
             {
-                int urlStart = originalExt.IndexOf("http");
-                if (urlStart >= 0)
+                string eventType = _inboundCallStartSent ? "end" : "missed";
+                // ★ 수신 통화도 Duration 계산 (_inboundCallStartTime = 실제 연결 시점, 벨소리 시간 제외)
+                int inboundDuration = _inboundCallStartSent
+                    ? (int)(DateTime.Now - _inboundCallStartTime).TotalSeconds
+                    : 0;
+                _logger.LogInformation("📴 [CallStatus] 통화 종료 ({EventType}): {Caller} ← {Called} ({Duration}초)", eventType, callerNum, calledNum, inboundDuration);
+                _eventQueue.Enqueue(new CallEvent
                 {
-                    string recordingUrl = originalExt.Substring(urlStart).Split(' ', '\t', '\n', '\r')[0];
-                    _logger.LogInformation("📼 통화 종료 녹취 파일 감지: {Url}", recordingUrl);
-                    _eventQueue.Enqueue(new CallEvent
+                    Type = CallEventType.CallLog,
+                    EventType = eventType,
+                    CallerNumber = callerNum,
+                    CalledNumber = calledNum,
+                    Duration = inboundDuration,
+                    ExtInfo = evt.ExtInfo
+                });
+
+                // 녹음 URL 확인
+                string originalExt = evt.ExtInfo ?? "";
+                if (originalExt.Contains("http://") || originalExt.Contains("https://"))
+                {
+                    int urlStart = originalExt.IndexOf("http");
+                    if (urlStart >= 0)
                     {
-                        Type = CallEventType.Recording,
-                        CallerNumber = callerNum,
-                        CalledNumber = calledNum,
-                        RecordingInfo = recordingUrl,
-                        Duration = 0
-                    });
+                        string recordingUrl = originalExt.Substring(urlStart).Split(' ', '\t', '\n', '\r')[0];
+                        _logger.LogInformation("📼 [CallStatus] 통화 종료 녹취 파일 감지: {Url}", recordingUrl);
+                        _eventQueue.Enqueue(new CallEvent
+                        {
+                            Type = CallEventType.Recording,
+                            CallerNumber = callerNum,
+                            CalledNumber = calledNum,
+                            RecordingInfo = recordingUrl,
+                            Duration = 0
+                        });
+                    }
                 }
+
+                // ★ 수신 통화 상태 리셋
+                ResetInboundCallState();
             }
+            else
+            {
+                _logger.LogDebug("📴 [CallStatus 중복 무시] 통화 종료: {Caller} ← {Called}", callerNum, calledNum);
+            }
+        }
+    }
+
+    // ★ 수신 통화 상태 리셋
+    private void ResetInboundCallState()
+    {
+        _inboundCallStartSent = false;
+        _inboundCallerNumber = "";
+        _inboundCalledNumber = "";
+
+        // ★ 녹취 상태도 함께 리셋 (EVT_STOP_RECORD 없이 통화 종료 시 다음 통화에 영향 방지)
+        if (_isRecordingReady || _isRecording)
+        {
+            _logger.LogInformation("📞 [수신 상태 리셋] 녹취 상태도 리셋 (ready={Ready}, recording={Recording})", _isRecordingReady, _isRecording);
+        }
+        _isRecordingReady = false;
+        _isRecording = false;
+        _currentCallerId = "";
+        _currentCalledId = "";
+
+        _logger.LogDebug("📞 [수신 상태 리셋] 완료");
+    }
+
+    // ★ 수신 통화 타임아웃 체크 (end 이벤트 누락 대비)
+    private void CheckInboundCallTimeout()
+    {
+        if (string.IsNullOrEmpty(_inboundCallerNumber)) return;
+
+        int elapsedSeconds = (int)(DateTime.Now - _inboundCallTime).TotalSeconds;
+        if (elapsedSeconds > INBOUND_CALL_TIMEOUT_SEC)
+        {
+            _logger.LogWarning("⏰ [수신 타임아웃] {Elapsed}초 경과 - 상태 리셋 (발신: {Caller})", elapsedSeconds, _inboundCallerNumber);
+            ResetInboundCallState();
+        }
+    }
+
+    // ★ Fix 3: 주기적 세션 건강체크 (무소식 끊김, 세션 만료 감지)
+    private void CheckSessionHealth()
+    {
+        try
+        {
+            // 가벼운 API 호출로 세션 유효성 확인
+            int result = IMS_QrySubDnList();
+            if (result == 0x800B) // API_FC_USER_NOT_LOGIN
+            {
+                _logger.LogWarning("[HealthCheck] 세션 만료 감지 (0x800B) - 재연결 시도");
+                _needReconnect = true;
+            }
+            else if (result == 0x8002) // API_FC_HB_TIMEOUT
+            {
+                _logger.LogWarning("[HealthCheck] Heartbeat 타임아웃 감지 (0x8002) - 재연결 시도");
+                _needReconnect = true;
+            }
+            else if (result == 0x8014) // API_FC_HOST_NOT_CONNECTED
+            {
+                _logger.LogWarning("[HealthCheck] 호스트 미연결 감지 (0x8014) - 재연결 시도");
+                _needReconnect = true;
+            }
+            else if (result == SUCCESS)
+            {
+                _logger.LogInformation("[HealthCheck] 세션 정상");
+            }
+            else
+            {
+                _logger.LogWarning("[HealthCheck] 예상치 못한 응답 (0x{Result:X})", result);
+            }
+        }
+        catch (Exception ex)
+        {
+            _logger.LogWarning(ex, "[HealthCheck] 건강체크 실패 - 재연결 시도");
+            _needReconnect = true;
         }
     }
 
@@ -1101,6 +1416,13 @@ public class CTIWorker : BackgroundService
         switch (evt.EvtType)
         {
             case EVT_READY_SERVICE:
+                // ★ Svc=9에서 이미 녹취 시작했으면 중복 호출 방지
+                if (_isRecordingReady)
+                {
+                    _logger.LogInformation("🎙️ 착신녹취 준비 (이미 녹취 진행중 - 무시): {Caller} → {Called}", evt.Dn1, evt.Dn2);
+                    break;
+                }
+
                 _isRecordingReady = true;
                 _currentCallerId = evt.Dn1;
                 _currentCalledId = evt.Dn2;
@@ -1267,10 +1589,11 @@ public class CTIWorker : BackgroundService
         var request = context.Request;
         var response = context.Response;
 
-        // CORS 헤더
+        // CORS 헤더 + Private Network Access 허용
         response.Headers.Add("Access-Control-Allow-Origin", "*");
         response.Headers.Add("Access-Control-Allow-Methods", "GET, POST, OPTIONS");
-        response.Headers.Add("Access-Control-Allow-Headers", "Content-Type");
+        response.Headers.Add("Access-Control-Allow-Headers", "Content-Type, Access-Control-Request-Private-Network");
+        response.Headers.Add("Access-Control-Allow-Private-Network", "true");
 
         try
         {
@@ -1445,18 +1768,18 @@ public class CTIWorker : BackgroundService
 
             _logger.LogInformation("✅ [ClickCall] 시작 성공 - 치과 전화기가 울립니다!");
             _logger.LogInformation("   → 환자({Called})에게 전화를 겁니다", calledDn);
-
-            // 발신 통화 이벤트 전송
-            _eventQueue.Enqueue(new CallEvent
-            {
-                Type = CallEventType.OutgoingCall,
-                CallerNumber = calledDn,  // 환자번호 (착신자)
-                CalledNumber = ""         // 치과번호는 이벤트에서 확인됨
-            });
+            // ★ OutgoingCall 이벤트는 IMS_SVC_ORIGCALL_START_NOTI 핸들러에서 전송 (중복 방지)
         }
         else
         {
             _logger.LogError("❌ [ClickCall] 시작 실패 (코드: 0x{Code:X})", result);
+
+            // ★ Fix 4: 세션 관련 오류 시 재연결 트리거
+            if (result == 0x800B || result == 0x8002 || result == 0x8014)
+            {
+                _logger.LogWarning("[ClickCall] 세션 오류 감지 (0x{Code:X}) - 재연결 예정", result);
+                _needReconnect = true;
+            }
         }
 
         return result;
@@ -1507,9 +1830,12 @@ public class CTIWorker : BackgroundService
         _isClickCallRecording = false;
         _clickCallCallerDn = "";
         _clickCallCalledDn = "";
+        _clickCallLogId = "";  // ★ callLogId도 리셋
     }
 
     // ★ ClickCall 타임아웃 체크 (메인 루프에서 호출)
+    // 내부 상태만 리셋 - IMS_ClickCall_Stop() 호출하지 않음 (실제 통화를 끊으면 안 됨)
+    // 통화 종료는 상담사/환자가 수화기를 내려놓으면 CTI가 EVT_STOP_SERVICE를 보내줌
     private void CheckClickCallTimeout()
     {
         if (!_isClickCallActive) return;
@@ -1518,39 +1844,11 @@ public class CTIWorker : BackgroundService
 
         if (elapsedSeconds > CLICKCALL_TIMEOUT_SEC)
         {
-            _logger.LogWarning("⏰ [ClickCall] 타임아웃! {Elapsed}초 경과 - 강제 리셋", elapsedSeconds);
+            _logger.LogWarning("⏰ [ClickCall] 타임아웃! {Elapsed}초 경과 - 내부 상태만 리셋 (통화는 유지)", elapsedSeconds);
             _logger.LogWarning("   발신자: {Caller}, 착신자: {Called}", _clickCallCallerDn, _clickCallCalledDn);
 
-            // 종료 이벤트 전송
-            _eventQueue.Enqueue(new CallEvent
-            {
-                Type = CallEventType.CallLog,
-                EventType = "timeout",
-                CallerNumber = _clickCallCalledDn,
-                CalledNumber = _clickCallCallerDn,
-                Duration = elapsedSeconds,
-                ExtInfo = "ClickCall timeout - forced reset"
-            });
-
-            // 녹음 중이면 종료 시도
-            if (_isClickCallRecording)
-            {
-                try
-                {
-                    IMS_ClickCall_StopRecord();
-                }
-                catch { }
-            }
-
-            // ClickCall 종료 시도
-            try
-            {
-                IMS_ClickCall_Stop();
-            }
-            catch { }
-
             ResetClickCallState();
-            _logger.LogInformation("✅ [ClickCall] 타임아웃으로 인한 강제 리셋 완료");
+            _logger.LogInformation("✅ [ClickCall] 내부 상태 리셋 완료 (통화는 계속 진행)");
         }
     }
 
@@ -1567,11 +1865,25 @@ public class CTIWorker : BackgroundService
         // 이벤트 타입에 따른 처리
         string extLower = (evt.ExtInfo ?? "").ToLower();
 
-        // ★ EVT_STOP_SERVICE(0x0303) 또는 서비스 종료 관련 이벤트 - 즉시 상태 리셋
+        // ★ EVT_STOP_SERVICE(0x0303) 또는 서비스 종료 관련 이벤트 - ExtInfo에서 실제 종료 사유 판별
         if (evt.EvtType == EVT_STOP_SERVICE || evt.EvtType == 0x0303)
         {
-            _logger.LogInformation("📴 [ClickCall] 서비스 종료 이벤트 (EVT_STOP_SERVICE) - 상태 리셋");
-            HandleClickCallEnd(evt, "service_stopped");
+            // ExtInfo에서 실제 종료 사유 판별 (NoAnswer, Busy 등)
+            string endReason = "service_stopped";
+            if (extLower.Contains("noanswer") || extLower.Contains("no answer"))
+                endReason = "no_answer";
+            else if (extLower.Contains("busy"))
+                endReason = "busy";
+            else if (extLower.Contains("reject"))
+                endReason = "rejected";
+            else if (extLower.Contains("cancel") && !extLower.Contains("success"))
+                endReason = "cancelled";
+            // ★ 성공한 통화 (녹취파일 있음) → outbound_end (부재중 아님!)
+            else if (extLower.Contains("success") && extLower.Contains("recfile"))
+                endReason = "outbound_end";
+
+            _logger.LogInformation("📴 [ClickCall] 서비스 종료 이벤트 (EVT_STOP_SERVICE) - 사유: {Reason}", endReason);
+            HandleClickCallEnd(evt, endReason);
             return;
         }
 
@@ -1674,7 +1986,8 @@ public class CTIWorker : BackgroundService
                         CallerNumber = _clickCallCalledDn,
                         CalledNumber = _clickCallCallerDn,
                         RecordingInfo = recordingUrl,
-                        Duration = duration
+                        Duration = duration,
+                        CallLogId = _clickCallLogId  // ★ callLogId 저장 (레이스컨디션 방지)
                     });
                 }
             }
@@ -1707,6 +2020,7 @@ public class CTIWorker : BackgroundService
             CallerNumber = _clickCallCalledDn,
             CalledNumber = _clickCallCallerDn,
             Duration = duration,
+            CallLogId = _clickCallLogId,  // ★ V2 callLogId 포함 (정확한 매칭)
             ExtInfo = evt.ExtInfo
         });
 
@@ -1726,7 +2040,8 @@ public class CTIWorker : BackgroundService
                     CallerNumber = _clickCallCalledDn,
                     CalledNumber = _clickCallCallerDn,
                     RecordingInfo = recordingUrl,
-                    Duration = duration
+                    Duration = duration,
+                    CallLogId = _clickCallLogId  // ★ 리셋 전에 callLogId 저장 (레이스컨디션 방지)
                 });
             }
         }
