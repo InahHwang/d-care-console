@@ -3,6 +3,7 @@
 
 import { Collection, Db, ObjectId } from 'mongodb';
 import { connectToDatabase } from '@/utils/mongodb';
+import { applyV2SchemaValidation } from './schema-validation';
 import {
   PatientV2,
   PatientStatus,
@@ -165,8 +166,11 @@ export async function createV2Indexes(): Promise<void> {
     );
 
     console.log('✅ V2 인덱스 생성 완료');
+
+    // V2 스키마 검증 적용
+    await applyV2SchemaValidation(db);
   } catch (error) {
-    console.error('❌ V2 인덱스 생성 오류:', error);
+    console.error('❌ V2 인덱스/스키마 생성 오류:', error);
     throw error;
   }
 }

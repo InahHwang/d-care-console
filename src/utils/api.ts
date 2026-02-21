@@ -53,44 +53,104 @@ api.interceptors.request.use(
   }
 );
 
+// Refresh Token 자동 갱신 상태 관리
+let isRefreshing = false;
+let failedQueue: Array<{ resolve: (token: string) => void; reject: (error: unknown) => void }> = [];
+
+const processQueue = (error: unknown, token: string | null = null) => {
+  failedQueue.forEach(prom => {
+    if (token) prom.resolve(token);
+    else prom.reject(error);
+  });
+  failedQueue = [];
+};
+
 // 응답 인터셉터
 api.interceptors.response.use(
   (response) => {
-    // 성공 응답 로그 (개발 환경에서만)
     if (process.env.NODE_ENV === 'development') {
       console.log('✅ API 응답:', {
         status: response.status,
         url: response.config.url,
-        data: response.data
       });
     }
-    
     return response;
   },
-  (error) => {
-    // 에러 응답 처리
-    console.error('💥 API 에러:', {
-      message: error.message,
-      status: error.response?.status,
-      url: error.config?.url,
-      data: error.response?.data
-    });
-    
-    // 인증 에러 처리
-    if (error.response?.status === 401) {
-      // 토큰 만료 또는 인증 실패
-      if (typeof window !== 'undefined') {
-        localStorage.removeItem('token');
-        // 로그인 페이지로 리다이렉트 (필요시)
-        // window.location.href = '/login';
+  async (error) => {
+    const originalRequest = error.config;
+
+    // 401 에러 + 아직 재시도하지 않은 요청 → Refresh Token으로 갱신 시도
+    if (error.response?.status === 401 && !originalRequest._retry) {
+      // refresh 엔드포인트 자체가 실패한 경우는 재시도하지 않음
+      if (originalRequest.url?.includes('/auth/refresh')) {
+        return Promise.reject(error);
+      }
+
+      if (isRefreshing) {
+        // 이미 갱신 중이면 큐에 추가하고 대기
+        return new Promise<string>((resolve, reject) => {
+          failedQueue.push({ resolve, reject });
+        }).then(token => {
+          originalRequest.headers.Authorization = `Bearer ${token}`;
+          return api(originalRequest);
+        }).catch(err => {
+          return Promise.reject(err);
+        });
+      }
+
+      originalRequest._retry = true;
+      isRefreshing = true;
+
+      try {
+        const refreshToken = typeof window !== 'undefined'
+          ? localStorage.getItem('refreshToken')
+          : null;
+
+        if (!refreshToken) throw new Error('No refresh token');
+
+        const { data } = await axios.post('/api/auth/refresh', { refreshToken });
+
+        if (data.success && data.token) {
+          localStorage.setItem('token', data.token);
+          if (data.refreshToken) {
+            localStorage.setItem('refreshToken', data.refreshToken);
+          }
+
+          api.defaults.headers.common.Authorization = `Bearer ${data.token}`;
+          processQueue(null, data.token);
+
+          originalRequest.headers.Authorization = `Bearer ${data.token}`;
+          return api(originalRequest);
+        } else {
+          throw new Error('Refresh failed');
+        }
+      } catch (refreshError) {
+        processQueue(refreshError, null);
+        if (typeof window !== 'undefined') {
+          localStorage.removeItem('token');
+          localStorage.removeItem('refreshToken');
+          window.location.href = '/login';
+        }
+        return Promise.reject(refreshError);
+      } finally {
+        isRefreshing = false;
       }
     }
-    
-    // Vercel 환경에서 발생할 수 있는 특정 오류 처리
+
+    // 기타 에러 로깅
+    if (process.env.NODE_ENV === 'development') {
+      console.error('💥 API 에러:', {
+        message: error.message,
+        status: error.response?.status,
+        url: error.config?.url,
+      });
+    }
+
+    // Vercel 타임아웃 에러 처리
     if (error.code === 'FUNCTION_INVOCATION_TIMEOUT') {
       error.message = '서버 응답 시간 초과. 잠시 후 다시 시도해주세요.';
     }
-    
+
     return Promise.reject(error);
   }
 );

@@ -1,3 +1,5 @@
+const { withSentryConfig } = require('@sentry/nextjs');
+
 /** @type {import('next').NextConfig} */
 const nextConfig = {
   // Vercel 배포 최적화
@@ -55,4 +57,10 @@ const nextConfig = {
   },
 }
 
-module.exports = nextConfig
+module.exports = withSentryConfig(nextConfig, {
+  // Sentry 빌드 플러그인 옵션
+  silent: true,           // 빌드 로그 억제
+  hideSourceMaps: true,   // 소스맵 클라이언트 노출 방지
+  disableServerWebpackPlugin: !process.env.SENTRY_AUTH_TOKEN,
+  disableClientWebpackPlugin: !process.env.NEXT_PUBLIC_SENTRY_DSN,
+});

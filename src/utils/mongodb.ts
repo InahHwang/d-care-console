@@ -114,6 +114,18 @@ async function createIndexesSafely(db: Db) {
       console.warn('Users 인덱스 생성 중 오류:', userIndexError);
     }
 
+    // RefreshTokens 컬렉션 인덱스
+    try {
+      await db.collection('refreshTokens').createIndex({ token: 1 }, { unique: true });
+      await db.collection('refreshTokens').createIndex({ userId: 1 });
+      await db.collection('refreshTokens').createIndex(
+        { expiresAt: 1 },
+        { expireAfterSeconds: 0 } // TTL 인덱스: 만료된 토큰 자동 삭제
+      );
+    } catch (refreshTokenIndexError) {
+      console.warn('RefreshTokens 인덱스 생성 중 오류:', refreshTokenIndexError);
+    }
+
     // ActivityLogs 컬렉션 인덱스
     try {
       await db.collection('activityLogs').createIndex({ timestamp: -1 });

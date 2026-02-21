@@ -7,6 +7,7 @@ import bcrypt from 'bcryptjs';
 import { ObjectId } from 'mongodb';
 import { validateBody } from '@/lib/validations/validate';
 import { loginSchema } from '@/lib/validations/schemas';
+import { generateAccessToken, generateRefreshToken, revokeRefreshToken, TokenPayload } from '@/lib/auth/tokens';
 
 // 환경 변수 타입 단언으로 TypeScript 오류 해결
 const JWT_SECRET = process.env.JWT_SECRET as string;
@@ -77,18 +78,21 @@ export async function POST(request: NextRequest) {
       throw new Error('JWT_SECRET 환경 변수가 설정되지 않았습니다.');
     }
     
-    // JWT 토큰 생성
-    const token = jwt.sign(
-      {
-        id: user.id || user._id,
-        username: (user as any).username,
-        email: (user as any).email,
-        name: (user as any).name || (user as any).username,
-        role: (user as any).role || 'staff',
-        clinicId: (user as any).clinicId || 'default',
-      },
-      JWT_SECRET,
-      { expiresIn: '1d' }
+    // JWT Access Token 생성 (15분 만료)
+    const tokenPayload: TokenPayload = {
+      id: (user.id || user._id).toString(),
+      username: (user as any).username,
+      email: (user as any).email,
+      name: (user as any).name || (user as any).username,
+      role: (user as any).role || 'staff',
+      clinicId: (user as any).clinicId || 'default',
+    };
+    const token = generateAccessToken(tokenPayload);
+
+    // Refresh Token 생성 (7일 만료, DB 저장)
+    const refreshToken = await generateRefreshToken(
+      tokenPayload.id,
+      tokenPayload.clinicId
     );
     
     // 사용자 정보 (비밀번호 제외)
@@ -129,9 +133,10 @@ export async function POST(request: NextRequest) {
       console.warn('마지막 로그인 시간 업데이트 실패:', error);
     }
     
-    return NextResponse.json({ 
-      success: true, 
+    return NextResponse.json({
+      success: true,
       token,
+      refreshToken,
       user: userResponse,
       message: '로그인 성공'
     });
@@ -149,6 +154,16 @@ export async function POST(request: NextRequest) {
 // 로그아웃 처리 (토큰 무효화)
 export async function DELETE(request: NextRequest) {
   try {
+    // Refresh Token 폐기
+    try {
+      const body = await request.json().catch(() => ({}));
+      if (body.refreshToken) {
+        await revokeRefreshToken(body.refreshToken);
+      }
+    } catch {
+      // refreshToken 폐기 실패해도 로그아웃 진행
+    }
+
     // 로그아웃 활동 로그 기록
     try {
       const authorization = request.headers.get('authorization');

@@ -7,18 +7,20 @@ export interface AuthState {
   isAuthenticated: boolean;
   user: User | null;
   token: string | null;
+  refreshToken: string | null;
   isLoading: boolean;
   error: string | null;
-  isInitialized: boolean; // 🔥 초기화 상태 추가
+  isInitialized: boolean;
 }
 
 const initialState: AuthState = {
   isAuthenticated: false,
   user: null,
   token: null,
+  refreshToken: null,
   isLoading: false,
   error: null,
-  isInitialized: false, // 🔥 초기화 상태 추가
+  isInitialized: false,
 };
 
 const authSlice = createSlice({
@@ -29,17 +31,20 @@ const authSlice = createSlice({
       state.isLoading = true;
       state.error = null;
     },
-    loginSuccess: (state, action: PayloadAction<{ user: User; token: string }>) => {
+    loginSuccess: (state, action: PayloadAction<{ user: User; token: string; refreshToken?: string }>) => {
       state.isLoading = false;
       state.isAuthenticated = true;
       state.user = action.payload.user;
       state.token = action.payload.token;
+      state.refreshToken = action.payload.refreshToken || null;
       state.error = null;
-      state.isInitialized = true; // 🔥 초기화 완료
-      
-      // 🔥 토큰을 localStorage에 저장
+      state.isInitialized = true;
+
       if (typeof window !== 'undefined') {
         localStorage.setItem('token', action.payload.token);
+        if (action.payload.refreshToken) {
+          localStorage.setItem('refreshToken', action.payload.refreshToken);
+        }
       }
     },
     loginFailure: (state, action: PayloadAction<string>) => {
@@ -54,29 +59,24 @@ const authSlice = createSlice({
       state.isAuthenticated = false;
       state.user = null;
       state.token = null;
+      state.refreshToken = null;
       state.error = null;
       state.isLoading = false;
-      state.isInitialized = true; // 🔥 로그아웃 후에도 초기화된 상태
-      
-      // localStorage에서 토큰 제거
+      state.isInitialized = true;
+
       if (typeof window !== 'undefined') {
         localStorage.removeItem('token');
+        localStorage.removeItem('refreshToken');
       }
     },
-    // 🔥 새로고침 시 토큰으로부터 사용자 정보 복원 - 개선됨
-    restoreAuth: (state, action: PayloadAction<{ user: User; token: string }>) => {
+    restoreAuth: (state, action: PayloadAction<{ user: User; token: string; refreshToken?: string }>) => {
       state.isAuthenticated = true;
       state.user = action.payload.user;
       state.token = action.payload.token;
+      state.refreshToken = action.payload.refreshToken || null;
       state.isLoading = false;
       state.error = null;
-      state.isInitialized = true; // 🔥 복원 완료
-      
-      console.log('🔥 Auth 상태 복원 완료:', {
-        userId: action.payload.user._id,
-        userName: action.payload.user.name,
-        userRole: action.payload.user.role
-      });
+      state.isInitialized = true;
     },
     // 🔥 초기화 시작 액션 추가
     initializeAuth: (state) => {

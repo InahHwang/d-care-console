@@ -80,11 +80,9 @@ export default function LoginPage() {
         // 로그인 성공
         dispatch(loginSuccess({
           user: data.user,
-          token: data.token
+          token: data.token,
+          refreshToken: data.refreshToken,
         }));
-        
-        // 토큰을 localStorage에 저장
-        localStorage.setItem('token', data.token);
         
         // 로그인 활동 로그 기록
         try {

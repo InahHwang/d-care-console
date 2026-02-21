@@ -51,7 +51,7 @@ export default function AuthGuard({
           return;
         }
 
-        const token = localStorage.getItem('token');
+        let token = localStorage.getItem('token');
         
         if (!token) {
           console.log('🔥 AuthGuard: 토큰 없음, 로그인 페이지로 이동');
@@ -61,7 +61,7 @@ export default function AuthGuard({
         }
 
         // 토큰 유효성 검사
-        const decoded = jwt.decode(token) as any;
+        let decoded = jwt.decode(token) as any;
         
         if (!decoded) {
           console.log('🔥 AuthGuard: 토큰 디코딩 실패');
@@ -71,14 +71,47 @@ export default function AuthGuard({
           return;
         }
 
-        // 토큰 만료 확인
+        // 토큰 만료 확인 → 만료 시 refresh 시도
         const currentTime = Date.now() / 1000;
         if (decoded.exp < currentTime) {
-          console.log('🔥 AuthGuard: 토큰 만료됨');
-          localStorage.removeItem('token');
-          dispatch(initializeComplete());
-          router.push(fallbackPath);
-          return;
+          console.log('🔥 AuthGuard: Access Token 만료됨, Refresh 시도');
+          const refreshToken = localStorage.getItem('refreshToken');
+
+          if (refreshToken) {
+            try {
+              const res = await fetch('/api/auth/refresh', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ refreshToken }),
+              });
+              const data = await res.json();
+
+              if (res.ok && data.success && data.token) {
+                localStorage.setItem('token', data.token);
+                if (data.refreshToken) {
+                  localStorage.setItem('refreshToken', data.refreshToken);
+                }
+                // 새 토큰으로 재시도 (재귀 방지를 위해 직접 디코딩)
+                token = data.token as string;
+                decoded = jwt.decode(token!) as any;
+                console.log('🔥 AuthGuard: Token Refresh 성공');
+              } else {
+                throw new Error('Refresh failed');
+              }
+            } catch {
+              console.log('🔥 AuthGuard: Refresh 실패, 로그인 페이지로 이동');
+              localStorage.removeItem('token');
+              localStorage.removeItem('refreshToken');
+              dispatch(initializeComplete());
+              router.push(fallbackPath);
+              return;
+            }
+          } else {
+            localStorage.removeItem('token');
+            dispatch(initializeComplete());
+            router.push(fallbackPath);
+            return;
+          }
         }
 
         // 🔥 사용자 정보 복원 - 더 안전한 방식
@@ -113,9 +146,9 @@ export default function AuthGuard({
           return;
         }
 
-        // 🔥 Redux 상태 복원
-        dispatch(restoreAuth({ user: restoredUser, token }));
-        console.log('🔥 AuthGuard: 인증 상태 복원 완료');
+        // Redux 상태 복원
+        const storedRefreshToken = localStorage.getItem('refreshToken') || undefined;
+        dispatch(restoreAuth({ user: restoredUser, token, refreshToken: storedRefreshToken }));
 
       } catch (error) {
         console.error('🔥 AuthGuard: 인증 초기화 오류:', error);
