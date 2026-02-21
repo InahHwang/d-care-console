@@ -2,6 +2,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { connectToDatabase } from '@/utils/mongodb';
 import { ChannelType, ChatStatus } from '@/types/v2';
+import { verifyApiToken, unauthorizedResponse } from '@/utils/apiAuth';
 
 export const dynamic = 'force-dynamic';
 
@@ -14,6 +15,9 @@ interface ChatQuery {
 // GET: 대화방 목록 조회
 export async function GET(request: NextRequest) {
   try {
+    const authUser = verifyApiToken(request);
+    if (!authUser) return unauthorizedResponse();
+
     const searchParams = request.nextUrl.searchParams;
     const channel = searchParams.get('channel') as ChannelType | 'all' | null;
     const status = searchParams.get('status') as ChatStatus | 'all' | null;
@@ -88,6 +92,9 @@ export async function GET(request: NextRequest) {
 // POST: 새 대화방 생성 (주로 웹훅에서 사용)
 export async function POST(request: NextRequest) {
   try {
+    const authUser = verifyApiToken(request);
+    if (!authUser) return unauthorizedResponse();
+
     const body = await request.json();
     const { channel, channelRoomId, channelUserKey, phone, patientName } = body;
 

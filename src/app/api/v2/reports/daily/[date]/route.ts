@@ -6,6 +6,7 @@ export const dynamic = 'force-dynamic';
 import { NextRequest, NextResponse } from 'next/server';
 import { connectToDatabase } from '@/utils/mongodb';
 import type { ConsultationV2, PatientV2, CallLogV2 } from '@/types/v2';
+import { verifyApiToken, unauthorizedResponse } from '@/utils/apiAuth';
 
 interface DailyReportPatient {
   id: string;
@@ -59,6 +60,9 @@ export async function GET(
   { params }: { params: { date: string } }
 ) {
   try {
+    const authUser = verifyApiToken(request);
+    if (!authUser) return unauthorizedResponse();
+
     const selectedDate = params.date;
 
     // 날짜 형식 검증

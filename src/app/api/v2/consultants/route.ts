@@ -5,10 +5,14 @@ export const dynamic = 'force-dynamic';
 
 import { NextRequest, NextResponse } from 'next/server';
 import { connectToDatabase } from '@/utils/mongodb';
+import { verifyApiToken, unauthorizedResponse } from '@/utils/apiAuth';
 
 // 상담사 목록 조회 (인증 불필요 - 드롭다운용)
 export async function GET(request: NextRequest) {
   try {
+    const authUser = verifyApiToken(request);
+    if (!authUser) return unauthorizedResponse();
+
     const { db } = await connectToDatabase();
     const usersCollection = db.collection('users');
 

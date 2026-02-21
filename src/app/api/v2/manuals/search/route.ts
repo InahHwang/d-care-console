@@ -4,11 +4,15 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { connectToDatabase } from '@/utils/mongodb';
 import { Manual, ManualCategory } from '@/types/v2/manual';
+import { verifyApiToken, unauthorizedResponse } from '@/utils/apiAuth';
 
 const COLLECTION = 'manuals_v2';
 
 export async function GET(request: NextRequest) {
   try {
+    const authUser = verifyApiToken(request);
+    if (!authUser) return unauthorizedResponse();
+
     const { searchParams } = new URL(request.url);
     const keyword = searchParams.get('keyword') || searchParams.get('q');
     const categoryId = searchParams.get('categoryId');

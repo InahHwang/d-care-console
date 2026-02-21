@@ -3,11 +3,15 @@
 
 import { NextRequest, NextResponse } from 'next/server';
 import { connectToDatabase } from '@/utils/mongodb';
+import { verifyApiToken, unauthorizedResponse } from '@/utils/apiAuth';
 
 export const dynamic = 'force-dynamic';
 
 export async function POST(request: NextRequest) {
   try {
+    const authUser = verifyApiToken(request);
+    if (!authUser) return unauthorizedResponse();
+
     const { db } = await connectToDatabase();
     const collection = db.collection('callLogs_v2');
 

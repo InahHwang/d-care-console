@@ -6,6 +6,7 @@ import { ObjectId } from 'mongodb';
 import { connectToDatabase } from '@/utils/mongodb';
 import OpenAI from 'openai';
 import Pusher from 'pusher';
+import { verifyApiToken, unauthorizedResponse } from '@/utils/apiAuth';
 
 export const dynamic = 'force-dynamic';
 
@@ -51,6 +52,9 @@ const CHAT_ANALYSIS_PROMPT = `당신은 치과 상담 분석 전문가입니다.
 
 export async function POST(request: NextRequest, { params }: RouteParams) {
   try {
+    const authUser = verifyApiToken(request);
+    if (!authUser) return unauthorizedResponse();
+
     const { chatId } = await params;
 
     if (!ObjectId.isValid(chatId)) {

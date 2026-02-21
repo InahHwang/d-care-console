@@ -4,6 +4,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { connectToDatabase } from '@/utils/mongodb';
 import { ObjectId } from 'mongodb';
+import { verifyApiToken, unauthorizedResponse } from '@/utils/apiAuth';
 
 export interface RecallSchedule {
   id: string;
@@ -22,8 +23,11 @@ export interface RecallSetting {
 }
 
 // GET - 리콜 설정 목록 조회
-export async function GET() {
+export async function GET(request: NextRequest) {
   try {
+    const authUser = verifyApiToken(request);
+    if (!authUser) return unauthorizedResponse();
+
     const { db } = await connectToDatabase();
 
     const settings = await db.collection<RecallSetting>('recall_settings')
@@ -53,6 +57,9 @@ export async function GET() {
 // POST - 리콜 설정 생성
 export async function POST(request: NextRequest) {
   try {
+    const authUser = verifyApiToken(request);
+    if (!authUser) return unauthorizedResponse();
+
     const body = await request.json();
     const { treatment, schedules } = body;
 
@@ -103,6 +110,9 @@ export async function POST(request: NextRequest) {
 // PUT - 리콜 설정 수정
 export async function PUT(request: NextRequest) {
   try {
+    const authUser = verifyApiToken(request);
+    if (!authUser) return unauthorizedResponse();
+
     const body = await request.json();
     const { id, treatment, schedules } = body;
 
@@ -155,6 +165,9 @@ export async function PUT(request: NextRequest) {
 // DELETE - 리콜 설정 삭제
 export async function DELETE(request: NextRequest) {
   try {
+    const authUser = verifyApiToken(request);
+    if (!authUser) return unauthorizedResponse();
+
     const { searchParams } = new URL(request.url);
     const id = searchParams.get('id');
 

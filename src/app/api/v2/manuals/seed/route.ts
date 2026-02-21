@@ -1,9 +1,10 @@
 // src/app/api/v2/manuals/seed/route.ts
 // 기본 FAQ 매뉴얼 시드 데이터 API
 
-import { NextResponse } from 'next/server';
+import { NextRequest, NextResponse } from 'next/server';
 import { connectToDatabase } from '@/utils/mongodb';
 import { DEFAULT_MANUAL_CATEGORIES } from '@/types/v2/manual';
+import { verifyApiToken, unauthorizedResponse } from '@/utils/apiAuth';
 
 const MANUALS_COLLECTION = 'manuals_v2';
 const CATEGORIES_COLLECTION = 'manual_categories_v2';
@@ -297,8 +298,11 @@ const DEFAULT_MANUALS = [
   },
 ];
 
-export async function POST() {
+export async function POST(request: NextRequest) {
   try {
+    const authUser = verifyApiToken(request);
+    if (!authUser) return unauthorizedResponse();
+
     const { db } = await connectToDatabase();
     const clinicId = 'default';
     const now = new Date().toISOString();
@@ -383,8 +387,11 @@ export async function POST() {
 }
 
 // 시드 데이터 삭제 (개발용)
-export async function DELETE() {
+export async function DELETE(request: NextRequest) {
   try {
+    const authUser = verifyApiToken(request);
+    if (!authUser) return unauthorizedResponse();
+
     const { db } = await connectToDatabase();
     const clinicId = 'default';
 

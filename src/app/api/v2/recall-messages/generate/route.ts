@@ -4,6 +4,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { connectToDatabase } from '@/utils/mongodb';
 import { ObjectId } from 'mongodb';
+import { verifyApiToken, unauthorizedResponse } from '@/utils/apiAuth';
 
 export const dynamic = 'force-dynamic';
 
@@ -29,6 +30,9 @@ interface RecallSetting {
  */
 export async function POST(request: NextRequest) {
   try {
+    const authUser = verifyApiToken(request);
+    if (!authUser) return unauthorizedResponse();
+
     const body = await request.json();
     const { patientId, treatment, completedDate } = body;
 

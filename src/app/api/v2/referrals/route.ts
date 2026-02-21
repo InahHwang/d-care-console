@@ -5,9 +5,13 @@ import { NextRequest, NextResponse } from 'next/server';
 import { connectToDatabase } from '@/utils/mongodb';
 import { ObjectId } from 'mongodb';
 import type { ReferralV2 } from '@/types/v2';
+import { verifyApiToken, unauthorizedResponse } from '@/utils/apiAuth';
 
 export async function GET(request: NextRequest) {
   try {
+    const authUser = verifyApiToken(request);
+    if (!authUser) return unauthorizedResponse();
+
     const { searchParams } = new URL(request.url);
     const page = parseInt(searchParams.get('page') || '1');
     const limit = parseInt(searchParams.get('limit') || '20');
@@ -143,6 +147,9 @@ export async function GET(request: NextRequest) {
 // POST - 소개 관계 등록
 export async function POST(request: NextRequest) {
   try {
+    const authUser = verifyApiToken(request);
+    if (!authUser) return unauthorizedResponse();
+
     const body = await request.json();
     const { referrerId, referredId } = body;
 
@@ -210,6 +217,9 @@ export async function POST(request: NextRequest) {
 // PATCH - 감사 연락 상태 업데이트
 export async function PATCH(request: NextRequest) {
   try {
+    const authUser = verifyApiToken(request);
+    if (!authUser) return unauthorizedResponse();
+
     const body = await request.json();
     const { id, thanksSent } = body;
 
@@ -263,6 +273,9 @@ export async function PATCH(request: NextRequest) {
 // DELETE - 소개 관계 삭제
 export async function DELETE(request: NextRequest) {
   try {
+    const authUser = verifyApiToken(request);
+    if (!authUser) return unauthorizedResponse();
+
     const { searchParams } = new URL(request.url);
     const id = searchParams.get('id');
 

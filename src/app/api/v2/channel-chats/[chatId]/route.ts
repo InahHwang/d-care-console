@@ -2,6 +2,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { ObjectId } from 'mongodb';
 import { connectToDatabase } from '@/utils/mongodb';
+import { verifyApiToken, unauthorizedResponse } from '@/utils/apiAuth';
 
 export const dynamic = 'force-dynamic';
 
@@ -12,6 +13,9 @@ interface RouteParams {
 // GET: 대화방 상세 조회
 export async function GET(request: NextRequest, { params }: RouteParams) {
   try {
+    const authUser = verifyApiToken(request);
+    if (!authUser) return unauthorizedResponse();
+
     const { chatId } = await params;
 
     if (!ObjectId.isValid(chatId)) {
@@ -58,6 +62,9 @@ export async function GET(request: NextRequest, { params }: RouteParams) {
 // DELETE: 대화방 영구 삭제
 export async function DELETE(request: NextRequest, { params }: RouteParams) {
   try {
+    const authUser = verifyApiToken(request);
+    if (!authUser) return unauthorizedResponse();
+
     const { chatId } = await params;
 
     if (!ObjectId.isValid(chatId)) {
@@ -102,6 +109,9 @@ export async function DELETE(request: NextRequest, { params }: RouteParams) {
 // PATCH: 대화방 업데이트 (환자 매칭, 상태 변경 등)
 export async function PATCH(request: NextRequest, { params }: RouteParams) {
   try {
+    const authUser = verifyApiToken(request);
+    if (!authUser) return unauthorizedResponse();
+
     const { chatId } = await params;
     const body = await request.json();
 

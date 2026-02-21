@@ -6,9 +6,13 @@ import { NextRequest, NextResponse } from 'next/server';
 import { connectToDatabase } from '@/utils/mongodb';
 import { ObjectId } from 'mongodb';
 import type { CallbackV2, CallbackType, CallbackStatus } from '@/types/v2';
+import { verifyApiToken, unauthorizedResponse } from '@/utils/apiAuth';
 
 export async function GET(request: NextRequest) {
   try {
+    const authUser = verifyApiToken(request);
+    if (!authUser) return unauthorizedResponse();
+
     const { searchParams } = new URL(request.url);
     const date = searchParams.get('date'); // YYYY-MM-DD
     const status = searchParams.get('status') as CallbackStatus | null;
@@ -212,6 +216,9 @@ export async function GET(request: NextRequest) {
 // POST - 콜백 생성
 export async function POST(request: NextRequest) {
   try {
+    const authUser = verifyApiToken(request);
+    if (!authUser) return unauthorizedResponse();
+
     const body = await request.json();
     const { patientId, type, scheduledAt, note } = body;
 
@@ -267,6 +274,9 @@ export async function POST(request: NextRequest) {
 // PATCH - 콜백 상태 업데이트
 export async function PATCH(request: NextRequest) {
   try {
+    const authUser = verifyApiToken(request);
+    if (!authUser) return unauthorizedResponse();
+
     const body = await request.json();
     const { id, status, note, source } = body;
 
@@ -388,6 +398,9 @@ export async function PATCH(request: NextRequest) {
 // DELETE - 콜백 삭제
 export async function DELETE(request: NextRequest) {
   try {
+    const authUser = verifyApiToken(request);
+    if (!authUser) return unauthorizedResponse();
+
     const { searchParams } = new URL(request.url);
     const id = searchParams.get('id');
 

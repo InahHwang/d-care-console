@@ -2,28 +2,8 @@
 
 import { NextRequest, NextResponse } from 'next/server';
 import { connectToDatabase } from '@/utils/mongodb';
-import jwt from 'jsonwebtoken';
 import bcrypt from 'bcryptjs';
-
-const JWT_SECRET = process.env.JWT_SECRET as string;
-
-// JWT 토큰 검증 및 사용자 정보 추출
-async function verifyToken(request: NextRequest) {
-  const authorization = request.headers.get('authorization');
-  
-  if (!authorization || !authorization.startsWith('Bearer ')) {
-    throw new Error('인증 토큰이 필요합니다.');
-  }
-
-  const token = authorization.split(' ')[1];
-  
-  try {
-    const decoded = jwt.verify(token, JWT_SECRET) as any;
-    return decoded;
-  } catch (error) {
-    throw new Error('유효하지 않은 토큰입니다.');
-  }
-}
+import { verifyApiToken, unauthorizedResponse } from '@/utils/apiAuth';
 
 // 마스터 권한 확인
 function requireMasterRole(user: any) {
@@ -35,7 +15,8 @@ function requireMasterRole(user: any) {
 // 사용자 목록 조회 (GET)
 export async function GET(request: NextRequest) {
   try {
-    const currentUser = await verifyToken(request);
+    const currentUser = verifyApiToken(request);
+    if (!currentUser) return unauthorizedResponse();
     requireMasterRole(currentUser);
 
     const { searchParams } = new URL(request.url);
@@ -106,7 +87,8 @@ export async function GET(request: NextRequest) {
 // 새 사용자 생성 (POST)
 export async function POST(request: NextRequest) {
   try {
-    const currentUser = await verifyToken(request);
+    const currentUser = verifyApiToken(request);
+    if (!currentUser) return unauthorizedResponse();
     requireMasterRole(currentUser);
 
     const { username, email, name, password, role, department } = await request.json();

@@ -4,11 +4,15 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { connectToDatabase } from '@/utils/mongodb';
 import { ObjectId } from 'mongodb';
+import { verifyApiToken, unauthorizedResponse } from '@/utils/apiAuth';
 
 export const dynamic = 'force-dynamic';
 
 export async function POST(request: NextRequest) {
   try {
+    const authUser = verifyApiToken(request);
+    if (!authUser) return unauthorizedResponse();
+
     const { db } = await connectToDatabase();
 
     // patientId가 있지만 aiAnalysis.patientName이 없는 통화 찾기
@@ -94,8 +98,11 @@ export async function POST(request: NextRequest) {
 }
 
 // GET으로 현재 상태 확인
-export async function GET() {
+export async function GET(request: NextRequest) {
   try {
+    const authUser = verifyApiToken(request);
+    if (!authUser) return unauthorizedResponse();
+
     const { db } = await connectToDatabase();
 
     // patientId가 있지만 이름이 없는 통화 수

@@ -3,11 +3,15 @@
 
 import { NextRequest, NextResponse } from 'next/server';
 import { connectToDatabase } from '@/utils/mongodb';
+import { verifyApiToken, unauthorizedResponse } from '@/utils/apiAuth';
 
 export const dynamic = 'force-dynamic';
 
 export async function POST(request: NextRequest) {
   try {
+    const authUser = verifyApiToken(request);
+    if (!authUser) return unauthorizedResponse();
+
     const { db } = await connectToDatabase();
 
     // duration=0인데 분류가 없거나 unknown인 통화 찾기 (수신/발신 모두)
@@ -79,8 +83,11 @@ export async function POST(request: NextRequest) {
 }
 
 // GET으로 현재 상태 확인
-export async function GET() {
+export async function GET(request: NextRequest) {
   try {
+    const authUser = verifyApiToken(request);
+    if (!authUser) return unauthorizedResponse();
+
     const { db } = await connectToDatabase();
 
     // duration=0인 통화 통계

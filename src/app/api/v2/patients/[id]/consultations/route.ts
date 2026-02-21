@@ -4,6 +4,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { ObjectId } from 'mongodb';
 import { connectToDatabase } from '@/utils/mongodb';
+import { verifyApiToken, unauthorizedResponse } from '@/utils/apiAuth';
 
 export const dynamic = 'force-dynamic';
 
@@ -35,6 +36,9 @@ interface ConsultationItem {
 
 export async function GET(request: NextRequest, { params }: RouteParams) {
   try {
+    const authUser = verifyApiToken(request);
+    if (!authUser) return unauthorizedResponse();
+
     const { id: patientId } = await params;
     const searchParams = request.nextUrl.searchParams;
     const type = searchParams.get('type') as 'all' | 'call' | 'chat' | 'manual' | null;

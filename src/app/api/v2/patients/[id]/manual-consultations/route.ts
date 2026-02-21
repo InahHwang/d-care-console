@@ -4,6 +4,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { ObjectId } from 'mongodb';
 import { connectToDatabase } from '@/utils/mongodb';
+import { verifyApiToken, unauthorizedResponse } from '@/utils/apiAuth';
 
 export const dynamic = 'force-dynamic';
 
@@ -14,6 +15,9 @@ interface RouteParams {
 // GET: 수동 상담 이력 조회
 export async function GET(request: NextRequest, { params }: RouteParams) {
   try {
+    const authUser = verifyApiToken(request);
+    if (!authUser) return unauthorizedResponse();
+
     const { id: patientId } = await params;
 
     if (!ObjectId.isValid(patientId)) {
@@ -55,6 +59,9 @@ export async function GET(request: NextRequest, { params }: RouteParams) {
 // POST: 수동 상담 이력 추가
 export async function POST(request: NextRequest, { params }: RouteParams) {
   try {
+    const authUser = verifyApiToken(request);
+    if (!authUser) return unauthorizedResponse();
+
     const { id: patientId } = await params;
     const body = await request.json();
     const { type, date, content, consultantName } = body;

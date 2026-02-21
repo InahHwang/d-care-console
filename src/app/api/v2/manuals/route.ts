@@ -4,12 +4,16 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { connectToDatabase } from '@/utils/mongodb';
 import { Manual, ManualCategory } from '@/types/v2/manual';
+import { verifyApiToken, unauthorizedResponse } from '@/utils/apiAuth';
 
 const COLLECTION = 'manuals_v2';
 
 // 매뉴얼 목록 조회
 export async function GET(request: NextRequest) {
   try {
+    const authUser = verifyApiToken(request);
+    if (!authUser) return unauthorizedResponse();
+
     const { searchParams } = new URL(request.url);
     const categoryId = searchParams.get('categoryId');
     const keyword = searchParams.get('keyword');
@@ -97,6 +101,9 @@ export async function GET(request: NextRequest) {
 // 매뉴얼 생성
 export async function POST(request: NextRequest) {
   try {
+    const authUser = verifyApiToken(request);
+    if (!authUser) return unauthorizedResponse();
+
     const body = await request.json();
     const { categoryId, title, keywords, script, shortScript, order } = body;
 

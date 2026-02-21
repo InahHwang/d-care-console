@@ -3,6 +3,7 @@
 
 import { NextRequest, NextResponse } from 'next/server';
 import { connectToDatabase } from '@/utils/mongodb';
+import { verifyApiToken, unauthorizedResponse } from '@/utils/apiAuth';
 
 interface Settings {
   clinicId: string;
@@ -54,8 +55,11 @@ const DEFAULT_SETTINGS: Omit<Settings, 'clinicId' | 'updatedAt'> = {
   },
 };
 
-export async function GET() {
+export async function GET(request: NextRequest) {
   try {
+    const authUser = verifyApiToken(request);
+    if (!authUser) return unauthorizedResponse();
+
     const { db } = await connectToDatabase();
 
     // 현재 설정 조회 (클리닉 ID는 일단 고정)
@@ -90,6 +94,9 @@ export async function GET() {
 
 export async function PATCH(request: NextRequest) {
   try {
+    const authUser = verifyApiToken(request);
+    if (!authUser) return unauthorizedResponse();
+
     const body = await request.json();
     const { db } = await connectToDatabase();
 

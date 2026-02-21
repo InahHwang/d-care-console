@@ -5,6 +5,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { connectToDatabase } from '@/utils/mongodb';
 import { ObjectId } from 'mongodb';
 import { Manual } from '@/types/v2/manual';
+import { verifyApiToken, unauthorizedResponse } from '@/utils/apiAuth';
 
 const COLLECTION = 'manuals_v2';
 
@@ -15,6 +16,9 @@ interface RouteParams {
 // 매뉴얼 상세 조회
 export async function GET(request: NextRequest, { params }: RouteParams) {
   try {
+    const authUser = verifyApiToken(request);
+    if (!authUser) return unauthorizedResponse();
+
     const { id } = await params;
 
     if (!id || !ObjectId.isValid(id)) {
@@ -61,6 +65,9 @@ export async function GET(request: NextRequest, { params }: RouteParams) {
 // 매뉴얼 수정
 export async function PATCH(request: NextRequest, { params }: RouteParams) {
   try {
+    const authUser = verifyApiToken(request);
+    if (!authUser) return unauthorizedResponse();
+
     const { id } = await params;
 
     if (!id || !ObjectId.isValid(id)) {
@@ -119,6 +126,9 @@ export async function PATCH(request: NextRequest, { params }: RouteParams) {
 // 매뉴얼 삭제
 export async function DELETE(request: NextRequest, { params }: RouteParams) {
   try {
+    const authUser = verifyApiToken(request);
+    if (!authUser) return unauthorizedResponse();
+
     const { id } = await params;
 
     if (!id || !ObjectId.isValid(id)) {

@@ -4,6 +4,7 @@
 
 import { NextRequest, NextResponse } from 'next/server';
 import { connectToDatabase } from '@/utils/mongodb';
+import { verifyApiToken, unauthorizedResponse } from '@/utils/apiAuth';
 
 export interface AlimtalkRequest {
   phone: string;
@@ -21,6 +22,9 @@ export interface AlimtalkResponse {
 // POST - 알림톡 발송 (Mock)
 export async function POST(request: NextRequest) {
   try {
+    const authUser = verifyApiToken(request);
+    if (!authUser) return unauthorizedResponse();
+
     const body: AlimtalkRequest = await request.json();
     const { phone, message, templateCode } = body;
 
@@ -80,6 +84,9 @@ export async function POST(request: NextRequest) {
 // GET - 발송 내역 조회
 export async function GET(request: NextRequest) {
   try {
+    const authUser = verifyApiToken(request);
+    if (!authUser) return unauthorizedResponse();
+
     const { searchParams } = new URL(request.url);
     const phone = searchParams.get('phone');
     const limit = parseInt(searchParams.get('limit') || '20');

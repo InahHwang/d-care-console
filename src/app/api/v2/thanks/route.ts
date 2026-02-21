@@ -6,6 +6,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { connectToDatabase } from '@/utils/mongodb';
 import { ObjectId } from 'mongodb';
+import { verifyApiToken, unauthorizedResponse } from '@/utils/apiAuth';
 
 export type ThanksStatus = 'pending' | 'completed';
 
@@ -24,6 +25,9 @@ export interface Thanks {
 // GET - 감사인사 목록 조회
 export async function GET(request: NextRequest) {
   try {
+    const authUser = verifyApiToken(request);
+    if (!authUser) return unauthorizedResponse();
+
     const { searchParams } = new URL(request.url);
     const status = searchParams.get('status') as ThanksStatus | null;
     const page = parseInt(searchParams.get('page') || '1');
@@ -139,6 +143,9 @@ export async function GET(request: NextRequest) {
 // POST - 감사인사 생성
 export async function POST(request: NextRequest) {
   try {
+    const authUser = verifyApiToken(request);
+    if (!authUser) return unauthorizedResponse();
+
     const body = await request.json();
     const { referrerId, referredId, note, referredAt } = body;
 
@@ -182,6 +189,9 @@ export async function POST(request: NextRequest) {
 // PATCH - 상태 업데이트 (완료 처리)
 export async function PATCH(request: NextRequest) {
   try {
+    const authUser = verifyApiToken(request);
+    if (!authUser) return unauthorizedResponse();
+
     const body = await request.json();
     const { id, status, method, note } = body;
 

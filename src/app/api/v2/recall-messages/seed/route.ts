@@ -1,9 +1,10 @@
 // src/app/api/v2/recall-messages/seed/route.ts
 // 리콜 시스템 테스트 데이터 시드 API
 
-import { NextResponse } from 'next/server';
+import { NextRequest, NextResponse } from 'next/server';
 import { connectToDatabase } from '@/utils/mongodb';
 import { ObjectId } from 'mongodb';
+import { verifyApiToken, unauthorizedResponse } from '@/utils/apiAuth';
 
 export const dynamic = 'force-dynamic';
 
@@ -41,8 +42,10 @@ const TEST_RECALL_SETTINGS = [
   },
 ];
 
-export async function POST() {
+export async function POST(request: NextRequest) {
   try {
+    const authUser = verifyApiToken(request);
+    if (!authUser) return unauthorizedResponse();
     const { db } = await connectToDatabase();
     const now = new Date();
 
@@ -253,8 +256,10 @@ export async function POST() {
 }
 
 // 테스트 데이터 삭제
-export async function DELETE() {
+export async function DELETE(request: NextRequest) {
   try {
+    const authUser = verifyApiToken(request);
+    if (!authUser) return unauthorizedResponse();
     const { db } = await connectToDatabase();
 
     // 테스트 환자의 전화번호로 찾기

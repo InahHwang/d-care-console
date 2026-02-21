@@ -4,6 +4,7 @@ import { ObjectId } from 'mongodb';
 import { connectToDatabase } from '@/utils/mongodb';
 import { MessageDirection, MessageType, SenderType, MessageStatus, ChannelType } from '@/types/v2';
 import Pusher from 'pusher';
+import { verifyApiToken, unauthorizedResponse } from '@/utils/apiAuth';
 
 // Pusher 클라이언트
 const pusher = new Pusher({
@@ -46,6 +47,9 @@ interface RouteParams {
 // GET: 메시지 목록 조회
 export async function GET(request: NextRequest, { params }: RouteParams) {
   try {
+    const authUser = verifyApiToken(request);
+    if (!authUser) return unauthorizedResponse();
+
     const { chatId } = await params;
     const searchParams = request.nextUrl.searchParams;
     const page = parseInt(searchParams.get('page') || '1');
@@ -108,6 +112,9 @@ export async function GET(request: NextRequest, { params }: RouteParams) {
 // POST: 메시지 발송
 export async function POST(request: NextRequest, { params }: RouteParams) {
   try {
+    const authUser = verifyApiToken(request);
+    if (!authUser) return unauthorizedResponse();
+
     const { chatId } = await params;
     const body = await request.json();
 

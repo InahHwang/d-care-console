@@ -6,10 +6,14 @@ import { NextRequest, NextResponse } from 'next/server';
 import { connectToDatabase } from '@/utils/mongodb';
 import { ObjectId } from 'mongodb';
 import type { ConsultationV2, ConsultationType, ConsultationStatus } from '@/types/v2';
+import { verifyApiToken, unauthorizedResponse } from '@/utils/apiAuth';
 
 // GET - 상담 이력 조회
 export async function GET(request: NextRequest) {
   try {
+    const authUser = verifyApiToken(request);
+    if (!authUser) return unauthorizedResponse();
+
     const { searchParams } = new URL(request.url);
     const patientId = searchParams.get('patientId');
     const date = searchParams.get('date'); // YYYY-MM-DD (일보고서용)
@@ -124,6 +128,9 @@ export async function GET(request: NextRequest) {
 // POST - 상담 결과 생성
 export async function POST(request: NextRequest) {
   try {
+    const authUser = verifyApiToken(request);
+    if (!authUser) return unauthorizedResponse();
+
     const body = await request.json();
     const {
       patientId,
@@ -252,6 +259,9 @@ export async function POST(request: NextRequest) {
 // PATCH - 상담 결과 수정
 export async function PATCH(request: NextRequest) {
   try {
+    const authUser = verifyApiToken(request);
+    if (!authUser) return unauthorizedResponse();
+
     const body = await request.json();
     const { id, editedBy, ...updateData } = body;
 
@@ -318,6 +328,9 @@ export async function PATCH(request: NextRequest) {
 // DELETE - 상담 기록 삭제
 export async function DELETE(request: NextRequest) {
   try {
+    const authUser = verifyApiToken(request);
+    if (!authUser) return unauthorizedResponse();
+
     const { searchParams } = new URL(request.url);
     const id = searchParams.get('id');
 

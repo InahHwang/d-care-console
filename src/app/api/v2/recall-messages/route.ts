@@ -4,6 +4,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { connectToDatabase } from '@/utils/mongodb';
 import { ObjectId } from 'mongodb';
+import { verifyApiToken, unauthorizedResponse } from '@/utils/apiAuth';
 
 export type RecallMessageStatus = 'pending' | 'sent' | 'booked' | 'no-response' | 'call-needed' | 'completed';
 
@@ -25,6 +26,9 @@ export interface RecallMessage {
 // GET - 리콜 메시지 목록 조회
 export async function GET(request: NextRequest) {
   try {
+    const authUser = verifyApiToken(request);
+    if (!authUser) return unauthorizedResponse();
+
     const { searchParams } = new URL(request.url);
     const status = searchParams.get('status') as RecallMessageStatus | null;
     const page = parseInt(searchParams.get('page') || '1');
@@ -123,6 +127,9 @@ export async function GET(request: NextRequest) {
 // POST - 리콜 메시지 생성 (환자 치료 완료 시 자동 호출)
 export async function POST(request: NextRequest) {
   try {
+    const authUser = verifyApiToken(request);
+    if (!authUser) return unauthorizedResponse();
+
     const body = await request.json();
     const { patientId, treatment, timing, timingDays, message, lastVisit } = body;
 
@@ -173,6 +180,9 @@ export async function POST(request: NextRequest) {
 // PATCH - 상태 업데이트
 export async function PATCH(request: NextRequest) {
   try {
+    const authUser = verifyApiToken(request);
+    if (!authUser) return unauthorizedResponse();
+
     const body = await request.json();
     const { id, status, bookedAt } = body;
 

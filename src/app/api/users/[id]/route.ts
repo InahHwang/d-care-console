@@ -2,29 +2,9 @@
 
 import { NextRequest, NextResponse } from 'next/server';
 import { connectToDatabase } from '@/utils/mongodb';
-import jwt from 'jsonwebtoken';
 import bcrypt from 'bcryptjs';
 import { ObjectId } from 'mongodb';
-
-const JWT_SECRET = process.env.JWT_SECRET as string;
-
-// JWT 토큰 검증 및 사용자 정보 추출
-async function verifyToken(request: NextRequest) {
-  const authorization = request.headers.get('authorization');
-  
-  if (!authorization || !authorization.startsWith('Bearer ')) {
-    throw new Error('인증 토큰이 필요합니다.');
-  }
-
-  const token = authorization.split(' ')[1];
-  
-  try {
-    const decoded = jwt.verify(token, JWT_SECRET) as any;
-    return decoded;
-  } catch (error) {
-    throw new Error('유효하지 않은 토큰입니다.');
-  }
-}
+import { verifyApiToken, unauthorizedResponse } from '@/utils/apiAuth';
 
 // 마스터 권한 확인
 function requireMasterRole(user: any) {
@@ -39,8 +19,9 @@ export async function GET(
   { params }: { params: { id: string } }
 ) {
   try {
-    const currentUser = await verifyToken(request);
-    
+    const currentUser = verifyApiToken(request);
+    if (!currentUser) return unauthorizedResponse();
+
     // 본인 정보 조회이거나 마스터 권한인 경우에만 허용
     if (currentUser.id !== params.id && currentUser.role !== 'master') {
       return NextResponse.json(
@@ -101,8 +82,9 @@ export async function PUT(
   { params }: { params: { id: string } }
 ) {
   try {
-    const currentUser = await verifyToken(request);
-    
+    const currentUser = verifyApiToken(request);
+    if (!currentUser) return unauthorizedResponse();
+
     // 본인 정보 수정이거나 마스터 권한인 경우에만 허용
     const isOwnProfile = currentUser.id === params.id;
     const isMaster = currentUser.role === 'master';
@@ -228,7 +210,8 @@ export async function DELETE(
   { params }: { params: { id: string } }
 ) {
   try {
-    const currentUser = await verifyToken(request);
+    const currentUser = verifyApiToken(request);
+    if (!currentUser) return unauthorizedResponse();
     requireMasterRole(currentUser);
 
     // 자기 자신은 삭제할 수 없음
