@@ -6,6 +6,8 @@ import { connectToDatabase } from '@/utils/mongodb';
 import { ObjectId } from 'mongodb';
 import { ManualCategory, DEFAULT_MANUAL_CATEGORIES } from '@/types/v2/manual';
 import { verifyApiToken, unauthorizedResponse } from '@/utils/apiAuth';
+import { validateBody } from '@/lib/validations/validate';
+import { createManualCategorySchema, updateManualCategorySchema } from '@/lib/validations/schemas';
 
 const COLLECTION = 'manual_categories_v2';
 
@@ -64,14 +66,9 @@ export async function POST(request: NextRequest) {
     if (!authUser) return unauthorizedResponse();
 
     const body = await request.json();
-    const { name, order } = body;
-
-    if (!name || typeof name !== 'string') {
-      return NextResponse.json(
-        { success: false, error: '카테고리명은 필수입니다.' },
-        { status: 400 }
-      );
-    }
+    const validation = validateBody(createManualCategorySchema, body);
+    if (!validation.success) return validation.response;
+    const { name, order } = validation.data;
 
     const { db } = await connectToDatabase();
     const clinicId = 'default';
@@ -113,14 +110,9 @@ export async function PATCH(request: NextRequest) {
     if (!authUser) return unauthorizedResponse();
 
     const body = await request.json();
-    const { id, name, order, isActive } = body;
-
-    if (!id) {
-      return NextResponse.json(
-        { success: false, error: '카테고리 ID는 필수입니다.' },
-        { status: 400 }
-      );
-    }
+    const validation = validateBody(updateManualCategorySchema, body);
+    if (!validation.success) return validation.response;
+    const { id, name, order, isActive } = validation.data;
 
     const { db } = await connectToDatabase();
     const now = new Date().toISOString();

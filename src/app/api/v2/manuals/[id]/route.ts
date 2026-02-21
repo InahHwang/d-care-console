@@ -6,6 +6,8 @@ import { connectToDatabase } from '@/utils/mongodb';
 import { ObjectId } from 'mongodb';
 import { Manual } from '@/types/v2/manual';
 import { verifyApiToken, unauthorizedResponse } from '@/utils/apiAuth';
+import { validateBody } from '@/lib/validations/validate';
+import { updateManualSchema } from '@/lib/validations/schemas';
 
 const COLLECTION = 'manuals_v2';
 
@@ -78,7 +80,9 @@ export async function PATCH(request: NextRequest, { params }: RouteParams) {
     }
 
     const body = await request.json();
-    const { categoryId, title, keywords, script, shortScript, isActive, order } = body;
+    const validation = validateBody(updateManualSchema, body);
+    if (!validation.success) return validation.response;
+    const { categoryId, title, keywords, script, shortScript, isActive, order } = validation.data;
 
     const { db } = await connectToDatabase();
     const now = new Date().toISOString();
@@ -93,7 +97,7 @@ export async function PATCH(request: NextRequest, { params }: RouteParams) {
         : [];
     }
     if (script !== undefined) updateData.script = script.trim();
-    if (shortScript !== undefined) updateData.shortScript = shortScript.trim();
+    if (shortScript !== undefined) updateData.shortScript = shortScript?.trim() ?? null;
     if (isActive !== undefined) updateData.isActive = isActive;
     if (order !== undefined) updateData.order = order;
 

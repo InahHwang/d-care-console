@@ -5,6 +5,8 @@ import { connectToDatabase } from '@/utils/mongodb';
 import jwt from 'jsonwebtoken';
 import bcrypt from 'bcryptjs';
 import { ObjectId } from 'mongodb';
+import { validateBody } from '@/lib/validations/validate';
+import { loginSchema } from '@/lib/validations/schemas';
 
 // 환경 변수 타입 단언으로 TypeScript 오류 해결
 const JWT_SECRET = process.env.JWT_SECRET as string;
@@ -39,15 +41,10 @@ async function logActivity(userId: string, userName: string, userRole: string, i
 
 export async function POST(request: NextRequest) {
   try {
-    const { email, password } = await request.json(); // email 필드명 유지 (실제로는 username으로 사용)
-    
-    // 입력 유효성 검사
-    if (!email || !password) {
-      return NextResponse.json(
-        { success: false, message: '아이디와 비밀번호를 모두 입력해주세요.' },
-        { status: 400 }
-      );
-    }
+    const body = await request.json();
+    const validation = validateBody(loginSchema, body);
+    if (!validation.success) return validation.response;
+    const { email, password } = validation.data; // email 필드명 유지 (실제로는 username으로 사용)
 
     let user = null;
 

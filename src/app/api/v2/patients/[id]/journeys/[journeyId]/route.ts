@@ -5,6 +5,8 @@ import { connectToDatabase } from '@/utils/mongodb';
 import { ObjectId } from 'mongodb';
 import { PatientStatus } from '@/types/v2';
 import { verifyApiToken, unauthorizedResponse } from '@/utils/apiAuth';
+import { validateBody } from '@/lib/validations/validate';
+import { updateJourneySchema } from '@/lib/validations/schemas';
 
 export const dynamic = 'force-dynamic';
 
@@ -69,6 +71,8 @@ export async function PATCH(
     }
 
     const body = await request.json();
+    const validation = validateBody(updateJourneySchema, body);
+    if (!validation.success) return validation.response;
     const {
       status,
       estimatedAmount,
@@ -80,7 +84,7 @@ export async function PATCH(
       eventDate,
       changedBy,
       setActive, // true면 이 여정을 활성 여정으로 설정
-    } = body;
+    } = validation.data;
 
     const { db } = await connectToDatabase();
 

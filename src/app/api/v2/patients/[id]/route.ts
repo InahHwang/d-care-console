@@ -4,6 +4,8 @@ import { connectToDatabase } from '@/utils/mongodb';
 import { ObjectId } from 'mongodb';
 import { PatientStatus, Temperature, CallbackReason, CallbackHistoryEntry } from '@/types/v2';
 import { verifyApiToken, unauthorizedResponse } from '@/utils/apiAuth';
+import { validateBody } from '@/lib/validations/validate';
+import { updatePatientSchema } from '@/lib/validations/schemas';
 
 export const dynamic = 'force-dynamic';
 
@@ -132,6 +134,8 @@ export async function PATCH(
     }
 
     const body = await request.json();
+    const validation = validateBody(updatePatientSchema, body);
+    if (!validation.success) return validation.response;
     const {
       name, phone, status, temperature, interest, source, memo,
       nextAction, nextActionDate, tags,
@@ -147,7 +151,7 @@ export async function PATCH(
       callbackReason,      // 콜백 사유: 'no_answer' | 'postponed' | 'considering'
       callbackNote,        // 콜백 메모
       newScheduleDate,     // 새 예정일 (updateType === 'schedule'일 때)
-    } = body;
+    } = validation.data;
 
     const { db } = await connectToDatabase();
 
@@ -231,7 +235,7 @@ export async function PATCH(
         // 상태별 다음 일정 처리
         // 🆕 백엔드에서 상태 자체를 체크 (프론트 플래그에 의존하지 않음)
         const RESERVATION_STATUSES = ['reserved', 'treatmentBooked'];
-        const isReservationStatus = RESERVATION_STATUSES.includes(status);
+        const isReservationStatus = RESERVATION_STATUSES.includes(status as string);
 
         if (status === 'closed') {
           // 종결: 다음 일정 초기화
@@ -356,7 +360,7 @@ export async function PATCH(
       // 🆕 여정의 nextActionDate도 환자 레벨과 동기화
       // 예약 상태면 eventDate로 설정, 아니면 클리어
       const RESERVATION_STATUSES = ['reserved', 'treatmentBooked'];
-      const isReservationStatus = RESERVATION_STATUSES.includes(status);
+      const isReservationStatus = RESERVATION_STATUSES.includes(status as string);
       if (isReservationStatus) {
         journeyUpdate['journeys.$[journey].nextActionDate'] = eventDate ? new Date(eventDate) : null;
       } else {

@@ -5,6 +5,8 @@ import { connectToDatabase } from '@/utils/mongodb';
 import { ObjectId } from 'mongodb';
 import { Journey, PatientStatus } from '@/types/v2';
 import { verifyApiToken, unauthorizedResponse } from '@/utils/apiAuth';
+import { validateBody } from '@/lib/validations/validate';
+import { createJourneySchema } from '@/lib/validations/schemas';
 
 export const dynamic = 'force-dynamic';
 
@@ -63,14 +65,9 @@ export async function POST(
     }
 
     const body = await request.json();
-    const { treatmentType, estimatedAmount, changedBy } = body;
-
-    if (!treatmentType) {
-      return NextResponse.json(
-        { error: 'Treatment type is required' },
-        { status: 400 }
-      );
-    }
+    const validation = validateBody(createJourneySchema, body);
+    if (!validation.success) return validation.response;
+    const { treatmentType, estimatedAmount, changedBy } = validation.data;
 
     const { db } = await connectToDatabase();
 

@@ -6,6 +6,8 @@ import { connectToDatabase } from '@/utils/mongodb';
 import { ObjectId } from 'mongodb';
 import type { ReferralV2 } from '@/types/v2';
 import { verifyApiToken, unauthorizedResponse } from '@/utils/apiAuth';
+import { validateBody } from '@/lib/validations/validate';
+import { createReferralSchema } from '@/lib/validations/schemas';
 
 export async function GET(request: NextRequest) {
   try {
@@ -151,14 +153,9 @@ export async function POST(request: NextRequest) {
     if (!authUser) return unauthorizedResponse();
 
     const body = await request.json();
-    const { referrerId, referredId } = body;
-
-    if (!referrerId || !referredId) {
-      return NextResponse.json(
-        { success: false, error: 'referrerId and referredId are required' },
-        { status: 400 }
-      );
-    }
+    const validation = validateBody(createReferralSchema, body);
+    if (!validation.success) return validation.response;
+    const { referrerId, referredId } = validation.data;
 
     const { db } = await connectToDatabase();
 

@@ -4,6 +4,8 @@ import { NextRequest, NextResponse } from 'next/server';
 import { connectToDatabase } from '@/utils/mongodb';
 import bcrypt from 'bcryptjs';
 import { verifyApiToken, unauthorizedResponse } from '@/utils/apiAuth';
+import { validateBody } from '@/lib/validations/validate';
+import { createUserSchema } from '@/lib/validations/schemas';
 
 // 마스터 권한 확인
 function requireMasterRole(user: any) {
@@ -91,29 +93,10 @@ export async function POST(request: NextRequest) {
     if (!currentUser) return unauthorizedResponse();
     requireMasterRole(currentUser);
 
-    const { username, email, name, password, role, department } = await request.json();
-
-    // 입력 유효성 검사
-    if (!username || !email || !name || !password || !role) {
-      return NextResponse.json(
-        { success: false, message: '필수 필드를 모두 입력해주세요.' },
-        { status: 400 }
-      );
-    }
-
-    if (password.length < 4) {
-      return NextResponse.json(
-        { success: false, message: '비밀번호는 최소 4자 이상이어야 합니다.' },
-        { status: 400 }
-      );
-    }
-
-    if (!['master', 'staff'].includes(role)) {
-      return NextResponse.json(
-        { success: false, message: '유효하지 않은 역할입니다.' },
-        { status: 400 }
-      );
-    }
+    const body = await request.json();
+    const validation = validateBody(createUserSchema, body);
+    if (!validation.success) return validation.response;
+    const { username, email, name, password, role, department } = validation.data;
 
     const { db } = await connectToDatabase();
     const usersCollection = db.collection('users');

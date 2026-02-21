@@ -3,6 +3,8 @@ import { NextRequest, NextResponse } from 'next/server';
 import { connectToDatabase } from '@/utils/mongodb';
 import { ChannelType, ChatStatus } from '@/types/v2';
 import { verifyApiToken, unauthorizedResponse } from '@/utils/apiAuth';
+import { validateBody } from '@/lib/validations/validate';
+import { createChannelChatSchema } from '@/lib/validations/schemas';
 
 export const dynamic = 'force-dynamic';
 
@@ -96,14 +98,9 @@ export async function POST(request: NextRequest) {
     if (!authUser) return unauthorizedResponse();
 
     const body = await request.json();
-    const { channel, channelRoomId, channelUserKey, phone, patientName } = body;
-
-    if (!channel || !channelRoomId) {
-      return NextResponse.json(
-        { success: false, error: 'channel과 channelRoomId는 필수입니다.' },
-        { status: 400 }
-      );
-    }
+    const validation = validateBody(createChannelChatSchema, body);
+    if (!validation.success) return validation.response;
+    const { channel, channelRoomId, channelUserKey, phone, patientName } = validation.data;
 
     const { db } = await connectToDatabase();
 

@@ -3,6 +3,8 @@ import { NextRequest, NextResponse } from 'next/server';
 import { connectToDatabase } from '@/utils/mongodb';
 import { ObjectId } from 'mongodb';
 import { verifyApiToken, unauthorizedResponse } from '@/utils/apiAuth';
+import { validateBody } from '@/lib/validations/validate';
+import { updateCallLogSchema } from '@/lib/validations/schemas';
 
 export const dynamic = 'force-dynamic';
 
@@ -221,24 +223,9 @@ export async function PATCH(request: NextRequest) {
     const body = await request.json();
     console.log('[CallLogs PATCH] 요청 body:', JSON.stringify(body, null, 2));
 
-    const { callLogId, classification, patientName, interest, temperature, summary, followUp, patientId, callbackType, callbackId } = body;
-
-    if (!callLogId) {
-      console.log('[CallLogs PATCH] callLogId 누락');
-      return NextResponse.json(
-        { error: 'callLogId is required' },
-        { status: 400 }
-      );
-    }
-
-    // callLogId 유효성 검사
-    if (!ObjectId.isValid(callLogId)) {
-      console.log('[CallLogs PATCH] 유효하지 않은 callLogId:', callLogId);
-      return NextResponse.json(
-        { error: 'Invalid callLogId format' },
-        { status: 400 }
-      );
-    }
+    const validation = validateBody(updateCallLogSchema, body);
+    if (!validation.success) return validation.response;
+    const { callLogId, classification, patientName, interest, temperature, summary, followUp, patientId, callbackType, callbackId } = validation.data;
 
     const { db } = await connectToDatabase();
     console.log('[CallLogs PATCH] DB 연결 성공');

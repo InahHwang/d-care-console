@@ -4,6 +4,8 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { connectToDatabase } from '@/utils/mongodb';
 import { verifyApiToken, unauthorizedResponse } from '@/utils/apiAuth';
+import { validateBody } from '@/lib/validations/validate';
+import { updateSettingsSchema } from '@/lib/validations/schemas';
 
 interface Settings {
   clinicId: string;
@@ -98,6 +100,10 @@ export async function PATCH(request: NextRequest) {
     if (!authUser) return unauthorizedResponse();
 
     const body = await request.json();
+    const validation = validateBody(updateSettingsSchema, body);
+    if (!validation.success) return validation.response;
+    const { clinicName, cti, ai, notifications, targets } = validation.data;
+
     const { db } = await connectToDatabase();
 
     const clinicId = 'default';
@@ -109,11 +115,11 @@ export async function PATCH(request: NextRequest) {
     };
 
     // 중첩 객체 처리
-    if (body.clinicName !== undefined) updateData.clinicName = body.clinicName;
-    if (body.cti !== undefined) updateData.cti = body.cti;
-    if (body.ai !== undefined) updateData.ai = body.ai;
-    if (body.notifications !== undefined) updateData.notifications = body.notifications;
-    if (body.targets !== undefined) updateData.targets = body.targets;
+    if (clinicName !== undefined) updateData.clinicName = clinicName;
+    if (cti !== undefined) updateData.cti = cti;
+    if (ai !== undefined) updateData.ai = ai;
+    if (notifications !== undefined) updateData.notifications = notifications;
+    if (targets !== undefined) updateData.targets = targets;
 
     const result = await db.collection<Settings>('settings_v2').findOneAndUpdate(
       { clinicId },

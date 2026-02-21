@@ -5,6 +5,8 @@ import { NextRequest, NextResponse } from 'next/server';
 import { ObjectId } from 'mongodb';
 import { connectToDatabase } from '@/utils/mongodb';
 import { verifyApiToken, unauthorizedResponse } from '@/utils/apiAuth';
+import { validateBody } from '@/lib/validations/validate';
+import { createManualConsultationSchema } from '@/lib/validations/schemas';
 
 export const dynamic = 'force-dynamic';
 
@@ -63,8 +65,6 @@ export async function POST(request: NextRequest, { params }: RouteParams) {
     if (!authUser) return unauthorizedResponse();
 
     const { id: patientId } = await params;
-    const body = await request.json();
-    const { type, date, content, consultantName } = body;
 
     if (!ObjectId.isValid(patientId)) {
       return NextResponse.json(
@@ -73,12 +73,10 @@ export async function POST(request: NextRequest, { params }: RouteParams) {
       );
     }
 
-    if (!content || !content.trim()) {
-      return NextResponse.json(
-        { success: false, error: '상담 내용은 필수입니다.' },
-        { status: 400 }
-      );
-    }
+    const body = await request.json();
+    const validation = validateBody(createManualConsultationSchema, body);
+    if (!validation.success) return validation.response;
+    const { type, date, content, consultantName } = validation.data;
 
     const { db } = await connectToDatabase();
 

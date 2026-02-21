@@ -5,6 +5,8 @@ import { NextRequest, NextResponse } from 'next/server';
 import { connectToDatabase } from '@/utils/mongodb';
 import { Manual, ManualCategory } from '@/types/v2/manual';
 import { verifyApiToken, unauthorizedResponse } from '@/utils/apiAuth';
+import { validateBody } from '@/lib/validations/validate';
+import { createManualSchema } from '@/lib/validations/schemas';
 
 const COLLECTION = 'manuals_v2';
 
@@ -105,29 +107,9 @@ export async function POST(request: NextRequest) {
     if (!authUser) return unauthorizedResponse();
 
     const body = await request.json();
-    const { categoryId, title, keywords, script, shortScript, order } = body;
-
-    // 유효성 검사
-    if (!categoryId) {
-      return NextResponse.json(
-        { success: false, error: '카테고리를 선택해주세요.' },
-        { status: 400 }
-      );
-    }
-
-    if (!title || typeof title !== 'string') {
-      return NextResponse.json(
-        { success: false, error: '매뉴얼 제목은 필수입니다.' },
-        { status: 400 }
-      );
-    }
-
-    if (!script || typeof script !== 'string') {
-      return NextResponse.json(
-        { success: false, error: '매뉴얼 스크립트는 필수입니다.' },
-        { status: 400 }
-      );
-    }
+    const validation = validateBody(createManualSchema, body);
+    if (!validation.success) return validation.response;
+    const { categoryId, title, keywords, script, shortScript, order } = validation.data;
 
     const { db } = await connectToDatabase();
     const clinicId = 'default';

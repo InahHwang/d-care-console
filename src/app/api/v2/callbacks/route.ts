@@ -7,6 +7,8 @@ import { connectToDatabase } from '@/utils/mongodb';
 import { ObjectId } from 'mongodb';
 import type { CallbackV2, CallbackType, CallbackStatus } from '@/types/v2';
 import { verifyApiToken, unauthorizedResponse } from '@/utils/apiAuth';
+import { validateBody } from '@/lib/validations/validate';
+import { createCallbackSchema, updateCallbackSchema } from '@/lib/validations/schemas';
 
 export async function GET(request: NextRequest) {
   try {
@@ -220,14 +222,9 @@ export async function POST(request: NextRequest) {
     if (!authUser) return unauthorizedResponse();
 
     const body = await request.json();
-    const { patientId, type, scheduledAt, note } = body;
-
-    if (!patientId || !type || !scheduledAt) {
-      return NextResponse.json(
-        { success: false, error: 'patientId, type, scheduledAt are required' },
-        { status: 400 }
-      );
-    }
+    const validation = validateBody(createCallbackSchema, body);
+    if (!validation.success) return validation.response;
+    const { patientId, type, scheduledAt, note } = validation.data;
 
     const { db } = await connectToDatabase();
     const now = new Date().toISOString();
@@ -278,14 +275,9 @@ export async function PATCH(request: NextRequest) {
     if (!authUser) return unauthorizedResponse();
 
     const body = await request.json();
-    const { id, status, note, source } = body;
-
-    if (!id || !status) {
-      return NextResponse.json(
-        { success: false, error: 'id and status are required' },
-        { status: 400 }
-      );
-    }
+    const validation = validateBody(updateCallbackSchema, body);
+    if (!validation.success) return validation.response;
+    const { id, status, note, source } = validation.data;
 
     const { db } = await connectToDatabase();
     const now = new Date().toISOString();

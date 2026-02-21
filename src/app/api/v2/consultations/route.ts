@@ -7,6 +7,8 @@ import { connectToDatabase } from '@/utils/mongodb';
 import { ObjectId } from 'mongodb';
 import type { ConsultationV2, ConsultationType, ConsultationStatus } from '@/types/v2';
 import { verifyApiToken, unauthorizedResponse } from '@/utils/apiAuth';
+import { validateBody } from '@/lib/validations/validate';
+import { createConsultationSchema, updateConsultationSchema } from '@/lib/validations/schemas';
 
 // GET - 상담 이력 조회
 export async function GET(request: NextRequest) {
@@ -132,6 +134,8 @@ export async function POST(request: NextRequest) {
     if (!authUser) return unauthorizedResponse();
 
     const body = await request.json();
+    const validation = validateBody(createConsultationSchema, body);
+    if (!validation.success) return validation.response;
     const {
       patientId,
       type,           // 'phone' | 'visit'
@@ -147,15 +151,7 @@ export async function POST(request: NextRequest) {
       consultantName,
       inquiry,
       memo,
-    } = body;
-
-    // 필수 필드 검증
-    if (!patientId || !type || !status || !consultantName) {
-      return NextResponse.json(
-        { success: false, error: 'patientId, type, status, consultantName are required' },
-        { status: 400 }
-      );
-    }
+    } = validation.data;
 
     const { db } = await connectToDatabase();
     const now = new Date();
@@ -263,14 +259,9 @@ export async function PATCH(request: NextRequest) {
     if (!authUser) return unauthorizedResponse();
 
     const body = await request.json();
-    const { id, editedBy, ...updateData } = body;
-
-    if (!id) {
-      return NextResponse.json(
-        { success: false, error: 'id is required' },
-        { status: 400 }
-      );
-    }
+    const validation = validateBody(updateConsultationSchema, body);
+    if (!validation.success) return validation.response;
+    const { id, editedBy, ...updateData } = validation.data as Record<string, any>;
 
     const { db } = await connectToDatabase();
     const nowISO = new Date().toISOString();

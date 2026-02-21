@@ -5,6 +5,8 @@ import { NextRequest, NextResponse } from 'next/server';
 import { connectToDatabase } from '@/utils/mongodb';
 import { ObjectId } from 'mongodb';
 import { verifyApiToken, unauthorizedResponse } from '@/utils/apiAuth';
+import { validateBody } from '@/lib/validations/validate';
+import { updateRecallSettingsSchema } from '@/lib/validations/schemas';
 
 export interface RecallSchedule {
   id: string;
@@ -114,19 +116,14 @@ export async function PUT(request: NextRequest) {
     if (!authUser) return unauthorizedResponse();
 
     const body = await request.json();
-    const { id, treatment, schedules } = body;
-
-    if (!id) {
-      return NextResponse.json(
-        { success: false, error: 'id is required' },
-        { status: 400 }
-      );
-    }
+    const validation = validateBody(updateRecallSettingsSchema, body);
+    if (!validation.success) return validation.response;
+    const { id, treatment, schedules } = validation.data;
 
     const { db } = await connectToDatabase();
     const now = new Date().toISOString();
 
-    const updateData: Partial<RecallSetting> = {
+    const updateData: Record<string, unknown> = {
       updatedAt: now,
     };
 

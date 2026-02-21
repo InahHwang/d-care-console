@@ -5,6 +5,8 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { connectToDatabase } from '@/utils/mongodb';
 import { verifyApiToken, unauthorizedResponse } from '@/utils/apiAuth';
+import { validateBody } from '@/lib/validations/validate';
+import { sendAlimtalkSchema } from '@/lib/validations/schemas';
 
 export interface AlimtalkRequest {
   phone: string;
@@ -26,14 +28,9 @@ export async function POST(request: NextRequest) {
     if (!authUser) return unauthorizedResponse();
 
     const body: AlimtalkRequest = await request.json();
-    const { phone, message, templateCode } = body;
-
-    if (!phone || !message) {
-      return NextResponse.json(
-        { success: false, error: 'phone and message are required' },
-        { status: 400 }
-      );
-    }
+    const validation = validateBody(sendAlimtalkSchema, body);
+    if (!validation.success) return validation.response;
+    const { phone, message, templateCode } = validation.data;
 
     const { db } = await connectToDatabase();
     const now = new Date();

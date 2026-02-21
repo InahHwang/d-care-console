@@ -5,6 +5,8 @@ import { connectToDatabase } from '@/utils/mongodb';
 import { MessageDirection, MessageType, SenderType, MessageStatus, ChannelType } from '@/types/v2';
 import Pusher from 'pusher';
 import { verifyApiToken, unauthorizedResponse } from '@/utils/apiAuth';
+import { validateBody } from '@/lib/validations/validate';
+import { createChatMessageSchema } from '@/lib/validations/schemas';
 
 // Pusher 클라이언트
 const pusher = new Pusher({
@@ -125,14 +127,9 @@ export async function POST(request: NextRequest, { params }: RouteParams) {
       );
     }
 
-    const { content, messageType = 'text', imageUrl, senderName, senderId } = body;
-
-    if (!content && !imageUrl) {
-      return NextResponse.json(
-        { success: false, error: '메시지 내용은 필수입니다.' },
-        { status: 400 }
-      );
-    }
+    const validation = validateBody(createChatMessageSchema, body);
+    if (!validation.success) return validation.response;
+    const { content = '', messageType = 'text', imageUrl, senderName, senderId } = validation.data;
 
     const { db } = await connectToDatabase();
 

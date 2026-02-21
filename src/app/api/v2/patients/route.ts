@@ -4,6 +4,8 @@ import { connectToDatabase } from '@/utils/mongodb';
 import { ObjectId } from 'mongodb';
 import { PatientStatus, Temperature, Journey } from '@/types/v2';
 import { verifyApiToken, unauthorizedResponse } from '@/utils/apiAuth';
+import { validateBody } from '@/lib/validations/validate';
+import { createPatientSchema } from '@/lib/validations/schemas';
 
 export const dynamic = 'force-dynamic';
 
@@ -416,14 +418,9 @@ export async function POST(request: NextRequest) {
     if (!authUser) return unauthorizedResponse();
 
     const body = await request.json();
-    const { name, phone, consultationType, interest, source, temperature = 'warm', nextAction, age, region } = body;
-
-    if (!name || !phone) {
-      return NextResponse.json(
-        { error: 'Name and phone are required' },
-        { status: 400 }
-      );
-    }
+    const validation = validateBody(createPatientSchema, body);
+    if (!validation.success) return validation.response;
+    const { name, phone, consultationType, interest, source, temperature = 'warm', nextAction, age, region } = validation.data;
 
     const { db } = await connectToDatabase();
     const collection = db.collection('patients_v2');

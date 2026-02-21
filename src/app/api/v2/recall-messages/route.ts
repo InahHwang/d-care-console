@@ -5,6 +5,8 @@ import { NextRequest, NextResponse } from 'next/server';
 import { connectToDatabase } from '@/utils/mongodb';
 import { ObjectId } from 'mongodb';
 import { verifyApiToken, unauthorizedResponse } from '@/utils/apiAuth';
+import { validateBody } from '@/lib/validations/validate';
+import { createRecallMessageSchema, updateRecallMessageSchema } from '@/lib/validations/schemas';
 
 export type RecallMessageStatus = 'pending' | 'sent' | 'booked' | 'no-response' | 'call-needed' | 'completed';
 
@@ -131,14 +133,9 @@ export async function POST(request: NextRequest) {
     if (!authUser) return unauthorizedResponse();
 
     const body = await request.json();
-    const { patientId, treatment, timing, timingDays, message, lastVisit } = body;
-
-    if (!patientId || !treatment || !timing || !timingDays || !message) {
-      return NextResponse.json(
-        { success: false, error: 'Missing required fields' },
-        { status: 400 }
-      );
-    }
+    const validation = validateBody(createRecallMessageSchema, body);
+    if (!validation.success) return validation.response;
+    const { patientId, treatment, timing, timingDays, message, lastVisit } = validation.data;
 
     const { db } = await connectToDatabase();
     const now = new Date();
@@ -184,14 +181,9 @@ export async function PATCH(request: NextRequest) {
     if (!authUser) return unauthorizedResponse();
 
     const body = await request.json();
-    const { id, status, bookedAt } = body;
-
-    if (!id || !status) {
-      return NextResponse.json(
-        { success: false, error: 'id and status are required' },
-        { status: 400 }
-      );
-    }
+    const validation = validateBody(updateRecallMessageSchema, body);
+    if (!validation.success) return validation.response;
+    const { id, status, bookedAt } = validation.data;
 
     const { db } = await connectToDatabase();
     const now = new Date().toISOString();
