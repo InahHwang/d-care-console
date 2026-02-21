@@ -987,25 +987,31 @@ public class CTIWorker : BackgroundService
             {
                 _logger.LogInformation("📞 전화 수신: {Caller} → {Called}", evt.Dn1, evt.Dn2);
 
-                // ★ 수신 전화 알림 (Pusher 팝업용)
-                _eventQueue.Enqueue(new CallEvent
-                {
-                    Type = CallEventType.IncomingCall,
-                    CallerNumber = evt.Dn1,
-                    CalledNumber = evt.Dn2
-                });
+                // ★ 동시착신 중복 방지: 같은 발신번호 + 1초 이내 재ring → 동시착신 → 무시
+                // 같은 발신번호라도 1초 초과면 새 통화로 처리
+                bool isDuplicate = !string.IsNullOrEmpty(_inboundCallerNumber) &&
+                    _inboundCallerNumber == evt.Dn1 &&
+                    (DateTime.Now - _inboundCallTime).TotalSeconds < 1.0;
 
-                // ★ 동시착신 중복 방지: 같은 발신번호가 이미 처리 중이면 ring 무시
-                // 첫 번째 ring만 CallLog 생성 (부재중 처리를 위해)
-                if (string.IsNullOrEmpty(_inboundCallerNumber) || _inboundCallerNumber != evt.Dn1)
+                if (!isDuplicate)
                 {
                     // 새로운 수신 통화 - 상태 초기화
                     _inboundCallerNumber = evt.Dn1;
-                    _inboundCalledNumber = evt.Dn2;  // 첫 번째 ring의 착신번호 (나중에 start에서 업데이트됨)
+                    _inboundCalledNumber = evt.Dn2;
                     _inboundCallStartSent = false;
                     _inboundCallTime = DateTime.Now;
 
                     _logger.LogInformation("📞 [신규 수신] ring 이벤트 생성: {Caller} → {Called}", evt.Dn1, evt.Dn2);
+
+                    // 수신 전화 알림 (Pusher 팝업용)
+                    _eventQueue.Enqueue(new CallEvent
+                    {
+                        Type = CallEventType.IncomingCall,
+                        CallerNumber = evt.Dn1,
+                        CalledNumber = evt.Dn2
+                    });
+
+                    // 통화 로그 (ring)
                     _eventQueue.Enqueue(new CallEvent
                     {
                         Type = CallEventType.CallLog,
@@ -1018,7 +1024,8 @@ public class CTIWorker : BackgroundService
                 else
                 {
                     // 동시착신으로 인한 중복 ring - 무시
-                    _logger.LogDebug("📞 [동시착신 중복 무시] ring: {Caller} → {Called}", evt.Dn1, evt.Dn2);
+                    _logger.LogInformation("📞 [동시착신 중복 무시] ring: {Caller} → {Called} ({Elapsed:F0}ms)",
+                        evt.Dn1, evt.Dn2, (DateTime.Now - _inboundCallTime).TotalMilliseconds);
                 }
             }
         }
