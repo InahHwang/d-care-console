@@ -13,11 +13,13 @@ export async function POST() {
 
     // 1. 테스트 환자 찾기 또는 생성
     let patient = await db.collection('patients_v2').findOne({
+      clinicId: 'default',
       phone: '010-9999-0001'
     });
 
     if (!patient) {
       const insertResult = await db.collection('patients_v2').insertOne({
+        clinicId: 'default',
         name: '테스트환자(AI)',
         phone: '010-9999-0001',
         gender: '여',
@@ -46,6 +48,7 @@ export async function POST() {
     // 3. AI 자동분류 상담 결과 3개 생성 (동의/미동의/보류)
     const testConsultations = [
       {
+        clinicId: 'default',
         patientId,
         callLogId: 'test-call-001',
         type: 'phone',
@@ -63,6 +66,7 @@ export async function POST() {
         createdAt: nowISO,
       },
       {
+        clinicId: 'default',
         patientId,
         callLogId: 'test-call-002',
         type: 'phone',
@@ -81,6 +85,7 @@ export async function POST() {
         createdAt: new Date(Date.now() - 1 * 24 * 60 * 60 * 1000).toISOString(),
       },
       {
+        clinicId: 'default',
         patientId,
         callLogId: 'test-call-003',
         type: 'phone',
@@ -140,6 +145,7 @@ export async function DELETE() {
 
     // 테스트 환자 찾기
     const patient = await db.collection('patients_v2').findOne({
+      clinicId: 'default',
       phone: '010-9999-0001'
     });
 

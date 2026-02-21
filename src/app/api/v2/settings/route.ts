@@ -64,8 +64,8 @@ export async function GET(request: NextRequest) {
 
     const { db } = await connectToDatabase();
 
-    // 현재 설정 조회 (클리닉 ID는 일단 고정)
-    const clinicId = 'default';
+    // 현재 설정 조회
+    const clinicId = authUser.clinicId;
     let settings: Settings | null = await db.collection<Settings>('settings_v2').findOne({ clinicId });
 
     if (!settings) {
@@ -106,7 +106,7 @@ export async function PATCH(request: NextRequest) {
 
     const { db } = await connectToDatabase();
 
-    const clinicId = 'default';
+    const clinicId = authUser.clinicId;
     const now = new Date().toISOString();
 
     // 업데이트할 필드만 추출

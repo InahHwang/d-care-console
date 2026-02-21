@@ -13,6 +13,7 @@ export async function GET(request: NextRequest) {
   try {
     const authUser = verifyApiToken(request);
     if (!authUser) return unauthorizedResponse();
+    const clinicId = authUser.clinicId;
 
     const { searchParams } = new URL(request.url);
     const page = parseInt(searchParams.get('page') || '1');
@@ -22,7 +23,7 @@ export async function GET(request: NextRequest) {
     const { db } = await connectToDatabase();
 
     // 필터 조건 구성
-    const filter: Record<string, unknown> = {};
+    const filter: Record<string, unknown> = { clinicId };
     if (thanksSent !== null) {
       filter.thanksSent = thanksSent === 'true';
     }
@@ -66,6 +67,7 @@ export async function GET(request: NextRequest) {
 
     // 통계
     const [stats] = await db.collection('referrals_v2').aggregate([
+      { $match: { clinicId } },
       {
         $group: {
           _id: null,
@@ -78,6 +80,7 @@ export async function GET(request: NextRequest) {
 
     // 소개자별 통계 (상위 10명)
     const topReferrers = await db.collection('referrals_v2').aggregate([
+      { $match: { clinicId } },
       {
         $group: {
           _id: '$referrerId',
@@ -151,6 +154,7 @@ export async function POST(request: NextRequest) {
   try {
     const authUser = verifyApiToken(request);
     if (!authUser) return unauthorizedResponse();
+    const clinicId = authUser.clinicId;
 
     const body = await request.json();
     const validation = validateBody(createReferralSchema, body);
@@ -161,6 +165,7 @@ export async function POST(request: NextRequest) {
 
     // 이미 등록된 관계인지 확인
     const existing = await db.collection('referrals_v2').findOne({
+      clinicId,
       referrerId,
       referredId,
     });
@@ -175,6 +180,7 @@ export async function POST(request: NextRequest) {
     const now = new Date().toISOString();
 
     const newReferral = {
+      clinicId,
       referrerId,
       referredId,
       thanksSent: false,
@@ -216,6 +222,7 @@ export async function PATCH(request: NextRequest) {
   try {
     const authUser = verifyApiToken(request);
     if (!authUser) return unauthorizedResponse();
+    const clinicId = authUser.clinicId;
 
     const body = await request.json();
     const { id, thanksSent } = body;
@@ -242,7 +249,7 @@ export async function PATCH(request: NextRequest) {
     }
 
     const result = await db.collection('referrals_v2').findOneAndUpdate(
-      { _id: new ObjectId(id) },
+      { _id: new ObjectId(id), clinicId },
       { $set: updateData },
       { returnDocument: 'after' }
     );
@@ -272,6 +279,7 @@ export async function DELETE(request: NextRequest) {
   try {
     const authUser = verifyApiToken(request);
     if (!authUser) return unauthorizedResponse();
+    const clinicId = authUser.clinicId;
 
     const { searchParams } = new URL(request.url);
     const id = searchParams.get('id');
@@ -287,6 +295,7 @@ export async function DELETE(request: NextRequest) {
 
     const result = await db.collection('referrals_v2').deleteOne({
       _id: new ObjectId(id),
+      clinicId,
     });
 
     if (result.deletedCount === 0) {

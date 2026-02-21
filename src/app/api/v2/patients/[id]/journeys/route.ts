@@ -18,6 +18,7 @@ export async function GET(
   try {
     const authUser = verifyApiToken(request);
     if (!authUser) return unauthorizedResponse();
+    const clinicId = authUser.clinicId;
 
     const { id } = await params;
 
@@ -28,7 +29,7 @@ export async function GET(
     const { db } = await connectToDatabase();
 
     const patient = await db.collection('patients_v2').findOne(
-      { _id: new ObjectId(id) },
+      { _id: new ObjectId(id), clinicId },
       { projection: { journeys: 1, activeJourneyId: 1 } }
     );
 
@@ -57,6 +58,7 @@ export async function POST(
   try {
     const authUser = verifyApiToken(request);
     if (!authUser) return unauthorizedResponse();
+    const clinicId = authUser.clinicId;
 
     const { id } = await params;
 
@@ -73,7 +75,7 @@ export async function POST(
 
     // 환자 존재 확인
     const patient = await db.collection('patients_v2').findOne({
-      _id: new ObjectId(id),
+      _id: new ObjectId(id), clinicId,
     });
 
     if (!patient) {
@@ -105,7 +107,7 @@ export async function POST(
 
     // 기존 활성 여정 비활성화 + 새 여정 추가 + 환자 상태 업데이트
     const updateResult = await db.collection('patients_v2').updateOne(
-      { _id: new ObjectId(id) },
+      { _id: new ObjectId(id), clinicId },
       [
         {
           $set: {

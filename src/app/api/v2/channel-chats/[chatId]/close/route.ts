@@ -54,6 +54,7 @@ export async function POST(request: NextRequest, { params }: RouteParams) {
   try {
     const authUser = verifyApiToken(request);
     if (!authUser) return unauthorizedResponse();
+    const clinicId = authUser.clinicId;
 
     const { chatId } = await params;
 
@@ -69,6 +70,7 @@ export async function POST(request: NextRequest, { params }: RouteParams) {
     // 대화방 조회
     const chat = await db.collection('channelChats_v2').findOne({
       _id: new ObjectId(chatId),
+      clinicId,
     });
 
     if (!chat) {
@@ -152,7 +154,7 @@ export async function POST(request: NextRequest, { params }: RouteParams) {
 
     // 대화방 종료 및 AI 분석 결과 저장
     await db.collection('channelChats_v2').updateOne(
-      { _id: new ObjectId(chatId) },
+      { _id: new ObjectId(chatId), clinicId },
       {
         $set: {
           status: 'closed',

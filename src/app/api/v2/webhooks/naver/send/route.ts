@@ -9,6 +9,8 @@ import Pusher from 'pusher';
 
 export const dynamic = 'force-dynamic';
 
+const CLINIC_ID = process.env.DEFAULT_CLINIC_ID || 'default';
+
 // 네이버톡톡 발송 API 엔드포인트
 const NAVER_TALKTALK_API_URL = 'https://gw.talk.naver.com/chatbot/v1/event';
 
@@ -90,6 +92,7 @@ export async function POST(request: NextRequest) {
     // 대화방 조회
     const chat = await db.collection('channelChats_v2').findOne({
       _id: new ObjectId(chatId),
+      clinicId: CLINIC_ID,
     });
 
     if (!chat) {
@@ -162,6 +165,7 @@ export async function POST(request: NextRequest) {
 
       // 발송 실패해도 메시지는 DB에 저장 (실패 상태로)
       const failedMessage = {
+        clinicId: CLINIC_ID,
         chatId,
         direction: 'outgoing',
         messageType,
@@ -186,6 +190,7 @@ export async function POST(request: NextRequest) {
 
     // 성공 - 메시지 저장
     const message = {
+      clinicId: CLINIC_ID,
       chatId,
       direction: 'outgoing',
       messageType,

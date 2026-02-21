@@ -12,11 +12,13 @@ export async function POST(request: NextRequest) {
   try {
     const authUser = verifyApiToken(request);
     if (!authUser) return unauthorizedResponse();
+    const clinicId = authUser.clinicId;
 
     const { db } = await connectToDatabase();
 
     // patientId가 있지만 aiAnalysis.patientName이 없는 통화 찾기
     const callsNeedingNames = await db.collection('callLogs_v2').find({
+      clinicId,
       patientId: { $exists: true, $ne: null },
       $or: [
         { 'aiAnalysis.patientName': { $exists: false } },
@@ -102,11 +104,13 @@ export async function GET(request: NextRequest) {
   try {
     const authUser = verifyApiToken(request);
     if (!authUser) return unauthorizedResponse();
+    const clinicId = authUser.clinicId;
 
     const { db } = await connectToDatabase();
 
     // patientId가 있지만 이름이 없는 통화 수
     const needsFix = await db.collection('callLogs_v2').countDocuments({
+      clinicId,
       patientId: { $exists: true, $ne: null },
       $or: [
         { 'aiAnalysis.patientName': { $exists: false } },

@@ -14,6 +14,7 @@ export async function POST(
   try {
     const authUser = verifyApiToken(request);
     if (!authUser) return unauthorizedResponse();
+    const clinicId = authUser.clinicId;
 
     const { id } = await params;
 
@@ -30,6 +31,7 @@ export async function POST(
     // 메시지가 pending 상태인지 확인
     const message = await db.collection('recall_messages').findOne({
       _id: new ObjectId(id),
+      clinicId,
       status: 'pending',
     });
 
@@ -42,7 +44,7 @@ export async function POST(
 
     // 삭제 대신 상태를 cancelled로 변경
     await db.collection('recall_messages').updateOne(
-      { _id: new ObjectId(id) },
+      { _id: new ObjectId(id), clinicId },
       {
         $set: {
           status: 'cancelled',

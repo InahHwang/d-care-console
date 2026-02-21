@@ -5,6 +5,8 @@ import { NextRequest, NextResponse } from 'next/server';
 import { connectToDatabase } from '@/utils/mongodb';
 import { ObjectId } from 'mongodb';
 
+const CLINIC_ID = process.env.DEFAULT_CLINIC_ID || 'default';
+
 interface TranscriptSegment {
   speaker: string;
   text: string;
@@ -19,6 +21,7 @@ async function getRecordingBase64(
 ): Promise<string | null> {
   const recording = await db.collection('callRecordings_v2').findOne({
     callLogId: callLogId,
+    clinicId: CLINIC_ID,
   });
   return recording?.recordingBase64 || null;
 }
@@ -118,6 +121,7 @@ export async function POST(request: NextRequest) {
     // 통화기록에서 recordingUrl 확인
     const callLog = await db.collection('callLogs_v2').findOne({
       _id: new ObjectId(callLogId),
+      clinicId: CLINIC_ID,
     });
 
     if (!callLog) {

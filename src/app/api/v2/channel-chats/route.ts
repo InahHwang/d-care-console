@@ -19,6 +19,7 @@ export async function GET(request: NextRequest) {
   try {
     const authUser = verifyApiToken(request);
     if (!authUser) return unauthorizedResponse();
+    const clinicId = authUser.clinicId;
 
     const searchParams = request.nextUrl.searchParams;
     const channel = searchParams.get('channel') as ChannelType | 'all' | null;
@@ -30,7 +31,7 @@ export async function GET(request: NextRequest) {
     const { db } = await connectToDatabase();
 
     // 쿼리 빌드
-    const query: ChatQuery = {};
+    const query: ChatQuery & { clinicId?: string } = { clinicId };
 
     if (channel && channel !== 'all') {
       query.channel = channel;
@@ -69,7 +70,7 @@ export async function GET(request: NextRequest) {
 
     // 읽지 않은 총 메시지 수
     const unreadTotal = await db.collection('channelChats_v2').aggregate([
-      { $match: { status: { $ne: 'closed' } } },
+      { $match: { clinicId, status: { $ne: 'closed' } } },
       { $group: { _id: null, total: { $sum: '$unreadCount' } } },
     ]).toArray();
 
@@ -96,6 +97,7 @@ export async function POST(request: NextRequest) {
   try {
     const authUser = verifyApiToken(request);
     if (!authUser) return unauthorizedResponse();
+    const clinicId = authUser.clinicId;
 
     const body = await request.json();
     const validation = validateBody(createChannelChatSchema, body);
@@ -105,7 +107,7 @@ export async function POST(request: NextRequest) {
     const { db } = await connectToDatabase();
 
     // 이미 존재하는 대화방인지 확인
-    const existing = await db.collection('channelChats_v2').findOne({ channelRoomId });
+    const existing = await db.collection('channelChats_v2').findOne({ clinicId, channelRoomId });
     if (existing) {
       return NextResponse.json({
         success: true,
@@ -121,6 +123,7 @@ export async function POST(request: NextRequest) {
     if (phone) {
       const normalizedPhone = phone.replace(/-/g, '');
       const patient = await db.collection('patients_v2').findOne({
+        clinicId,
         $or: [
           { phone: normalizedPhone },
           { phone: { $regex: normalizedPhone.slice(-8) + '$' } },
@@ -135,6 +138,7 @@ export async function POST(request: NextRequest) {
 
     const now = new Date();
     const newChat = {
+      clinicId,
       channel,
       channelRoomId,
       channelUserKey,

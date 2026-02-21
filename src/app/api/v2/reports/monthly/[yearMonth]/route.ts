@@ -7,6 +7,8 @@ import { NextRequest, NextResponse } from 'next/server';
 import { connectToDatabase } from '@/utils/mongodb';
 import type { PatientV2, CallLogV2, ConsultationV2 } from '@/types/v2';
 
+const CLINIC_ID = process.env.DEFAULT_CLINIC_ID || 'default';
+
 interface MonthlyStats {
   // 통화 통계
   totalCalls: number;
@@ -97,16 +99,19 @@ export async function GET(
     const [callLogs, patients, consultations] = await Promise.all([
       // 통화 기록
       db.collection<CallLogV2>('callLogs_v2').find({
+        clinicId: CLINIC_ID,
         createdAt: { $gte: startDateStr, $lte: endDateStr },
       }).toArray(),
 
       // 해당 월에 생성된 환자
       db.collection<PatientV2>('patients_v2').find({
+        clinicId: CLINIC_ID,
         createdAt: { $gte: startDateStr, $lte: endDateStr },
       }).toArray(),
 
       // 상담 기록
       db.collection<ConsultationV2>('consultations_v2').find({
+        clinicId: CLINIC_ID,
         date: { $gte: startDate, $lte: endDate },
       }).toArray(),
     ]);
@@ -125,7 +130,7 @@ export async function GET(
     );
 
     // 퍼널 통계 (현재 상태 기준)
-    const allPatients = await db.collection<PatientV2>('patients_v2').find({}).toArray();
+    const allPatients = await db.collection<PatientV2>('patients_v2').find({ clinicId: CLINIC_ID }).toArray();
     const funnel = {
       consulting: allPatients.filter((p) => p.status === 'consulting').length,
       reserved: allPatients.filter((p) => p.status === 'reserved').length,

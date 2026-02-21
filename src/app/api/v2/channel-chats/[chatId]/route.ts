@@ -15,6 +15,7 @@ export async function GET(request: NextRequest, { params }: RouteParams) {
   try {
     const authUser = verifyApiToken(request);
     if (!authUser) return unauthorizedResponse();
+    const clinicId = authUser.clinicId;
 
     const { chatId } = await params;
 
@@ -29,6 +30,7 @@ export async function GET(request: NextRequest, { params }: RouteParams) {
 
     const chat = await db.collection('channelChats_v2').findOne({
       _id: new ObjectId(chatId),
+      clinicId,
     });
 
     if (!chat) {
@@ -43,6 +45,7 @@ export async function GET(request: NextRequest, { params }: RouteParams) {
     if (chat.patientId && ObjectId.isValid(chat.patientId)) {
       patient = await db.collection('patients_v2').findOne({
         _id: new ObjectId(chat.patientId),
+        clinicId,
       });
     }
 
@@ -64,6 +67,7 @@ export async function DELETE(request: NextRequest, { params }: RouteParams) {
   try {
     const authUser = verifyApiToken(request);
     if (!authUser) return unauthorizedResponse();
+    const clinicId = authUser.clinicId;
 
     const { chatId } = await params;
 
@@ -79,6 +83,7 @@ export async function DELETE(request: NextRequest, { params }: RouteParams) {
     // 대화방 삭제
     const result = await db.collection('channelChats_v2').deleteOne({
       _id: new ObjectId(chatId),
+      clinicId,
     });
 
     if (result.deletedCount === 0) {
@@ -111,6 +116,7 @@ export async function PATCH(request: NextRequest, { params }: RouteParams) {
   try {
     const authUser = verifyApiToken(request);
     if (!authUser) return unauthorizedResponse();
+    const clinicId = authUser.clinicId;
 
     const { chatId } = await params;
     const body = await request.json();
@@ -148,6 +154,7 @@ export async function PATCH(request: NextRequest, { params }: RouteParams) {
     if (body.patientId && ObjectId.isValid(body.patientId)) {
       const patient = await db.collection('patients_v2').findOne({
         _id: new ObjectId(body.patientId),
+        clinicId,
       });
       if (patient) {
         updateData.patientName = patient.name;
@@ -156,7 +163,7 @@ export async function PATCH(request: NextRequest, { params }: RouteParams) {
     }
 
     const result = await db.collection('channelChats_v2').findOneAndUpdate(
-      { _id: new ObjectId(chatId) },
+      { _id: new ObjectId(chatId), clinicId },
       { $set: updateData },
       { returnDocument: 'after' }
     );

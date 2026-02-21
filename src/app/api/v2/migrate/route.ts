@@ -293,6 +293,7 @@ export async function POST(request: NextRequest) {
 
         // V2 환자 문서 생성
         const v2Patient: Record<string, unknown> = {
+          clinicId: 'default',
           // 기본 정보
           name: v1Patient.name,
           phone: v1Patient.phoneNumber,
@@ -558,6 +559,7 @@ export async function PATCH() {
 
         // 수동 상담 이력 생성
         const newConsultation = {
+          clinicId: 'default',
           patientId: v2PatientId,
           type: 'visit', // 내원 상담
           date: v1Patient.visitDate ? new Date(v1Patient.visitDate) : (v1Patient.createdAt ? new Date(v1Patient.createdAt) : now),

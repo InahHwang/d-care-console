@@ -19,6 +19,7 @@ export async function GET(request: NextRequest, { params }: RouteParams) {
   try {
     const authUser = verifyApiToken(request);
     if (!authUser) return unauthorizedResponse();
+    const clinicId = authUser.clinicId;
 
     const { id: patientId } = await params;
 
@@ -33,7 +34,7 @@ export async function GET(request: NextRequest, { params }: RouteParams) {
 
     const consultations = await db
       .collection('manualConsultations_v2')
-      .find({ patientId })
+      .find({ patientId, clinicId })
       .sort({ date: -1 })
       .toArray();
 
@@ -63,6 +64,7 @@ export async function POST(request: NextRequest, { params }: RouteParams) {
   try {
     const authUser = verifyApiToken(request);
     if (!authUser) return unauthorizedResponse();
+    const clinicId = authUser.clinicId;
 
     const { id: patientId } = await params;
 
@@ -82,7 +84,7 @@ export async function POST(request: NextRequest, { params }: RouteParams) {
 
     // 환자 존재 확인
     const patient = await db.collection('patients_v2').findOne({
-      _id: new ObjectId(patientId),
+      _id: new ObjectId(patientId), clinicId,
     });
 
     if (!patient) {
@@ -94,6 +96,7 @@ export async function POST(request: NextRequest, { params }: RouteParams) {
 
     const now = new Date();
     const newConsultation = {
+      clinicId,
       patientId,
       type: type || 'other',
       date: date ? new Date(date) : now,

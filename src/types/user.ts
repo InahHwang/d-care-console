@@ -14,6 +14,7 @@ export interface User {
   updatedAt: string
   lastLogin?: string
   createdBy?: string   // 계정 생성자
+  clinicId: string     // 소속 치과 ID (멀티테넌시)
 }
 
 // 로그인 요청 데이터

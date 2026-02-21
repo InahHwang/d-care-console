@@ -51,6 +51,7 @@ export async function GET(request: NextRequest, { params }: RouteParams) {
   try {
     const authUser = verifyApiToken(request);
     if (!authUser) return unauthorizedResponse();
+    const clinicId = authUser.clinicId;
 
     const { chatId } = await params;
     const searchParams = request.nextUrl.searchParams;
@@ -69,6 +70,7 @@ export async function GET(request: NextRequest, { params }: RouteParams) {
     // 대화방 존재 확인
     const chat = await db.collection('channelChats_v2').findOne({
       _id: new ObjectId(chatId),
+      clinicId,
     });
 
     if (!chat) {
@@ -116,6 +118,7 @@ export async function POST(request: NextRequest, { params }: RouteParams) {
   try {
     const authUser = verifyApiToken(request);
     if (!authUser) return unauthorizedResponse();
+    const clinicId = authUser.clinicId;
 
     const { chatId } = await params;
     const body = await request.json();
@@ -136,6 +139,7 @@ export async function POST(request: NextRequest, { params }: RouteParams) {
     // 대화방 존재 확인
     const chat = await db.collection('channelChats_v2').findOne({
       _id: new ObjectId(chatId),
+      clinicId,
     });
 
     if (!chat) {

@@ -92,7 +92,8 @@ export default function AuthGuard({
           isActive: decoded.isActive !== undefined ? decoded.isActive : true,
           createdAt: decoded.createdAt || new Date().toISOString(),
           updatedAt: decoded.updatedAt || new Date().toISOString(),
-          lastLogin: decoded.lastLogin
+          lastLogin: decoded.lastLogin,
+          clinicId: decoded.clinicId || 'default',
         };
 
         console.log('🔥 AuthGuard: 사용자 정보 복원:', {

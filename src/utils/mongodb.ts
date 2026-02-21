@@ -296,6 +296,7 @@ export async function createDefaultUsers() {
         email: envInfo.isProduction ? 'dsbrdental@naver.com' : 'dev@test.com',
         name: envInfo.isProduction ? '마스터관리자' : '개발관리자',
         role: 'master',
+        clinicId: 'default',
         isActive: true,
         createdAt: new Date().toISOString(),
         updatedAt: new Date().toISOString(),

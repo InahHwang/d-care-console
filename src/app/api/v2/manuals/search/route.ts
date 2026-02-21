@@ -26,7 +26,7 @@ export async function GET(request: NextRequest) {
     }
 
     const { db } = await connectToDatabase();
-    const clinicId = 'default';
+    const clinicId = authUser.clinicId;
 
     // 검색 쿼리 (제목, 키워드, 스크립트에서 검색)
     const query: Record<string, unknown> = {

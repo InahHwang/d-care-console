@@ -15,6 +15,7 @@ export async function GET(
   try {
     const authUser = verifyApiToken(request);
     if (!authUser) return unauthorizedResponse();
+    const clinicId = authUser.clinicId;
 
     const { id } = await params;
 
@@ -26,7 +27,7 @@ export async function GET(
 
     // callRecordings_v2에서 녹취 데이터 조회
     const recording = await db.collection('callRecordings_v2').findOne({
-      callLogId: id,
+      callLogId: id, clinicId,
     });
 
     if (!recording || !recording.recordingBase64) {

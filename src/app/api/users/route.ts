@@ -124,7 +124,7 @@ export async function POST(request: NextRequest) {
     // 비밀번호 해시화
     const hashedPassword = bcrypt.hashSync(password, 10);
 
-    // 새 사용자 생성
+    // 새 사용자 생성 (같은 clinicId로 소속)
     const newUser = {
       username,
       email,
@@ -132,6 +132,7 @@ export async function POST(request: NextRequest) {
       password: hashedPassword,
       role,
       department: department || '',
+      clinicId: currentUser.clinicId,
       isActive: true,
       createdAt: new Date().toISOString(),
       updatedAt: new Date().toISOString(),

@@ -38,6 +38,7 @@ export async function GET(request: NextRequest, { params }: RouteParams) {
   try {
     const authUser = verifyApiToken(request);
     if (!authUser) return unauthorizedResponse();
+    const clinicId = authUser.clinicId;
 
     const { id: patientId } = await params;
     const searchParams = request.nextUrl.searchParams;
@@ -55,7 +56,7 @@ export async function GET(request: NextRequest, { params }: RouteParams) {
 
     // 환자 존재 확인
     const patient = await db.collection('patients_v2').findOne({
-      _id: new ObjectId(patientId),
+      _id: new ObjectId(patientId), clinicId,
     });
 
     if (!patient) {
@@ -71,7 +72,7 @@ export async function GET(request: NextRequest, { params }: RouteParams) {
     if (!type || type === 'all' || type === 'call') {
       const callLogs = await db
         .collection('callLogs_v2')
-        .find({ patientId })
+        .find({ patientId, clinicId })
         .sort({ startedAt: -1 })
         .limit(limit)
         .toArray();
@@ -102,7 +103,7 @@ export async function GET(request: NextRequest, { params }: RouteParams) {
     if (!type || type === 'all' || type === 'chat') {
       const chats = await db
         .collection('channelChats_v2')
-        .find({ patientId })
+        .find({ patientId, clinicId })
         .sort({ lastMessageAt: -1 })
         .limit(limit)
         .toArray();
@@ -131,7 +132,7 @@ export async function GET(request: NextRequest, { params }: RouteParams) {
     if (!type || type === 'all' || type === 'manual') {
       const manualConsultations = await db
         .collection('manualConsultations_v2')
-        .find({ patientId })
+        .find({ patientId, clinicId })
         .sort({ date: -1 })
         .limit(limit)
         .toArray();

@@ -8,6 +8,8 @@ import Pusher from 'pusher';
 
 export const dynamic = 'force-dynamic';
 
+const CLINIC_ID = process.env.DEFAULT_CLINIC_ID || 'default';
+
 // Pusher 클라이언트 (서버사이드)
 const pusher = new Pusher({
   appId: process.env.PUSHER_APP_ID!,
@@ -215,6 +217,7 @@ async function handleMessageEvent(
 
   // 대화방 찾기 또는 생성
   let chat = await db.collection('channelChats_v2').findOne({
+    clinicId: CLINIC_ID,
     channel: 'instagram',
     channelUserKey: senderId,
   });
@@ -222,6 +225,7 @@ async function handleMessageEvent(
   if (!chat) {
     // 새 대화방 생성
     const newChat = {
+      clinicId: CLINIC_ID,
       channel: 'instagram',
       channelRoomId: `instagram_${senderId}_${Date.now()}`,
       channelUserKey: senderId,
@@ -258,6 +262,7 @@ async function handleMessageEvent(
 
   // 메시지 저장
   const newMessage = {
+    clinicId: CLINIC_ID,
     chatId: chat._id.toString(),
     direction: 'incoming',
     messageType,

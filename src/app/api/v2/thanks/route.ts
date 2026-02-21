@@ -29,6 +29,7 @@ export async function GET(request: NextRequest) {
   try {
     const authUser = verifyApiToken(request);
     if (!authUser) return unauthorizedResponse();
+    const clinicId = authUser.clinicId;
 
     const { searchParams } = new URL(request.url);
     const status = searchParams.get('status') as ThanksStatus | null;
@@ -39,7 +40,7 @@ export async function GET(request: NextRequest) {
     const { db } = await connectToDatabase();
 
     // 필터 조건
-    const filter: Record<string, unknown> = {};
+    const filter: Record<string, unknown> = { clinicId };
     if (status) {
       filter.status = status;
     }
@@ -94,8 +95,8 @@ export async function GET(request: NextRequest) {
     }
 
     // 통계
-    const pendingCount = await db.collection('thanks').countDocuments({ status: 'pending' });
-    const completedCount = await db.collection('thanks').countDocuments({ status: 'completed' });
+    const pendingCount = await db.collection('thanks').countDocuments({ clinicId, status: 'pending' });
+    const completedCount = await db.collection('thanks').countDocuments({ clinicId, status: 'completed' });
     const totalCount = await db.collection('thanks').countDocuments(filter);
 
     return NextResponse.json({
@@ -147,6 +148,7 @@ export async function POST(request: NextRequest) {
   try {
     const authUser = verifyApiToken(request);
     if (!authUser) return unauthorizedResponse();
+    const clinicId = authUser.clinicId;
 
     const body = await request.json();
     const validation = validateBody(createThanksSchema, body);
@@ -156,7 +158,8 @@ export async function POST(request: NextRequest) {
     const { db } = await connectToDatabase();
     const now = new Date().toISOString();
 
-    const newThanks: Thanks = {
+    const newThanks: Thanks & { clinicId: string } = {
+      clinicId,
       referrerId,
       referredId,
       status: 'pending',
@@ -188,6 +191,7 @@ export async function PATCH(request: NextRequest) {
   try {
     const authUser = verifyApiToken(request);
     if (!authUser) return unauthorizedResponse();
+    const clinicId = authUser.clinicId;
 
     const body = await request.json();
     const { id, status, method, note } = body;
@@ -215,7 +219,7 @@ export async function PATCH(request: NextRequest) {
     }
 
     const result = await db.collection('thanks').findOneAndUpdate(
-      { _id: new ObjectId(id) },
+      { _id: new ObjectId(id), clinicId },
       { $set: updateData },
       { returnDocument: 'after' }
     );

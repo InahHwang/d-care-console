@@ -10,6 +10,7 @@ export async function GET(request: NextRequest) {
   try {
     const authUser = verifyApiToken(request);
     if (!authUser) return unauthorizedResponse();
+    const clinicId = authUser.clinicId;
 
     const { db } = await connectToDatabase();
 
@@ -49,6 +50,7 @@ export async function GET(request: NextRequest) {
       db.collection('callLogs_v2').aggregate([
         {
           $match: {
+            clinicId,
             startedAt: { $gte: today, $lt: tomorrow }
           }
         },
@@ -73,6 +75,7 @@ export async function GET(request: NextRequest) {
       db.collection('callLogs_v2').aggregate([
         {
           $match: {
+            clinicId,
             startedAt: { $gte: yesterday, $lt: today }
           }
         },
@@ -162,6 +165,7 @@ export async function GET(request: NextRequest) {
       // 6. AI 분석 대기열 (callLogs_v2 사용)
       db.collection('callLogs_v2')
         .find({
+          clinicId,
           startedAt: { $gte: today },
           aiStatus: { $in: ['pending', 'processing'] }
         })
@@ -178,6 +182,7 @@ export async function GET(request: NextRequest) {
             overdue: [
               {
                 $match: {
+                  clinicId,
                   nextActionDate: { $lt: today },
                   status: { $nin: ['closed', 'completed'] }
                 }
@@ -193,6 +198,7 @@ export async function GET(request: NextRequest) {
             todayScheduled: [
               {
                 $match: {
+                  clinicId,
                   nextActionDate: { $gte: today, $lt: tomorrow },
                   status: { $nin: ['closed', 'completed'] }
                 }
@@ -208,6 +214,7 @@ export async function GET(request: NextRequest) {
             tomorrowScheduled: [
               {
                 $match: {
+                  clinicId,
                   nextActionDate: { $gte: tomorrow, $lt: new Date(tomorrow.getTime() + 24 * 60 * 60 * 1000) },
                   status: { $nin: ['closed', 'completed'] }
                 }
@@ -226,6 +233,7 @@ export async function GET(request: NextRequest) {
             thisMonth: [
               {
                 $match: {
+                  clinicId,
                   createdAt: { $gte: monthStart, $lte: monthEnd },
                   status: { $ne: 'closed' }
                 }
@@ -248,6 +256,7 @@ export async function GET(request: NextRequest) {
             lastMonth: [
               {
                 $match: {
+                  clinicId,
                   createdAt: { $gte: lastMonthStart, $lte: lastMonthEnd },
                   status: { $ne: 'closed' }
                 }
@@ -264,6 +273,7 @@ export async function GET(request: NextRequest) {
             total: [
               {
                 $match: {
+                  clinicId,
                   status: { $ne: 'closed' }
                 }
               },

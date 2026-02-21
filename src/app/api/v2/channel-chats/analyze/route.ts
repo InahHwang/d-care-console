@@ -121,6 +121,7 @@ export async function POST(request: NextRequest) {
   try {
     const authUser = verifyApiToken(request);
     if (!authUser) return unauthorizedResponse();
+    const clinicId = authUser.clinicId;
 
     const body = await request.json();
     const { chatId } = body;
@@ -146,6 +147,7 @@ export async function POST(request: NextRequest) {
     // 채팅 조회
     const chat = await db.collection('channelChats_v2').findOne({
       _id: new ObjectId(chatId),
+      clinicId,
     });
 
     if (!chat) {

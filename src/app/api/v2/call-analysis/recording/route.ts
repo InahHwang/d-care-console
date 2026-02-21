@@ -7,6 +7,8 @@ import { connectToDatabase } from '@/utils/mongodb';
 import { ObjectId } from 'mongodb';
 import type { AIAnalysis, Temperature, AIClassification, FollowUpType } from '@/types/v2';
 
+const CLINIC_ID = process.env.DEFAULT_CLINIC_ID || 'default';
+
 function normalizePhone(phone: string): string {
   return (phone || '').replace(/\D/g, '');
 }
@@ -105,6 +107,7 @@ export async function POST(request: NextRequest) {
 
     const callLog = await db.collection('callLogs_v2').findOne(
       {
+        clinicId: CLINIC_ID,
         phone: formattedPhone,
         createdAt: { $gte: tenMinutesAgo },
       },
@@ -115,6 +118,7 @@ export async function POST(request: NextRequest) {
       console.log('[Analysis v2] 매칭 통화기록 없음, 새로 생성');
       // 통화기록이 없으면 생성
       const newCallLog = {
+        clinicId: CLINIC_ID,
         phone: formattedPhone,
         direction: 'inbound' as const,
         status: 'connected' as const,
@@ -131,6 +135,7 @@ export async function POST(request: NextRequest) {
       // base64 저장
       if (recordingBase64) {
         await db.collection('callRecordings_v2').insertOne({
+          clinicId: CLINIC_ID,
           callLogId: result.insertedId.toString(),
           recordingBase64,
           createdAt: now,
@@ -163,6 +168,7 @@ export async function POST(request: NextRequest) {
     // base64 저장
     if (recordingBase64) {
       await db.collection('callRecordings_v2').insertOne({
+        clinicId: CLINIC_ID,
         callLogId: callLog._id.toString(),
         recordingBase64,
         createdAt: now,
@@ -201,7 +207,7 @@ export async function GET(request: NextRequest) {
 
     const { db } = await connectToDatabase();
     const callLog = await db.collection('callLogs_v2').findOne(
-      { _id: new ObjectId(callLogId) },
+      { _id: new ObjectId(callLogId), clinicId: CLINIC_ID },
       {
         projection: {
           aiStatus: 1,

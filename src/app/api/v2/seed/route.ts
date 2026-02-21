@@ -276,6 +276,7 @@ export async function POST(request: NextRequest) {
       }
 
       patients.push({
+        clinicId: 'default',
         name: NAMES[i % NAMES.length],
         phone: randomPhone(),
         gender: randomPick(['남', '여']),
@@ -319,6 +320,7 @@ export async function POST(request: NextRequest) {
       const shouldRegister = isRegistrable && Math.random() > 0.3; // 70%는 등록됨
 
       const callLog: Omit<CallLogV2, '_id'> = {
+        clinicId: 'default',
         phone: patient?.phone || randomPhone(),
         patientId: shouldRegister ? patientId : undefined,
         direction: randomPick(['inbound', 'outbound']),
@@ -364,6 +366,7 @@ export async function POST(request: NextRequest) {
       const shouldRegister = isRegistrable && Math.random() > 0.3;
 
       callLogs.push({
+        clinicId: 'default',
         phone: patient?.phone || randomPhone(),
         patientId: shouldRegister ? patientId : undefined,
         direction: randomPick(['inbound', 'outbound']),
@@ -401,6 +404,7 @@ export async function POST(request: NextRequest) {
       const discountAmount = Math.floor(originalAmount * discountRate / 100);
 
       consultations.push({
+        clinicId: 'default',
         patientId,
         type: randomPick(['phone', 'visit'] as const),  // 상담 유형 추가
         date: randomDate(7),
@@ -445,6 +449,7 @@ export async function POST(request: NextRequest) {
       scheduledDate.setHours(data.time[0], data.time[1], 0, 0);
 
       callbacks.push({
+        clinicId: 'default',
         patientId,
         type: 'callback',
         scheduledAt: scheduledDate,
@@ -474,6 +479,7 @@ export async function POST(request: NextRequest) {
         : 'pending';
 
       callbacks.push({
+        clinicId: 'default',
         patientId,
         type,
         scheduledAt: scheduledDate,
@@ -499,6 +505,7 @@ export async function POST(request: NextRequest) {
       const referredId = patientIds[i + 10]; // 다른 환자를 피소개자로
 
       referrals.push({
+        clinicId: 'default',
         referrerId,
         referredId,
         thanksSent: Math.random() > 0.5,

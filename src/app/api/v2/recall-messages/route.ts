@@ -30,6 +30,7 @@ export async function GET(request: NextRequest) {
   try {
     const authUser = verifyApiToken(request);
     if (!authUser) return unauthorizedResponse();
+    const clinicId = authUser.clinicId;
 
     const { searchParams } = new URL(request.url);
     const status = searchParams.get('status') as RecallMessageStatus | null;
@@ -39,13 +40,14 @@ export async function GET(request: NextRequest) {
     const { db } = await connectToDatabase();
 
     // 필터 조건
-    const filter: Record<string, unknown> = {};
+    const filter: Record<string, unknown> = { clinicId };
     if (status) {
       filter.status = status;
     }
 
     // 통계 조회
     const stats = await db.collection('recall_messages').aggregate([
+      { $match: { clinicId } },
       {
         $group: {
           _id: '$status',
@@ -131,6 +133,7 @@ export async function POST(request: NextRequest) {
   try {
     const authUser = verifyApiToken(request);
     if (!authUser) return unauthorizedResponse();
+    const clinicId = authUser.clinicId;
 
     const body = await request.json();
     const validation = validateBody(createRecallMessageSchema, body);
@@ -145,7 +148,8 @@ export async function POST(request: NextRequest) {
     scheduledAt.setDate(scheduledAt.getDate() + timingDays);
     scheduledAt.setHours(10, 0, 0, 0); // 오전 10시로 설정
 
-    const newMessage: RecallMessage = {
+    const newMessage: RecallMessage & { clinicId: string } = {
+      clinicId,
       patientId,
       treatment,
       timing,
@@ -179,6 +183,7 @@ export async function PATCH(request: NextRequest) {
   try {
     const authUser = verifyApiToken(request);
     if (!authUser) return unauthorizedResponse();
+    const clinicId = authUser.clinicId;
 
     const body = await request.json();
     const validation = validateBody(updateRecallMessageSchema, body);
@@ -202,7 +207,7 @@ export async function PATCH(request: NextRequest) {
     }
 
     const result = await db.collection('recall_messages').findOneAndUpdate(
-      { _id: new ObjectId(id) },
+      { _id: new ObjectId(id), clinicId },
       { $set: updateData },
       { returnDocument: 'after' }
     );

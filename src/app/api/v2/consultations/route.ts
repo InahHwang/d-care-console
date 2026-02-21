@@ -15,6 +15,7 @@ export async function GET(request: NextRequest) {
   try {
     const authUser = verifyApiToken(request);
     if (!authUser) return unauthorizedResponse();
+    const clinicId = authUser.clinicId;
 
     const { searchParams } = new URL(request.url);
     const patientId = searchParams.get('patientId');
@@ -26,7 +27,7 @@ export async function GET(request: NextRequest) {
 
     const { db } = await connectToDatabase();
 
-    const filter: Record<string, unknown> = {};
+    const filter: Record<string, unknown> = { clinicId };
 
     // 특정 환자의 상담 이력
     if (patientId) {
@@ -132,6 +133,7 @@ export async function POST(request: NextRequest) {
   try {
     const authUser = verifyApiToken(request);
     if (!authUser) return unauthorizedResponse();
+    const clinicId = authUser.clinicId;
 
     const body = await request.json();
     const validation = validateBody(createConsultationSchema, body);
@@ -165,6 +167,7 @@ export async function POST(request: NextRequest) {
 
     // 상담 기록 생성
     const newConsultation: Omit<ConsultationV2, '_id'> = {
+      clinicId,
       patientId,
       type: type as ConsultationType,
       status: status as ConsultationStatus,
@@ -232,7 +235,7 @@ export async function POST(request: NextRequest) {
 
     // 환자 정보 업데이트
     await db.collection('patients_v2').updateOne(
-      { _id: new ObjectId(patientId) },
+      { _id: new ObjectId(patientId), clinicId },
       { $set: patientUpdate }
     );
 
@@ -257,6 +260,7 @@ export async function PATCH(request: NextRequest) {
   try {
     const authUser = verifyApiToken(request);
     if (!authUser) return unauthorizedResponse();
+    const clinicId = authUser.clinicId;
 
     const body = await request.json();
     const validation = validateBody(updateConsultationSchema, body);
@@ -267,7 +271,7 @@ export async function PATCH(request: NextRequest) {
     const nowISO = new Date().toISOString();
 
     // 기존 데이터 조회 (금액 재계산 및 수정 추적용)
-    const existing = await db.collection('consultations_v2').findOne({ _id: new ObjectId(id) });
+    const existing = await db.collection('consultations_v2').findOne({ _id: new ObjectId(id), clinicId });
     if (!existing) {
       return NextResponse.json(
         { success: false, error: 'Consultation not found' },
@@ -298,7 +302,7 @@ export async function PATCH(request: NextRequest) {
     }
 
     const result = await db.collection('consultations_v2').findOneAndUpdate(
-      { _id: new ObjectId(id) },
+      { _id: new ObjectId(id), clinicId },
       { $set: updateFields },
       { returnDocument: 'after' }
     );
@@ -321,6 +325,7 @@ export async function DELETE(request: NextRequest) {
   try {
     const authUser = verifyApiToken(request);
     if (!authUser) return unauthorizedResponse();
+    const clinicId = authUser.clinicId;
 
     const { searchParams } = new URL(request.url);
     const id = searchParams.get('id');
@@ -335,7 +340,7 @@ export async function DELETE(request: NextRequest) {
     const { db } = await connectToDatabase();
 
     const result = await db.collection('consultations_v2').deleteOne({
-      _id: new ObjectId(id),
+      _id: new ObjectId(id), clinicId,
     });
 
     if (result.deletedCount === 0) {

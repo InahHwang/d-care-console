@@ -7,6 +7,8 @@ import { ObjectId } from 'mongodb';
 import Pusher from 'pusher';
 import type { AIAnalysis, AIConsultationResult, Temperature, AIClassification, FollowUpType, ConsultationStatus, ConsultationV2 } from '@/types/v2';
 
+const CLINIC_ID = process.env.DEFAULT_CLINIC_ID || 'default';
+
 const pusher = new Pusher({
   appId: process.env.PUSHER_APP_ID!,
   key: process.env.PUSHER_KEY!,
@@ -315,6 +317,7 @@ export async function POST(request: NextRequest) {
     // 통화 기록 조회
     const callLog = await db.collection('callLogs_v2').findOne({
       _id: new ObjectId(callLogId),
+      clinicId: CLINIC_ID,
     });
 
     if (!callLog) {
@@ -427,6 +430,7 @@ async function getExistingNameForPhone(
     // 같은 전화번호의 다른 통화 기록 조회 (현재 건 제외)
     const existingLogs = await db.collection('callLogs_v2')
       .find({
+        clinicId: CLINIC_ID,
         phone: phone,
         _id: { $ne: new ObjectId(currentCallLogId) },
         'aiAnalysis.patientName': { $exists: true, $nin: ['', null] },
@@ -470,7 +474,8 @@ async function updatePatientWithAnalysis(
   try {
     // 기존 환자 정보 조회
     const existingPatient = await db.collection('patients_v2').findOne({
-      _id: new ObjectId(patientId)
+      _id: new ObjectId(patientId),
+      clinicId: CLINIC_ID,
     });
 
     const updateData: Record<string, unknown> = {
@@ -536,6 +541,7 @@ async function createAutoConsultation(
 
     // 중복 체크: 같은 callLogId로 이미 존재하면 스킵
     const existingConsultation = await db.collection('consultations_v2').findOne({
+      clinicId: CLINIC_ID,
       callLogId: callLogId,
     });
 
@@ -549,6 +555,7 @@ async function createAutoConsultation(
 
     // 새 상담 결과 생성
     const newConsultation: Omit<ConsultationV2, '_id'> = {
+      clinicId: CLINIC_ID,
       patientId,
       callLogId,
       type: 'phone',

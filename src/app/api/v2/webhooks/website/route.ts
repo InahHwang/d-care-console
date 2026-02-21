@@ -8,6 +8,8 @@ import Pusher from 'pusher';
 
 export const dynamic = 'force-dynamic';
 
+const CLINIC_ID = process.env.DEFAULT_CLINIC_ID || 'default';
+
 // 허용된 Origin 목록 (환경변수에서 로드)
 const ALLOWED_ORIGINS = (process.env.ALLOWED_ORIGINS || 'http://localhost:3000')
   .split(',')
@@ -73,6 +75,7 @@ export async function POST(request: NextRequest) {
     if (requestType === 'start') {
       // 기존 대화방 확인
       let chat = await db.collection('channelChats_v2').findOne({
+        clinicId: CLINIC_ID,
         channel: 'website',
         channelRoomId: sessionId,
         status: { $ne: 'closed' },
@@ -93,6 +96,7 @@ export async function POST(request: NextRequest) {
 
       if (phone) {
         const patient = await db.collection('patients_v2').findOne({
+          clinicId: CLINIC_ID,
           $or: [
             { phone },
             { phone: { $regex: phone.slice(-8) + '$' } },
@@ -107,6 +111,7 @@ export async function POST(request: NextRequest) {
 
       // 새 대화방 생성
       const newChat = {
+        clinicId: CLINIC_ID,
         channel: 'website',
         channelRoomId: sessionId,
         channelUserKey: sessionId,
@@ -153,11 +158,13 @@ export async function POST(request: NextRequest) {
       if (chatId && ObjectId.isValid(chatId)) {
         chat = await db.collection('channelChats_v2').findOne({
           _id: new ObjectId(chatId),
+          clinicId: CLINIC_ID,
         });
       }
 
       if (!chat) {
         chat = await db.collection('channelChats_v2').findOne({
+          clinicId: CLINIC_ID,
           channel: 'website',
           channelRoomId: sessionId,
         });
@@ -172,6 +179,7 @@ export async function POST(request: NextRequest) {
 
       // 메시지 저장
       const message = {
+        clinicId: CLINIC_ID,
         chatId: chat._id.toString(),
         direction: 'incoming',
         messageType,

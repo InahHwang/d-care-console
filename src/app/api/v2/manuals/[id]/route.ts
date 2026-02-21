@@ -20,6 +20,7 @@ export async function GET(request: NextRequest, { params }: RouteParams) {
   try {
     const authUser = verifyApiToken(request);
     if (!authUser) return unauthorizedResponse();
+    const clinicId = authUser.clinicId;
 
     const { id } = await params;
 
@@ -34,7 +35,7 @@ export async function GET(request: NextRequest, { params }: RouteParams) {
 
     const manual = await db
       .collection<Manual>(COLLECTION)
-      .findOne({ _id: new ObjectId(id) });
+      .findOne({ _id: new ObjectId(id), clinicId });
 
     if (!manual) {
       return NextResponse.json(
@@ -69,6 +70,7 @@ export async function PATCH(request: NextRequest, { params }: RouteParams) {
   try {
     const authUser = verifyApiToken(request);
     if (!authUser) return unauthorizedResponse();
+    const clinicId = authUser.clinicId;
 
     const { id } = await params;
 
@@ -102,7 +104,7 @@ export async function PATCH(request: NextRequest, { params }: RouteParams) {
     if (order !== undefined) updateData.order = order;
 
     const result = await db.collection<Manual>(COLLECTION).findOneAndUpdate(
-      { _id: new ObjectId(id) },
+      { _id: new ObjectId(id), clinicId },
       { $set: updateData },
       { returnDocument: 'after' }
     );
@@ -132,6 +134,7 @@ export async function DELETE(request: NextRequest, { params }: RouteParams) {
   try {
     const authUser = verifyApiToken(request);
     if (!authUser) return unauthorizedResponse();
+    const clinicId = authUser.clinicId;
 
     const { id } = await params;
 
@@ -146,7 +149,7 @@ export async function DELETE(request: NextRequest, { params }: RouteParams) {
 
     const result = await db
       .collection(COLLECTION)
-      .deleteOne({ _id: new ObjectId(id) });
+      .deleteOne({ _id: new ObjectId(id), clinicId });
 
     if (result.deletedCount === 0) {
       return NextResponse.json(

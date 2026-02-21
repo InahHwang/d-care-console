@@ -32,6 +32,7 @@ export async function GET(request: NextRequest) {
   try {
     const authUser = verifyApiToken(request);
     if (!authUser) return unauthorizedResponse();
+    const clinicId = authUser.clinicId;
 
     const searchParams = request.nextUrl.searchParams;
     const page = parseInt(searchParams.get('page') || '1');
@@ -49,7 +50,7 @@ export async function GET(request: NextRequest) {
     const collection = db.collection('callLogs_v2');
 
     // 쿼리 빌드
-    const query: CallLogQuery = {};
+    const query: CallLogQuery = { clinicId } as CallLogQuery;
 
     if (direction) {
       query.direction = direction;
@@ -116,6 +117,7 @@ export async function GET(request: NextRequest) {
       collection.aggregate([
         {
           $match: {
+            clinicId,
             startedAt: {
               $gte: new Date(new Date().setHours(0, 0, 0, 0)),
             },
@@ -219,6 +221,7 @@ export async function PATCH(request: NextRequest) {
   try {
     const authUser = verifyApiToken(request);
     if (!authUser) return unauthorizedResponse();
+    const clinicId = authUser.clinicId;
 
     const body = await request.json();
     console.log('[CallLogs PATCH] 요청 body:', JSON.stringify(body, null, 2));
@@ -406,7 +409,7 @@ export async function PATCH(request: NextRequest) {
     }
 
     const result = await db.collection('callLogs_v2').updateOne(
-      { _id: new ObjectId(callLogId) },
+      { _id: new ObjectId(callLogId), clinicId },
       updateQuery
     );
 

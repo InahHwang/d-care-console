@@ -16,6 +16,7 @@ export async function GET(
   try {
     const authUser = verifyApiToken(request);
     if (!authUser) return unauthorizedResponse();
+    const clinicId = authUser.clinicId;
 
     const { id } = await params;
 
@@ -27,7 +28,7 @@ export async function GET(
 
     // 환자 정보와 통화 이력을 병렬로 조회
     const [patient, callLogs] = await Promise.all([
-      db.collection('patients_v2').findOne({ _id: new ObjectId(id) }),
+      db.collection('patients_v2').findOne({ _id: new ObjectId(id), clinicId }),
       db.collection('callLogs_v2')
         .find({ patientId: id })
         .sort({ startedAt: -1 })
@@ -126,6 +127,7 @@ export async function PATCH(
   try {
     const authUser = verifyApiToken(request);
     if (!authUser) return unauthorizedResponse();
+    const clinicId = authUser.clinicId;
 
     const { id } = await params;
 
@@ -156,7 +158,7 @@ export async function PATCH(
     const { db } = await connectToDatabase();
 
     // 현재 환자 정보 조회 (상태 변경 감지용)
-    const currentPatient = await db.collection('patients_v2').findOne({ _id: new ObjectId(id) });
+    const currentPatient = await db.collection('patients_v2').findOne({ _id: new ObjectId(id), clinicId });
 
     const updateData: Record<string, unknown> = {
       updatedAt: new Date(),
@@ -307,7 +309,7 @@ export async function PATCH(
     }
 
     const result = await db.collection('patients_v2').updateOne(
-      { _id: new ObjectId(id) },
+      { _id: new ObjectId(id), clinicId },
       updateQuery
     );
 
@@ -498,6 +500,7 @@ export async function DELETE(
   try {
     const authUser = verifyApiToken(request);
     if (!authUser) return unauthorizedResponse();
+    const clinicId = authUser.clinicId;
 
     const { id } = await params;
 
@@ -508,7 +511,7 @@ export async function DELETE(
     const { db } = await connectToDatabase();
 
     const result = await db.collection('patients_v2').deleteOne({
-      _id: new ObjectId(id),
+      _id: new ObjectId(id), clinicId,
     });
 
     if (result.deletedCount === 0) {

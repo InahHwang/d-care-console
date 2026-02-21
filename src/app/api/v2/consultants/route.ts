@@ -12,6 +12,7 @@ export async function GET(request: NextRequest) {
   try {
     const authUser = verifyApiToken(request);
     if (!authUser) return unauthorizedResponse();
+    const clinicId = authUser.clinicId;
 
     const { db } = await connectToDatabase();
     const usersCollection = db.collection('users');
@@ -19,7 +20,7 @@ export async function GET(request: NextRequest) {
     // 활성 사용자만 조회 (이름만 반환)
     const users = await usersCollection
       .find(
-        { isActive: { $ne: false } },
+        { clinicId, isActive: { $ne: false } },
         { projection: { name: 1, role: 1, department: 1 } }
       )
       .sort({ name: 1 })

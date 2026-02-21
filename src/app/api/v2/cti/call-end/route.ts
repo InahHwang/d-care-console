@@ -6,6 +6,8 @@ import { connectToDatabase } from '@/utils/mongodb';
 import { ObjectId } from 'mongodb';
 import Pusher from 'pusher';
 
+const CLINIC_ID = process.env.DEFAULT_CLINIC_ID || 'default';
+
 const pusher = new Pusher({
   appId: process.env.PUSHER_APP_ID!,
   key: process.env.PUSHER_KEY!,
@@ -55,6 +57,7 @@ export async function POST(request: NextRequest) {
       // 부재중: aiAnalysis에 분류 설정
       callLog = await db.collection('callLogs_v2').findOneAndUpdate(
         {
+          clinicId: CLINIC_ID,
           phone: formattedPhone,
           direction: 'inbound',
           createdAt: { $gte: fiveMinutesAgo },
@@ -86,6 +89,7 @@ export async function POST(request: NextRequest) {
       // 연결됨: 일반 업데이트
       callLog = await db.collection('callLogs_v2').findOneAndUpdate(
         {
+          clinicId: CLINIC_ID,
           phone: formattedPhone,
           direction: 'inbound',
           createdAt: { $gte: fiveMinutesAgo },

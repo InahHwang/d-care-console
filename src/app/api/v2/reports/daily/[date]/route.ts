@@ -62,6 +62,7 @@ export async function GET(
   try {
     const authUser = verifyApiToken(request);
     if (!authUser) return unauthorizedResponse();
+    const clinicId = authUser.clinicId;
 
     const selectedDate = params.date;
 
@@ -82,6 +83,7 @@ export async function GET(
     const endOfDay = `${selectedDate}T23:59:59.999Z`;
 
     const consultations = await db.collection<ConsultationV2>('consultations_v2').find({
+      clinicId,
       date: {
         $gte: new Date(startOfDay),
         $lte: new Date(endOfDay),
@@ -91,6 +93,7 @@ export async function GET(
     // 해당 날짜 통화 기록 조회 (상담 기록이 없는 경우 통화 기반으로)
     // createdAt이 Date 객체이므로 Date로 변환하여 비교
     const callLogs = await db.collection<CallLogV2>('callLogs_v2').find({
+      clinicId,
       createdAt: {
         $gte: new Date(startOfDay),
         $lte: new Date(endOfDay),
@@ -107,6 +110,7 @@ export async function GET(
 
     // 환자 정보 조회
     const patients = await db.collection<PatientV2>('patients_v2').find({
+      clinicId,
       _id: { $in: Array.from(patientIds).map((id) => new (require('mongodb').ObjectId)(id)) },
     }).toArray();
 
@@ -119,6 +123,7 @@ export async function GET(
           .aggregate([
             {
               $match: {
+                clinicId,
                 patientId: { $in: consultationPatientIdList },
                 date: { $lt: new Date(startOfDay) },
               },

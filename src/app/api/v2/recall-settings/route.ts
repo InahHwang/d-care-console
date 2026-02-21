@@ -29,11 +29,12 @@ export async function GET(request: NextRequest) {
   try {
     const authUser = verifyApiToken(request);
     if (!authUser) return unauthorizedResponse();
+    const clinicId = authUser.clinicId;
 
     const { db } = await connectToDatabase();
 
     const settings = await db.collection<RecallSetting>('recall_settings')
-      .find({})
+      .find({ clinicId })
       .sort({ treatment: 1 })
       .toArray();
 
@@ -61,6 +62,7 @@ export async function POST(request: NextRequest) {
   try {
     const authUser = verifyApiToken(request);
     if (!authUser) return unauthorizedResponse();
+    const clinicId = authUser.clinicId;
 
     const body = await request.json();
     const { treatment, schedules } = body;
@@ -76,7 +78,7 @@ export async function POST(request: NextRequest) {
     const now = new Date().toISOString();
 
     // 중복 치료 확인
-    const existing = await db.collection('recall_settings').findOne({ treatment });
+    const existing = await db.collection('recall_settings').findOne({ clinicId, treatment });
     if (existing) {
       return NextResponse.json(
         { success: false, error: '이미 등록된 치료 종류입니다' },
@@ -84,7 +86,8 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    const newSetting: RecallSetting = {
+    const newSetting: RecallSetting & { clinicId: string } = {
+      clinicId,
       treatment,
       schedules: schedules || [],
       createdAt: now,
@@ -114,6 +117,7 @@ export async function PUT(request: NextRequest) {
   try {
     const authUser = verifyApiToken(request);
     if (!authUser) return unauthorizedResponse();
+    const clinicId = authUser.clinicId;
 
     const body = await request.json();
     const validation = validateBody(updateRecallSettingsSchema, body);
@@ -131,7 +135,7 @@ export async function PUT(request: NextRequest) {
     if (schedules) updateData.schedules = schedules;
 
     const result = await db.collection('recall_settings').findOneAndUpdate(
-      { _id: new ObjectId(id) },
+      { _id: new ObjectId(id), clinicId },
       { $set: updateData },
       { returnDocument: 'after' }
     );
@@ -164,6 +168,7 @@ export async function DELETE(request: NextRequest) {
   try {
     const authUser = verifyApiToken(request);
     if (!authUser) return unauthorizedResponse();
+    const clinicId = authUser.clinicId;
 
     const { searchParams } = new URL(request.url);
     const id = searchParams.get('id');
@@ -179,6 +184,7 @@ export async function DELETE(request: NextRequest) {
 
     const result = await db.collection('recall_settings').deleteOne({
       _id: new ObjectId(id),
+      clinicId,
     });
 
     if (result.deletedCount === 0) {

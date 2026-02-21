@@ -14,6 +14,7 @@ export async function GET(request: NextRequest) {
   try {
     const authUser = verifyApiToken(request);
     if (!authUser) return unauthorizedResponse();
+    const clinicId = authUser.clinicId;
 
     const { searchParams } = new URL(request.url);
     const date = searchParams.get('date'); // YYYY-MM-DD
@@ -26,7 +27,7 @@ export async function GET(request: NextRequest) {
     const { db } = await connectToDatabase();
 
     // 1. callbacks_v2 컬렉션에서 조회
-    const callbackFilter: Record<string, unknown> = {};
+    const callbackFilter: Record<string, unknown> = { clinicId };
     if (date) {
       const startOfDay = new Date(`${date}T00:00:00.000Z`);
       const endOfDay = new Date(`${date}T23:59:59.999Z`);
@@ -57,6 +58,7 @@ export async function GET(request: NextRequest) {
 
     // 2. patients_v2의 nextActionDate에서 조회 (기존 데이터 호환)
     const patientFilter: Record<string, unknown> = {
+      clinicId,
       nextActionDate: { $exists: true, $ne: null }
     };
 
@@ -220,6 +222,7 @@ export async function POST(request: NextRequest) {
   try {
     const authUser = verifyApiToken(request);
     if (!authUser) return unauthorizedResponse();
+    const clinicId = authUser.clinicId;
 
     const body = await request.json();
     const validation = validateBody(createCallbackSchema, body);
@@ -230,6 +233,7 @@ export async function POST(request: NextRequest) {
     const now = new Date().toISOString();
 
     const newCallback = {
+      clinicId,
       patientId,
       type: type as CallbackType,
       scheduledAt: new Date(scheduledAt),
@@ -273,6 +277,7 @@ export async function PATCH(request: NextRequest) {
   try {
     const authUser = verifyApiToken(request);
     if (!authUser) return unauthorizedResponse();
+    const clinicId = authUser.clinicId;
 
     const body = await request.json();
     const validation = validateBody(updateCallbackSchema, body);
@@ -283,7 +288,7 @@ export async function PATCH(request: NextRequest) {
     const now = new Date().toISOString();
 
     // 1. 먼저 callbacks_v2에서 찾기
-    let result = await db.collection('callbacks_v2').findOne({ _id: new ObjectId(id) });
+    let result = await db.collection('callbacks_v2').findOne({ _id: new ObjectId(id), clinicId });
 
     if (result) {
       // callbacks_v2에 있는 경우 - 기존 로직
@@ -301,7 +306,7 @@ export async function PATCH(request: NextRequest) {
       }
 
       result = await db.collection('callbacks_v2').findOneAndUpdate(
-        { _id: new ObjectId(id) },
+        { _id: new ObjectId(id), clinicId },
         { $set: updateData },
         { returnDocument: 'after' }
       );
@@ -392,6 +397,7 @@ export async function DELETE(request: NextRequest) {
   try {
     const authUser = verifyApiToken(request);
     if (!authUser) return unauthorizedResponse();
+    const clinicId = authUser.clinicId;
 
     const { searchParams } = new URL(request.url);
     const id = searchParams.get('id');
@@ -406,7 +412,7 @@ export async function DELETE(request: NextRequest) {
     const { db } = await connectToDatabase();
 
     const result = await db.collection('callbacks_v2').deleteOne({
-      _id: new ObjectId(id),
+      _id: new ObjectId(id), clinicId,
     });
 
     if (result.deletedCount === 0) {

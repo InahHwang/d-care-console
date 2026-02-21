@@ -18,7 +18,7 @@ export async function GET(request: NextRequest) {
     if (!authUser) return unauthorizedResponse();
 
     const { db } = await connectToDatabase();
-    const clinicId = 'default';
+    const clinicId = authUser.clinicId;
 
     let categories = await db
       .collection<ManualCategory>(COLLECTION)
@@ -71,7 +71,7 @@ export async function POST(request: NextRequest) {
     const { name, order } = validation.data;
 
     const { db } = await connectToDatabase();
-    const clinicId = 'default';
+    const clinicId = authUser.clinicId;
     const now = new Date().toISOString();
 
     // 마지막 순서 조회
@@ -108,6 +108,7 @@ export async function PATCH(request: NextRequest) {
   try {
     const authUser = verifyApiToken(request);
     if (!authUser) return unauthorizedResponse();
+    const clinicId = authUser.clinicId;
 
     const body = await request.json();
     const validation = validateBody(updateManualCategorySchema, body);
@@ -123,7 +124,7 @@ export async function PATCH(request: NextRequest) {
     if (isActive !== undefined) updateData.isActive = isActive;
 
     const result = await db.collection<ManualCategory>(COLLECTION).findOneAndUpdate(
-      { _id: new ObjectId(id) },
+      { _id: new ObjectId(id), clinicId },
       { $set: updateData },
       { returnDocument: 'after' }
     );
@@ -153,6 +154,7 @@ export async function DELETE(request: NextRequest) {
   try {
     const authUser = verifyApiToken(request);
     if (!authUser) return unauthorizedResponse();
+    const clinicId = authUser.clinicId;
 
     const { searchParams } = new URL(request.url);
     const id = searchParams.get('id');
@@ -169,7 +171,7 @@ export async function DELETE(request: NextRequest) {
     // 해당 카테고리의 매뉴얼이 있는지 확인
     const manualsCount = await db
       .collection('manuals_v2')
-      .countDocuments({ categoryId: id });
+      .countDocuments({ categoryId: id, clinicId });
 
     if (manualsCount > 0) {
       return NextResponse.json(
@@ -180,7 +182,7 @@ export async function DELETE(request: NextRequest) {
 
     const result = await db
       .collection(COLLECTION)
-      .deleteOne({ _id: new ObjectId(id) });
+      .deleteOne({ _id: new ObjectId(id), clinicId });
 
     if (result.deletedCount === 0) {
       return NextResponse.json(

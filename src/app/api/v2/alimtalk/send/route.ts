@@ -26,6 +26,7 @@ export async function POST(request: NextRequest) {
   try {
     const authUser = verifyApiToken(request);
     if (!authUser) return unauthorizedResponse();
+    const clinicId = authUser.clinicId;
 
     const body: AlimtalkRequest = await request.json();
     const validation = validateBody(sendAlimtalkSchema, body);
@@ -46,6 +47,7 @@ export async function POST(request: NextRequest) {
 
     // 발송 로그 저장
     await db.collection('alimtalk_logs').insertOne({
+      clinicId,
       messageId,
       phone,
       message,
@@ -83,6 +85,7 @@ export async function GET(request: NextRequest) {
   try {
     const authUser = verifyApiToken(request);
     if (!authUser) return unauthorizedResponse();
+    const clinicId = authUser.clinicId;
 
     const { searchParams } = new URL(request.url);
     const phone = searchParams.get('phone');
@@ -90,7 +93,7 @@ export async function GET(request: NextRequest) {
 
     const { db } = await connectToDatabase();
 
-    const filter: Record<string, unknown> = {};
+    const filter: Record<string, unknown> = { clinicId };
     if (phone) {
       filter.phone = phone;
     }

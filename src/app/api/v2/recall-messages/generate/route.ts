@@ -32,6 +32,7 @@ export async function POST(request: NextRequest) {
   try {
     const authUser = verifyApiToken(request);
     if (!authUser) return unauthorizedResponse();
+    const clinicId = authUser.clinicId;
 
     const body = await request.json();
     const { patientId, treatment, completedDate } = body;
@@ -54,7 +55,8 @@ export async function POST(request: NextRequest) {
 
     // 1. 환자 정보 확인
     const patient = await db.collection('patients_v2').findOne({
-      _id: new ObjectId(patientId)
+      _id: new ObjectId(patientId),
+      clinicId,
     });
 
     if (!patient) {
@@ -66,6 +68,7 @@ export async function POST(request: NextRequest) {
 
     // 2. 해당 치료의 리콜 설정 조회
     const recallSetting = await db.collection<RecallSetting>('recall_settings').findOne({
+      clinicId,
       treatment: treatment
     });
 
@@ -107,6 +110,7 @@ export async function POST(request: NextRequest) {
         .replace(/\{이름\}/g, patient.name || '고객');
 
       return {
+        clinicId,
         patientId: patientId,
         treatment: treatment,
         timing: schedule.timing,
@@ -121,6 +125,7 @@ export async function POST(request: NextRequest) {
 
     // 6. 중복 체크 (같은 환자, 같은 치료, 같은 타이밍의 pending 메시지가 있는지)
     const existingMessages = await db.collection('recall_messages').find({
+      clinicId,
       patientId: patientId,
       treatment: treatment,
       status: 'pending',

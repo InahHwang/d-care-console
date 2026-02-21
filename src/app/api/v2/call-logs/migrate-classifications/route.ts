@@ -14,6 +14,7 @@ export async function POST(request: NextRequest) {
   try {
     const authUser = verifyApiToken(request);
     if (!authUser) return unauthorizedResponse();
+    const clinicId = authUser.clinicId;
 
     const { db } = await connectToDatabase();
     const collection = db.collection('callLogs_v2');
@@ -21,6 +22,7 @@ export async function POST(request: NextRequest) {
     // 신환, 구신환, 구환을 환자로 변경
     const patientResult = await collection.updateMany(
       {
+        clinicId,
         'aiAnalysis.classification': { $in: ['신환', '구신환', '구환'] }
       },
       {
@@ -35,6 +37,7 @@ export async function POST(request: NextRequest) {
     // 부재중 분류 제거 (분류 자체를 기타로 변경하고, duration으로 부재중 판단)
     const missedResult = await collection.updateMany(
       {
+        clinicId,
         'aiAnalysis.classification': '부재중'
       },
       {

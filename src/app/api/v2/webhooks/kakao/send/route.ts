@@ -15,6 +15,8 @@ import Pusher from 'pusher';
 
 export const dynamic = 'force-dynamic';
 
+const CLINIC_ID = process.env.DEFAULT_CLINIC_ID || 'default';
+
 // Pusher 클라이언트
 const pusher = new Pusher({
   appId: process.env.PUSHER_APP_ID!,
@@ -52,6 +54,7 @@ export async function POST(request: NextRequest) {
     // 대화방 조회
     const chat = await db.collection('channelChats_v2').findOne({
       _id: new ObjectId(chatId),
+      clinicId: CLINIC_ID,
     });
 
     if (!chat) {
@@ -93,6 +96,7 @@ export async function POST(request: NextRequest) {
 
     // 메시지 저장
     const message = {
+      clinicId: CLINIC_ID,
       chatId,
       direction: 'outgoing',
       messageType,

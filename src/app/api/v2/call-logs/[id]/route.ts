@@ -61,6 +61,7 @@ export async function GET(
   try {
     const authUser = verifyApiToken(request);
     if (!authUser) return unauthorizedResponse();
+    const clinicId = authUser.clinicId;
 
     const { id } = await params;
 
@@ -71,7 +72,7 @@ export async function GET(
     const { db } = await connectToDatabase();
 
     const callLog = await db.collection('callLogs_v2').findOne({
-      _id: new ObjectId(id),
+      _id: new ObjectId(id), clinicId,
     });
 
     if (!callLog) {
@@ -132,6 +133,7 @@ export async function PATCH(
   try {
     const authUser = verifyApiToken(request);
     if (!authUser) return unauthorizedResponse();
+    const clinicId = authUser.clinicId;
 
     const { id } = await params;
 
@@ -164,7 +166,7 @@ export async function PATCH(
     }
 
     const result = await db.collection('callLogs_v2').updateOne(
-      { _id: new ObjectId(id) },
+      { _id: new ObjectId(id), clinicId },
       { $set: updateFields }
     );
 

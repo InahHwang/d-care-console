@@ -24,7 +24,7 @@ export async function GET(request: NextRequest) {
     const limit = parseInt(searchParams.get('limit') || '50');
 
     const { db } = await connectToDatabase();
-    const clinicId = 'default';
+    const clinicId = authUser.clinicId;
 
     // 쿼리 빌드
     const query: Record<string, unknown> = { clinicId };
@@ -112,7 +112,7 @@ export async function POST(request: NextRequest) {
     const { categoryId, title, keywords, script, shortScript, order } = validation.data;
 
     const { db } = await connectToDatabase();
-    const clinicId = 'default';
+    const clinicId = authUser.clinicId;
     const now = new Date().toISOString();
 
     // 마지막 순서 조회

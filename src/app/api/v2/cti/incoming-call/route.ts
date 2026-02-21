@@ -7,6 +7,8 @@ import { ObjectId } from 'mongodb';
 import Pusher from 'pusher';
 import type { PatientV2, CallLogV2, Temperature } from '@/types/v2';
 
+const CLINIC_ID = process.env.DEFAULT_CLINIC_ID || 'default';
+
 // Pusher 서버 인스턴스
 const pusher = new Pusher({
   appId: process.env.PUSHER_APP_ID!,
@@ -42,6 +44,7 @@ async function findPatientV2(db: Awaited<ReturnType<typeof connectToDatabase>>['
   // 인덱스 활용을 위해 정확한 매칭 우선
   const patient = await db.collection<PatientV2>('patients_v2').findOne(
     {
+      clinicId: CLINIC_ID,
       $or: [
         { phone: formatted },
         { phone: normalized },
@@ -75,6 +78,7 @@ async function createPatientV2(
   const formattedPhone = formatPhone(phone);
 
   const newPatient: PatientV2 = {
+    clinicId: CLINIC_ID,
     name: `신규_${formattedPhone.slice(-4)}`,
     phone: formattedPhone,
     status: 'consulting',
@@ -101,6 +105,7 @@ async function createCallLogV2(
   const now = new Date().toISOString();
 
   const callLog: CallLogV2 = {
+    clinicId: CLINIC_ID,
     phone: formatPhone(callerNumber),
     patientId: patientId,
     direction: 'inbound',

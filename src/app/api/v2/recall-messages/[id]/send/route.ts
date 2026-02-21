@@ -14,6 +14,7 @@ export async function POST(
   try {
     const authUser = verifyApiToken(request);
     if (!authUser) return unauthorizedResponse();
+    const clinicId = authUser.clinicId;
 
     const { id } = await params;
 
@@ -30,6 +31,7 @@ export async function POST(
     // 메시지 조회
     const message = await db.collection('recall_messages').findOne({
       _id: new ObjectId(id),
+      clinicId,
     });
 
     if (!message) {
@@ -42,6 +44,7 @@ export async function POST(
     // 환자 정보 조회
     const patient = await db.collection('patients_v2').findOne({
       _id: new ObjectId(message.patientId),
+      clinicId,
     });
 
     if (!patient) {
@@ -68,7 +71,7 @@ export async function POST(
 
     // 메시지 상태 업데이트
     await db.collection('recall_messages').updateOne(
-      { _id: new ObjectId(id) },
+      { _id: new ObjectId(id), clinicId },
       {
         $set: {
           status: 'sent',

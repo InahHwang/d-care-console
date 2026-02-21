@@ -14,6 +14,7 @@ export async function POST(
   try {
     const authUser = verifyApiToken(request);
     if (!authUser) return unauthorizedResponse();
+    const clinicId = authUser.clinicId;
 
     const { id } = await params;
     const body = await request.json().catch(() => ({}));
@@ -42,7 +43,7 @@ export async function POST(
     }
 
     const resultDoc = await db.collection('recall_messages').findOneAndUpdate(
-      { _id: new ObjectId(id) },
+      { _id: new ObjectId(id), clinicId },
       { $set: updateData },
       { returnDocument: 'after' }
     );

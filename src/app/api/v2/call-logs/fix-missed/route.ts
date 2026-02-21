@@ -11,11 +11,13 @@ export async function POST(request: NextRequest) {
   try {
     const authUser = verifyApiToken(request);
     if (!authUser) return unauthorizedResponse();
+    const clinicId = authUser.clinicId;
 
     const { db } = await connectToDatabase();
 
     // duration=0인데 분류가 없거나 unknown인 통화 찾기 (수신/발신 모두)
     const missedCalls = await db.collection('callLogs_v2').find({
+      clinicId,
       duration: 0,
       $or: [
         { 'aiAnalysis.classification': 'unknown' },
@@ -39,6 +41,7 @@ export async function POST(request: NextRequest) {
     // 일괄 업데이트
     const result = await db.collection('callLogs_v2').updateMany(
       {
+        clinicId,
         duration: 0,
         $or: [
           { 'aiAnalysis.classification': 'unknown' },
@@ -87,17 +90,19 @@ export async function GET(request: NextRequest) {
   try {
     const authUser = verifyApiToken(request);
     if (!authUser) return unauthorizedResponse();
+    const clinicId = authUser.clinicId;
 
     const { db } = await connectToDatabase();
 
     // duration=0인 통화 통계
     const stats = await db.collection('callLogs_v2').aggregate([
-      { $match: { duration: 0 } },
+      { $match: { clinicId, duration: 0 } },
       { $group: { _id: '$aiAnalysis.classification', count: { $sum: 1 } } }
     ]).toArray();
 
     // duration=0인데 분류가 없거나 unknown인 통화 수
     const needsFix = await db.collection('callLogs_v2').countDocuments({
+      clinicId,
       duration: 0,
       $or: [
         { 'aiAnalysis.classification': 'unknown' },

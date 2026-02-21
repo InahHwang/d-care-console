@@ -307,7 +307,7 @@ export async function POST(request: NextRequest) {
     if (!authUser) return unauthorizedResponse();
 
     const { db } = await connectToDatabase();
-    const clinicId = 'default';
+    const clinicId = authUser.clinicId;
     const now = new Date().toISOString();
 
     // 1. 카테고리 확인/생성
@@ -399,7 +399,7 @@ export async function DELETE(request: NextRequest) {
     if (!authUser) return unauthorizedResponse();
 
     const { db } = await connectToDatabase();
-    const clinicId = 'default';
+    const clinicId = authUser.clinicId;
 
     const result = await db
       .collection(MANUALS_COLLECTION)

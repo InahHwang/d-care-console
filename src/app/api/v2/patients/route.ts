@@ -83,6 +83,7 @@ export async function GET(request: NextRequest) {
   try {
     const authUser = verifyApiToken(request);
     if (!authUser) return unauthorizedResponse();
+    const clinicId = authUser.clinicId;
 
     const searchParams = request.nextUrl.searchParams;
     const page = parseInt(searchParams.get('page') || '1');
@@ -102,7 +103,7 @@ export async function GET(request: NextRequest) {
     const collection = db.collection('patients_v2');
 
     // 쿼리 빌드
-    const query: PatientQuery = {};
+    const query: PatientQuery = { clinicId } as PatientQuery;
 
     if (status) {
       // 특정 상태 필터링 (closed 포함)
@@ -254,6 +255,7 @@ export async function GET(request: NextRequest) {
 
     // 기간 필터가 적용된 환자들의 긴급 통계 계산 (종결 환자 제외)
     const periodQuery: Record<string, unknown> = {
+      clinicId,
       status: { $ne: 'closed' }
     };
     const periodStartDate = getPeriodStartDate(period);
@@ -416,6 +418,7 @@ export async function POST(request: NextRequest) {
   try {
     const authUser = verifyApiToken(request);
     if (!authUser) return unauthorizedResponse();
+    const clinicId = authUser.clinicId;
 
     const body = await request.json();
     const validation = validateBody(createPatientSchema, body);
@@ -426,7 +429,7 @@ export async function POST(request: NextRequest) {
     const collection = db.collection('patients_v2');
 
     // 중복 체크
-    const existing = await collection.findOne({ phone });
+    const existing = await collection.findOne({ phone, clinicId });
     if (existing) {
       return NextResponse.json(
         { error: 'Patient with this phone number already exists', patientId: existing._id.toString() },
@@ -458,6 +461,7 @@ export async function POST(request: NextRequest) {
     };
 
     const newPatient: Record<string, unknown> = {
+      clinicId,
       name,
       phone,
       status: 'consulting' as PatientStatus,
@@ -500,7 +504,7 @@ export async function POST(request: NextRequest) {
     // 같은 전화번호의 모든 통화기록에 patientId 연결
     try {
       const callLogUpdateResult = await db.collection('callLogs_v2').updateMany(
-        { phone: phone },
+        { phone: phone, clinicId },
         { $set: { patientId: patientId } }
       );
       console.log(`[Patient POST] 통화기록 patientId 연결: ${callLogUpdateResult.modifiedCount}건 (전화번호: ${phone}, patientId: ${patientId})`);

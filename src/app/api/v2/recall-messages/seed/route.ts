@@ -49,6 +49,7 @@ export async function POST(request: NextRequest) {
   try {
     const authUser = verifyApiToken(request);
     if (!authUser) return unauthorizedResponse();
+    const clinicId = authUser.clinicId;
     const { db } = await connectToDatabase();
     const now = new Date();
 
@@ -57,11 +58,12 @@ export async function POST(request: NextRequest) {
 
     for (const patient of TEST_PATIENTS) {
       // 기존 환자 확인
-      let existingPatient = await db.collection('patients_v2').findOne({ phone: patient.phone });
+      let existingPatient = await db.collection('patients_v2').findOne({ clinicId, phone: patient.phone });
 
       if (!existingPatient) {
         // 새 환자 생성
         const result = await db.collection('patients_v2').insertOne({
+          clinicId,
           name: patient.name,
           phone: patient.phone,
           status: 'completed',
@@ -80,10 +82,11 @@ export async function POST(request: NextRequest) {
 
     // 2. 리콜 설정 생성
     for (const setting of TEST_RECALL_SETTINGS) {
-      const existing = await db.collection('recall_settings').findOne({ treatment: setting.treatment });
+      const existing = await db.collection('recall_settings').findOne({ clinicId, treatment: setting.treatment });
 
       if (!existing) {
         await db.collection('recall_settings').insertOne({
+          clinicId,
           treatment: setting.treatment,
           schedules: setting.schedules,
           createdAt: now.toISOString(),
@@ -109,6 +112,7 @@ export async function POST(request: NextRequest) {
     pendingDate2.setHours(10, 0, 0, 0);
 
     recallMessages.push({
+      clinicId,
       patientId: patientIds[0],
       treatment: '임플란트',
       timing: '1주 후',
@@ -121,6 +125,7 @@ export async function POST(request: NextRequest) {
     });
 
     recallMessages.push({
+      clinicId,
       patientId: patientIds[1],
       treatment: '교정',
       timing: '1개월 후',
@@ -140,6 +145,7 @@ export async function POST(request: NextRequest) {
     sentDate2.setDate(sentDate2.getDate() - 2);
 
     recallMessages.push({
+      clinicId,
       patientId: patientIds[2],
       treatment: '스케일링',
       timing: '6개월 후',
@@ -160,6 +166,7 @@ export async function POST(request: NextRequest) {
     bookedDate.setDate(bookedDate.getDate() - 1);
 
     recallMessages.push({
+      clinicId,
       patientId: patientIds[3],
       treatment: '임플란트',
       timing: '1개월 후',
@@ -178,6 +185,7 @@ export async function POST(request: NextRequest) {
     callNeededSentDate.setDate(callNeededSentDate.getDate() - 5);
 
     recallMessages.push({
+      clinicId,
       patientId: patientIds[4],
       treatment: '스케일링',
       timing: '6개월 후',
@@ -200,6 +208,7 @@ export async function POST(request: NextRequest) {
     futureDate2.setHours(10, 0, 0, 0);
 
     recallMessages.push({
+      clinicId,
       patientId: patientIds[0],
       treatment: '임플란트',
       timing: '1개월 후',
@@ -212,6 +221,7 @@ export async function POST(request: NextRequest) {
     });
 
     recallMessages.push({
+      clinicId,
       patientId: patientIds[0],
       treatment: '임플란트',
       timing: '6개월 후',
@@ -266,29 +276,33 @@ export async function DELETE(request: NextRequest) {
   try {
     const authUser = verifyApiToken(request);
     if (!authUser) return unauthorizedResponse();
+    const clinicId = authUser.clinicId;
     const { db } = await connectToDatabase();
 
     // 테스트 환자의 전화번호로 찾기
     const testPhones = TEST_PATIENTS.map(p => p.phone);
 
     const testPatients = await db.collection('patients_v2')
-      .find({ phone: { $in: testPhones } })
+      .find({ clinicId, phone: { $in: testPhones } })
       .toArray();
 
     const testPatientIds = testPatients.map(p => p._id.toString());
 
     // 리콜 메시지 삭제
     const recallResult = await db.collection('recall_messages').deleteMany({
+      clinicId,
       patientId: { $in: testPatientIds }
     });
 
     // 리콜 설정 삭제
     const settingsResult = await db.collection('recall_settings').deleteMany({
+      clinicId,
       treatment: { $in: TEST_RECALL_SETTINGS.map(s => s.treatment) }
     });
 
     // 테스트 환자 삭제 (source: 'test'인 것만)
     const patientsResult = await db.collection('patients_v2').deleteMany({
+      clinicId,
       phone: { $in: testPhones },
       source: 'test'
     });

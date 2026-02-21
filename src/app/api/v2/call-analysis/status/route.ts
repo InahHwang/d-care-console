@@ -6,6 +6,8 @@ import { connectToDatabase } from '@/utils/mongodb';
 import { ObjectId } from 'mongodb';
 import { waitUntil } from '@vercel/functions';
 
+const CLINIC_ID = process.env.DEFAULT_CLINIC_ID || 'default';
+
 export async function GET(request: NextRequest) {
   try {
     const { searchParams } = new URL(request.url);
@@ -25,7 +27,7 @@ export async function GET(request: NextRequest) {
       }).filter(Boolean) as ObjectId[];
 
       const callLogs = await db.collection('callLogs_v2').find(
-        { _id: { $in: objectIds } },
+        { _id: { $in: objectIds }, clinicId: CLINIC_ID },
         {
           projection: {
             _id: 1,
@@ -52,6 +54,7 @@ export async function GET(request: NextRequest) {
 
     const recentUpdates = await db.collection('callLogs_v2').find(
       {
+        clinicId: CLINIC_ID,
         aiStatus: { $in: ['processing', 'completed'] },
         updatedAt: { $gte: sinceTime },
       },
@@ -73,7 +76,7 @@ export async function GET(request: NextRequest) {
 
     // 현재 분석 중인 항목들
     const analyzing = await db.collection('callLogs_v2').find(
-      { aiStatus: 'processing' },
+      { clinicId: CLINIC_ID, aiStatus: 'processing' },
       {
         projection: {
           _id: 1,
@@ -135,14 +138,14 @@ export async function POST(request: NextRequest) {
     if (action === 'debug') {
       // 최근 통화기록 확인
       const recentCallLogs = await db.collection('callLogs_v2')
-        .find({})
+        .find({ clinicId: CLINIC_ID })
         .sort({ createdAt: -1 })
         .limit(5)
         .toArray();
 
       // 최근 녹음 데이터 확인
       const recentRecordings = await db.collection('callRecordings_v2')
-        .find({})
+        .find({ clinicId: CLINIC_ID })
         .sort({ createdAt: -1 })
         .limit(5)
         .toArray();
@@ -175,10 +178,12 @@ export async function POST(request: NextRequest) {
     if (action === 'check-recording' && callLogId) {
       const callLog = await db.collection('callLogs_v2').findOne({
         _id: new ObjectId(callLogId),
+        clinicId: CLINIC_ID,
       });
 
       const recording = await db.collection('callRecordings_v2').findOne({
         callLogId: callLogId,
+        clinicId: CLINIC_ID,
       });
 
       return NextResponse.json({
@@ -215,6 +220,7 @@ export async function POST(request: NextRequest) {
       // 통화기록 확인
       const callLog = await db.collection('callLogs_v2').findOne({
         _id: new ObjectId(callLogId),
+        clinicId: CLINIC_ID,
       });
 
       if (!callLog) {
@@ -227,6 +233,7 @@ export async function POST(request: NextRequest) {
       // 녹음 데이터 확인
       const recording = await db.collection('callRecordings_v2').findOne({
         callLogId: callLogId,
+        clinicId: CLINIC_ID,
       });
 
       if (!recording?.recordingBase64) {

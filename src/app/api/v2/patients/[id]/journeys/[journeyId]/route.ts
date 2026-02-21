@@ -18,6 +18,7 @@ export async function GET(
   try {
     const authUser = verifyApiToken(request);
     if (!authUser) return unauthorizedResponse();
+    const clinicId = authUser.clinicId;
 
     const { id, journeyId } = await params;
 
@@ -28,7 +29,7 @@ export async function GET(
     const { db } = await connectToDatabase();
 
     const patient = await db.collection('patients_v2').findOne(
-      { _id: new ObjectId(id) },
+      { _id: new ObjectId(id), clinicId },
       { projection: { journeys: 1, activeJourneyId: 1 } }
     );
 
@@ -63,6 +64,7 @@ export async function PATCH(
   try {
     const authUser = verifyApiToken(request);
     if (!authUser) return unauthorizedResponse();
+    const clinicId = authUser.clinicId;
 
     const { id, journeyId } = await params;
 
@@ -90,7 +92,7 @@ export async function PATCH(
 
     // 현재 환자 정보 조회
     const patient = await db.collection('patients_v2').findOne({
-      _id: new ObjectId(id),
+      _id: new ObjectId(id), clinicId,
     });
 
     if (!patient) {
@@ -232,6 +234,7 @@ export async function DELETE(
   try {
     const authUser = verifyApiToken(request);
     if (!authUser) return unauthorizedResponse();
+    const clinicId = authUser.clinicId;
 
     const { id, journeyId } = await params;
 
@@ -243,7 +246,7 @@ export async function DELETE(
 
     // 현재 환자 정보 조회
     const patient = await db.collection('patients_v2').findOne({
-      _id: new ObjectId(id),
+      _id: new ObjectId(id), clinicId,
     });
 
     if (!patient) {

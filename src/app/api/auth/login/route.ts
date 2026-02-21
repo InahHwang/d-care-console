@@ -79,12 +79,13 @@ export async function POST(request: NextRequest) {
     
     // JWT 토큰 생성
     const token = jwt.sign(
-      { 
+      {
         id: user.id || user._id,
         username: (user as any).username,
         email: (user as any).email,
         name: (user as any).name || (user as any).username,
-        role: (user as any).role || 'staff'
+        role: (user as any).role || 'staff',
+        clinicId: (user as any).clinicId || 'default',
       },
       JWT_SECRET,
       { expiresIn: '1d' }
@@ -97,7 +98,8 @@ export async function POST(request: NextRequest) {
       email: (user as any).email,
       name: (user as any).name || (user as any).username,
       role: (user as any).role || 'staff',
-      isActive: (user as any).isActive
+      isActive: (user as any).isActive,
+      clinicId: (user as any).clinicId || 'default',
     };
 
     // 클라이언트 정보 추출 (활동 로그용)
