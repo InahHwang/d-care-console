@@ -455,10 +455,7 @@ export async function PATCH(request: NextRequest) {
     console.error('[CallLogs PATCH] 오류 발생:', error);
     console.error('[CallLogs PATCH] 오류 스택:', error instanceof Error ? error.stack : 'N/A');
     return NextResponse.json(
-      {
-        error: 'Failed to update call log',
-        details: error instanceof Error ? error.message : 'Unknown error'
-      },
+      { error: 'Failed to update call log' },
       { status: 500 }
     );
   }

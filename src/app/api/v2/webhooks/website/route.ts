@@ -8,12 +8,21 @@ import Pusher from 'pusher';
 
 export const dynamic = 'force-dynamic';
 
-// CORS 헤더
-const corsHeaders = {
-  'Access-Control-Allow-Origin': '*',
-  'Access-Control-Allow-Methods': 'GET, POST, OPTIONS',
-  'Access-Control-Allow-Headers': 'Content-Type',
-};
+// 허용된 Origin 목록 (환경변수에서 로드)
+const ALLOWED_ORIGINS = (process.env.ALLOWED_ORIGINS || 'http://localhost:3000')
+  .split(',')
+  .map(o => o.trim());
+
+function getCorsHeaders(origin?: string | null): Record<string, string> {
+  const allowedOrigin = origin && ALLOWED_ORIGINS.includes(origin)
+    ? origin
+    : ALLOWED_ORIGINS[0];
+  return {
+    'Access-Control-Allow-Origin': allowedOrigin,
+    'Access-Control-Allow-Methods': 'GET, POST, OPTIONS',
+    'Access-Control-Allow-Headers': 'Content-Type',
+  };
+}
 
 // Pusher 클라이언트 (서버사이드)
 const pusher = new Pusher({
@@ -25,17 +34,20 @@ const pusher = new Pusher({
 });
 
 // CORS Preflight 처리
-export async function OPTIONS() {
+export async function OPTIONS(request: NextRequest) {
+  const corsHeaders = getCorsHeaders(request.headers.get('origin'));
   return new NextResponse(null, { status: 200, headers: corsHeaders });
 }
 
 // 상태 확인
-export async function GET() {
+export async function GET(request: NextRequest) {
+  const corsHeaders = getCorsHeaders(request.headers.get('origin'));
   return NextResponse.json({ status: 'ok', channel: 'website' }, { headers: corsHeaders });
 }
 
 // 홈페이지 웹훅 처리
 export async function POST(request: NextRequest) {
+  const corsHeaders = getCorsHeaders(request.headers.get('origin'));
   try {
     const body = await request.json();
     console.log('[홈페이지 웹훅] 수신:', JSON.stringify(body, null, 2));

@@ -47,11 +47,10 @@ export async function POST(request: NextRequest) {
   } catch (error) {
     console.error('마이그레이션 오류:', error);
     return NextResponse.json(
-      { 
-        success: false, 
-        error: '마이그레이션 중 오류가 발생했습니다.',
-        details: error instanceof Error ? error.message : '알 수 없는 오류'
-      }, 
+      {
+        success: false,
+        error: '마이그레이션 중 오류가 발생했습니다.'
+      },
       { status: 500 }
     );
   }

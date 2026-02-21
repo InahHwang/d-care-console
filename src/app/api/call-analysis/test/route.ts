@@ -7,6 +7,9 @@ import { ObjectId } from 'mongodb';
 
 // POST - 테스트용 transcript 입력 및 분석 트리거
 export async function POST(request: NextRequest) {
+  if (process.env.NODE_ENV === 'production') {
+    return NextResponse.json({ error: 'Not available in production' }, { status: 403 });
+  }
   try {
     const body = await request.json();
     const { analysisId, transcript, callLogId } = body;

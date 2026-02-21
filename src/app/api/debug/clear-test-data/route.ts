@@ -81,9 +81,8 @@ export async function DELETE(request: NextRequest) {
   } catch (error) {
     console.error('❌ 데이터 삭제 오류:', error);
     return NextResponse.json(
-      { 
-        error: '데이터 삭제 중 오류가 발생했습니다.',
-        details: error instanceof Error ? error.message : '알 수 없는 오류'
+      {
+        error: '데이터 삭제 중 오류가 발생했습니다.'
       },
       { status: 500 }
     );

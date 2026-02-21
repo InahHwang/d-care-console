@@ -312,7 +312,6 @@ export async function POST(request: NextRequest) {
       {
         success: false,
         error: 'CTI 이벤트 처리 중 오류가 발생했습니다.',
-        details: error instanceof Error ? error.message : '알 수 없는 오류',
       },
       { status: 500 },
     );

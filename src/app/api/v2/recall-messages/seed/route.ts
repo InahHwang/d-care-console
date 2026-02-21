@@ -43,6 +43,9 @@ const TEST_RECALL_SETTINGS = [
 ];
 
 export async function POST(request: NextRequest) {
+  if (process.env.NODE_ENV === 'production') {
+    return NextResponse.json({ error: 'Not available in production' }, { status: 403 });
+  }
   try {
     const authUser = verifyApiToken(request);
     if (!authUser) return unauthorizedResponse();
@@ -257,6 +260,9 @@ export async function POST(request: NextRequest) {
 
 // 테스트 데이터 삭제
 export async function DELETE(request: NextRequest) {
+  if (process.env.NODE_ENV === 'production') {
+    return NextResponse.json({ error: 'Not available in production' }, { status: 403 });
+  }
   try {
     const authUser = verifyApiToken(request);
     if (!authUser) return unauthorizedResponse();

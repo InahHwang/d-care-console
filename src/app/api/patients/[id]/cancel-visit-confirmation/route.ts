@@ -248,10 +248,8 @@ export async function PUT(
     console.error('💥 내원확정 취소 API 전체 오류:', error);
     console.error('💥 오류 스택:', error instanceof Error ? error.stack : 'No stack trace');
     
-    return NextResponse.json({ 
-      error: "내원확정 취소 처리 중 오류가 발생했습니다.",
-      details: error instanceof Error ? error.message : '알 수 없는 오류',
-      timestamp: new Date().toISOString()
+    return NextResponse.json({
+      error: "내원확정 취소 처리 중 오류가 발생했습니다."
     }, { status: 500 });
   }
 }

@@ -156,6 +156,9 @@ function getNextActionInfo(status: PatientStatus, forceScenario?: 'today' | 'nos
 }
 
 export async function POST(request: NextRequest) {
+  if (process.env.NODE_ENV === 'production') {
+    return NextResponse.json({ error: 'Not available in production' }, { status: 403 });
+  }
   try {
     const { db } = await connectToDatabase();
     const now = new Date();
@@ -529,6 +532,9 @@ export async function POST(request: NextRequest) {
 
 // GET - 현재 v2 데이터 상태 확인
 export async function GET() {
+  if (process.env.NODE_ENV === 'production') {
+    return NextResponse.json({ error: 'Not available in production' }, { status: 403 });
+  }
   try {
     const { db } = await connectToDatabase();
 

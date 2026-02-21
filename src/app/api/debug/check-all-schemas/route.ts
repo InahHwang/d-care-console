@@ -1,7 +1,11 @@
 // src/app/api/debug/check-all-schemas/route.ts
+import { NextResponse } from 'next/server';
 import connectDB from '@/utils/mongodb';
 
 export async function GET() {
+  if (process.env.NODE_ENV === 'production') {
+    return NextResponse.json({ error: 'Not available in production' }, { status: 403 });
+  }
   try {
     const client = await connectDB;
     const db = client.db(); // 또는 client.db('your-database-name')

@@ -3,6 +3,9 @@ import { NextResponse } from 'next/server';
 import { connectToDatabase } from '@/utils/mongodb';
 
 export async function GET() {
+  if (process.env.NODE_ENV === 'production') {
+    return NextResponse.json({ error: 'Not available in production' }, { status: 403 });
+  }
   try {
     console.log('테스트 API 호출: MongoDB 연결 시도...');
     const { db } = await connectToDatabase();

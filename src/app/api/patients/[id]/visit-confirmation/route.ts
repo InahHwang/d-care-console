@@ -327,10 +327,8 @@ export async function PUT(
       console.warn('예외 로그 기록 실패:', logError);
     }
     
-    return NextResponse.json({ 
-      error: "내원확정 처리 중 오류가 발생했습니다.",
-      details: error instanceof Error ? error.message : '알 수 없는 오류',
-      timestamp: new Date().toISOString()
+    return NextResponse.json({
+      error: "내원확정 처리 중 오류가 발생했습니다."
     }, { status: 500 });
   }
 }

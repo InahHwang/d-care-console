@@ -989,9 +989,8 @@ export async function GET(request: NextRequest) {
   } catch (error) {
     console.error('[API] 환자 상태별 필터링 오류:', error);
     return NextResponse.json(
-      { 
-        error: '서버 오류가 발생했습니다.',
-        details: error instanceof Error ? error.message : '알 수 없는 오류'
+      {
+        error: '서버 오류가 발생했습니다.'
       },
       { status: 500 }
     );

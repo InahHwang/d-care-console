@@ -134,9 +134,8 @@ export async function PUT(
     
   } catch (error) {
     console.error('내원 후 상태 초기화 실패:', error);
-    return NextResponse.json({ 
-      error: '내원 후 상태 초기화에 실패했습니다.',
-      details: error instanceof Error ? error.message : '알 수 없는 오류'
+    return NextResponse.json({
+      error: '내원 후 상태 초기화에 실패했습니다.'
     }, { status: 500 });
   }
 }

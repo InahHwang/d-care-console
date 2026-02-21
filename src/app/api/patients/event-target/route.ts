@@ -78,10 +78,9 @@ export async function PUT(
   } catch (error) {
     console.error('이벤트 타겟 정보 업데이트 오류:', error);
     return NextResponse.json(
-      { 
-        error: '이벤트 타겟 정보 업데이트 중 오류가 발생했습니다.',
-        details: error instanceof Error ? error.message : 'Unknown error'
-      }, 
+      {
+        error: '이벤트 타겟 정보 업데이트 중 오류가 발생했습니다.'
+      },
       { status: 500 }
     );
   }
@@ -144,10 +143,9 @@ export async function GET(
   } catch (error) {
     console.error('환자 이벤트 타겟 정보 조회 오류:', error);
     return NextResponse.json(
-      { 
-        error: '환자 이벤트 타겟 정보 조회 중 오류가 발생했습니다.',
-        details: error instanceof Error ? error.message : 'Unknown error'
-      }, 
+      {
+        error: '환자 이벤트 타겟 정보 조회 중 오류가 발생했습니다.'
+      },
       { status: 500 }
     );
   }

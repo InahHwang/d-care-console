@@ -72,6 +72,9 @@ function mapCallbackHistory(callbackHistory?: any[]): any[] {
 
 // GET: 마이그레이션 미리보기
 export async function GET() {
+  if (process.env.NODE_ENV === 'production') {
+    return NextResponse.json({ error: 'Not available in production' }, { status: 403 });
+  }
   try {
     const { db } = await connectToDatabase();
     const v1Collection = db.collection('patients');
@@ -160,6 +163,9 @@ export async function GET() {
 
 // PUT: 백업 생성 (마이그레이션 전 실행 권장)
 export async function PUT() {
+  if (process.env.NODE_ENV === 'production') {
+    return NextResponse.json({ error: 'Not available in production' }, { status: 403 });
+  }
   try {
     const { db } = await connectToDatabase();
     const timestamp = new Date().toISOString().replace(/[:.]/g, '-').slice(0, 19);
@@ -215,6 +221,9 @@ export async function PUT() {
 
 // POST: 마이그레이션 실행
 export async function POST(request: NextRequest) {
+  if (process.env.NODE_ENV === 'production') {
+    return NextResponse.json({ error: 'Not available in production' }, { status: 403 });
+  }
   try {
     const { db } = await connectToDatabase();
     const v1Collection = db.collection('patients');
@@ -369,6 +378,9 @@ export async function POST(request: NextRequest) {
 
 // DELETE: 내원 환자 날짜 수정 (nextActionDate를 올바른 값으로 업데이트)
 export async function DELETE() {
+  if (process.env.NODE_ENV === 'production') {
+    return NextResponse.json({ error: 'Not available in production' }, { status: 403 });
+  }
   try {
     const { db } = await connectToDatabase();
     const v1Collection = db.collection('patients');
@@ -482,6 +494,9 @@ export async function DELETE() {
 
 // PATCH: 내원 상담 내용 마이그레이션 (V1 → V2 수동 상담 이력)
 export async function PATCH() {
+  if (process.env.NODE_ENV === 'production') {
+    return NextResponse.json({ error: 'Not available in production' }, { status: 403 });
+  }
   try {
     const { db } = await connectToDatabase();
     const v1Collection = db.collection('patients');

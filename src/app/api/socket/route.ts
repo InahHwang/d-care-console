@@ -141,9 +141,8 @@ export async function GET(req: NextRequest) {
 
   } catch (error) {
     console.error('Socket.IO 서버 시작 오류:', error);
-    return NextResponse.json({ 
-      error: 'Failed to start Socket.IO server',
-      details: error instanceof Error ? error.message : 'Unknown error'
+    return NextResponse.json({
+      error: 'Failed to start Socket.IO server'
     }, { status: 500 });
   }
 }
@@ -170,9 +169,8 @@ export async function DELETE() {
     });
   } catch (error) {
     console.error('Socket.IO 서버 종료 오류:', error);
-    return NextResponse.json({ 
-      error: 'Failed to stop Socket.IO server',
-      details: error instanceof Error ? error.message : 'Unknown error'
+    return NextResponse.json({
+      error: 'Failed to stop Socket.IO server'
     }, { status: 500 });
   }
 }

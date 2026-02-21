@@ -299,6 +299,9 @@ const DEFAULT_MANUALS = [
 ];
 
 export async function POST(request: NextRequest) {
+  if (process.env.NODE_ENV === 'production') {
+    return NextResponse.json({ error: 'Not available in production' }, { status: 403 });
+  }
   try {
     const authUser = verifyApiToken(request);
     if (!authUser) return unauthorizedResponse();
@@ -388,6 +391,9 @@ export async function POST(request: NextRequest) {
 
 // 시드 데이터 삭제 (개발용)
 export async function DELETE(request: NextRequest) {
+  if (process.env.NODE_ENV === 'production') {
+    return NextResponse.json({ error: 'Not available in production' }, { status: 403 });
+  }
   try {
     const authUser = verifyApiToken(request);
     if (!authUser) return unauthorizedResponse();

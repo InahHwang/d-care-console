@@ -8,6 +8,9 @@ import { verifyApiToken, unauthorizedResponse } from '@/utils/apiAuth';
 export const dynamic = 'force-dynamic';
 
 export async function POST(request: NextRequest) {
+  if (process.env.NODE_ENV === 'production') {
+    return NextResponse.json({ error: 'Not available in production' }, { status: 403 });
+  }
   try {
     const authUser = verifyApiToken(request);
     if (!authUser) return unauthorizedResponse();
@@ -54,7 +57,7 @@ export async function POST(request: NextRequest) {
   } catch (error) {
     console.error('마이그레이션 오류:', error);
     return NextResponse.json(
-      { error: '마이그레이션 실패', details: error instanceof Error ? error.message : 'Unknown error' },
+      { error: '마이그레이션 실패' },
       { status: 500 }
     );
   }

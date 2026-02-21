@@ -308,9 +308,8 @@ export async function PUT(
       console.warn('예외 로그 기록 실패:', logError);
     }
     
-    return NextResponse.json({ 
-      error: '콜백 업데이트에 실패했습니다.',
-      details: error instanceof Error ? error.message : '알 수 없는 오류'
+    return NextResponse.json({
+      error: '콜백 업데이트에 실패했습니다.'
     }, { status: 500 });
   }
 }
@@ -504,9 +503,8 @@ export async function DELETE(
       console.warn('예외 로그 기록 실패:', logError);
     }
     
-    return NextResponse.json({ 
-      error: '콜백 삭제에 실패했습니다.',
-      details: error instanceof Error ? error.message : '알 수 없는 오류'
+    return NextResponse.json({
+      error: '콜백 삭제에 실패했습니다.'
     }, { status: 500 });
   }
 }
@@ -553,9 +551,8 @@ export async function GET(
     
   } catch (error) {
     console.error('💥 콜백 조회 실패:', error);
-    return NextResponse.json({ 
-      error: '콜백 조회에 실패했습니다.',
-      details: error instanceof Error ? error.message : '알 수 없는 오류'
+    return NextResponse.json({
+      error: '콜백 조회에 실패했습니다.'
     }, { status: 500 });
   }
 }

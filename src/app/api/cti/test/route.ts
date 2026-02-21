@@ -15,6 +15,9 @@ const TEST_PHONE_NUMBERS = [
 
 // GET: 테스트 이벤트 발생
 export async function GET(request: NextRequest) {
+  if (process.env.NODE_ENV === 'production') {
+    return NextResponse.json({ error: 'Not available in production' }, { status: 403 });
+  }
   const searchParams = request.nextUrl.searchParams;
   const callerNumber = searchParams.get('caller') ||
     TEST_PHONE_NUMBERS[Math.floor(Math.random() * TEST_PHONE_NUMBERS.length)];
@@ -49,6 +52,9 @@ export async function GET(request: NextRequest) {
 
 // POST: 커스텀 테스트 이벤트
 export async function POST(request: NextRequest) {
+  if (process.env.NODE_ENV === 'production') {
+    return NextResponse.json({ error: 'Not available in production' }, { status: 403 });
+  }
   try {
     const body = await request.json();
     const {

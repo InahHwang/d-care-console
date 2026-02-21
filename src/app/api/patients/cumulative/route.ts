@@ -34,10 +34,9 @@ export async function GET(request: NextRequest) {
     console.error('전체 누적 환자 데이터 조회 오류:', error);
     
     return NextResponse.json(
-      { 
+      {
         success: false,
-        error: '전체 누적 환자 데이터를 불러오는데 실패했습니다.',
-        details: error instanceof Error ? error.message : '알 수 없는 오류'
+        error: '전체 누적 환자 데이터를 불러오는데 실패했습니다.'
       },
       { status: 500 }
     );

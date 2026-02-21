@@ -377,13 +377,12 @@ export async function POST(request: NextRequest) {
       } else if (error.message.includes('connection')) {
         errorMessage = '데이터베이스 연결에 실패했습니다.';
       } else {
-        errorMessage = `서버 오류: ${error.message}`;
+        errorMessage = '서버 오류가 발생했습니다.';
       }
     }
-    
-    return NextResponse.json({ 
-      error: errorMessage,
-      details: error instanceof Error ? error.message : '알 수 없는 오류'
+
+    return NextResponse.json({
+      error: errorMessage
     }, { status: 500 });
   }
 }

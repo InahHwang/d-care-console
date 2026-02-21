@@ -9,20 +9,6 @@ import { ObjectId } from 'mongodb';
 // 환경 변수 타입 단언으로 TypeScript 오류 해결
 const JWT_SECRET = process.env.JWT_SECRET as string;
 
-// 테스트용 임시 사용자 (실제 운영시에는 제거)
-const TEST_USERS = [
-  {
-    _id: 'master_001',
-    id: 'master_001',
-    username: 'dsbrdental',
-    email: 'dsbrdental@naver.com',
-    password: 'ektksqkfms1!',        // 평문 비밀번호
-    name: '마스터관리자',
-    role: 'master',
-    isActive: true
-  },
-];
-
 // 활동 로그 기록 함수
 async function logActivity(userId: string, userName: string, userRole: string, ipAddress: string, userAgent: string) {
   try {
@@ -65,34 +51,21 @@ export async function POST(request: NextRequest) {
 
     let user = null;
 
-    // 1. 먼저 테스트 사용자 확인 (개발/테스트용)
-    const testUser = TEST_USERS.find(u => 
-      (u.username === email || u.email === email) && u.password === password && u.isActive
-    );
-    
-    if (testUser) {
-      user = testUser;
-    } else {
-      // 2. 실제 데이터베이스에서 사용자 찾기
-      try {
-        const { db } = await connectToDatabase();
-        const dbUser = await db.collection('users').findOne({ 
-          $or: [
-            { username: email },
-            { email: email }
-          ],
-          isActive: true // 활성 사용자만
-        });
-        
-        if (dbUser && bcrypt.compareSync(password, dbUser.password)) {
-          user = {
-            ...dbUser,
-            id: dbUser._id.toString()
-          };
-        }
-      } catch (dbError) {
-        console.log('Database connection failed, using test users only');
-      }
+    // 데이터베이스에서 사용자 찾기
+    const { db } = await connectToDatabase();
+    const dbUser = await db.collection('users').findOne({
+      $or: [
+        { username: email },
+        { email: email }
+      ],
+      isActive: true
+    });
+
+    if (dbUser && bcrypt.compareSync(password, dbUser.password)) {
+      user = {
+        ...dbUser,
+        id: dbUser._id.toString()
+      };
     }
     
     if (!user) {
@@ -146,19 +119,15 @@ export async function POST(request: NextRequest) {
       userAgent
     );
 
-    // 마지막 로그인 시간 업데이트 (데이터베이스 사용자인 경우)
-    if (!testUser && user._id) {
-      try {
-        const { db } = await connectToDatabase();
-        const updateId = user._id instanceof ObjectId ? user._id : new ObjectId(user._id);
-        
-        await db.collection('users').updateOne(
-          { _id: updateId },
-          { $set: { lastLogin: new Date().toISOString() } }
-        );
-      } catch (error) {
-        console.warn('마지막 로그인 시간 업데이트 실패:', error);
-      }
+    // 마지막 로그인 시간 업데이트
+    try {
+      const updateId = user._id instanceof ObjectId ? user._id : new ObjectId(user._id);
+      await db.collection('users').updateOne(
+        { _id: updateId },
+        { $set: { lastLogin: new Date().toISOString() } }
+      );
+    } catch (error) {
+      console.warn('마지막 로그인 시간 업데이트 실패:', error);
     }
     
     return NextResponse.json({ 
@@ -170,10 +139,9 @@ export async function POST(request: NextRequest) {
     
   } catch (error: unknown) {
     // 오류 타입 처리 개선
-    const errorMessage = error instanceof Error ? error.message : '알 수 없는 오류가 발생했습니다.';
-    
+    console.error('[Auth Login] Error:', error);
     return NextResponse.json(
-      { success: false, message: errorMessage },
+      { success: false, message: '로그인 처리 중 오류가 발생했습니다.' },
       { status: 500 }
     );
   }

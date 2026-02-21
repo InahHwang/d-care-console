@@ -58,9 +58,8 @@ export async function GET(request: NextRequest) {
     });
   } catch (error) {
     console.error('이벤트 타겟 환자 조회 실패:', error);
-    return NextResponse.json({ 
-      error: '이벤트 타겟 환자 조회에 실패했습니다.',
-      details: error instanceof Error ? error.message : 'Unknown error'
+    return NextResponse.json({
+      error: '이벤트 타겟 환자 조회에 실패했습니다.'
     }, { status: 500 });
   }
 }

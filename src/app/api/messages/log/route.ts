@@ -22,10 +22,9 @@ export async function DELETE(request: NextRequest) {
   } catch (error) {
     console.error('메시지 로그 삭제 오류:', error);
     return NextResponse.json(
-      { 
+      {
         success: false,
-        error: '메시지 로그 삭제 중 오류가 발생했습니다.',
-        details: error instanceof Error ? error.message : 'Unknown error'
+        error: '메시지 로그 삭제 중 오류가 발생했습니다.'
       },
       { status: 500 }
     );
