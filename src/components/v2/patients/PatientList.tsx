@@ -56,6 +56,40 @@ interface PatientListProps {
   onPatientClick?: (patient: Patient) => void;
   onCallClick?: (patient: Patient) => void;
   loading?: boolean;
+  consultationTypeMap?: Record<string, string>; // id → label 매핑
+}
+
+// 기본 상담타입 ID→라벨 매핑 (fallback용)
+const DEFAULT_CONSULTATION_TYPE_MAP: Record<string, string> = {
+  inbound: '인바운드',
+  outbound: '아웃바운드',
+  returning: '구신환',
+};
+
+// 상담타입 라벨 가져오기
+function getConsultationTypeLabel(
+  typeId: string | undefined,
+  typeMap?: Record<string, string>
+): string | null {
+  if (!typeId) return null;
+
+  // 먼저 전달받은 맵에서 찾기
+  if (typeMap && typeMap[typeId]) {
+    return typeMap[typeId];
+  }
+
+  // 기본 맵에서 찾기
+  if (DEFAULT_CONSULTATION_TYPE_MAP[typeId]) {
+    return DEFAULT_CONSULTATION_TYPE_MAP[typeId];
+  }
+
+  // custom_xxx 형식이면 null 반환 (라벨을 못 찾음)
+  if (typeId.startsWith('custom_')) {
+    return null;
+  }
+
+  // 그 외: ID 그대로 반환
+  return typeId;
 }
 
 function TableSkeleton() {
@@ -234,7 +268,7 @@ function CallDirectionIcon({ direction }: { direction?: CallDirection }) {
   );
 }
 
-export function PatientList({ patients, onPatientClick, onCallClick, loading }: PatientListProps) {
+export function PatientList({ patients, onPatientClick, onCallClick, loading, consultationTypeMap }: PatientListProps) {
   if (loading) {
     return (
       <div className="bg-white rounded-2xl shadow-sm overflow-hidden">
@@ -313,6 +347,14 @@ export function PatientList({ patients, onPatientClick, onCallClick, loading }: 
               {/* 환자명 + 배지들 */}
               <div className="w-[14%] min-w-[100px] flex items-center gap-1 overflow-hidden">
                 <span className="font-medium text-gray-900 truncate">{patient.name}</span>
+                {(() => {
+                  const typeLabel = getConsultationTypeLabel(patient.consultationType, consultationTypeMap);
+                  return typeLabel ? (
+                    <span className="px-1.5 py-0.5 bg-purple-100 text-purple-700 rounded text-xs shrink-0">
+                      {typeLabel}
+                    </span>
+                  ) : null;
+                })()}
                 {patient.journeys && patient.journeys.length > 1 && (
                   <span className="flex items-center gap-0.5 px-1 py-0.5 bg-indigo-100 text-indigo-700 rounded text-xs font-medium shrink-0" title={`${patient.journeys.length}개 치료 여정`}>
                     <Layers size={10} />

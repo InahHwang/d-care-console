@@ -1,0 +1,46 @@
+{
+  "crons": [
+    {
+      "path": "/api/cron/send-recall-messages",
+      "schedule": "0 10 * * *"
+    },
+    {
+      "path": "/api/cron/check-no-response",
+      "schedule": "0 18 * * *"
+    },
+    {
+      "path": "/api/cron/send-chat-notifications",
+      "schedule": "*/5 * * * *"
+    },
+    {
+      "path": "/api/cron/daily-report-sms",
+      "schedule": "0 10 * * *"
+    }
+  ],
+  "headers": [
+    {
+      "source": "/widget/(.*)",
+      "headers": [
+        { "key": "Access-Control-Allow-Origin", "value": "*" },
+        { "key": "Access-Control-Allow-Methods", "value": "GET, OPTIONS" },
+        { "key": "Access-Control-Allow-Headers", "value": "Content-Type" }
+      ]
+    },
+    {
+      "source": "/api/v2/webhooks/(.*)",
+      "headers": [
+        { "key": "Access-Control-Allow-Origin", "value": "*" },
+        { "key": "Access-Control-Allow-Methods", "value": "GET, POST, OPTIONS" },
+        { "key": "Access-Control-Allow-Headers", "value": "Content-Type" }
+      ]
+    },
+    {
+      "source": "/api/v2/channel-chats/(.*)",
+      "headers": [
+        { "key": "Access-Control-Allow-Origin", "value": "*" },
+        { "key": "Access-Control-Allow-Methods", "value": "GET, POST, OPTIONS" },
+        { "key": "Access-Control-Allow-Headers", "value": "Content-Type" }
+      ]
+    }
+  ]
+}

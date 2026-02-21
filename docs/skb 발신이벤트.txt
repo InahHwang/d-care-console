@@ -1,0 +1,54 @@
+VS Code Claude에 전달할 CTI 발신 이벤트 정보
+1. 발신통화 이벤트 개요
+발신통화시작 통보 서비스 (2.21)
+- 사용자가 로그인 상태에서 발신 통화 시작 시 Application에 통보
+- SVCCODE: IMS_SVC_ORIGCAL_START_NOTI
+
+발신통화종료 통보 서비스 (2.22)  
+- 발신 통화 종료 시 Application에 통보
+- SVCCODE: IMS_SVC_ORIGCAL_END_NOTI
+2. 이벤트 처리 Sample Code (C#)
+csharp// 발신통화시작 이벤트 처리
+public void Proc(int nSvc, int nEvtType, int nResult, string strDn1, string strDn2, string strExtInfo)
+{
+    switch (nSvc)
+    {
+        case (int)SVCCODE.IMS_SVC_ORIGCAL_START_NOTI: 
+            EvtProc_OrigcallStartNoti(strDn1, strDn2, strExtInfo); 
+            break;
+        case (int)SVCCODE.IMS_SVC_ORIGCAL_END_NOTI: 
+            EvtProc_OrigcallEndNoti(strDn1, strDn2, strExtInfo); 
+            break;
+    }
+}
+
+// strDn1 = 발신자(우리 치과 번호)
+// strDn2 = 착신자(환자/리드 번호) ← 이걸로 환자 조회/등록
+// strExtInfo = 통화시간 정보
+
+private void EvtProc_OrigcallStartNoti(string strCaller, string strCallee, string strExtInfo)
+{
+    // strCallee = 전화 건 상대방 번호 → 환자 자동 등록 트리거 포인트
+}
+```
+
+### 3. 이벤트 파라미터 의미
+
+| 파라미터 | 의미 | 용도 |
+|---------|------|------|
+| `strDn1` (strCaller) | 발신자 번호 (치과) | - |
+| `strDn2` (strCallee) | **착신자 번호 (환자)** | 환자 조회/자동등록 키 |
+| `strExtInfo` | 통화시간 정보 | 상담 기록용 |
+
+### 4. 구현해야 할 로직
+```
+발신통화시작 이벤트 수신 (IMS_SVC_ORIGCAL_START_NOTI)
+    ↓
+strDn2 (착신자번호)로 환자 DB 조회
+    ↓
+있음 → 기존 환자 상담화면 오픈
+없음 → 신규 환자 자동 생성 (전화번호 + 통화일시) → 상담화면 오픈
+    ↓
+발신통화종료 이벤트 수신 (IMS_SVC_ORIGCAL_END_NOTI)
+    ↓
+통화시간 기록, AI 분석 트리거

@@ -8,7 +8,7 @@ const uri = process.env.MONGODB_URI || '';
 const getDatabaseName = () => {
   const isProduction = process.env.NODE_ENV === 'production';
   const baseDbName = process.env.MONGODB_DB || process.env.DB_NAME || 'dental_care';
-  
+
   if (isProduction) {
     return 'd-care-db';
   } else {
@@ -241,6 +241,23 @@ async function createIndexesSafely(db: Db) {
       console.warn('CallLogs 인덱스 생성 중 오류:', callLogsIndexError);
     }
 
+    // 🔥 Invitations 컬렉션 인덱스 (SaaS 사용자 초대)
+    try {
+      await db.collection('invitations').createIndex(
+        { token: 1 },
+        { unique: true }
+      );
+      await db.collection('invitations').createIndex({ status: 1 });
+      await db.collection('invitations').createIndex({ invitedBy: 1 });
+      await db.collection('invitations').createIndex({ createdAt: -1 });
+      await db.collection('invitations').createIndex(
+        { expiresAt: 1 },
+        { expireAfterSeconds: 0 }  // TTL 인덱스: 만료 시 자동 삭제
+      );
+    } catch (invitationsIndexError) {
+      console.warn('Invitations 인덱스 생성 중 오류:', invitationsIndexError);
+    }
+
     const envInfo = getEnvironmentInfo();
     console.log(`✅ MongoDB 인덱스 생성/확인 완료 (${envInfo.database})`);
   } catch (error) {
@@ -275,6 +292,12 @@ export async function getActivityLogsCollection() {
 export async function getPatientsCollection() {
   const { db } = await connectToDatabase();
   return db.collection('patients');
+}
+
+// 🔥 초대 컬렉션 헬퍼 함수 (SaaS 사용자 초대)
+export async function getInvitationsCollection() {
+  const { db } = await connectToDatabase();
+  return db.collection('invitations');
 }
 
 // 🔥 환경별 기본 사용자 생성 (최초 설정용)

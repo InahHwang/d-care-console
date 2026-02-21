@@ -3,7 +3,7 @@
 
 export const dynamic = 'force-dynamic';
 
-import React, { useState, useEffect, useCallback, Suspense } from 'react';
+import React, { useState, useEffect, useCallback, Suspense, useRef } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { Plus, Search } from 'lucide-react';
 import { Pagination } from '@/components/v2/ui/Pagination';
@@ -65,7 +65,14 @@ function PatientsPageContent() {
   const router = useRouter();
   const searchParams = useSearchParams();
 
-  const initialFilter = (searchParams.get('status') as PatientFilterType) || 'all';
+  // 다중 상태 지원 (대시보드 전환율 카드 클릭 등)
+  const rawStatus = searchParams.get('status') || '';
+  const isMultiStatus = rawStatus.includes(',');
+  const initialFilter: PatientFilterType = isMultiStatus ? 'all' : (rawStatus as PatientFilterType) || 'all';
+  const initialStatusOverride = isMultiStatus ? rawStatus : '';
+  const initialPaymentStatus = searchParams.get('paymentStatus') || '';
+  const initialHasEstimate = searchParams.get('hasEstimate') === 'true';
+
   const initialPage = parseInt(searchParams.get('page') || '1');
   const initialSearch = searchParams.get('search') || '';
   const initialUrgency = (searchParams.get('urgency') as UrgencyFilter) || 'all';
@@ -83,12 +90,51 @@ function PatientsPageContent() {
     endDate: initialEndDate,
   });
   const [searchQuery, setSearchQuery] = useState(initialSearch);
+  const [searchInput, setSearchInput] = useState(initialSearch); // 입력값 (즉시 반영)
+  const [statusOverride, setStatusOverride] = useState(initialStatusOverride); // 대시보드 다중 상태
+  const [paymentStatusFilter, setPaymentStatusFilter] = useState(initialPaymentStatus); // 결제상태 필터
+  const [hasEstimateFilter, setHasEstimateFilter] = useState(initialHasEstimate); // 견적 있는 환자만
   const [currentPage, setCurrentPage] = useState(initialPage);
+  const searchTimeoutRef = useRef<NodeJS.Timeout | null>(null);
+  const abortControllerRef = useRef<AbortController | null>(null);
   const [pagination, setPagination] = useState({ totalCount: 0, totalPages: 1 });
   const [filterStats, setFilterStats] = useState<FilterStats | null>(null);
   const [urgentStats, setUrgentStats] = useState<UrgentStats | null>(null);
+  const [callbackDate, setCallbackDate] = useState<string>(() => {
+    const now = new Date();
+    return `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-${String(now.getDate()).padStart(2, '0')}`;
+  });
+  const [consultationTypeMap, setConsultationTypeMap] = useState<Record<string, string>>({});
+
+  // 카테고리 조회 (최초 1회)
+  useEffect(() => {
+    const fetchCategories = async () => {
+      try {
+        const response = await fetch('/api/settings/categories');
+        if (response.ok) {
+          const data = await response.json();
+          if (data.success && data.categories?.consultationTypes) {
+            const typeMap: Record<string, string> = {};
+            data.categories.consultationTypes.forEach((type: { id: string; label: string }) => {
+              typeMap[type.id] = type.label;
+            });
+            setConsultationTypeMap(typeMap);
+          }
+        }
+      } catch (error) {
+        console.error('카테고리 조회 실패:', error);
+      }
+    };
+    fetchCategories();
+  }, []);
 
   const fetchPatients = useCallback(async () => {
+    // 이전 요청 취소
+    if (abortControllerRef.current) {
+      abortControllerRef.current.abort();
+    }
+    abortControllerRef.current = new AbortController();
+
     setLoading(true);
     try {
       const params = new URLSearchParams();
@@ -103,17 +149,32 @@ function PatientsPageContent() {
         params.set('period', period);
       }
 
-      if (activeFilter !== 'all') {
+      // 다중 상태 오버라이드 (대시보드에서 전환율 클릭 시)
+      if (statusOverride) {
+        params.set('status', statusOverride);
+      } else if (activeFilter !== 'all') {
         params.set('status', activeFilter);
+      }
+      if (paymentStatusFilter) {
+        params.set('paymentStatus', paymentStatusFilter);
+      }
+      if (hasEstimateFilter) {
+        params.set('hasEstimate', 'true');
       }
       if (searchQuery) {
         params.set('search', searchQuery);
       }
       if (urgencyFilter !== 'all') {
         params.set('urgency', urgencyFilter);
+        // 'today' 필터에서 날짜 탐색 시 callbackDate 전달
+        if (urgencyFilter === 'today' && callbackDate) {
+          params.set('callbackDate', callbackDate);
+        }
       }
 
-      const response = await fetch(`/api/v2/patients?${params.toString()}`);
+      const response = await fetch(`/api/v2/patients?${params.toString()}`, {
+        signal: abortControllerRef.current.signal,
+      });
       if (!response.ok) throw new Error('Failed to fetch');
 
       const data: PatientResponse = await response.json();
@@ -129,19 +190,41 @@ function PatientsPageContent() {
         setUrgentStats(data.urgentStats);
       }
     } catch (error) {
+      // 요청 취소된 경우 무시
+      if (error instanceof Error && error.name === 'AbortError') {
+        return;
+      }
       console.error('Error fetching patients:', error);
     } finally {
       setLoading(false);
     }
-  }, [currentPage, activeFilter, searchQuery, urgencyFilter, period, dateRange]);
+  }, [currentPage, activeFilter, searchQuery, urgencyFilter, period, dateRange, statusOverride, paymentStatusFilter, hasEstimateFilter, callbackDate]);
 
   useEffect(() => {
     fetchPatients();
   }, [fetchPatients]);
 
+  // Cleanup: 컴포넌트 언마운트 시 타이머와 요청 취소
+  useEffect(() => {
+    return () => {
+      if (searchTimeoutRef.current) {
+        clearTimeout(searchTimeoutRef.current);
+      }
+      if (abortControllerRef.current) {
+        abortControllerRef.current.abort();
+      }
+    };
+  }, []);
+
   useEffect(() => {
     const params = new URLSearchParams();
-    if (activeFilter !== 'all') params.set('status', activeFilter);
+    if (statusOverride) {
+      params.set('status', statusOverride);
+    } else if (activeFilter !== 'all') {
+      params.set('status', activeFilter);
+    }
+    if (paymentStatusFilter) params.set('paymentStatus', paymentStatusFilter);
+    if (hasEstimateFilter) params.set('hasEstimate', 'true');
     if (currentPage > 1) params.set('page', currentPage.toString());
     if (searchQuery) params.set('search', searchQuery);
     if (urgencyFilter !== 'all') params.set('urgency', urgencyFilter);
@@ -155,10 +238,13 @@ function PatientsPageContent() {
 
     const newUrl = params.toString() ? `?${params.toString()}` : '/v2/patients';
     window.history.replaceState(null, '', newUrl);
-  }, [activeFilter, currentPage, searchQuery, urgencyFilter, period, dateRange]);
+  }, [activeFilter, currentPage, searchQuery, urgencyFilter, period, dateRange, statusOverride, paymentStatusFilter, hasEstimateFilter]);
 
   const handleFilterChange = (filter: PatientFilterType) => {
     setActiveFilter(filter);
+    setStatusOverride(''); // 대시보드 다중 상태 해제
+    setPaymentStatusFilter(''); // 결제상태 필터 해제
+    setHasEstimateFilter(false); // 견적 필터 해제
     setUrgencyFilter('all'); // 상태 필터 변경 시 긴급 필터 초기화
     setCurrentPage(1);
   };
@@ -166,6 +252,14 @@ function PatientsPageContent() {
   const handleUrgencyFilterChange = (filter: UrgencyFilter) => {
     setUrgencyFilter(filter);
     setActiveFilter('all'); // 긴급 필터 변경 시 상태 필터 초기화
+    setStatusOverride(''); // 대시보드 다중 상태 해제
+    setPaymentStatusFilter(''); // 결제상태 필터 해제
+    setHasEstimateFilter(false); // 견적 필터 해제
+    // 'today' 필터 해제 시 callbackDate를 오늘로 리셋
+    if (filter !== 'today') {
+      const now = new Date();
+      setCallbackDate(`${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-${String(now.getDate()).padStart(2, '0')}`);
+    }
     setCurrentPage(1);
   };
 
@@ -184,8 +278,19 @@ function PatientsPageContent() {
   };
 
   const handleSearch = (e: React.ChangeEvent<HTMLInputElement>) => {
-    setSearchQuery(e.target.value);
-    setCurrentPage(1);
+    const value = e.target.value;
+    setSearchInput(value); // 입력값 즉시 반영 (UI)
+
+    // 이전 타이머 취소
+    if (searchTimeoutRef.current) {
+      clearTimeout(searchTimeoutRef.current);
+    }
+
+    // 300ms 후에 실제 검색 실행 (debounce)
+    searchTimeoutRef.current = setTimeout(() => {
+      setSearchQuery(value);
+      setCurrentPage(1);
+    }, 300);
   };
 
   const handlePatientClick = (patient: Patient) => {
@@ -234,6 +339,8 @@ function PatientsPageContent() {
           activeFilter={urgencyFilter}
           onFilterChange={handleUrgencyFilterChange}
           loading={loading && !urgentStats}
+          selectedDate={callbackDate}
+          onDateChange={setCallbackDate}
         />
       </div>
 
@@ -252,7 +359,7 @@ function PatientsPageContent() {
             <input
               type="text"
               placeholder="이름, 전화번호 검색"
-              value={searchQuery}
+              value={searchInput}
               onChange={handleSearch}
               className="pl-10 pr-4 py-2 border border-gray-200 rounded-lg w-64 focus:outline-none focus:ring-2 focus:ring-blue-500"
             />
@@ -267,6 +374,7 @@ function PatientsPageContent() {
           onPatientClick={handlePatientClick}
           onCallClick={handleCallClick}
           loading={loading}
+          consultationTypeMap={consultationTypeMap}
         />
 
         {/* 페이지네이션 */}

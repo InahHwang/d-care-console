@@ -54,6 +54,8 @@ function createKakaoMessage(data: {
     agreed: number;
     disagreed: number;
     pending: number;
+    noAnswer: number;
+    noConsultation: number;
     actualRevenue: number;
     expectedRevenue: number;
     totalDiscount: number;
@@ -72,12 +74,23 @@ function createKakaoMessage(data: {
   message += `${date} (${dayOfWeek})\n\n`;
   message += `■ 신규 상담: ${summary.total}건\n`;
   message += `├ 동의: ${summary.agreed}건 (${agreedRate}%)\n`;
-  message += `├ 미동의: ${summary.disagreed}건 ← 확인 필요\n`;
-  message += `└ 보류: ${summary.pending}건\n\n`;
-  message += `■ 예상 매출: ${summary.actualRevenue.toLocaleString()}만원\n`;
-
-  if (summary.totalDiscount > 0) {
-    message += `(정가 ${summary.expectedRevenue.toLocaleString()}만원, 할인 -${summary.totalDiscount.toLocaleString()}만원)\n`;
+  message += `├ 미동의: ${summary.disagreed}건\n`;
+  message += `├ 보류: ${summary.pending}건\n`;
+  if (summary.noAnswer > 0) {
+    message += `├ 부재중: ${summary.noAnswer}건\n`;
+  }
+  if (summary.noConsultation > 0) {
+    message += `├ 미입력: ${summary.noConsultation}건 ← 확인 필요\n`;
+  }
+  if (summary.actualRevenue > 0) {
+    message += `\n■ 확정 매출: ${summary.actualRevenue.toLocaleString()}만원 (동의 ${summary.agreed}건)\n`;
+  }
+  if (summary.expectedRevenue > 0) {
+    message += `■ 전체 정가: ${summary.expectedRevenue.toLocaleString()}만원`;
+    if (summary.totalDiscount > 0) {
+      message += ` → 할인가 ${(summary.expectedRevenue - summary.totalDiscount).toLocaleString()}만원`;
+    }
+    message += `\n`;
   }
 
   message += `\n▶ 상세 보기\n${reportUrl}`;
@@ -146,76 +159,40 @@ export async function POST(request: NextRequest) {
 
     // 리포트 데이터 조회
     const reportToken = generateReportToken(date);
-    const baseUrl = process.env.NEXT_PUBLIC_BASE_URL || 'https://d-care-console.vercel.app';
+    const baseUrl = (process.env.NEXT_PUBLIC_BASE_URL || 'https://d-care-console.vercel.app').trim();
     const reportUrl = `${baseUrl}/report/daily/${date}?token=${reportToken}`;
 
-    // 리포트 통계 조회
+    // V2 리포트 API와 동일한 데이터 사용 (SSoT - 상세보기와 동일한 집계)
     const { db } = await connectToDatabase();
-    const patientsCollection = db.collection('patients');
 
-    const dailyPatients = await patientsCollection.find({
-      $or: [
-        { callInDate: date },
-        { visitDate: date },
-        { firstConsultDate: date }
-      ]
-    }).toArray();
+    let v2Summary: any;
+    try {
+      const reportApiUrl = `${baseUrl}/api/v2/reports/daily/${date}`;
+      const reportRes = await fetch(reportApiUrl);
+      const reportJson = await reportRes.json();
 
-    // 통계 계산
-    let agreed = 0;
-    let disagreed = 0;
-    let pending = 0;
-    let expectedRevenue = 0;
-    let actualRevenue = 0;
-
-    dailyPatients.forEach(patient => {
-      // 상태 판단
-      let status: 'agreed' | 'disagreed' | 'pending' = 'pending';
-
-      if (patient.postVisitConsultation?.estimateInfo) {
-        const reaction = patient.postVisitConsultation.estimateInfo.patientReaction;
-        if (reaction === '동의해요(적당)' || reaction === '생각보다 저렴해요') {
-          status = 'agreed';
-        } else if (reaction === '비싸요') {
-          status = 'disagreed';
-        }
-      } else if (patient.consultation?.estimateAgreed === true) {
-        status = 'agreed';
-      } else if (patient.consultation?.estimateAgreed === false) {
-        status = 'disagreed';
-      } else if (patient.status === '예약확정' || patient.status === '재예약확정' || patient.visitConfirmed) {
-        status = 'agreed';
-      } else if (patient.isCompleted || patient.status === '종결') {
-        status = 'disagreed';
+      if (!reportJson.success) {
+        throw new Error(reportJson.error || '리포트 데이터 조회 실패');
       }
+      v2Summary = reportJson.data.summary;
+    } catch (fetchError: any) {
+      console.error('[KakaoReport] V2 리포트 조회 실패:', fetchError.message);
+      return NextResponse.json(
+        { success: false, error: `리포트 데이터 조회 실패: ${fetchError.message}` },
+        { status: 500 }
+      );
+    }
 
-      if (status === 'agreed') agreed++;
-      else if (status === 'disagreed') disagreed++;
-      else pending++;
-
-      // 금액 계산
-      let originalAmount = 0;
-      let finalAmount = 0;
-
-      if (patient.postVisitConsultation?.estimateInfo) {
-        originalAmount = patient.postVisitConsultation.estimateInfo.regularPrice || 0;
-        finalAmount = patient.postVisitConsultation.estimateInfo.discountPrice || originalAmount;
-      } else if (patient.consultation?.estimatedAmount) {
-        originalAmount = patient.consultation.estimatedAmount;
-        finalAmount = originalAmount;
-      }
-
-      expectedRevenue += originalAmount;
-      actualRevenue += finalAmount;
-    });
-
-    // 만원 단위로 변환
-    expectedRevenue = Math.round(expectedRevenue / 10000);
-    actualRevenue = Math.round(actualRevenue / 10000);
-    const totalDiscount = expectedRevenue - actualRevenue;
-    const avgDiscountRate = expectedRevenue > 0
-      ? Math.round((totalDiscount / expectedRevenue) * 100)
-      : 0;
+    const total = v2Summary.total;
+    const agreed = v2Summary.agreed;
+    const disagreed = v2Summary.disagreed;
+    const pending = v2Summary.pending;
+    const noAnswer = v2Summary.noAnswer || 0;
+    const noConsultation = v2Summary.noConsultation || 0;
+    const expectedRevenue = v2Summary.expectedRevenue;
+    const actualRevenue = v2Summary.actualRevenue;
+    const totalDiscount = v2Summary.totalDiscount;
+    const avgDiscountRate = v2Summary.avgDiscountRate;
 
     // 요일 계산
     const dateObj = new Date(date);
@@ -228,10 +205,12 @@ export async function POST(request: NextRequest) {
       date,
       dayOfWeek,
       summary: {
-        total: dailyPatients.length,
+        total: total,
         agreed,
         disagreed,
         pending,
+        noAnswer,
+        noConsultation,
         actualRevenue,
         expectedRevenue,
         totalDiscount,
@@ -251,10 +230,12 @@ export async function POST(request: NextRequest) {
         message,
         reportUrl,
         summary: {
-          total: dailyPatients.length,
+          total: total,
           agreed,
           disagreed,
           pending,
+          noAnswer,
+          noConsultation,
           expectedRevenue,
           actualRevenue,
           totalDiscount
@@ -324,10 +305,12 @@ export async function POST(request: NextRequest) {
         failCount,
         reportUrl,
         summary: {
-          total: dailyPatients.length,
+          total: total,
           agreed,
           disagreed,
           pending,
+          noAnswer,
+          noConsultation,
           expectedRevenue,
           actualRevenue
         },

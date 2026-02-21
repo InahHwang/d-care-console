@@ -7,10 +7,14 @@ import { useRouter, usePathname } from 'next/navigation';
 import { useAppDispatch, useAppSelector } from '@/hooks/reduxHooks';
 import { restoreAuth, logout, initializeAuth, initializeComplete } from '@/store/slices/authSlice';
 import jwt from 'jsonwebtoken';
+import type { UserRole } from '@/types/invitation';
+
+// 역할 타입 (master는 레거시, admin으로 취급)
+type AuthRole = UserRole | 'master';
 
 interface AuthGuardProps {
   children: React.ReactNode;
-  requiredRole?: 'master' | 'staff';
+  requiredRole?: AuthRole | AuthRole[];  // 단일 역할 또는 역할 배열
   fallbackPath?: string;
 }
 
@@ -25,10 +29,21 @@ export default function AuthGuard({
   const { isAuthenticated, isLoading, user, isInitialized } = useAppSelector((state) => state.auth);
 
   // 보호되지 않는 경로들 (로그인 없이 접근 가능)
-  const publicPaths = ['/login'];
-  
-  // 마스터 전용 경로들
-  const masterOnlyPaths = ['/admin'];
+  const publicPaths = ['/login', '/invite'];
+
+  // 관리자 전용 경로들 (admin 또는 master만 접근 가능)
+  const adminOnlyPaths = ['/admin'];
+
+  // 역할 정규화 함수 (master → admin)
+  const normalizeRole = (role: string): UserRole => {
+    if (role === 'master') return 'admin';
+    return role as UserRole;
+  };
+
+  // 관리자 역할인지 확인 (admin 또는 master)
+  const isAdminRole = (role: string): boolean => {
+    return role === 'admin' || role === 'master';
+  };
 
   useEffect(() => {
     const initializeAuthState = async () => {
@@ -44,8 +59,8 @@ export default function AuthGuard({
       dispatch(initializeAuth());
 
       try {
-        // 공개 경로인 경우
-        if (publicPaths.includes(pathname)) {
+        // 공개 경로인 경우 (정확히 일치하거나 하위 경로)
+        if (publicPaths.some(path => pathname === path || pathname.startsWith(path + '/'))) {
           console.log('🔥 AuthGuard: 공개 경로 접근');
           dispatch(initializeComplete());
           return;
@@ -129,26 +144,37 @@ export default function AuthGuard({
       if (currentUser.isActive === false) {
         dispatch(logout());
         localStorage.removeItem('token');
-        return { 
-          authorized: false, 
-          redirect: '/login?message=account_deactivated' 
+        return {
+          authorized: false,
+          redirect: '/login?message=account_deactivated'
         };
       }
+
+      const userRole = normalizeRole(currentUser.role);
 
       // 특정 권한이 필요한 경우
-      if (requiredRole && currentUser.role !== requiredRole) {
-        return { 
-          authorized: false, 
-          redirect: '/unauthorized' 
-        };
+      if (requiredRole) {
+        const requiredRoles = Array.isArray(requiredRole) ? requiredRole : [requiredRole];
+        const normalizedRequiredRoles = requiredRoles.map(r => normalizeRole(r));
+
+        if (!normalizedRequiredRoles.includes(userRole)) {
+          // admin이 필요한데 master로 접근해도 허용
+          const hasAdminAccess = normalizedRequiredRoles.includes('admin') && isAdminRole(currentUser.role);
+          if (!hasAdminAccess) {
+            return {
+              authorized: false,
+              redirect: '/unauthorized'
+            };
+          }
+        }
       }
 
-      // 마스터 전용 경로 검사
-      if (masterOnlyPaths.some(path => pathname.startsWith(path))) {
-        if (currentUser.role !== 'master') {
-          return { 
-            authorized: false, 
-            redirect: '/' 
+      // 관리자 전용 경로 검사 (admin 또는 master만 접근 가능)
+      if (adminOnlyPaths.some(path => pathname.startsWith(path))) {
+        if (!isAdminRole(currentUser.role)) {
+          return {
+            authorized: false,
+            redirect: '/'
           };
         }
       }
@@ -182,7 +208,8 @@ export default function AuthGuard({
   }
 
   // 🔥 공개 경로가 아니면서 인증되지 않은 경우
-  if (!publicPaths.includes(pathname) && !isAuthenticated) {
+  const isPublicPath = publicPaths.some(path => pathname === path || pathname.startsWith(path + '/'));
+  if (!isPublicPath && !isAuthenticated) {
     return (
       <div className="min-h-screen bg-gray-50 flex items-center justify-center">
         <div className="text-center">
@@ -197,6 +224,17 @@ export default function AuthGuard({
   return <>{children}</>;
 }
 
+// 역할 표시 헬퍼 함수
+const getRoleLabel = (role: string): string => {
+  const roleLabels: Record<string, string> = {
+    admin: '관리자',
+    master: '관리자',
+    manager: '매니저',
+    staff: '상담사',
+  };
+  return roleLabels[role] || role;
+};
+
 // 권한 없음 페이지 컴포넌트
 export function UnauthorizedPage() {
   const router = useRouter();
@@ -210,23 +248,23 @@ export function UnauthorizedPage() {
             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-2.5L13.732 4c-.77-.833-1.728-.833-2.598 0L3.732 16.5c-.77.833.192 2.5 1.732 2.5z" />
           </svg>
         </div>
-        
+
         <h1 className="text-xl font-bold text-gray-900 mb-2">접근 권한이 없습니다</h1>
         <p className="text-gray-600 mb-6">
           이 페이지에 접근하기 위한 권한이 부족합니다.
           {user && (
             <span className="block mt-2 text-sm">
-              현재 권한: <span className="font-medium">{user.role === 'master' ? '마스터 관리자' : '일반 담당자'}</span>
+              현재 권한: <span className="font-medium">{getRoleLabel(user.role)}</span>
             </span>
           )}
         </p>
-        
+
         <div className="space-y-3">
           <button
             onClick={() => router.push('/')}
             className="w-full bg-blue-600 text-white py-2 px-4 rounded-lg hover:bg-blue-700 transition-colors"
           >
-            메인 페이지로 이동
+            대시보드로 이동
           </button>
           <button
             onClick={() => router.back()}

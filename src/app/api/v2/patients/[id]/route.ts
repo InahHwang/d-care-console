@@ -80,6 +80,9 @@ export async function GET(
         // 여정(Journey) 관련 필드
         journeys: patient.journeys || [],
         activeJourneyId: patient.activeJourneyId || null,
+        // 마이그레이션된 종결 사유 (환자 문서 최상위 레벨)
+        closedReason: patient.closedReason || null,
+        closedReasonDetail: patient.closedReasonDetail || null,
       },
       callLogs: callLogs.map((log) => ({
         id: log._id.toString(),
@@ -159,20 +162,43 @@ export async function PATCH(
 
     // 🆕 예정일만 변경하는 경우 (updateType === 'schedule')
     if (updateType === 'schedule' && newScheduleDate !== undefined) {
-      // 이전 예정일을 콜백 이력에 저장
-      if (currentPatient?.nextActionDate) {
-        callbackHistoryEntry = {
-          scheduledAt: currentPatient.nextActionDate,
-          reason: callbackReason as CallbackReason || undefined,
-          note: callbackNote || undefined,
-          createdAt: new Date(),
-        };
+      // 콜백 이력에 저장 - 전화상담결과와 동일한 형식으로 기록
+      // 사유별 기본 메시지 생성
+      let reasonNote = '';
+      if (callbackReason === 'no_answer') {
+        reasonNote = '부재중 - 통화 연결 안 됨';
+      } else if (callbackReason === 'noshow') {
+        reasonNote = '노쇼 - 예약 불이행';
+      } else if (callbackReason === 'postponed') {
+        reasonNote = '보류 - 재상담 필요';
+      } else if (callbackReason === 'reschedule') {
+        reasonNote = '일정변경';
       }
+
+      // 메모가 있으면 추가
+      const fullNote = callbackNote
+        ? (reasonNote ? `${reasonNote}\n메모: ${callbackNote}` : callbackNote)
+        : reasonNote || undefined;
+
+      // 콜백 이력 엔트리 생성 (새 예정일 기준)
+      callbackHistoryEntry = {
+        scheduledAt: new Date(newScheduleDate),  // 새 예정일
+        reason: callbackReason as CallbackReason || undefined,
+        note: fullNote,
+        createdAt: new Date(),
+      };
 
       // 새 예정일 설정
       updateData.nextActionDate = newScheduleDate ? new Date(newScheduleDate) : null;
       // 🆕 현재 예정일에 대한 메모도 저장
       updateData.nextActionNote = callbackNote || null;
+
+      // 🆕 사유에 따라 nextAction 변경 (노쇼/부재중/보류 → 콜백, 일정변경 → 유지)
+      const CALLBACK_REASONS = ['noshow', 'no_answer', 'postponed'];
+      if (callbackReason && CALLBACK_REASONS.includes(callbackReason)) {
+        updateData.nextAction = '콜백';
+      }
+      // reschedule이거나 사유 없으면 nextAction 유지
 
       // 활성 여정에도 예정일 업데이트
       if (currentPatient?.activeJourneyId) {
@@ -510,7 +536,38 @@ export async function DELETE(
       console.log(`[Patient DELETE] 통화기록 patientId 해제: ${callLogUpdateResult.modifiedCount}건 (환자ID: ${id})`);
     } catch (callLogError) {
       console.error('[Patient DELETE] 통화기록 patientId 해제 실패:', callLogError);
-      // 통화기록 업데이트 실패해도 환자 삭제는 성공했으므로 계속 진행
+    }
+
+    // 연결된 콜백 일정 삭제
+    try {
+      const callbackDeleteResult = await db.collection('callbacks_v2').deleteMany({ patientId: id });
+      console.log(`[Patient DELETE] 콜백 일정 삭제: ${callbackDeleteResult.deletedCount}건 (환자ID: ${id})`);
+    } catch (callbackError) {
+      console.error('[Patient DELETE] 콜백 일정 삭제 실패:', callbackError);
+    }
+
+    // 연결된 상담 기록 삭제
+    try {
+      const consultationDeleteResult = await db.collection('consultations_v2').deleteMany({ patientId: id });
+      console.log(`[Patient DELETE] 상담 기록 삭제: ${consultationDeleteResult.deletedCount}건 (환자ID: ${id})`);
+    } catch (consultationError) {
+      console.error('[Patient DELETE] 상담 기록 삭제 실패:', consultationError);
+    }
+
+    // 연결된 수동 상담 기록 삭제
+    try {
+      const manualConsultationDeleteResult = await db.collection('manualConsultations_v2').deleteMany({ patientId: id });
+      console.log(`[Patient DELETE] 수동 상담 기록 삭제: ${manualConsultationDeleteResult.deletedCount}건 (환자ID: ${id})`);
+    } catch (manualConsultationError) {
+      console.error('[Patient DELETE] 수동 상담 기록 삭제 실패:', manualConsultationError);
+    }
+
+    // 연결된 리콜 메시지 삭제
+    try {
+      const recallDeleteResult = await db.collection('recall_messages').deleteMany({ patientId: id });
+      console.log(`[Patient DELETE] 리콜 메시지 삭제: ${recallDeleteResult.deletedCount}건 (환자ID: ${id})`);
+    } catch (recallError) {
+      console.error('[Patient DELETE] 리콜 메시지 삭제 실패:', recallError);
     }
 
     return NextResponse.json({ success: true });

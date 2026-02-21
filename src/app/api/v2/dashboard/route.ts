@@ -1,7 +1,10 @@
 // src/app/api/v2/dashboard/route.ts
-// CatchAll v2 대시보드 API - 성능 최적화
+// V2 대시보드 API - patients_v2 전용
 
 import { NextRequest, NextResponse } from 'next/server';
+
+// 캐싱 방지: 항상 최신 데이터 반환 (설정 변경 즉시 반영)
+export const dynamic = 'force-dynamic';
 import { connectToDatabase } from '@/utils/mongodb';
 
 // GET: 대시보드 데이터 조회
@@ -9,164 +12,45 @@ export async function GET(request: NextRequest) {
   try {
     const { db } = await connectToDatabase();
 
-    const today = new Date();
-    today.setHours(0, 0, 0, 0);
-    const tomorrow = new Date(today);
-    tomorrow.setDate(tomorrow.getDate() + 1);
-    const yesterday = new Date(today);
-    yesterday.setDate(yesterday.getDate() - 1);
+    // KST(UTC+9) 기준 날짜 계산 (Vercel 서버는 UTC이므로 보정 필요)
+    const KST_OFFSET = 9 * 60 * 60 * 1000;
+    const kstNow = new Date(Date.now() + KST_OFFSET);
+    const kstYear = kstNow.getUTCFullYear();
+    const kstMonth = kstNow.getUTCMonth();
+    const kstDate = kstNow.getUTCDate();
 
-    // 날짜 계산
-    const sevenDaysAgo = new Date(today);
-    sevenDaysAgo.setDate(sevenDaysAgo.getDate() - 7);
-    const fourteenDaysAgo = new Date(today);
-    fourteenDaysAgo.setDate(fourteenDaysAgo.getDate() - 14);
+    // KST 기준 오늘/내일 자정 (UTC Date로 표현)
+    const today = new Date(Date.UTC(kstYear, kstMonth, kstDate) - KST_OFFSET);
+    const tomorrow = new Date(today.getTime() + 24 * 60 * 60 * 1000);
 
-    // 이번 달 시작/끝
-    const monthStart = new Date(today.getFullYear(), today.getMonth(), 1);
-    const monthEnd = new Date(today.getFullYear(), today.getMonth() + 1, 0, 23, 59, 59, 999);
-    // 지난 달 시작/끝
-    const lastMonthStart = new Date(today.getFullYear(), today.getMonth() - 1, 1);
-    const lastMonthEnd = new Date(today.getFullYear(), today.getMonth(), 0, 23, 59, 59, 999);
+    // 이번 달 시작/끝 (KST 기준)
+    const monthStart = new Date(Date.UTC(kstYear, kstMonth, 1) - KST_OFFSET);
+    const lastDayOfMonth = new Date(Date.UTC(kstYear, kstMonth + 1, 0)).getUTCDate();
+    const monthEnd = new Date(Date.UTC(kstYear, kstMonth, lastDayOfMonth, 23, 59, 59, 999) - KST_OFFSET);
+    // 지난 달 시작/끝 (KST 기준)
+    const lastMonthStart = new Date(Date.UTC(kstYear, kstMonth - 1, 1) - KST_OFFSET);
+    const lastDayOfLastMonth = new Date(Date.UTC(kstYear, kstMonth, 0)).getUTCDate();
+    const lastMonthEnd = new Date(Date.UTC(kstYear, kstMonth - 1, lastDayOfLastMonth, 23, 59, 59, 999) - KST_OFFSET);
 
-    // 병렬 쿼리 실행 (성능 최적화)
+    // nextActionDate 비교용 ISO 문자열 (Date/String 혼재 대응)
+    const dayAfterTomorrow = new Date(tomorrow.getTime() + 24 * 60 * 60 * 1000);
+    const todayISO = today.toISOString();
+    const tomorrowISO = tomorrow.toISOString();
+    const dayAfterTomorrowISO = dayAfterTomorrow.toISOString();
+    // KST 날짜 문자열 (YYYY-MM-DD 형식 대응)
+    const kstTodayStr = `${kstYear}-${String(kstMonth + 1).padStart(2, '0')}-${String(kstDate).padStart(2, '0')}`;
+    const kstTmrDate = new Date(Date.UTC(kstYear, kstMonth, kstDate + 1));
+    const kstTomorrowStr = `${kstTmrDate.getUTCFullYear()}-${String(kstTmrDate.getUTCMonth() + 1).padStart(2, '0')}-${String(kstTmrDate.getUTCDate()).padStart(2, '0')}`;
+
+    // 병렬 쿼리 실행 (성능 최적화) - V2 전용
     const [
-      callStats,
-      yesterdayCallStats,
-      patientStatusCounts,
-      alertPatients,
-      todayCallbacks,
-      recentPatients,
-      analysisQueue,
       todayTasksStats,
-      revenueStats
+      revenueStats,
+      conversionStats,
+      settingsDoc
     ] = await Promise.all([
-      // 1. 오늘의 통화 통계 (callLogs_v2 사용)
-      db.collection('callLogs_v2').aggregate([
-        {
-          $match: {
-            startedAt: { $gte: today, $lt: tomorrow }
-          }
-        },
-        {
-          $facet: {
-            total: [{ $count: 'count' }],
-            byDirection: [
-              { $group: { _id: '$direction', count: { $sum: 1 } } }
-            ],
-            byStatus: [
-              { $group: { _id: '$status', count: { $sum: 1 } } }
-            ],
-            newPatients: [
-              { $match: { 'aiAnalysis.classification': '신환' } },
-              { $count: 'count' }
-            ]
-          }
-        }
-      ]).toArray(),
-
-      // 1-2. 어제의 통화 통계 (트렌드 계산용)
-      db.collection('callLogs_v2').aggregate([
-        {
-          $match: {
-            startedAt: { $gte: yesterday, $lt: today }
-          }
-        },
-        {
-          $facet: {
-            total: [{ $count: 'count' }],
-            newPatients: [
-              { $match: { 'aiAnalysis.classification': '신환' } },
-              { $count: 'count' }
-            ]
-          }
-        }
-      ]).toArray(),
-
-      // 2. 환자 상태별 카운트
-      db.collection('patients').aggregate([
-        { $group: { _id: '$status', count: { $sum: 1 } } }
-      ]).toArray(),
-
-      // 3. 주의 필요 환자 (병렬)
-      Promise.all([
-        // 내원완료 7일+ (치료 미결정)
-        db.collection('patients').find({
-          status: 'visited',
-          visitConfirmedAt: { $lte: sevenDaysAgo }
-        }, { projection: { name: 1 } }).limit(10).toArray(),
-
-        // 전화상담 14일+ (장기 미진행)
-        db.collection('patients').find({
-          status: { $in: ['active', 'consulting'] },
-          createdAt: { $lte: fourteenDaysAgo },
-          visitConfirmed: { $ne: true }
-        }, { projection: { name: 1 } }).limit(10).toArray(),
-
-        // 예약 후 노쇼 위험 (예약일 지남)
-        db.collection('patients').find({
-          status: 'reserved',
-          'appointmentDate': { $lt: today },
-          visitConfirmed: { $ne: true }
-        }, { projection: { name: 1 } }).limit(10).toArray(),
-      ]),
-
-      // 4. 오늘의 콜백
-      db.collection('patients').aggregate([
-        {
-          $match: {
-            'callbacks': {
-              $elemMatch: {
-                scheduledDate: { $gte: today, $lt: tomorrow },
-                status: 'pending'
-              }
-            }
-          }
-        },
-        { $limit: 10 },
-        {
-          $project: {
-            name: 1,
-            phoneNumber: 1,
-            interestedServices: 1,
-            temperature: 1, // 실제 온도 값
-            callbacks: {
-              $filter: {
-                input: '$callbacks',
-                as: 'cb',
-                cond: {
-                  $and: [
-                    { $gte: ['$$cb.scheduledDate', today] },
-                    { $lt: ['$$cb.scheduledDate', tomorrow] },
-                    { $eq: ['$$cb.status', 'pending'] }
-                  ]
-                }
-              }
-            }
-          }
-        }
-      ]).toArray(),
-
-      // 5. 최근 등록 환자 (오늘)
-      db.collection('patients')
-        .find({ createdAt: { $gte: today } })
-        .sort({ createdAt: -1 })
-        .limit(5)
-        .project({ name: 1, interestedServices: 1, createdAt: 1, source: 1, temperature: 1, aiRegistered: 1 })
-        .toArray(),
-
-      // 6. AI 분석 대기열 (callLogs_v2 사용)
-      db.collection('callLogs_v2')
-        .find({
-          startedAt: { $gte: today },
-          aiStatus: { $in: ['pending', 'processing'] }
-        })
-        .sort({ startedAt: -1 })
-        .limit(5)
-        .project({ phone: 1, startedAt: 1, direction: 1 })
-        .toArray(),
-
-      // 7. 오늘 할 일 통계 (patients_v2에서 집계)
+      // 1. 오늘 할 일 통계 (patients_v2에서 집계)
+      // nextActionDate가 Date 객체 또는 문자열로 저장될 수 있어 $or로 처리
       db.collection('patients_v2').aggregate([
         {
           $facet: {
@@ -174,7 +58,10 @@ export async function GET(request: NextRequest) {
             overdue: [
               {
                 $match: {
-                  nextActionDate: { $lt: today },
+                  $or: [
+                    { nextActionDate: { $lt: today, $type: 'date' } },
+                    { nextActionDate: { $lt: todayISO, $type: 'string' } },
+                  ],
                   status: { $nin: ['closed', 'completed'] }
                 }
               },
@@ -189,7 +76,11 @@ export async function GET(request: NextRequest) {
             todayScheduled: [
               {
                 $match: {
-                  nextActionDate: { $gte: today, $lt: tomorrow },
+                  $or: [
+                    { nextActionDate: { $gte: today, $lt: tomorrow } },
+                    { nextActionDate: { $gte: todayISO, $lt: tomorrowISO, $type: 'string' } },
+                    { nextActionDate: { $regex: `^${kstTodayStr}` } },
+                  ],
                   status: { $nin: ['closed', 'completed'] }
                 }
               },
@@ -204,7 +95,11 @@ export async function GET(request: NextRequest) {
             tomorrowScheduled: [
               {
                 $match: {
-                  nextActionDate: { $gte: tomorrow, $lt: new Date(tomorrow.getTime() + 24 * 60 * 60 * 1000) },
+                  $or: [
+                    { nextActionDate: { $gte: tomorrow, $lt: dayAfterTomorrow } },
+                    { nextActionDate: { $gte: tomorrowISO, $lt: dayAfterTomorrowISO, $type: 'string' } },
+                    { nextActionDate: { $regex: `^${kstTomorrowStr}` } },
+                  ],
                   status: { $nin: ['closed', 'completed'] }
                 }
               },
@@ -214,7 +109,7 @@ export async function GET(request: NextRequest) {
         }
       ]).toArray(),
 
-      // 8. 매출 통계 (patients_v2에서 집계)
+      // 2. 매출 통계 (patients_v2에서 집계)
       db.collection('patients_v2').aggregate([
         {
           $facet: {
@@ -222,19 +117,46 @@ export async function GET(request: NextRequest) {
             thisMonth: [
               {
                 $match: {
-                  createdAt: { $gte: monthStart, $lte: monthEnd },
-                  status: { $ne: 'closed' }
+                  createdAt: { $gte: monthStart, $lte: monthEnd }
                 }
               },
               {
                 $group: {
                   _id: null,
-                  totalEstimated: { $sum: { $ifNull: ['$estimatedAmount', 0] } },
-                  totalActual: { $sum: { $ifNull: ['$actualAmount', 0] } },
+                  // 확정 매출: 결제 환자(partial/completed)의 actualAmount 합
+                  confirmedRevenue: {
+                    $sum: {
+                      $cond: [{ $in: ['$paymentStatus', ['partial', 'completed']] }, { $ifNull: ['$actualAmount', 0] }, 0]
+                    }
+                  },
+                  // 놓친 매출: 미결제 환자의 estimatedAmount 합
+                  missedRevenue: {
+                    $sum: {
+                      $cond: [{ $in: ['$paymentStatus', ['partial', 'completed']] }, 0, { $ifNull: ['$estimatedAmount', 0] }]
+                    }
+                  },
+                  // 놓친 매출 환자 수 (estimatedAmount > 0인 미결제 환자)
+                  missedCount: {
+                    $sum: {
+                      $cond: [
+                        { $and: [
+                          { $not: [{ $in: ['$paymentStatus', ['partial', 'completed']] }] },
+                          { $gt: [{ $ifNull: ['$estimatedAmount', 0] }, 0] }
+                        ]},
+                        1, 0
+                      ]
+                    }
+                  },
+                  // 결제 환자의 정가 합 (할인율 계산용)
+                  paidEstimated: {
+                    $sum: {
+                      $cond: [{ $in: ['$paymentStatus', ['partial', 'completed']] }, { $ifNull: ['$estimatedAmount', 0] }, 0]
+                    }
+                  },
                   patientCount: { $sum: 1 },
                   paidCount: {
                     $sum: {
-                      $cond: [{ $gt: ['$actualAmount', 0] }, 1, 0]
+                      $cond: [{ $in: ['$paymentStatus', ['partial', 'completed']] }, 1, 0]
                     }
                   }
                 }
@@ -244,95 +166,118 @@ export async function GET(request: NextRequest) {
             lastMonth: [
               {
                 $match: {
-                  createdAt: { $gte: lastMonthStart, $lte: lastMonthEnd },
-                  status: { $ne: 'closed' }
+                  createdAt: { $gte: lastMonthStart, $lte: lastMonthEnd }
                 }
               },
               {
                 $group: {
                   _id: null,
-                  totalActual: { $sum: { $ifNull: ['$actualAmount', 0] } },
-                  patientCount: { $sum: 1 }
-                }
-              }
-            ],
-            // 전체 매출 (종결 제외)
-            total: [
-              {
-                $match: {
-                  status: { $ne: 'closed' }
-                }
-              },
-              {
-                $group: {
-                  _id: null,
-                  totalEstimated: { $sum: { $ifNull: ['$estimatedAmount', 0] } },
-                  totalActual: { $sum: { $ifNull: ['$actualAmount', 0] } },
-                  patientCount: { $sum: 1 },
-                  paidCount: {
+                  // 지난 달 확정 매출
+                  confirmedRevenue: {
                     $sum: {
-                      $cond: [{ $gt: ['$actualAmount', 0] }, 1, 0]
+                      $cond: [{ $in: ['$paymentStatus', ['partial', 'completed']] }, { $ifNull: ['$actualAmount', 0] }, 0]
                     }
-                  }
+                  },
+                  patientCount: { $sum: 1 }
                 }
               }
             ]
           }
         }
       ]).toArray(),
+
+      // 3. 전환율 통계 (patients_v2에서 집계)
+      db.collection('patients_v2').aggregate([
+        {
+          $facet: {
+            // 이번 달 신규 등록 (전체)
+            thisMonthTotal: [
+              {
+                $match: {
+                  createdAt: { $gte: monthStart, $lte: monthEnd }
+                }
+              },
+              { $count: 'count' }
+            ],
+            // 이번 달 예약전환 (reserved 이상 상태)
+            thisMonthReserved: [
+              {
+                $match: {
+                  createdAt: { $gte: monthStart, $lte: monthEnd },
+                  status: { $in: ['reserved', 'visited', 'treatmentBooked', 'treatment', 'completed', 'followup'] }
+                }
+              },
+              { $count: 'count' }
+            ],
+            // 이번 달 내원전환 (visited 이상 상태)
+            thisMonthVisited: [
+              {
+                $match: {
+                  createdAt: { $gte: monthStart, $lte: monthEnd },
+                  status: { $in: ['visited', 'treatmentBooked', 'treatment', 'completed', 'followup'] }
+                }
+              },
+              { $count: 'count' }
+            ],
+            // 이번 달 결제전환 (actualAmount > 0 또는 paymentStatus가 partial/completed)
+            thisMonthPaid: [
+              {
+                $match: {
+                  createdAt: { $gte: monthStart, $lte: monthEnd },
+                  paymentStatus: { $in: ['partial', 'completed'] }
+                }
+              },
+              { $count: 'count' }
+            ],
+            // 지난 달 신규 등록
+            lastMonthTotal: [
+              {
+                $match: {
+                  createdAt: { $gte: lastMonthStart, $lte: lastMonthEnd }
+                }
+              },
+              { $count: 'count' }
+            ],
+            // 지난 달 예약전환
+            lastMonthReserved: [
+              {
+                $match: {
+                  createdAt: { $gte: lastMonthStart, $lte: lastMonthEnd },
+                  status: { $in: ['reserved', 'visited', 'treatmentBooked', 'treatment', 'completed', 'followup'] }
+                }
+              },
+              { $count: 'count' }
+            ],
+            // 지난 달 내원전환
+            lastMonthVisited: [
+              {
+                $match: {
+                  createdAt: { $gte: lastMonthStart, $lte: lastMonthEnd },
+                  status: { $in: ['visited', 'treatmentBooked', 'treatment', 'completed', 'followup'] }
+                }
+              },
+              { $count: 'count' }
+            ],
+            // 지난 달 결제전환
+            lastMonthPaid: [
+              {
+                $match: {
+                  createdAt: { $gte: lastMonthStart, $lte: lastMonthEnd },
+                  paymentStatus: { $in: ['partial', 'completed'] }
+                }
+              },
+              { $count: 'count' }
+            ]
+          }
+        }
+      ]).toArray(),
+
+      // 4. 설정에서 목표매출 조회
+      db.collection('settings_v2').findOne({ clinicId: 'default' }),
     ]);
 
-    // 데이터 가공
-    const callStatsData = callStats[0] || {};
-    const totalCalls = callStatsData.total?.[0]?.count || 0;
-    const newPatients = callStatsData.newPatients?.[0]?.count || 0;
-
-    // 어제 통화 통계 가공 (트렌드 계산용)
-    const yesterdayCallStatsData = yesterdayCallStats[0] || {};
-    const yesterdayTotalCalls = yesterdayCallStatsData.total?.[0]?.count || 0;
-    const yesterdayNewPatients = yesterdayCallStatsData.newPatients?.[0]?.count || 0;
-
-    // 상태별 카운트 변환
-    const statusCounts: Record<string, number> = {};
-    patientStatusCounts.forEach((item: any) => {
-      statusCounts[item._id || 'unknown'] = item.count;
-    });
-
-    // 알림 환자 변환
-    const [visitedLong, consultingLong, noshowRisk] = alertPatients;
-
-    // 콜백 포맷팅
-    const formattedCallbacks = todayCallbacks.map((p: any) => ({
-      id: p._id.toString(),
-      name: p.name,
-      phone: p.phoneNumber,
-      interest: p.interestedServices?.[0] || '',
-      time: p.callbacks?.[0]?.scheduledDate
-        ? new Date(p.callbacks[0].scheduledDate).toLocaleTimeString('ko-KR', { hour: '2-digit', minute: '2-digit' })
-        : '',
-      temperature: p.temperature || 'warm', // 실제 값 사용, 기본값 warm
-    }));
-
-    // 최근 환자 포맷팅 (오늘 등록된 환자이므로 기본 new, aiRegistered로 구분)
-    const formattedRecentPatients = recentPatients.map((p: any) => ({
-      id: p._id.toString(),
-      name: p.name,
-      interest: p.interestedServices?.[0] || '',
-      time: new Date(p.createdAt).toLocaleTimeString('ko-KR', { hour: '2-digit', minute: '2-digit' }),
-      temperature: p.temperature || 'warm', // 실제 값 사용
-      status: p.aiRegistered !== false ? 'new' : 'existing', // AI 등록 또는 오늘 등록 = new
-    }));
-
-    // 분석 대기열 포맷팅
-    const formattedQueue = analysisQueue.map((c: any) => ({
-      id: c._id.toString(),
-      phone: c.phone || '알 수 없음',
-      time: new Date(c.startedAt).toLocaleTimeString('ko-KR', { hour: '2-digit', minute: '2-digit' }),
-      status: 'analyzing', // 분석 중 상태 표시
-    }));
-
-    // 부재중 카운트 계산
-    const missedCalls = callStatsData.byStatus?.find((s: any) => s._id === 'missed')?.count || 0;
+    // 목표매출 (만원 → 원 변환)
+    const monthlyRevenueTarget = (settingsDoc?.targets?.monthlyRevenue || 0) * 10000;
 
     // 오늘 할 일 통계 가공
     const todayTasksData = todayTasksStats[0] || {};
@@ -346,18 +291,27 @@ export async function GET(request: NextRequest) {
       todayByStatus[item._id] = item.count;
     });
 
+    // 개별 항목 계산
+    const overdueCallback = (overdueByStatus['consulting'] || 0) + (overdueByStatus['visited'] || 0);
+    const overdueNoShow = overdueByStatus['reserved'] || 0;
+    const overdueTreatmentNoShow = overdueByStatus['treatmentBooked'] || 0;
+
+    const todayCallback = (todayByStatus['consulting'] || 0) + (todayByStatus['visited'] || 0);
+    const todayAppointment = todayByStatus['reserved'] || 0;
+    const todayTreatment = todayByStatus['treatmentBooked'] || 0;
+
     const todayTasks = {
       overdue: {
-        callback: (overdueByStatus['consulting'] || 0) + (overdueByStatus['visited'] || 0),
-        noShow: overdueByStatus['reserved'] || 0,
-        treatmentNoShow: overdueByStatus['treatmentBooked'] || 0,
-        total: Object.values(overdueByStatus).reduce((sum: number, count: number) => sum + count, 0),
+        callback: overdueCallback,
+        noShow: overdueNoShow,
+        treatmentNoShow: overdueTreatmentNoShow,
+        total: overdueCallback + overdueNoShow + overdueTreatmentNoShow,
       },
       today: {
-        callback: (todayByStatus['consulting'] || 0) + (todayByStatus['visited'] || 0),
-        appointment: todayByStatus['reserved'] || 0,
-        treatment: todayByStatus['treatmentBooked'] || 0,
-        total: Object.values(todayByStatus).reduce((sum: number, count: number) => sum + count, 0),
+        callback: todayCallback,
+        appointment: todayAppointment,
+        treatment: todayTreatment,
+        total: todayCallback + todayAppointment + todayTreatment,
       },
       tomorrow: {
         total: todayTasksData.tomorrowScheduled?.[0]?.count || 0,
@@ -368,106 +322,104 @@ export async function GET(request: NextRequest) {
     const revenueData = revenueStats[0] || {};
     const thisMonthRevenue = revenueData.thisMonth?.[0] || {};
     const lastMonthRevenue = revenueData.lastMonth?.[0] || {};
-    const totalRevenue = revenueData.total?.[0] || {};
 
-    // 이번 달 매출 정보
-    const thisMonthActual = thisMonthRevenue.totalActual || 0;
-    const thisMonthEstimated = thisMonthRevenue.totalEstimated || 0;
+    const thisMonthConfirmed = thisMonthRevenue.confirmedRevenue || 0;
+    const thisMonthMissed = thisMonthRevenue.missedRevenue || 0;
+    const thisMonthMissedCount = thisMonthRevenue.missedCount || 0;
+    const thisMonthPaidEstimated = thisMonthRevenue.paidEstimated || 0;
     const thisMonthPatients = thisMonthRevenue.patientCount || 0;
     const thisMonthPaidCount = thisMonthRevenue.paidCount || 0;
+    const lastMonthConfirmed = lastMonthRevenue.confirmedRevenue || 0;
 
-    // 지난 달 매출 정보
-    const lastMonthActual = lastMonthRevenue.totalActual || 0;
-
-    // 평균 할인율 계산 (원래금액 대비 할인된 비율)
-    const discountRate = thisMonthEstimated > 0
-      ? Math.round((1 - thisMonthActual / thisMonthEstimated) * 100)
+    // 할인율: 결제 환자의 정가 대비 실결제 비율
+    const discountRate = thisMonthPaidEstimated > 0
+      ? Math.round((1 - thisMonthConfirmed / thisMonthPaidEstimated) * 100)
       : 0;
 
-    // 평균 객단가 계산 (실제 결제한 환자 기준)
+    // 평균 객단가: 확정매출 / 결제 환자 수
     const avgRevenue = thisMonthPaidCount > 0
-      ? Math.round(thisMonthActual / thisMonthPaidCount)
+      ? Math.round(thisMonthConfirmed / thisMonthPaidCount)
       : 0;
 
-    // 전월 대비 성장률
-    const growthRate = lastMonthActual > 0
-      ? Math.round(((thisMonthActual - lastMonthActual) / lastMonthActual) * 100)
-      : (thisMonthActual > 0 ? 100 : 0);
+    // 성장률: 이번달 확정매출 vs 지난달 확정매출
+    const growthRate = lastMonthConfirmed > 0
+      ? Math.round(((thisMonthConfirmed - lastMonthConfirmed) / lastMonthConfirmed) * 100)
+      : (thisMonthConfirmed > 0 ? 100 : 0);
+
+    // 전환율 통계 가공
+    const conversionData = conversionStats[0] || {};
+
+    // 이번 달 수치
+    const thisMonthTotal = conversionData.thisMonthTotal?.[0]?.count || 0;
+    const thisMonthReserved = conversionData.thisMonthReserved?.[0]?.count || 0;
+    const thisMonthVisited = conversionData.thisMonthVisited?.[0]?.count || 0;
+    const thisMonthPaid = conversionData.thisMonthPaid?.[0]?.count || 0;
+
+    // 지난 달 수치
+    const lastMonthTotal = conversionData.lastMonthTotal?.[0]?.count || 0;
+    const lastMonthReserved = conversionData.lastMonthReserved?.[0]?.count || 0;
+    const lastMonthVisited = conversionData.lastMonthVisited?.[0]?.count || 0;
+    const lastMonthPaid = conversionData.lastMonthPaid?.[0]?.count || 0;
+
+    // 전환율 계산 (%)
+    const reservationRate = thisMonthTotal > 0 ? Math.round((thisMonthReserved / thisMonthTotal) * 100) : 0;
+    const visitRate = thisMonthTotal > 0 ? Math.round((thisMonthVisited / thisMonthTotal) * 100) : 0;
+    const paymentRate = thisMonthTotal > 0 ? Math.round((thisMonthPaid / thisMonthTotal) * 100) : 0;
+
+    // 지난 달 전환율
+    const lastReservationRate = lastMonthTotal > 0 ? Math.round((lastMonthReserved / lastMonthTotal) * 100) : 0;
+    const lastVisitRate = lastMonthTotal > 0 ? Math.round((lastMonthVisited / lastMonthTotal) * 100) : 0;
+    const lastPaymentRate = lastMonthTotal > 0 ? Math.round((lastMonthPaid / lastMonthTotal) * 100) : 0;
+
+    // 전월 대비 트렌드 (%p)
+    const reservationRateTrend = reservationRate - lastReservationRate;
+    const visitRateTrend = visitRate - lastVisitRate;
+    const paymentRateTrend = paymentRate - lastPaymentRate;
+    const inquiryTrend = thisMonthTotal - lastMonthTotal;
 
     return NextResponse.json({
       success: true,
       data: {
-        // 오늘 통계
-        today: {
-          totalCalls,
-          analyzed: totalCalls - formattedQueue.length,
-          analyzing: formattedQueue.length,
-          newPatients,
-          existingPatients: totalCalls - newPatients - missedCalls,
-          missed: missedCalls,
-          other: 0,
-          // 어제 대비 트렌드
-          trend: {
-            totalCalls: totalCalls - yesterdayTotalCalls,
-            newPatients: newPatients - yesterdayNewPatients,
+        // 전환율 통계 (신규)
+        conversionRates: {
+          newInquiries: {
+            count: thisMonthTotal,
+            trend: inquiryTrend,
+          },
+          reservationRate: {
+            value: reservationRate,
+            trend: reservationRateTrend,
+            count: thisMonthReserved,
+          },
+          visitRate: {
+            value: visitRate,
+            trend: visitRateTrend,
+            count: thisMonthVisited,
+          },
+          paymentRate: {
+            value: paymentRate,
+            trend: paymentRateTrend,
+            count: thisMonthPaid,
           },
         },
-        // 주의 필요 환자
-        alerts: [
-          {
-            id: 'visited_long',
-            type: 'visited_long',
-            label: '내원완료 7일+',
-            count: visitedLong.length,
-            patients: visitedLong.map((p: any) => p.name),
-            color: 'amber',
-          },
-          {
-            id: 'consulting_long',
-            type: 'consulting_long',
-            label: '전화상담 14일+',
-            count: consultingLong.length,
-            patients: consultingLong.map((p: any) => p.name),
-            color: 'red',
-          },
-          {
-            id: 'noshow_risk',
-            type: 'noshow_risk',
-            label: '내원예약 노쇼 위험',
-            count: noshowRisk.length,
-            patients: noshowRisk.map((p: any) => p.name),
-            color: 'orange',
-          },
-        ].filter(a => a.count > 0),
-        // 분석 대기열
-        analysisQueue: formattedQueue,
-        // 오늘의 콜백
-        callbacks: formattedCallbacks,
-        // 최근 등록 환자
-        recentPatients: formattedRecentPatients,
-        // 환자 상태별 카운트
-        patientCounts: statusCounts,
         // 오늘 할 일 통계
         todayTasks,
         // 매출 통계
         revenue: {
           thisMonth: {
-            actual: thisMonthActual,           // 이번 달 실제 매출
-            estimated: thisMonthEstimated,     // 이번 달 예상 매출
-            patientCount: thisMonthPatients,   // 이번 달 환자 수
-            paidCount: thisMonthPaidCount,     // 결제 완료 환자 수
+            confirmed: thisMonthConfirmed,
+            missed: thisMonthMissed,
+            missedCount: thisMonthMissedCount,
+            patientCount: thisMonthPatients,
+            paidCount: thisMonthPaidCount,
           },
           lastMonth: {
-            actual: lastMonthActual,           // 지난 달 실제 매출
+            confirmed: lastMonthConfirmed,
           },
-          total: {
-            actual: totalRevenue.totalActual || 0,
-            estimated: totalRevenue.totalEstimated || 0,
-            patientCount: totalRevenue.patientCount || 0,
-          },
-          discountRate,     // 평균 할인율 %
-          avgRevenue,       // 평균 객단가 (원)
-          growthRate,       // 전월 대비 성장률 %
+          discountRate,
+          avgRevenue,
+          growthRate,
+          monthlyTarget: monthlyRevenueTarget,
         },
       },
     });

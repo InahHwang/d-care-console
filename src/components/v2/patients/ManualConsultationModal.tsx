@@ -3,15 +3,15 @@
 'use client';
 
 import React, { useState, useEffect } from 'react';
-import { X, Phone, Building, MessageCircle, Calendar, Clock, Loader2 } from 'lucide-react';
+import { X, Phone, Building, MessageCircle, Calendar, Clock, Loader2, User } from 'lucide-react';
 import { format } from 'date-fns';
+import { useAppSelector } from '@/hooks/reduxHooks';
 
 interface ManualConsultationModalProps {
   isOpen: boolean;
   onClose: () => void;
   patientId: string;
   patientName: string;
-  consultantName?: string;
   onSuccess: () => void;
 }
 
@@ -28,14 +28,16 @@ export function ManualConsultationModal({
   onClose,
   patientId,
   patientName,
-  consultantName = '',
   onSuccess,
 }: ManualConsultationModalProps) {
+  // 로그인 사용자 정보 가져오기
+  const { user } = useAppSelector((state) => state.auth);
+  const consultantName = user?.name || '미지정';
+
   const [type, setType] = useState<ConsultationType>('phone');
   const [date, setDate] = useState('');
   const [time, setTime] = useState('');
   const [content, setContent] = useState('');
-  const [consultant, setConsultant] = useState(consultantName);
   const [isSaving, setIsSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
@@ -47,10 +49,9 @@ export function ManualConsultationModal({
       setTime(format(now, 'HH:mm'));
       setType('phone');
       setContent('');
-      setConsultant(consultantName);
       setError(null);
     }
-  }, [isOpen, consultantName]);
+  }, [isOpen]);
 
   const handleSubmit = async () => {
     if (!content.trim()) {
@@ -71,7 +72,7 @@ export function ManualConsultationModal({
           type,
           date: consultationDate.toISOString(),
           content: content.trim(),
-          consultantName: consultant.trim() || '미지정',
+          consultantName,
         }),
       });
 
@@ -187,17 +188,15 @@ export function ManualConsultationModal({
             />
           </div>
 
-          {/* 상담자 */}
+          {/* 상담자 (로그인 사용자 자동 표시) */}
           <div>
-            <label className="block text-sm font-medium text-gray-700 mb-2">상담자</label>
-            <input
-              type="text"
-              value={consultant}
-              onChange={(e) => setConsultant(e.target.value)}
-              placeholder="상담자 이름"
-              disabled={isSaving}
-              className="w-full px-3 py-2 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 disabled:bg-gray-100"
-            />
+            <label className="block text-sm font-medium text-gray-700 mb-2">
+              <User size={14} className="inline mr-1" />
+              상담자
+            </label>
+            <div className="w-full px-3 py-2 bg-gray-50 border border-gray-200 rounded-lg text-sm text-gray-700">
+              {consultantName}
+            </div>
           </div>
         </div>
 

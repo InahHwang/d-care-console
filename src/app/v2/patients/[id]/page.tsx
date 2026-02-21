@@ -20,7 +20,6 @@ import {
   RotateCcw,
   Wallet,
   CircleDollarSign,
-  Activity,
   CheckCircle2,
   AlertTriangle,
   ChevronDown,
@@ -36,8 +35,11 @@ import { ClosePatientModal } from '@/components/v2/patients/ClosePatientModal';
 import { ConsultationInputModal, ConsultationFormData, ExistingConsultationData } from '@/components/v2/patients/ConsultationInputModal';
 import { ConsultationHistory } from '@/components/v2/patients/ConsultationHistory';
 import { ConsultationHistoryCard } from '@/components/v2/patients/ConsultationHistoryCard';
+import { MessageSendModalV2 } from '@/components/v2/patients/MessageSendModalV2';
+import { MessageHistoryCard } from '@/components/v2/patients/MessageHistoryCard';
 import { useAppSelector } from '@/hooks/reduxHooks';
-import { ClipboardList } from 'lucide-react';
+import { ClipboardList, Send } from 'lucide-react';
+import { MarketingTargetButton } from '@/components/v2/marketing';
 
 // 상태 진행 단계 정의 (7단계 퍼널)
 const statusSteps: Array<{ id: PatientStatus; label: string; color: string }> = [
@@ -83,6 +85,7 @@ interface StatusHistoryEntry {
   changedAt: string;
   changedBy?: string;
   reason?: ClosedReason;
+  customReason?: string;  // 종결 사유가 '기타'일 때 주관식 내용
 }
 
 // 예약 상태 목록 (미래 일정)
@@ -164,6 +167,9 @@ interface PatientDetail {
   // 여정 관련 필드
   journeys?: Journey[];
   activeJourneyId?: string;
+  // 마이그레이션된 종결 사유 (환자 문서 최상위 레벨)
+  closedReason?: string;
+  closedReasonDetail?: string;
 }
 
 export default function PatientDetailPage() {
@@ -205,14 +211,39 @@ export default function PatientDetailPage() {
   // 🆕 예정일 변경 모달
   const [scheduleModalOpen, setScheduleModalOpen] = useState(false);
 
+  // 🆕 문자 발송 모달
+  const [messageSendModalOpen, setMessageSendModalOpen] = useState(false);
+
+  // 🆕 상담이력 새로고침 키 (상담 결과 저장 후 자동 새로고침용)
+  const [consultationHistoryKey, setConsultationHistoryKey] = useState(0);
+
+  // 🆕 관심분야 인라인 편집
+  const [interestEditOpen, setInterestEditOpen] = useState(false);
+  const [interestEditValue, setInterestEditValue] = useState('');
+  const [interestSaving, setInterestSaving] = useState(false);
+
+  // 🆕 치료금액 인라인 편집
+  const [amountEditOpen, setAmountEditOpen] = useState(false);
+  const [amountEditValue, setAmountEditValue] = useState<{
+    estimatedAmount?: number;
+    actualAmount?: number;
+    paymentStatus?: PaymentStatus;
+    treatmentNote?: string;
+  }>({});
+  const [amountSaving, setAmountSaving] = useState(false);
+
   // 마스터 권한 확인
   const isMaster = user?.role === 'master';
+
+  // 상담타입 ID→라벨 매핑
+  const [consultationTypeMap, setConsultationTypeMap] = useState<Record<string, string>>({});
 
   // 🆕 여정(Journey) 관련 상태
   const [journeys, setJourneys] = useState<Journey[]>([]);
   const [selectedJourneyId, setSelectedJourneyId] = useState<string>('');
   const [isJourneyDropdownOpen, setIsJourneyDropdownOpen] = useState(false);
   const [isNewJourneyModalOpen, setIsNewJourneyModalOpen] = useState(false);
+  const [expandedCallbackIdx, setExpandedCallbackIdx] = useState<number | null>(null);
 
   const selectedJourney = journeys.find(j => j.id === selectedJourneyId);
 
@@ -237,6 +268,47 @@ export default function PatientDetailPage() {
     return statusSteps.find(s => s.id === status)?.label || status;
   };
 
+  // 상담타입 라벨 가져오기
+  const getConsultationTypeLabel = (typeId: string | undefined): string | null => {
+    if (!typeId) return null;
+    // 먼저 카테고리 맵에서 찾기
+    if (consultationTypeMap[typeId]) {
+      return consultationTypeMap[typeId];
+    }
+    // 기본 타입 fallback
+    const defaultMap: Record<string, string> = {
+      inbound: '인바운드',
+      outbound: '아웃바운드',
+      returning: '구신환',
+    };
+    if (defaultMap[typeId]) {
+      return defaultMap[typeId];
+    }
+    // custom_xxx 형식이면 null (라벨 못 찾음)
+    if (typeId.startsWith('custom_')) {
+      return null;
+    }
+    return typeId;
+  };
+
+  // V2 DB에서 문자열로 저장된 region을 객체로 변환
+  const parseRegion = (region: unknown): { province: string; city?: string } | undefined => {
+    if (!region) return undefined;
+    // 이미 객체인 경우
+    if (typeof region === 'object' && region !== null && 'province' in region) {
+      return region as { province: string; city?: string };
+    }
+    // 문자열인 경우 파싱 (예: "경기 남양주시" → { province: "경기", city: "남양주시" })
+    if (typeof region === 'string' && region.trim()) {
+      const parts = region.trim().split(' ');
+      if (parts.length >= 2) {
+        return { province: parts[0], city: parts.slice(1).join(' ') };
+      }
+      return { province: parts[0] };
+    }
+    return undefined;
+  };
+
   const fetchPatient = useCallback(async () => {
     try {
       const response = await fetch(`/api/v2/patients/${patientId}`);
@@ -250,9 +322,14 @@ export default function PatientDetailPage() {
       }
 
       const data = await response.json();
-      setPatient(data.patient);
+      // region이 문자열인 경우 객체로 변환
+      const patientData = {
+        ...data.patient,
+        region: parseRegion(data.patient.region),
+      };
+      setPatient(patientData);
       setCallLogs(data.callLogs);
-      setEditData(data.patient);
+      setEditData(patientData);
 
       // 여정 데이터 설정
       const patientJourneys = data.patient.journeys || [];
@@ -294,6 +371,28 @@ export default function PatientDetailPage() {
     fetchConsultations();
   }, [fetchPatient, fetchConsultations]);
 
+  // 카테고리 조회 (상담타입 라벨용)
+  useEffect(() => {
+    const fetchCategories = async () => {
+      try {
+        const response = await fetch('/api/settings/categories');
+        if (response.ok) {
+          const data = await response.json();
+          if (data.success && data.categories?.consultationTypes) {
+            const typeMap: Record<string, string> = {};
+            data.categories.consultationTypes.forEach((type: { id: string; label: string }) => {
+              typeMap[type.id] = type.label;
+            });
+            setConsultationTypeMap(typeMap);
+          }
+        }
+      } catch (error) {
+        console.error('카테고리 조회 실패:', error);
+      }
+    };
+    fetchCategories();
+  }, []);
+
   // 상담 결과 저장 (신규 생성 또는 수정)
   const handleConsultationSubmit = async (formData: ConsultationFormData, existingId?: string) => {
     try {
@@ -328,55 +427,129 @@ export default function PatientDetailPage() {
         }
       }
 
+      // 마케팅 타겟 지정 처리 (미동의/보류 시 체크박스 체크한 경우)
+      if (formData.isMarketingTarget && formData.marketingTargetData) {
+        try {
+          await fetch(`/api/v2/patients/${patientId}/marketing-target`, {
+            method: 'PUT',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+              targetReason: formData.marketingTargetData.reason,
+              customReason: formData.marketingTargetData.customReason,
+              categories: formData.marketingTargetData.categories,
+              scheduledDate: formData.marketingTargetData.scheduledDate,
+              note: formData.marketingTargetData.note,
+              createdBy: user?.name,
+            }),
+          });
+        } catch (marketingErr) {
+          console.error('마케팅 타겟 지정 실패:', marketingErr);
+          // 마케팅 타겟 실패해도 상담 결과는 저장되었으므로 계속 진행
+        }
+      }
+
       // 환자 정보와 상담 이력 새로고침
       await fetchPatient();
       await fetchConsultations();
+      // 🆕 상담이력 카드 새로고침 트리거
+      setConsultationHistoryKey(prev => prev + 1);
     } catch (err) {
       console.error('상담 결과 저장 실패:', err);
       throw err;
     }
   };
 
-  // 상담 결과 입력 모달 열기 (전화상담은 기존 데이터 확인)
+  // 상담 결과 입력 모달 열기 - 항상 신규 입력 모드
   const openConsultationModal = (type: 'phone' | 'visit') => {
     setConsultationType(type);
-
-    // 전화상담인 경우: 기존 AI 자동분류 데이터 확인
-    if (type === 'phone') {
-      // 최근 전화상담 기록 중 가장 최신 것 찾기
-      const latestPhoneConsultation = consultations.find(c => c.type === 'phone');
-
-      if (latestPhoneConsultation) {
-        // 기존 데이터를 수정 모드로 전달
-        setExistingConsultation({
-          id: latestPhoneConsultation.id,
-          status: latestPhoneConsultation.status,
-          treatment: latestPhoneConsultation.treatment,
-          originalAmount: latestPhoneConsultation.originalAmount,
-          discountRate: latestPhoneConsultation.discountRate,
-          discountReason: latestPhoneConsultation.discountReason,
-          disagreeReasons: latestPhoneConsultation.disagreeReasons,
-          correctionPlan: latestPhoneConsultation.correctionPlan,
-          appointmentDate: latestPhoneConsultation.appointmentDate
-            ? new Date(latestPhoneConsultation.appointmentDate).toISOString().split('T')[0]
-            : undefined,
-          callbackDate: latestPhoneConsultation.callbackDate
-            ? new Date(latestPhoneConsultation.callbackDate).toISOString().split('T')[0]
-            : undefined,
-          consultantName: latestPhoneConsultation.consultantName,
-          memo: latestPhoneConsultation.memo,
-          aiGenerated: latestPhoneConsultation.aiGenerated,
-          aiSummary: latestPhoneConsultation.aiSummary,
-        });
-      } else {
-        setExistingConsultation(undefined);
-      }
-    } else {
-      // 내원상담은 항상 신규 입력
-      setExistingConsultation(undefined);
-    }
-
+    setExistingConsultation(undefined);
     setConsultationModalOpen(true);
+  };
+
+  // 🆕 관심분야 인라인 편집 핸들러
+  const handleInterestEditOpen = () => {
+    setInterestEditValue(displayInterest || '');
+    setInterestEditOpen(true);
+  };
+
+  const handleInterestSave = async (value: string) => {
+    if (!value.trim()) {
+      setInterestEditOpen(false);
+      return;
+    }
+    setInterestSaving(true);
+    try {
+      if (selectedJourney) {
+        const response = await fetch(`/api/v2/patients/${patientId}/journeys/${selectedJourneyId}`, {
+          method: 'PATCH',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ treatmentType: value }),
+        });
+        if (!response.ok) throw new Error('여정 업데이트 실패');
+      } else {
+        const response = await fetch(`/api/v2/patients/${patientId}`, {
+          method: 'PATCH',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ interest: value }),
+        });
+        if (!response.ok) throw new Error('환자 업데이트 실패');
+      }
+      await fetchPatient();
+      setInterestEditOpen(false);
+    } catch (err) {
+      console.error('관심분야 저장 실패:', err);
+    } finally {
+      setInterestSaving(false);
+    }
+  };
+
+  // 🆕 치료금액 인라인 편집 핸들러
+  const handleAmountEditOpen = () => {
+    setAmountEditValue({
+      estimatedAmount: displayEstimatedAmount,
+      actualAmount: displayActualAmount,
+      paymentStatus: displayPaymentStatus || 'none',
+      treatmentNote: displayTreatmentNote || '',
+    });
+    setAmountEditOpen(true);
+  };
+
+  const handleAmountSave = async () => {
+    setAmountSaving(true);
+    try {
+      if (selectedJourney) {
+        const response = await fetch(`/api/v2/patients/${patientId}/journeys/${selectedJourneyId}`, {
+          method: 'PATCH',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            estimatedAmount: amountEditValue.estimatedAmount,
+            actualAmount: amountEditValue.actualAmount,
+            paymentStatus: amountEditValue.paymentStatus,
+            treatmentNote: amountEditValue.treatmentNote,
+          }),
+        });
+        if (!response.ok) throw new Error('여정 업데이트 실패');
+      } else {
+        const response = await fetch(`/api/v2/patients/${patientId}`, {
+          method: 'PATCH',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            estimatedAmount: amountEditValue.estimatedAmount,
+            actualAmount: amountEditValue.actualAmount,
+            paymentStatus: amountEditValue.paymentStatus,
+            treatmentNote: amountEditValue.treatmentNote,
+          }),
+        });
+        if (!response.ok) throw new Error('환자 업데이트 실패');
+      }
+      await fetchPatient();
+      setAmountEditOpen(false);
+    } catch (err) {
+      console.error('치료금액 저장 실패:', err);
+      alert('저장 중 오류가 발생했습니다.');
+    } finally {
+      setAmountSaving(false);
+    }
   };
 
   const handleCall = () => {
@@ -681,6 +854,13 @@ export default function PatientDetailPage() {
           ) : (
             <>
               <button
+                onClick={() => setMessageSendModalOpen(true)}
+                className="flex items-center gap-2 px-4 py-2 text-blue-600 hover:bg-blue-50 rounded-lg"
+              >
+                <Send size={18} />
+                문자 발송
+              </button>
+              <button
                 onClick={() => setIsEditing(true)}
                 className="flex items-center gap-2 px-4 py-2 text-gray-600 hover:bg-gray-100 rounded-lg"
               >
@@ -851,33 +1031,72 @@ export default function PatientDetailPage() {
                   ) : (
                     <h1 className="text-2xl font-bold text-gray-900">{patient.name}</h1>
                   )}
-                  {patient.consultationType && (
-                    <span className="px-2 py-1 bg-purple-100 text-purple-700 rounded text-sm font-medium">
-                      {patient.consultationType}
-                    </span>
-                  )}
+                  {(() => {
+                    const typeLabel = getConsultationTypeLabel(patient.consultationType);
+                    return typeLabel ? (
+                      <span className="px-2 py-1 bg-purple-100 text-purple-700 rounded text-sm font-medium">
+                        {typeLabel}
+                      </span>
+                    ) : null;
+                  })()}
                   <StatusBadge status={displayStatus} />
                 </div>
-                <div className="flex items-center gap-3">
+                <div className="flex items-center gap-3 flex-wrap">
                   <p className="text-gray-500">{patient.phone}</p>
-                  {patient.source && (
-                    <span className="px-2 py-0.5 bg-gray-100 text-gray-600 text-xs rounded">
-                      {patient.source}
-                    </span>
-                  )}
+                  <span className="text-gray-300">|</span>
+                  {/* 🆕 관심분야 인라인 편집 */}
+                  <div className="relative">
+                    {interestEditOpen ? (
+                      <div className="flex items-center gap-1">
+                        <select
+                          value={interestEditValue}
+                          onChange={(e) => setInterestEditValue(e.target.value)}
+                          disabled={interestSaving}
+                          className="text-sm border border-blue-300 rounded px-2 py-0.5 focus:outline-none focus:ring-2 focus:ring-blue-500 bg-white"
+                          autoFocus
+                        >
+                          <option value="">선택...</option>
+                          {TREATMENT_TYPES.map((type) => (
+                            <option key={type} value={type}>{type}</option>
+                          ))}
+                        </select>
+                        <button
+                          onClick={() => handleInterestSave(interestEditValue)}
+                          disabled={interestSaving}
+                          className="p-1 text-blue-600 hover:bg-blue-50 rounded"
+                        >
+                          <Save size={14} />
+                        </button>
+                        <button
+                          onClick={() => setInterestEditOpen(false)}
+                          disabled={interestSaving}
+                          className="p-1 text-gray-400 hover:bg-gray-100 rounded"
+                        >
+                          <X size={14} />
+                        </button>
+                      </div>
+                    ) : (
+                      <button
+                        onClick={handleInterestEditOpen}
+                        className={`flex items-center gap-1 px-2 py-0.5 rounded text-sm transition-colors ${
+                          displayInterest
+                            ? 'bg-blue-100 text-blue-700 hover:bg-blue-200'
+                            : 'bg-gray-100 text-gray-500 hover:bg-gray-200'
+                        }`}
+                      >
+                        <Sparkles size={12} />
+                        {displayInterest || '관심분야 설정'}
+                      </button>
+                    )}
+                  </div>
                 </div>
               </div>
               <div className="flex items-center gap-2">
-                {/* 상담 결과 입력 버튼 - consulting 또는 visited 상태일 때 표시 (활성 여정만) */}
-                {isActiveJourney && (displayStatus === 'consulting' || displayStatus === 'visited') && (
-                  <button
-                    onClick={() => openConsultationModal(displayStatus === 'consulting' ? 'phone' : 'visit')}
-                    className="flex items-center gap-2 px-5 py-3 bg-purple-500 text-white rounded-xl hover:bg-purple-600 transition-colors"
-                  >
-                    <ClipboardList size={20} />
-                    {displayStatus === 'consulting' ? '전화상담 결과' : '내원상담 결과'}
-                  </button>
-                )}
+                <MarketingTargetButton
+                  patient={patient}
+                  onUpdate={fetchPatient}
+                  consultantName={user?.name}
+                />
                 <button
                   onClick={handleCall}
                   className="flex items-center gap-2 px-6 py-3 bg-emerald-500 text-white rounded-xl hover:bg-emerald-600 transition-colors"
@@ -959,6 +1178,150 @@ export default function PatientDetailPage() {
               )}
             </div>
 
+            {/* 🆕 치료금액 인라인 표시/편집 */}
+            <div className="flex items-center gap-4 mb-4 flex-wrap">
+              {amountEditOpen ? (
+                <div className="w-full bg-gray-50 rounded-lg p-4 space-y-3">
+                  <div className="flex items-center gap-2 mb-2">
+                    <Wallet size={16} className="text-emerald-500" />
+                    <span className="text-sm font-medium text-gray-700">치료금액 편집</span>
+                  </div>
+                  <div className="grid grid-cols-2 gap-3">
+                    {/* 원래 금액 */}
+                    <div>
+                      <label className="text-xs text-gray-500 mb-1 block">원래 금액</label>
+                      <div className="relative">
+                        <input
+                          type="text"
+                          inputMode="numeric"
+                          value={amountEditValue.estimatedAmount ? amountEditValue.estimatedAmount.toLocaleString() : ''}
+                          onChange={(e) => {
+                            const value = e.target.value.replace(/[^0-9]/g, '');
+                            setAmountEditValue({ ...amountEditValue, estimatedAmount: value ? parseInt(value, 10) : undefined });
+                          }}
+                          placeholder="0"
+                          disabled={amountSaving}
+                          className="w-full p-2 pr-8 border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 text-sm text-right"
+                        />
+                        <span className="absolute right-3 top-1/2 -translate-y-1/2 text-sm text-gray-400">원</span>
+                      </div>
+                    </div>
+                    {/* 최종 금액 */}
+                    <div>
+                      <label className="text-xs text-gray-500 mb-1 block">최종 금액</label>
+                      <div className="relative">
+                        <input
+                          type="text"
+                          inputMode="numeric"
+                          value={amountEditValue.actualAmount ? amountEditValue.actualAmount.toLocaleString() : ''}
+                          onChange={(e) => {
+                            const value = e.target.value.replace(/[^0-9]/g, '');
+                            setAmountEditValue({ ...amountEditValue, actualAmount: value ? parseInt(value, 10) : undefined });
+                          }}
+                          placeholder="0"
+                          disabled={amountSaving}
+                          className="w-full p-2 pr-8 border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 text-sm text-right"
+                        />
+                        <span className="absolute right-3 top-1/2 -translate-y-1/2 text-sm text-gray-400">원</span>
+                      </div>
+                    </div>
+                  </div>
+                  {/* 결제 상태 */}
+                  <div>
+                    <label className="text-xs text-gray-500 mb-1 block">결제 상태</label>
+                    <div className="flex gap-2">
+                      {[
+                        { value: 'none', label: '미결제' },
+                        { value: 'partial', label: '부분결제' },
+                        { value: 'completed', label: '완납' },
+                      ].map((opt) => (
+                        <button
+                          key={opt.value}
+                          type="button"
+                          onClick={() => setAmountEditValue({ ...amountEditValue, paymentStatus: opt.value as PaymentStatus })}
+                          disabled={amountSaving}
+                          className={`flex-1 px-2 py-1 rounded text-xs transition-colors ${
+                            amountEditValue.paymentStatus === opt.value
+                              ? 'bg-emerald-500 text-white'
+                              : 'bg-white border border-gray-200 text-gray-600 hover:bg-gray-50'
+                          }`}
+                        >
+                          {opt.label}
+                        </button>
+                      ))}
+                    </div>
+                  </div>
+                  {/* 시술 내역 */}
+                  <div>
+                    <label className="text-xs text-gray-500 mb-1 block">시술 내역</label>
+                    <input
+                      type="text"
+                      value={amountEditValue.treatmentNote || ''}
+                      onChange={(e) => setAmountEditValue({ ...amountEditValue, treatmentNote: e.target.value })}
+                      placeholder="예: 임플란트 2본, 크라운 1개"
+                      disabled={amountSaving}
+                      className="w-full p-2 border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 text-sm"
+                    />
+                  </div>
+                  {/* 버튼 */}
+                  <div className="flex justify-end gap-2 pt-2">
+                    <button
+                      onClick={() => setAmountEditOpen(false)}
+                      disabled={amountSaving}
+                      className="px-3 py-1.5 text-sm text-gray-600 hover:bg-gray-200 rounded-lg"
+                    >
+                      취소
+                    </button>
+                    <button
+                      onClick={handleAmountSave}
+                      disabled={amountSaving}
+                      className="px-3 py-1.5 text-sm bg-emerald-500 text-white rounded-lg hover:bg-emerald-600 disabled:opacity-50 flex items-center gap-1"
+                    >
+                      {amountSaving ? '저장 중...' : <><Save size={14} /> 저장</>}
+                    </button>
+                  </div>
+                </div>
+              ) : (
+                <>
+                  <div className="flex items-center gap-2">
+                    <Wallet size={16} className="text-emerald-500" />
+                    <span className="text-sm text-gray-500">치료금액:</span>
+                    {(displayEstimatedAmount || displayActualAmount) ? (
+                      <span className="text-sm font-bold text-emerald-600">
+                        {displayActualAmount ? `${Math.round(displayActualAmount).toLocaleString()}원` : '-'}
+                        {displayEstimatedAmount && displayActualAmount && displayEstimatedAmount > displayActualAmount && (
+                          <span className="text-xs text-gray-400 font-normal ml-1">
+                            (정가 {Math.round(displayEstimatedAmount).toLocaleString()}원, {Math.round((1 - displayActualAmount / displayEstimatedAmount) * 100)}% 할인)
+                          </span>
+                        )}
+                      </span>
+                    ) : (
+                      <span className="text-sm text-gray-400">미입력</span>
+                    )}
+                    {displayPaymentStatus && displayPaymentStatus !== 'none' && (
+                      <span className={`px-1.5 py-0.5 rounded text-xs font-medium ${
+                        displayPaymentStatus === 'completed'
+                          ? 'bg-emerald-100 text-emerald-700'
+                          : 'bg-amber-100 text-amber-700'
+                      }`}>
+                        {displayPaymentStatus === 'completed' ? '완납' : '부분결제'}
+                      </span>
+                    )}
+                    <button
+                      onClick={handleAmountEditOpen}
+                      className="p-1 text-gray-400 hover:text-emerald-600 hover:bg-gray-100 rounded transition-colors"
+                      title="치료금액 편집"
+                    >
+                      <Edit2 size={14} />
+                    </button>
+                  </div>
+                  {displayTreatmentNote && (
+                    <span className="text-xs text-gray-500">| {displayTreatmentNote}</span>
+                  )}
+                </>
+              )}
+            </div>
+
             {/* 종결된 여정인 경우 종결 정보 표시 */}
             {displayStatus === 'closed' ? (
               <div className="py-4 border-t">
@@ -971,13 +1334,18 @@ export default function PatientDetailPage() {
                     const closedEntry = displayStatusHistory?.find(h => h.to === 'closed');
                     const previousStatus = closedEntry?.from;
                     const previousLabel = statusSteps.find(s => s.id === previousStatus)?.label || previousStatus;
+                    // 종결 사유: statusHistory에 있으면 사용, 없으면 환자 문서의 closedReason/closedReasonDetail 사용 (마이그레이션 데이터)
+                    const displayClosedReason = closedEntry?.reason || patient.closedReason;
+                    const displayCustomReason = closedEntry?.customReason || patient.closedReasonDetail;
                     return (
                       <div className="space-y-2 text-sm">
-                        {closedEntry?.reason && (
+                        {(displayClosedReason || displayCustomReason) && (
                           <div className="flex items-center gap-2">
                             <span className="text-gray-500">종결 사유:</span>
                             <span className="font-medium text-gray-700">
-                              {CLOSED_REASON_OPTIONS.find(o => o.value === closedEntry.reason)?.label || closedEntry.reason}
+                              {displayClosedReason === '기타' && displayCustomReason
+                                ? displayCustomReason
+                                : displayCustomReason || CLOSED_REASON_OPTIONS.find(o => o.value === displayClosedReason)?.label || displayClosedReason}
                             </span>
                           </div>
                         )}
@@ -1040,130 +1408,162 @@ export default function PatientDetailPage() {
                   })}
                 </div>
 
-                {/* 🆕 예정일 표시 및 버튼 */}
-                {isActiveJourney && (
-                  <div className="mt-4 pt-4 border-t border-gray-100">
-                    <div className="flex items-center justify-between flex-wrap gap-3">
-                      {/* 예정일 표시 */}
-                      <div className="flex items-center gap-3">
-                        <span className="text-sm text-gray-500">예정일:</span>
-                        {displayNextActionDate ? (
-                          <div className="flex items-center gap-2">
-                            <span className="font-medium text-gray-900">
-                              {formatDateOnly(displayNextActionDate)}
-                            </span>
-                            <span className={`text-sm font-medium px-2 py-0.5 rounded ${
-                              getDdayDisplay(displayNextActionDate as string).style.includes('red')
-                                ? 'bg-red-100 text-red-600'
-                                : getDdayDisplay(displayNextActionDate as string).style.includes('blue')
-                                  ? 'bg-blue-100 text-blue-600'
-                                  : getDdayDisplay(displayNextActionDate as string).style.includes('orange')
-                                    ? 'bg-orange-100 text-orange-600'
-                                    : 'bg-gray-100 text-gray-600'
-                            }`}>
-                              {getDdayDisplay(displayNextActionDate as string).text}
-                            </span>
-                            {displayNextActionNote && (
-                              <span className="text-xs text-gray-600 bg-amber-50 px-2 py-0.5 rounded border border-amber-200">
-                                📝 {displayNextActionNote}
-                              </span>
-                            )}
-                          </div>
-                        ) : (
-                          <span className="text-gray-400">미설정</span>
-                        )}
-                      </div>
-
-                      {/* 버튼 영역 */}
-                      <div className="flex items-center gap-2">
-                        <button
-                          onClick={() => setScheduleModalOpen(true)}
-                          className="flex items-center gap-1.5 px-3 py-1.5 text-sm bg-blue-50 text-blue-600 rounded-lg hover:bg-blue-100 transition-colors"
-                        >
-                          <Calendar size={14} />
-                          {displayNextActionDate ? '예정일 변경' : '예정일 설정'}
-                        </button>
-                      </div>
-                    </div>
-
-                    {/* 🆕 콜백 이력 표시 */}
-                    {displayCallbackHistory && displayCallbackHistory.length > 0 && (
-                      <div className="mt-3 pt-3 border-t border-gray-100">
-                        <p className="text-xs text-gray-500 mb-2">콜백 이력</p>
-                        <div className="space-y-1 max-h-24 overflow-y-auto">
-                          {displayCallbackHistory.slice().reverse().slice(0, 5).map((entry, idx) => (
-                            <div key={idx} className="flex items-center gap-2 text-xs">
-                              <span className="text-gray-400">
-                                {formatDateOnly(entry.scheduledAt)}
-                              </span>
-                              {entry.reason && (
-                                <span className={`px-1.5 py-0.5 rounded ${
-                                  entry.reason === 'no_answer' ? 'bg-red-100 text-red-600' :
-                                  entry.reason === 'postponed' ? 'bg-amber-100 text-amber-600' :
-                                  'bg-purple-100 text-purple-600'
-                                }`}>
-                                  {CALLBACK_REASON_LABELS[entry.reason]}
-                                </span>
-                              )}
-                              {entry.note && (
-                                <span className="text-gray-500 truncate max-w-[200px]">
-                                  &quot;{entry.note}&quot;
-                                </span>
-                              )}
-                            </div>
-                          ))}
-                        </div>
-                      </div>
-                    )}
-                  </div>
-                )}
               </div>
             )}
           </Card>
 
+          {/* 🆕 통합 상담 현황 카드 */}
           <Card className="p-6">
-            <div className="flex items-center gap-2 mb-4">
-              <Sparkles size={20} className="text-purple-500" />
-              <h2 className="font-bold text-gray-900">AI 분석 결과</h2>
+            <div className="flex items-center gap-2 mb-5">
+              <ClipboardList size={20} className="text-purple-500" />
+              <h2 className="font-bold text-gray-900">상담 현황</h2>
             </div>
 
-            <div className="space-y-4">
-              <InterestEditSection
-                displayInterest={displayInterest}
-                selectedJourney={selectedJourney}
+            {/* 예정일 + 상담결과 입력 영역 */}
+            {isActiveJourney && (
+              <div className="mb-6 p-4 bg-gradient-to-r from-slate-50 to-gray-50 rounded-xl border border-gray-100">
+                {/* 예정일 표시 */}
+                <div className="flex items-center justify-between mb-4">
+                  <div className="flex items-center gap-3">
+                    <Calendar size={18} className="text-gray-400" />
+                    <span className="text-sm font-medium text-gray-600">다음 예정일</span>
+                  </div>
+                  {displayNextActionDate && (
+                    <button
+                      onClick={() => setScheduleModalOpen(true)}
+                      className="text-xs text-blue-600 hover:text-blue-700 hover:underline"
+                    >
+                      변경
+                    </button>
+                  )}
+                </div>
+
+                {displayNextActionDate ? (
+                  <div className="flex items-center gap-3 mb-4">
+                    <span className="text-2xl font-bold text-gray-900">
+                      {new Date(displayNextActionDate).toLocaleDateString('ko-KR', { month: 'long', day: 'numeric', weekday: 'short' })}
+                    </span>
+                    <span className={`text-sm font-bold px-3 py-1 rounded-full ${
+                      getDdayDisplay(displayNextActionDate as string).style.includes('red')
+                        ? 'bg-red-100 text-red-600'
+                        : getDdayDisplay(displayNextActionDate as string).style.includes('blue')
+                          ? 'bg-blue-500 text-white'
+                          : getDdayDisplay(displayNextActionDate as string).style.includes('orange')
+                            ? 'bg-orange-100 text-orange-600'
+                            : 'bg-gray-100 text-gray-600'
+                    }`}>
+                      {getDdayDisplay(displayNextActionDate as string).text}
+                    </span>
+                  </div>
+                ) : (
+                  <p className="text-gray-400 mb-4">예정일이 설정되지 않았습니다</p>
+                )}
+
+                {displayNextActionNote && (
+                  <p className="text-sm text-gray-600 bg-white px-3 py-2 rounded-lg border border-gray-200 mb-4">
+                    📝 {displayNextActionNote}
+                  </p>
+                )}
+
+                {/* 상담 결과 입력 버튼 - 메인 CTA */}
+                {(displayStatus === 'consulting' || displayStatus === 'visited') && (
+                  <button
+                    onClick={() => openConsultationModal(
+                      // 라벨과 type을 일치시킴
+                      displayStatus === 'consulting' ? 'phone'
+                      : !displayNextActionDate ? 'visit'
+                      : 'phone'
+                    )}
+                    className="w-full flex items-center justify-center gap-2 px-5 py-3 bg-purple-500 text-white rounded-xl font-medium hover:bg-purple-600 transition-colors"
+                  >
+                    <ClipboardList size={20} />
+                    {displayStatus === 'consulting'
+                      ? '전화상담 결과 입력'
+                      : !displayNextActionDate
+                        ? '내원상담 결과 입력'
+                        : '콜백 결과 입력'}
+                  </button>
+                )}
+              </div>
+            )}
+
+            {/* 콜백 이력 (접힘 가능) */}
+            {displayCallbackHistory && displayCallbackHistory.length > 0 && (
+              <div className="mb-6">
+                <details className="group">
+                  <summary className="flex items-center gap-2 cursor-pointer text-sm font-medium text-gray-600 hover:text-gray-900">
+                    <History size={16} />
+                    <span>콜백 이력 ({displayCallbackHistory.length}건)</span>
+                    <ChevronDown size={14} className="ml-auto group-open:rotate-180 transition-transform" />
+                  </summary>
+                  <div className="mt-3 pl-6 space-y-2 border-l-2 border-gray-200">
+                    {displayCallbackHistory.slice().reverse().map((entry, idx) => (
+                      <div key={idx} className="text-sm">
+                        <div className="flex items-center gap-2 flex-wrap">
+                          <span className="text-gray-400 text-xs">
+                            {formatDateOnly(entry.createdAt || entry.scheduledAt)}
+                          </span>
+                          {entry.reason && (
+                            <span className={`px-2 py-0.5 rounded text-xs ${
+                              entry.reason === 'no_answer' ? 'bg-slate-100 text-slate-600' :
+                              entry.reason === 'disagreed' ? 'bg-rose-100 text-rose-600' :
+                              entry.reason === 'postponed' ? 'bg-amber-100 text-amber-600' :
+                              'bg-purple-100 text-purple-600'
+                            }`}>
+                              {CALLBACK_REASON_LABELS[entry.reason]}
+                            </span>
+                          )}
+                          {entry.note && (
+                            expandedCallbackIdx === idx ? (
+                              <span
+                                className="text-blue-500 text-xs cursor-pointer hover:text-blue-700"
+                                onClick={() => setExpandedCallbackIdx(null)}
+                              >
+                                접기
+                              </span>
+                            ) : (
+                              <span
+                                className="text-gray-500 text-xs truncate max-w-[200px] cursor-pointer hover:text-gray-700"
+                                onClick={() => setExpandedCallbackIdx(idx)}
+                                title="클릭하여 전체 내용 보기"
+                              >
+                                {entry.note}
+                              </span>
+                            )
+                          )}
+                          <span className="text-gray-300 text-xs">&rarr;</span>
+                          <span className="text-blue-400 text-xs">
+                            {formatDateOnly(entry.scheduledAt)} 콜백
+                          </span>
+                        </div>
+                        {entry.note && expandedCallbackIdx === idx && (
+                          <div className="mt-1 p-2 bg-gray-50 rounded text-xs text-gray-600 whitespace-pre-wrap break-words cursor-pointer hover:bg-gray-100"
+                            onClick={() => setExpandedCallbackIdx(null)}
+                          >
+                            {entry.note}
+                          </div>
+                        )}
+                      </div>
+                    ))}
+                  </div>
+                </details>
+              </div>
+            )}
+
+            {/* 상담 이력 */}
+            <div className="border-t border-gray-100 pt-5">
+              <ConsultationHistoryCard
+                key={consultationHistoryKey}
                 patientId={patientId}
-                journeyId={selectedJourneyId}
-                onUpdate={fetchPatient}
+                patientName={patient?.name}
+                onSelectCall={(callId) => {
+                  setSelectedCallLogId(callId);
+                  setCallDetailModalOpen(true);
+                }}
               />
-              {patient.summary && (
-                <div>
-                  <p className="text-sm text-gray-500 mb-1">상담 요약</p>
-                  <p className="text-gray-700">{patient.summary}</p>
-                </div>
-              )}
-              {patient.followUp && (
-                <div>
-                  <p className="text-sm text-gray-500 mb-1">후속 조치 추천</p>
-                  <p className="text-gray-700">{patient.followUp}</p>
-                </div>
-              )}
-              {!displayInterest && !patient.summary && !patient.followUp && (
-                <p className="text-gray-400 text-center py-4">
-                  아직 AI 분석 결과가 없습니다
-                </p>
-              )}
             </div>
           </Card>
 
-          {/* 통합 상담 이력 (전화 + 채팅 + 수동) */}
-          <ConsultationHistoryCard
-            patientId={patientId}
-            patientName={patient?.name}
-            onSelectCall={(callId) => {
-              setSelectedCallLogId(callId);
-              setCallDetailModalOpen(true);
-            }}
-          />
         </div>
 
         <div className="space-y-6">
@@ -1227,7 +1627,9 @@ export default function PatientDetailPage() {
                       {/* 종결 사유 표시 */}
                       {entry.to === 'closed' && entry.reason && (
                         <div className="mt-1 text-xs text-gray-500">
-                          사유: {CLOSED_REASON_OPTIONS.find(o => o.value === entry.reason)?.label || entry.reason}
+                          사유: {entry.reason === '기타' && entry.customReason
+                            ? entry.customReason
+                            : CLOSED_REASON_OPTIONS.find(o => o.value === entry.reason)?.label || entry.reason}
                         </div>
                       )}
                       <div className="flex flex-col gap-1 mt-1.5 text-xs text-gray-400">
@@ -1253,14 +1655,6 @@ export default function PatientDetailPage() {
             </Card>
           )}
 
-          {/* 상담 이력 */}
-          <Card className="p-5">
-            <ConsultationHistory
-              consultations={consultations}
-              loading={consultationsLoading}
-            />
-          </Card>
-
           <Card className="p-5">
             <div className="flex items-center gap-2 mb-4">
               <MessageSquare size={18} className="text-gray-400" />
@@ -1280,292 +1674,11 @@ export default function PatientDetailPage() {
             )}
           </Card>
 
-          {/* 치료 진행 카드 - 치료중/치료완료 상태일 때만 표시 */}
-          {(displayStatus === 'treatment' || displayStatus === 'completed') && (
-            <Card className="p-5">
-              <div className="flex items-center justify-between mb-4">
-                <div className="flex items-center gap-2">
-                  <Activity size={18} className="text-teal-500" />
-                  <h3 className="font-bold text-gray-900">치료 진행</h3>
-                </div>
-                {displayStatus === 'treatment' && (
-                  <span className="px-2 py-1 bg-emerald-100 text-emerald-700 text-xs rounded-full font-medium">
-                    진행중
-                  </span>
-                )}
-                {displayStatus === 'completed' && (
-                  <span className="px-2 py-1 bg-green-100 text-green-700 text-xs rounded-full font-medium">
-                    완료
-                  </span>
-                )}
-              </div>
-
-              {isEditing ? (
-                <div className="space-y-3">
-                  <div>
-                    <label className="text-xs text-gray-500 mb-1 block">치료 시작일</label>
-                    <input
-                      type="date"
-                      value={editData.treatmentStartDate ? editData.treatmentStartDate.split('T')[0] : ''}
-                      onChange={(e) => setEditData({ ...editData, treatmentStartDate: e.target.value })}
-                      className="w-full p-2 border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 text-sm"
-                    />
-                  </div>
-                  <div>
-                    <label className="text-xs text-gray-500 mb-1 block">예상 완료일</label>
-                    <input
-                      type="date"
-                      value={editData.expectedCompletionDate ? editData.expectedCompletionDate.split('T')[0] : ''}
-                      onChange={(e) => setEditData({ ...editData, expectedCompletionDate: e.target.value })}
-                      className="w-full p-2 border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 text-sm"
-                    />
-                  </div>
-                </div>
-              ) : (
-                <div className="space-y-3">
-                  {/* 치료 기간 정보 */}
-                  <div className="bg-gray-50 rounded-lg p-4 space-y-2">
-                    <div className="flex justify-between items-center">
-                      <span className="text-sm text-gray-500">시작일</span>
-                      <span className="font-medium text-gray-900">
-                        {selectedJourney?.startedAt
-                          ? formatDateOnly(selectedJourney.startedAt)
-                          : patient.treatmentStartDate
-                            ? formatDateOnly(patient.treatmentStartDate)
-                            : displayStatusHistory?.find(h => h.to === 'treatment')?.eventDate
-                              ? formatDateOnly(displayStatusHistory.find(h => h.to === 'treatment')!.eventDate)
-                              : '-'
-                        }
-                      </span>
-                    </div>
-                    <div className="flex justify-between items-center">
-                      <span className="text-sm text-gray-500">예상 완료</span>
-                      <span className={`font-medium ${
-                        patient.expectedCompletionDate && new Date(patient.expectedCompletionDate) < new Date()
-                          ? 'text-red-600'
-                          : 'text-gray-900'
-                      }`}>
-                        {patient.expectedCompletionDate
-                          ? formatDateOnly(patient.expectedCompletionDate)
-                          : '-'
-                        }
-                      </span>
-                    </div>
-                    {/* 경과일 / D-day 표시 */}
-                    {(() => {
-                      const startDate = selectedJourney?.startedAt
-                        || patient.treatmentStartDate
-                        || displayStatusHistory?.find(h => h.to === 'treatment')?.eventDate;
-                      if (!startDate) return null;
-
-                      const start = new Date(startDate);
-                      const now = new Date();
-                      const elapsedDays = Math.floor((now.getTime() - start.getTime()) / (1000 * 60 * 60 * 24));
-
-                      // 경고 조건: 예상 완료일이 있으면 그 날짜 기준, 없으면 30일 경과
-                      let needsAttention = false;
-                      if (patient.expectedCompletionDate) {
-                        // 예상 완료일이 지났으면 경고
-                        needsAttention = new Date(patient.expectedCompletionDate) < now;
-                      } else {
-                        // 예상 완료일 없으면 30일 이상 경과 시 경고
-                        needsAttention = elapsedDays >= 30;
-                      }
-
-                      return (
-                        <div className={`flex justify-between items-center pt-2 border-t ${needsAttention ? 'border-orange-200' : ''}`}>
-                          <span className="text-sm text-gray-500">경과</span>
-                          <div className="flex items-center gap-2">
-                            <span className={`font-bold ${needsAttention ? 'text-orange-600' : 'text-teal-600'}`}>
-                              {elapsedDays}일
-                            </span>
-                            {needsAttention && (
-                              <span className="flex items-center gap-1 text-xs text-orange-500">
-                                <AlertTriangle size={12} />
-                                확인 필요
-                              </span>
-                            )}
-                          </div>
-                        </div>
-                      );
-                    })()}
-                    {/* 예상 완료일까지 D-day */}
-                    {patient.expectedCompletionDate && (
-                      <div className="flex justify-between items-center">
-                        <span className="text-sm text-gray-500">완료까지</span>
-                        <span className={`font-medium ${getDdayDisplay(patient.expectedCompletionDate).style}`}>
-                          {getDdayDisplay(patient.expectedCompletionDate).text}
-                        </span>
-                      </div>
-                    )}
-                  </div>
-
-                  {/* 치료완료 버튼 - 치료중일 때만 (활성 여정만) */}
-                  {displayStatus === 'treatment' && isActiveJourney && (
-                    <button
-                      onClick={() => handleStatusClick('completed')}
-                      className="w-full flex items-center justify-center gap-2 py-3 bg-green-500 text-white rounded-lg hover:bg-green-600 transition-colors font-medium"
-                    >
-                      <CheckCircle2 size={18} />
-                      치료완료 처리
-                    </button>
-                  )}
-                </div>
-              )}
-            </Card>
-          )}
-
-          {/* 치료금액 카드 */}
-          <Card className="p-5">
-            <div className="flex items-center gap-2 mb-4">
-              <Wallet size={18} className="text-emerald-500" />
-              <h3 className="font-bold text-gray-900">치료금액</h3>
-            </div>
-            {isEditing ? (
-              <div className="space-y-4">
-                {/* 원래 금액 */}
-                <div>
-                  <label className="text-xs text-gray-500 mb-1 block">원래 금액</label>
-                  <div className="relative">
-                    <input
-                      type="text"
-                      inputMode="numeric"
-                      value={editData.estimatedAmount ? editData.estimatedAmount.toLocaleString() : ''}
-                      onChange={(e) => {
-                        const value = e.target.value.replace(/[^0-9]/g, '');
-                        setEditData({ ...editData, estimatedAmount: value ? Math.round(parseInt(value, 10)) : undefined });
-                      }}
-                      placeholder="0"
-                      className="w-full p-2 pr-8 border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 text-sm text-right"
-                    />
-                    <span className="absolute right-3 top-1/2 -translate-y-1/2 text-sm text-gray-400">원</span>
-                  </div>
-                </div>
-                {/* 실제 결제(할인금액) */}
-                <div>
-                  <label className="text-xs text-gray-500 mb-1 block">실제 결제 (할인금액)</label>
-                  <div className="relative">
-                    <input
-                      type="text"
-                      inputMode="numeric"
-                      value={editData.actualAmount ? editData.actualAmount.toLocaleString() : ''}
-                      onChange={(e) => {
-                        const value = e.target.value.replace(/[^0-9]/g, '');
-                        setEditData({ ...editData, actualAmount: value ? Math.round(parseInt(value, 10)) : undefined });
-                      }}
-                      placeholder="0"
-                      className="w-full p-2 pr-8 border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 text-sm text-right"
-                    />
-                    <span className="absolute right-3 top-1/2 -translate-y-1/2 text-sm text-gray-400">원</span>
-                  </div>
-                </div>
-                {/* 할인율 자동 계산 표시 */}
-                {editData.estimatedAmount && editData.actualAmount && editData.estimatedAmount > 0 && (
-                  <div className="bg-blue-50 rounded-lg p-3 text-center">
-                    <span className="text-sm text-gray-600">할인율: </span>
-                    <span className="text-lg font-bold text-blue-600">
-                      {Math.round((1 - editData.actualAmount / editData.estimatedAmount) * 100)}%
-                    </span>
-                    <span className="text-sm text-gray-500 ml-2">
-                      ({(editData.estimatedAmount - editData.actualAmount).toLocaleString()}원 할인)
-                    </span>
-                  </div>
-                )}
-                {/* 결제 상태 */}
-                <div>
-                  <label className="text-xs text-gray-500 mb-1 block">결제 상태</label>
-                  <div className="flex gap-2">
-                    {[
-                      { value: 'none', label: '미결제' },
-                      { value: 'partial', label: '부분결제' },
-                      { value: 'completed', label: '완납' },
-                    ].map((opt) => (
-                      <button
-                        key={opt.value}
-                        type="button"
-                        onClick={() => setEditData({ ...editData, paymentStatus: opt.value as PaymentStatus })}
-                        className={`flex-1 px-3 py-1.5 rounded-lg text-sm transition-colors ${
-                          editData.paymentStatus === opt.value
-                            ? 'bg-emerald-500 text-white'
-                            : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
-                        }`}
-                      >
-                        {opt.label}
-                      </button>
-                    ))}
-                  </div>
-                </div>
-                {/* 시술 내역 메모 */}
-                <div>
-                  <label className="text-xs text-gray-500 mb-1 block">시술 내역</label>
-                  <input
-                    type="text"
-                    value={editData.treatmentNote || ''}
-                    onChange={(e) => setEditData({ ...editData, treatmentNote: e.target.value })}
-                    placeholder="예: 임플란트 2본, 크라운 1개"
-                    className="w-full p-2 border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 text-sm"
-                  />
-                </div>
-              </div>
-            ) : (displayEstimatedAmount || displayActualAmount) ? (
-              <div className="space-y-3">
-                {/* 금액 표시 - 선택된 여정 기준 */}
-                <div className="bg-gray-50 rounded-lg p-4 space-y-2">
-                  <div className="flex justify-between items-center">
-                    <span className="text-sm text-gray-500">원래 금액</span>
-                    <span className="font-medium text-gray-900">
-                      {displayEstimatedAmount ? `${Math.round(displayEstimatedAmount).toLocaleString()}원` : '-'}
-                    </span>
-                  </div>
-                  <div className="flex justify-between items-center">
-                    <span className="text-sm text-gray-500">실제 결제</span>
-                    <span className="font-bold text-emerald-600">
-                      {displayActualAmount ? `${Math.round(displayActualAmount).toLocaleString()}원` : '-'}
-                    </span>
-                  </div>
-                  {/* 할인율 표시 */}
-                  {displayEstimatedAmount && displayActualAmount && displayEstimatedAmount > 0 && (
-                    <div className="flex justify-between items-center pt-2 border-t border-dashed">
-                      <span className="text-sm text-gray-500">할인율</span>
-                      <span className="font-bold text-blue-600">
-                        {Math.round((1 - displayActualAmount / displayEstimatedAmount) * 100)}%
-                        <span className="text-xs text-gray-400 font-normal ml-1">
-                          ({Math.round(displayEstimatedAmount - displayActualAmount).toLocaleString()}원)
-                        </span>
-                      </span>
-                    </div>
-                  )}
-                  {displayPaymentStatus && displayPaymentStatus !== 'none' && (
-                    <div className="flex justify-between items-center pt-2 border-t">
-                      <span className="text-sm text-gray-500">결제 상태</span>
-                      <span className={`px-2 py-0.5 rounded text-xs font-medium ${
-                        displayPaymentStatus === 'completed'
-                          ? 'bg-emerald-100 text-emerald-700'
-                          : 'bg-amber-100 text-amber-700'
-                      }`}>
-                        {displayPaymentStatus === 'completed' ? '완납' : '부분결제'}
-                      </span>
-                    </div>
-                  )}
-                </div>
-                {/* 시술 내역 */}
-                {displayTreatmentNote && (
-                  <div className="text-sm">
-                    <span className="text-gray-500">시술: </span>
-                    <span className="text-gray-700">{displayTreatmentNote}</span>
-                  </div>
-                )}
-              </div>
-            ) : (
-              <button
-                onClick={() => setIsEditing(true)}
-                className="w-full py-3 border-2 border-dashed border-gray-200 rounded-lg text-gray-400 hover:border-emerald-300 hover:text-emerald-500 transition-colors"
-              >
-                <CircleDollarSign size={20} className="inline mr-2" />
-                금액 정보 추가
-              </button>
-            )}
-          </Card>
+          {/* 문자 발송 이력 카드 */}
+          <MessageHistoryCard
+            patientId={patientId}
+            patientPhone={patient.phone}
+          />
         </div>
       </div>
 
@@ -1640,6 +1753,19 @@ export default function PatientDetailPage() {
         onConfirm={handleScheduleChange}
         currentDate={displayNextActionDate as string | undefined}
         patientName={patient.name}
+      />
+
+      {/* 🆕 문자 발송 모달 */}
+      <MessageSendModalV2
+        isOpen={messageSendModalOpen}
+        onClose={() => setMessageSendModalOpen(false)}
+        patientId={patientId}
+        patientName={patient.name}
+        patientPhone={patient.phone}
+        onSuccess={() => {
+          // 문자 발송 후 이력 새로고침을 위해 페이지 새로고침은 필요 없음
+          // MessageHistoryCard가 자체적으로 새로고침함
+        }}
       />
     </div>
   );
@@ -1998,9 +2124,10 @@ function ScheduleChangeModal({ isOpen, onClose, onConfirm, currentDate, patientN
   if (!isOpen) return null;
 
   const reasonOptions: { value: CallbackReason; label: string; color: string }[] = [
-    { value: 'no_answer', label: '미연결', color: 'bg-red-100 text-red-700 border-red-200' },
+    { value: 'noshow', label: '노쇼', color: 'bg-red-100 text-red-700 border-red-200' },
+    { value: 'no_answer', label: '부재중', color: 'bg-orange-100 text-orange-700 border-orange-200' },
     { value: 'postponed', label: '보류', color: 'bg-amber-100 text-amber-700 border-amber-200' },
-    { value: 'considering', label: '검토중', color: 'bg-purple-100 text-purple-700 border-purple-200' },
+    { value: 'reschedule', label: '일정변경', color: 'bg-blue-100 text-blue-700 border-blue-200' },
   ];
 
   return (

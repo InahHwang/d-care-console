@@ -7,8 +7,9 @@ import { useAppDispatch, useAppSelector } from '@/hooks/reduxHooks';
 import { fetchUsers, deleteUser, createUser, updateUser, clearError } from '@/store/slices/usersSlice';
 import { logActivity } from '@/utils/activityLogger';
 import { User } from '@/types/user';
-import { 
-  HiOutlineUserAdd, 
+import type { UserRole } from '@/types/invitation';
+import {
+  HiOutlineUserAdd,
   HiOutlineUser,
   HiOutlineShieldCheck,
   HiOutlinePencil,
@@ -20,12 +21,15 @@ import {
 import { format } from 'date-fns';
 import { ko } from 'date-fns/locale';
 
+// 역할 타입 (master는 레거시, admin으로 취급)
+type FormRole = UserRole | 'master';
+
 interface UserFormData {
   username: string;
   email: string;
   name: string;
   password: string;
-  role: 'master' | 'staff';
+  role: FormRole;
   isActive: boolean;
 }
 

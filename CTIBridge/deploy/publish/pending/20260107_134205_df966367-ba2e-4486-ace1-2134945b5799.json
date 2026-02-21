@@ -1,0 +1,12 @@
+{
+  "Id": "df966367-ba2e-4486-ace1-2134945b5799",
+  "Type": 1,
+  "CallerNumber": "01030511241",
+  "CalledNumber": "07047414202",
+  "EventType": "service_stopped",
+  "ExtInfo": "number=0315672278:status=Success^number=07047414202:status=Success",
+  "RecordingInfo": null,
+  "Duration": 19,
+  "CreatedAt": "2026-01-07T13:42:05.7695356+09:00",
+  "RetryCount": 124
+}

@@ -3,8 +3,9 @@
 'use client';
 
 import React, { useState, useEffect } from 'react';
-import { X, Check, XCircle, Clock, Calendar, DollarSign, AlertCircle, ChevronDown } from 'lucide-react';
-import { ConsultationType, ConsultationStatus, DISAGREE_REASON_CATEGORIES } from '@/types/v2';
+import { X, Check, XCircle, Clock, Calendar, DollarSign, AlertCircle, Ban, PhoneMissed } from 'lucide-react';
+import { ConsultationType, ConsultationStatus, DISAGREE_REASON_CATEGORIES, MarketingTargetReason, ClosedReason, CLOSED_REASON_OPTIONS } from '@/types/v2';
+import { MarketingTargetCheckbox, MarketingTargetData } from '@/components/v2/marketing';
 
 // 기존 상담 데이터 (수정 모드용)
 export interface ExistingConsultationData {
@@ -20,8 +21,6 @@ export interface ExistingConsultationData {
   callbackDate?: string;
   consultantName: string;
   memo?: string;
-  aiGenerated?: boolean;
-  aiSummary?: string;
 }
 
 interface ConsultationInputModalProps {
@@ -50,30 +49,27 @@ export interface ConsultationFormData {
   consultantName: string;
   inquiry: string;
   memo: string;
+  // 종결 관련 필드
+  closedReason?: ClosedReason;
+  closedReasonCustom?: string;
+  // 마케팅 타겟 관련 필드
+  isMarketingTarget?: boolean;
+  marketingTargetData?: {
+    reason: MarketingTargetReason;
+    customReason?: string;
+    categories: string[];
+    scheduledDate?: string;
+    note?: string;
+  };
 }
 
-interface CategoryItem {
-  id: string;
-  label: string;
-  isDefault: boolean;
-  isActive: boolean;
-}
-
-interface Consultant {
-  id: string;
-  name: string;
-  role: string;
-  department: string;
-}
-
-const STATUS_OPTIONS: { value: ConsultationStatus; label: string; icon: React.ReactNode; color: string }[] = [
+const BASE_STATUS_OPTIONS: { value: ConsultationStatus; label: string; icon: React.ReactNode; color: string; phoneOnly?: boolean }[] = [
   { value: 'agreed', label: '동의', icon: <Check className="w-5 h-5" />, color: 'bg-emerald-500 hover:bg-emerald-600' },
   { value: 'disagreed', label: '미동의', icon: <XCircle className="w-5 h-5" />, color: 'bg-rose-500 hover:bg-rose-600' },
   { value: 'pending', label: '보류', icon: <Clock className="w-5 h-5" />, color: 'bg-amber-500 hover:bg-amber-600' },
+  { value: 'no_answer', label: '부재중', icon: <PhoneMissed className="w-5 h-5" />, color: 'bg-orange-500 hover:bg-orange-600', phoneOnly: true },
+  { value: 'closed', label: '종결', icon: <Ban className="w-5 h-5" />, color: 'bg-gray-600 hover:bg-gray-700' },
 ];
-
-// 기본 치료 목록 (API에서 로드 실패 시 사용)
-const DEFAULT_TREATMENTS = ['임플란트', '교정', '심미보철', '충치치료', '스케일링', '라미네이트', '틀니', '잇몸치료', '신경치료', '발치', '기타'];
 
 export function ConsultationInputModal({
   isOpen,
@@ -87,8 +83,6 @@ export function ConsultationInputModal({
 }: ConsultationInputModalProps) {
   // 수정 모드 여부
   const isEditMode = !!existingData;
-  const today = new Date().toISOString().split('T')[0];
-
   const [status, setStatus] = useState<ConsultationStatus | null>(null);
   const [treatment, setTreatment] = useState(patientInterest || '');
   const [originalAmount, setOriginalAmount] = useState<number>(0);
@@ -100,56 +94,23 @@ export function ConsultationInputModal({
   const [callbackDate, setCallbackDate] = useState('');
   const [consultantName, setConsultantName] = useState(defaultConsultant || '');
   const [memo, setMemo] = useState('');
+  const [closedReason, setClosedReason] = useState<ClosedReason | ''>('');
+  const [closedReasonCustom, setClosedReasonCustom] = useState('');
   const [submitting, setSubmitting] = useState(false);
 
-  // 동적 데이터
-  const [treatments, setTreatments] = useState<string[]>(DEFAULT_TREATMENTS);
-  const [consultants, setConsultants] = useState<Consultant[]>([]);
-  const [loadingData, setLoadingData] = useState(true);
-  const [showConsultantDropdown, setShowConsultantDropdown] = useState(false);
+  // 마케팅 타겟 관련 상태
+  const [isMarketingTarget, setIsMarketingTarget] = useState(false);
+  const [marketingTargetData, setMarketingTargetData] = useState<MarketingTargetData>({
+    reason: 'price_hesitation',
+    customReason: '',
+    categories: [],
+    scheduledDate: '',
+    note: '',
+  });
 
-  // 관심시술 및 상담사 데이터 로드
-  useEffect(() => {
-    if (isOpen) {
-      loadData();
-    }
-  }, [isOpen]);
+  // 동적 데이터 (더 이상 사용하지 않지만 호환성 유지)
+  const [loadingData, setLoadingData] = useState(false);
 
-  const loadData = async () => {
-    setLoadingData(true);
-    try {
-      // 병렬로 데이터 로드
-      const [categoriesRes, consultantsRes] = await Promise.all([
-        fetch('/api/settings/categories'),
-        fetch('/api/v2/consultants'),
-      ]);
-
-      // 관심시술 로드
-      if (categoriesRes.ok) {
-        const categoriesData = await categoriesRes.json();
-        if (categoriesData.success && categoriesData.categories?.interestedServices) {
-          const activeServices = categoriesData.categories.interestedServices
-            .filter((item: CategoryItem) => item.isActive)
-            .map((item: CategoryItem) => item.label);
-          if (activeServices.length > 0) {
-            setTreatments(activeServices);
-          }
-        }
-      }
-
-      // 상담사 목록 로드
-      if (consultantsRes.ok) {
-        const consultantsData = await consultantsRes.json();
-        if (consultantsData.success && consultantsData.consultants) {
-          setConsultants(consultantsData.consultants);
-        }
-      }
-    } catch (error) {
-      console.error('데이터 로드 실패:', error);
-    } finally {
-      setLoadingData(false);
-    }
-  };
 
   // 모달 열릴 때 초기화 (수정 모드면 기존 데이터로 채움)
   useEffect(() => {
@@ -180,8 +141,19 @@ export function ConsultationInputModal({
         setCallbackDate('');
         setConsultantName(defaultConsultant || '');
         setMemo('');
+        // 종결 초기화
+        setClosedReason('');
+        setClosedReasonCustom('');
+        // 마케팅 타겟 초기화
+        setIsMarketingTarget(false);
+        setMarketingTargetData({
+          reason: 'price_hesitation',
+          customReason: '',
+          categories: [],
+          scheduledDate: '',
+          note: '',
+        });
       }
-      setShowConsultantDropdown(false);
     }
   }, [isOpen, patientInterest, defaultConsultant, existingData]);
 
@@ -200,8 +172,8 @@ export function ConsultationInputModal({
   const finalAmount = type === 'visit' ? originalAmount - discountAmount : originalAmount;
 
   const handleSubmit = async () => {
-    if (!status || !consultantName) {
-      alert('상담 결과와 담당자를 선택해주세요.');
+    if (!status) {
+      alert('상담 결과를 선택해주세요.');
       return;
     }
 
@@ -212,6 +184,16 @@ export function ConsultationInputModal({
 
     if ((status === 'disagreed' || status === 'pending') && !callbackDate) {
       alert('콜백 예정일을 선택해주세요.');
+      return;
+    }
+
+    if (status === 'closed' && !closedReason) {
+      alert('종결 사유를 선택해주세요.');
+      return;
+    }
+
+    if (status === 'closed' && closedReason === '기타' && !closedReasonCustom.trim()) {
+      alert('기타 종결 사유를 입력해주세요.');
       return;
     }
 
@@ -231,6 +213,14 @@ export function ConsultationInputModal({
         consultantName,
         inquiry: '', // 삭제됨
         memo,
+        // 종결 관련 데이터
+        closedReason: status === 'closed' ? (closedReason as ClosedReason) : undefined,
+        closedReasonCustom: status === 'closed' && closedReason === '기타' ? closedReasonCustom : undefined,
+        // 마케팅 타겟 관련 데이터
+        isMarketingTarget: (status === 'disagreed' || status === 'pending') ? isMarketingTarget : false,
+        marketingTargetData: isMarketingTarget && (status === 'disagreed' || status === 'pending')
+          ? marketingTargetData
+          : undefined,
       }, existingData?.id);  // 수정 모드면 id 전달
       onClose();
     } catch (error) {
@@ -241,33 +231,16 @@ export function ConsultationInputModal({
     }
   };
 
-  const handleConsultantSelect = (name: string) => {
-    setConsultantName(name);
-    setShowConsultantDropdown(false);
-  };
-
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50">
       <div className="bg-white rounded-lg shadow-xl w-full max-w-2xl max-h-[90vh] overflow-hidden">
         {/* 헤더 */}
         <div className="px-6 py-4 border-b flex items-center justify-between bg-gray-50">
           <div>
-            <div className="flex items-center gap-2">
-              <h2 className="text-lg font-semibold">
-                {type === 'phone' ? '전화상담' : '내원상담'} 결과 {isEditMode ? '수정' : '입력'}
-              </h2>
-              {existingData?.aiGenerated && (
-                <span className="px-2 py-0.5 bg-purple-100 text-purple-700 text-xs font-medium rounded-full">
-                  AI 자동분류
-                </span>
-              )}
-            </div>
+            <h2 className="text-lg font-semibold">
+              {type === 'phone' ? '전화상담' : '내원상담'} 결과 {isEditMode ? '수정' : '입력'}
+            </h2>
             <p className="text-sm text-gray-500">{patientName} 환자</p>
-            {existingData?.aiSummary && (
-              <p className="text-xs text-gray-400 mt-1 line-clamp-1">
-                AI 요약: {existingData.aiSummary}
-              </p>
-            )}
           </div>
           <button onClick={onClose} className="p-1 hover:bg-gray-200 rounded">
             <X className="w-5 h-5" />
@@ -281,8 +254,8 @@ export function ConsultationInputModal({
             <label className="block text-sm font-medium text-gray-700 mb-2">
               상담 결과 *
             </label>
-            <div className="flex gap-3">
-              {STATUS_OPTIONS.map(opt => (
+            <div className="flex gap-2">
+              {BASE_STATUS_OPTIONS.filter(opt => !opt.phoneOnly || type === 'phone').map(opt => (
                 <button
                   key={opt.value}
                   onClick={() => setStatus(opt.value)}
@@ -299,72 +272,13 @@ export function ConsultationInputModal({
             </div>
           </div>
 
-          {/* 2. 기본 정보 */}
-          <div className="grid grid-cols-2 gap-4">
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">
-                관심 치료
-              </label>
-              <select
-                value={treatment}
-                onChange={e => setTreatment(e.target.value)}
-                className="w-full border rounded-lg px-3 py-2"
-                disabled={loadingData}
-              >
-                <option value="">선택</option>
-                {treatments.map(t => (
-                  <option key={t} value={t}>{t}</option>
-                ))}
-              </select>
+          {/* 담당자 표시 (자동 설정됨) */}
+          {consultantName && (
+            <div className="flex items-center gap-2 px-3 py-2 bg-gray-50 rounded-lg text-sm text-gray-600">
+              <span>담당자:</span>
+              <span className="font-medium text-gray-900">{consultantName}</span>
             </div>
-            <div className="relative">
-              <label className="block text-sm font-medium text-gray-700 mb-1">
-                담당자 *
-              </label>
-              <div
-                className="w-full border rounded-lg px-3 py-2 cursor-pointer flex items-center justify-between bg-white"
-                onClick={() => setShowConsultantDropdown(!showConsultantDropdown)}
-              >
-                <span className={consultantName ? 'text-gray-900' : 'text-gray-400'}>
-                  {consultantName || '담당자 선택'}
-                </span>
-                <ChevronDown className={`w-4 h-4 text-gray-400 transition-transform ${showConsultantDropdown ? 'rotate-180' : ''}`} />
-              </div>
-
-              {/* 드롭다운 메뉴 */}
-              {showConsultantDropdown && (
-                <>
-                  {/* 드롭다운 닫기용 오버레이 */}
-                  <div
-                    className="fixed inset-0"
-                    onClick={() => setShowConsultantDropdown(false)}
-                  />
-                  <div className="absolute z-[100] w-full mt-1 bg-white border rounded-lg shadow-lg max-h-48 overflow-y-auto">
-                    {consultants.length > 0 ? (
-                      consultants.map(c => (
-                        <div
-                          key={c.id}
-                          onClick={() => handleConsultantSelect(c.name)}
-                          className={`px-3 py-2 cursor-pointer hover:bg-blue-50 ${
-                            consultantName === c.name ? 'bg-blue-100 text-blue-700' : ''
-                          }`}
-                        >
-                          <div className="font-medium">{c.name}</div>
-                          {c.department && (
-                            <div className="text-xs text-gray-500">{c.department}</div>
-                          )}
-                        </div>
-                      ))
-                    ) : (
-                      <div className="px-3 py-2 text-gray-500 text-sm">
-                        {loadingData ? '로딩 중...' : '등록된 담당자가 없습니다'}
-                      </div>
-                    )}
-                  </div>
-                </>
-              )}
-            </div>
-          </div>
+          )}
 
           {/* 3. 동의 시: 예약일 + 금액 */}
           {status === 'agreed' && (
@@ -384,7 +298,6 @@ export function ConsultationInputModal({
                     type="date"
                     value={appointmentDate}
                     onChange={e => setAppointmentDate(e.target.value)}
-                    min={today}
                     className="w-full border rounded-lg px-3 py-2"
                   />
                 </div>
@@ -507,7 +420,7 @@ export function ConsultationInputModal({
                   type="date"
                   value={callbackDate}
                   onChange={e => setCallbackDate(e.target.value)}
-                  min={today}
+
                   className="w-full border rounded-lg px-3 py-2"
                 />
               </div>
@@ -531,7 +444,7 @@ export function ConsultationInputModal({
                   type="date"
                   value={callbackDate}
                   onChange={e => setCallbackDate(e.target.value)}
-                  min={today}
+
                   className="w-full border rounded-lg px-3 py-2"
                 />
                 <p className="text-xs text-gray-500 mt-1">
@@ -541,16 +454,104 @@ export function ConsultationInputModal({
             </div>
           )}
 
-          {/* 6. 공통: 상담사 메모 (영역 확대) */}
+          {/* 5-0.5. 부재중 시: 콜백일 */}
+          {status === 'no_answer' && (
+            <div className="p-4 bg-orange-50 rounded-lg space-y-4">
+              <div className="flex items-center gap-2 text-orange-700 font-medium">
+                <PhoneMissed className="w-5 h-5" />
+                부재중 정보
+              </div>
+
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">
+                  <Calendar className="w-4 h-4 inline mr-1" />
+                  콜백 예정일
+                </label>
+                <input
+                  type="date"
+                  value={callbackDate}
+                  onChange={e => setCallbackDate(e.target.value)}
+                  className="w-full border rounded-lg px-3 py-2"
+                />
+                <p className="text-xs text-gray-500 mt-1">
+                  재통화할 날짜를 설정하세요
+                </p>
+              </div>
+            </div>
+          )}
+
+          {/* 5-1. 종결 시: 종결 사유 선택 */}
+          {status === 'closed' && (
+            <div className="p-4 bg-gray-50 rounded-lg space-y-4">
+              <div className="flex items-center gap-2 text-gray-700 font-medium">
+                <Ban className="w-5 h-5" />
+                종결 사유 *
+              </div>
+
+              <div className="space-y-2">
+                {CLOSED_REASON_OPTIONS.map(opt => (
+                  <label
+                    key={opt.value}
+                    className={`flex items-center gap-3 p-3 rounded-lg cursor-pointer transition-all ${
+                      closedReason === opt.value
+                        ? 'bg-gray-200 ring-2 ring-gray-400'
+                        : 'bg-white hover:bg-gray-100'
+                    }`}
+                  >
+                    <input
+                      type="radio"
+                      name="closedReason"
+                      value={opt.value}
+                      checked={closedReason === opt.value}
+                      onChange={() => setClosedReason(opt.value)}
+                      className="w-4 h-4 text-gray-600"
+                    />
+                    <span className="text-sm font-medium text-gray-700">{opt.label}</span>
+                  </label>
+                ))}
+              </div>
+
+              {/* 기타 선택 시 사유 입력 */}
+              {closedReason === '기타' && (
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">
+                    종결 사유 입력 *
+                  </label>
+                  <input
+                    type="text"
+                    value={closedReasonCustom}
+                    onChange={e => setClosedReasonCustom(e.target.value)}
+                    placeholder="종결 사유를 입력하세요"
+                    className="w-full border rounded-lg px-3 py-2"
+                  />
+                </div>
+              )}
+            </div>
+          )}
+
+          {/* 6. 미동의/보류 시: 이벤트 타겟 지정 옵션 */}
+          {(status === 'disagreed' || status === 'pending') && (
+            <MarketingTargetCheckbox
+              checked={isMarketingTarget}
+              onChange={setIsMarketingTarget}
+              targetData={marketingTargetData}
+              onTargetDataChange={setMarketingTargetData}
+            />
+          )}
+
+          {/* 7. 공통: 상담 내용 (내원상담) / 메모 (전화상담) */}
           <div>
             <label className="block text-sm font-medium text-gray-700 mb-1">
               <AlertCircle className="w-4 h-4 inline mr-1" />
-              상담사 메모
+              {type === 'visit' ? '상담 내용' : '상담사 메모'}
             </label>
             <textarea
               value={memo}
               onChange={e => setMemo(e.target.value)}
-              placeholder="상담 내용, 환자 특이사항, 추가 메모 등을 자유롭게 입력하세요"
+              placeholder={type === 'visit'
+                ? "내원 상담 내용을 입력하세요 (상담이력에 자동 기록됩니다)"
+                : "상담 내용, 환자 특이사항, 추가 메모 등을 자유롭게 입력하세요"
+              }
               rows={5}
               className="w-full border rounded-lg px-3 py-2 resize-none"
             />

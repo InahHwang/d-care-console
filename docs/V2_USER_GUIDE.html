@@ -1,0 +1,863 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>D-Care Console V2 사용 가이드</title>
+  <style>
+    * {
+      margin: 0;
+      padding: 0;
+      box-sizing: border-box;
+    }
+
+    body {
+      font-family: 'Pretendard', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+      line-height: 1.7;
+      color: #1f2937;
+      background: #f9fafb;
+      padding: 40px;
+    }
+
+    .container {
+      max-width: 900px;
+      margin: 0 auto;
+      background: white;
+      padding: 60px;
+      border-radius: 16px;
+      box-shadow: 0 4px 6px -1px rgba(0,0,0,0.1);
+    }
+
+    /* 표지 */
+    .cover {
+      text-align: center;
+      padding: 80px 0;
+      border-bottom: 3px solid #3b82f6;
+      margin-bottom: 60px;
+    }
+
+    .cover h1 {
+      font-size: 42px;
+      color: #1e40af;
+      margin-bottom: 16px;
+    }
+
+    .cover .subtitle {
+      font-size: 20px;
+      color: #6b7280;
+      margin-bottom: 40px;
+    }
+
+    .cover .version {
+      display: inline-block;
+      background: #3b82f6;
+      color: white;
+      padding: 8px 24px;
+      border-radius: 100px;
+      font-size: 14px;
+      font-weight: 600;
+    }
+
+    /* 목차 */
+    .toc {
+      background: #f8fafc;
+      padding: 30px 40px;
+      border-radius: 12px;
+      margin-bottom: 50px;
+    }
+
+    .toc h2 {
+      font-size: 18px;
+      color: #374151;
+      margin-bottom: 20px;
+      padding-bottom: 10px;
+      border-bottom: 2px solid #e5e7eb;
+    }
+
+    .toc ol {
+      list-style: none;
+      counter-reset: toc;
+    }
+
+    .toc > ol > li {
+      counter-increment: toc;
+      margin-bottom: 12px;
+    }
+
+    .toc > ol > li::before {
+      content: counter(toc) ".";
+      color: #3b82f6;
+      font-weight: 600;
+      margin-right: 10px;
+    }
+
+    .toc a {
+      color: #374151;
+      text-decoration: none;
+    }
+
+    .toc a:hover {
+      color: #3b82f6;
+    }
+
+    /* 섹션 */
+    .section {
+      margin-bottom: 50px;
+      page-break-inside: avoid;
+    }
+
+    h2 {
+      font-size: 28px;
+      color: #1e40af;
+      margin-bottom: 24px;
+      padding-bottom: 12px;
+      border-bottom: 3px solid #3b82f6;
+    }
+
+    h3 {
+      font-size: 20px;
+      color: #1f2937;
+      margin: 30px 0 16px 0;
+      padding-left: 12px;
+      border-left: 4px solid #3b82f6;
+    }
+
+    h4 {
+      font-size: 16px;
+      color: #374151;
+      margin: 24px 0 12px 0;
+      font-weight: 600;
+    }
+
+    p {
+      margin-bottom: 16px;
+      color: #4b5563;
+    }
+
+    /* 테이블 */
+    table {
+      width: 100%;
+      border-collapse: collapse;
+      margin: 20px 0;
+      font-size: 14px;
+    }
+
+    th, td {
+      padding: 12px 16px;
+      text-align: left;
+      border: 1px solid #e5e7eb;
+    }
+
+    th {
+      background: #f3f4f6;
+      font-weight: 600;
+      color: #374151;
+    }
+
+    tr:nth-child(even) {
+      background: #f9fafb;
+    }
+
+    /* 플로우 박스 */
+    .flow-box {
+      background: linear-gradient(135deg, #eff6ff 0%, #dbeafe 100%);
+      border: 2px solid #3b82f6;
+      border-radius: 12px;
+      padding: 24px;
+      margin: 20px 0;
+    }
+
+    .flow-box pre {
+      font-family: 'D2Coding', monospace;
+      font-size: 13px;
+      line-height: 1.8;
+      color: #1e40af;
+      white-space: pre-wrap;
+    }
+
+    /* 퍼널 시각화 */
+    .funnel {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 8px;
+      margin: 20px 0;
+    }
+
+    .funnel-step {
+      flex: 1;
+      min-width: 100px;
+      text-align: center;
+      padding: 12px 8px;
+      border-radius: 8px;
+      font-size: 13px;
+      font-weight: 600;
+      color: white;
+      position: relative;
+    }
+
+    .funnel-step:not(:last-child)::after {
+      content: "→";
+      position: absolute;
+      right: -14px;
+      top: 50%;
+      transform: translateY(-50%);
+      color: #9ca3af;
+      font-size: 16px;
+    }
+
+    .funnel-step.step1 { background: #3b82f6; }
+    .funnel-step.step2 { background: #8b5cf6; }
+    .funnel-step.step3 { background: #f59e0b; }
+    .funnel-step.step4 { background: #14b8a6; }
+    .funnel-step.step5 { background: #10b981; }
+    .funnel-step.step6 { background: #22c55e; }
+    .funnel-step.step7 { background: #64748b; }
+
+    /* 스텝 박스 */
+    .step-box {
+      background: #f8fafc;
+      border-left: 4px solid #3b82f6;
+      padding: 20px 24px;
+      margin: 16px 0;
+      border-radius: 0 8px 8px 0;
+    }
+
+    .step-box h5 {
+      font-size: 15px;
+      color: #1e40af;
+      margin-bottom: 10px;
+    }
+
+    .step-box p {
+      margin: 0;
+      font-size: 14px;
+      color: #4b5563;
+    }
+
+    .step-box ul {
+      margin: 10px 0 0 20px;
+      font-size: 14px;
+      color: #4b5563;
+    }
+
+    .step-box li {
+      margin-bottom: 6px;
+    }
+
+    /* 팁 박스 */
+    .tip-box {
+      background: #fef3c7;
+      border: 1px solid #f59e0b;
+      border-radius: 8px;
+      padding: 16px 20px;
+      margin: 20px 0;
+    }
+
+    .tip-box::before {
+      content: "💡 ";
+    }
+
+    .tip-box p {
+      margin: 0;
+      font-size: 14px;
+      color: #92400e;
+    }
+
+    /* 주의 박스 */
+    .warning-box {
+      background: #fee2e2;
+      border: 1px solid #ef4444;
+      border-radius: 8px;
+      padding: 16px 20px;
+      margin: 20px 0;
+    }
+
+    .warning-box::before {
+      content: "⚠️ ";
+    }
+
+    .warning-box p {
+      margin: 0;
+      font-size: 14px;
+      color: #991b1b;
+    }
+
+    /* 기능 카드 */
+    .feature-grid {
+      display: grid;
+      grid-template-columns: repeat(2, 1fr);
+      gap: 16px;
+      margin: 20px 0;
+    }
+
+    .feature-card {
+      background: #f8fafc;
+      border: 1px solid #e5e7eb;
+      border-radius: 10px;
+      padding: 20px;
+    }
+
+    .feature-card h5 {
+      font-size: 15px;
+      color: #1f2937;
+      margin-bottom: 8px;
+    }
+
+    .feature-card p {
+      font-size: 13px;
+      color: #6b7280;
+      margin: 0;
+    }
+
+    /* 리스트 */
+    ul, ol {
+      margin: 16px 0 16px 24px;
+    }
+
+    li {
+      margin-bottom: 8px;
+    }
+
+    /* FAQ */
+    .faq-item {
+      margin-bottom: 20px;
+      padding-bottom: 20px;
+      border-bottom: 1px solid #e5e7eb;
+    }
+
+    .faq-item:last-child {
+      border-bottom: none;
+    }
+
+    .faq-q {
+      font-weight: 600;
+      color: #1f2937;
+      margin-bottom: 8px;
+    }
+
+    .faq-q::before {
+      content: "Q. ";
+      color: #3b82f6;
+    }
+
+    .faq-a {
+      color: #4b5563;
+      padding-left: 24px;
+    }
+
+    /* 푸터 */
+    .footer {
+      text-align: center;
+      padding-top: 40px;
+      margin-top: 60px;
+      border-top: 2px solid #e5e7eb;
+      color: #9ca3af;
+      font-size: 14px;
+    }
+
+    /* 인쇄 스타일 */
+    @media print {
+      body {
+        background: white;
+        padding: 0;
+      }
+
+      .container {
+        box-shadow: none;
+        padding: 40px;
+      }
+
+      .section {
+        page-break-inside: avoid;
+      }
+
+      h2 {
+        page-break-after: avoid;
+      }
+    }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <!-- 표지 -->
+    <div class="cover">
+      <h1>D-Care Console</h1>
+      <p class="subtitle">치과 아웃바운드 콜센터 환자 관리 시스템</p>
+      <span class="version">V2 사용 가이드</span>
+    </div>
+
+    <!-- 목차 -->
+    <div class="toc">
+      <h2>목차</h2>
+      <ol>
+        <li><a href="#section1">시스템 개요</a></li>
+        <li><a href="#section2">환자 관리 사이클 (7단계 퍼널)</a></li>
+        <li><a href="#section3">실제 업무 흐름</a></li>
+        <li><a href="#section4">메뉴별 상세 기능</a></li>
+        <li><a href="#section5">자주 묻는 질문 (FAQ)</a></li>
+      </ol>
+    </div>
+
+    <!-- 섹션 1: 시스템 개요 -->
+    <div class="section" id="section1">
+      <h2>1. 시스템 개요</h2>
+
+      <p>D-Care Console V2는 <strong>환자가 전화하는 순간부터 치료 완료 후 사후관리까지</strong> 전체 과정을 관리하는 통합 시스템입니다.</p>
+
+      <h3>핵심 특징</h3>
+
+      <div class="feature-grid">
+        <div class="feature-card">
+          <h5>📞 CTI 연동</h5>
+          <p>전화가 오면 자동으로 발신번호 인식 및 환자 정보 팝업</p>
+        </div>
+        <div class="feature-card">
+          <h5>🤖 AI 통화 분석</h5>
+          <p>통화 녹음을 AI가 자동 분석하여 환자 정보 추출</p>
+        </div>
+        <div class="feature-card">
+          <h5>📊 7단계 퍼널 관리</h5>
+          <p>전화상담부터 사후관리까지 체계적인 환자 여정 관리</p>
+        </div>
+        <div class="feature-card">
+          <h5>🔔 자동 리콜/콜백</h5>
+          <p>놓치면 안 되는 환자를 자동으로 알림</p>
+        </div>
+      </div>
+
+      <h3>메뉴 구성</h3>
+      <table>
+        <tr>
+          <th>메뉴</th>
+          <th>설명</th>
+        </tr>
+        <tr>
+          <td><strong>대시보드</strong></td>
+          <td>오늘의 상담 현황을 한눈에 확인</td>
+        </tr>
+        <tr>
+          <td><strong>통화 기록</strong></td>
+          <td>모든 수신/발신 통화 기록 및 AI 분석 결과</td>
+        </tr>
+        <tr>
+          <td><strong>환자 관리</strong></td>
+          <td>등록된 환자 목록 및 상세 정보 관리</td>
+        </tr>
+        <tr>
+          <td><strong>일정 관리</strong></td>
+          <td>콜백, 리콜, 감사전화 일정 관리</td>
+        </tr>
+        <tr>
+          <td><strong>소개 관리</strong></td>
+          <td>환자 소개 네트워크 및 감사 관리</td>
+        </tr>
+        <tr>
+          <td><strong>리포트</strong></td>
+          <td>통계 및 분석 데이터</td>
+        </tr>
+        <tr>
+          <td><strong>설정</strong></td>
+          <td>시스템 설정 (상담타입, 시술 목록 등)</td>
+        </tr>
+      </table>
+    </div>
+
+    <!-- 섹션 2: 환자 관리 사이클 -->
+    <div class="section" id="section2">
+      <h2>2. 환자 관리 사이클 (7단계 퍼널)</h2>
+
+      <p>모든 환자는 아래 7단계 퍼널을 통해 관리됩니다. 각 단계에서 다음 단계로 전환되거나, 중간에 종결될 수 있습니다.</p>
+
+      <h3>7단계 퍼널 시각화</h3>
+      <div class="funnel">
+        <div class="funnel-step step1">1. 전화상담</div>
+        <div class="funnel-step step2">2. 내원예약</div>
+        <div class="funnel-step step3">3. 내원완료</div>
+        <div class="funnel-step step4">4. 치료예약</div>
+        <div class="funnel-step step5">5. 치료중</div>
+        <div class="funnel-step step6">6. 치료완료</div>
+        <div class="funnel-step step7">7. 사후관리</div>
+      </div>
+
+      <h3>각 단계별 설명</h3>
+      <table>
+        <tr>
+          <th>단계</th>
+          <th>상태</th>
+          <th>설명</th>
+          <th>주요 액션</th>
+        </tr>
+        <tr>
+          <td>1</td>
+          <td><strong>전화상담</strong></td>
+          <td>전화로 상담 중인 환자</td>
+          <td>콜백 예약, 내원 유도</td>
+        </tr>
+        <tr>
+          <td>2</td>
+          <td><strong>내원예약</strong></td>
+          <td>내원 날짜가 잡힌 환자</td>
+          <td>예약일 리마인드</td>
+        </tr>
+        <tr>
+          <td>3</td>
+          <td><strong>내원완료</strong></td>
+          <td>병원에 방문한 환자</td>
+          <td>치료 상담, 견적 제시</td>
+        </tr>
+        <tr>
+          <td>4</td>
+          <td><strong>치료예약</strong></td>
+          <td>치료 날짜가 잡힌 환자</td>
+          <td>예약일 리마인드</td>
+        </tr>
+        <tr>
+          <td>5</td>
+          <td><strong>치료중</strong></td>
+          <td>현재 치료 진행 중</td>
+          <td>치료 일정 관리</td>
+        </tr>
+        <tr>
+          <td>6</td>
+          <td><strong>치료완료</strong></td>
+          <td>모든 치료가 끝난 환자</td>
+          <td>만족도 확인, 리콜 등록</td>
+        </tr>
+        <tr>
+          <td>7</td>
+          <td><strong>사후관리</strong></td>
+          <td>정기 관리 대상</td>
+          <td>주기적 리콜 발송</td>
+        </tr>
+      </table>
+
+      <h3>이탈 (종결) 케이스</h3>
+      <p>퍼널 진행 중 언제든 <strong>종결</strong> 처리가 가능합니다:</p>
+      <ul>
+        <li>타병원 선택</li>
+        <li>치료 의향 없음</li>
+        <li>연락 두절</li>
+        <li>기타 사유</li>
+      </ul>
+
+      <div class="tip-box">
+        <p>종결된 환자도 다시 연락이 오면 <strong>복구</strong>하여 퍼널에 재진입시킬 수 있습니다.</p>
+      </div>
+    </div>
+
+    <!-- 섹션 3: 실제 업무 흐름 -->
+    <div class="section" id="section3">
+      <h2>3. 실제 업무 흐름</h2>
+
+      <h3>시나리오 1: 신규 환자 전화 수신</h3>
+
+      <div class="step-box">
+        <h5>Step 1. 전화 수신 및 CTI 알림</h5>
+        <ul>
+          <li>전화가 오면 화면 우측에 CTI 패널이 팝업됩니다</li>
+          <li>발신번호가 표시됩니다</li>
+          <li>기존 환자면 이름과 정보가 함께 표시됩니다</li>
+        </ul>
+      </div>
+
+      <div class="step-box">
+        <h5>Step 2. 통화 후 AI 분석 확인</h5>
+        <p>통화 종료 후 약 20초 뒤, AI가 통화 내용을 자동 분석합니다.</p>
+        <p><strong>[통화 기록]</strong> 메뉴에서 분석 결과를 확인하세요:</p>
+        <ul>
+          <li><strong>분류:</strong> 환자 / 거래처 / 스팸 / 기타</li>
+          <li><strong>관심 시술:</strong> 임플란트, 교정, 충치치료 등</li>
+          <li><strong>관심도:</strong> Hot(높음) / Warm(중간) / Cold(낮음)</li>
+          <li><strong>통화 요약:</strong> 3줄 요약</li>
+        </ul>
+      </div>
+
+      <div class="step-box">
+        <h5>Step 3. 환자 등록</h5>
+        <p>통화 기록에서 <strong>[환자 등록]</strong> 버튼을 클릭하여 환자를 등록합니다:</p>
+        <ul>
+          <li>환자 이름 입력</li>
+          <li>상담타입 선택 (초진/재진)</li>
+          <li>관심 시술 확인/수정</li>
+          <li>유입경로 선택 (네이버, 지인소개 등)</li>
+          <li>나이, 주소 (선택)</li>
+        </ul>
+      </div>
+
+      <div class="step-box">
+        <h5>Step 4. 콜백 예약 (필요시)</h5>
+        <p>즉시 예약이 어려운 경우:</p>
+        <ul>
+          <li>환자 상세 페이지에서 <strong>[콜백 예약]</strong> 클릭</li>
+          <li>연락할 날짜/시간 설정</li>
+          <li><strong>[일정 관리]</strong> 메뉴에서 확인 가능</li>
+        </ul>
+      </div>
+
+      <h3>시나리오 2: 기존 환자 상태 변경</h3>
+
+      <div class="step-box">
+        <h5>내원예약 잡기</h5>
+        <ul>
+          <li><strong>[환자 관리]</strong> 메뉴에서 해당 환자 클릭</li>
+          <li>상단 상태 퍼널에서 <strong>[내원예약]</strong> 클릭</li>
+          <li>예약 날짜 선택 후 저장</li>
+        </ul>
+      </div>
+
+      <div class="step-box">
+        <h5>내원완료 처리</h5>
+        <p>환자가 실제로 내원했을 때:</p>
+        <ul>
+          <li>환자 상세 페이지에서 <strong>[내원완료]</strong> 상태로 변경</li>
+          <li>상담 결과 입력: 예상 금액(견적), 관심 시술, 상담 메모</li>
+        </ul>
+      </div>
+
+      <div class="step-box">
+        <h5>치료 진행</h5>
+        <p><strong>치료예약 → 치료중 → 치료완료</strong> 순으로 상태를 변경합니다:</p>
+        <ul>
+          <li>각 단계에서 실제 금액, 메모 등 기록</li>
+          <li>치료완료 시 수납 금액 입력</li>
+        </ul>
+      </div>
+
+      <h3>시나리오 3: 콜백/리콜 관리</h3>
+
+      <div class="step-box">
+        <h5>오늘의 콜백 확인</h5>
+        <ul>
+          <li><strong>[일정 관리]</strong> 메뉴 → <strong>[콜백]</strong> 탭</li>
+          <li>오늘 할 콜백 목록 확인</li>
+          <li>각 항목에서 바로 전화 걸기 가능</li>
+          <li>통화 후 완료/미완료 처리</li>
+        </ul>
+      </div>
+
+      <div class="step-box">
+        <h5>리콜 설정 (치료 완료 환자)</h5>
+        <p>치료 완료된 환자에게 주기적으로 리콜을 보냅니다:</p>
+        <ul>
+          <li><strong>[일정 관리]</strong> → <strong>[리콜]</strong> 탭</li>
+          <li>치료 종류별 리콜 주기 설정 (예: 스케일링 → 6개월 후)</li>
+          <li>자동으로 리콜 대상 환자 목록 생성</li>
+        </ul>
+      </div>
+
+      <h3>시나리오 4: 소개 환자 관리</h3>
+
+      <div class="step-box">
+        <h5>소개자 등록</h5>
+        <p>새 환자가 기존 환자 소개로 왔을 때:</p>
+        <ul>
+          <li>새 환자 등록 시 유입경로를 <strong>"지인소개"</strong>로 선택</li>
+          <li><strong>[소개 관리]</strong> 메뉴에서 소개 관계 등록</li>
+          <li>소개자 → 피소개자 연결</li>
+        </ul>
+      </div>
+
+      <div class="step-box">
+        <h5>감사 전화</h5>
+        <ul>
+          <li><strong>[소개 관리]</strong>에서 감사 전화 대기 목록 확인</li>
+          <li>소개자에게 감사 전화 후 완료 처리</li>
+        </ul>
+      </div>
+    </div>
+
+    <!-- 섹션 4: 메뉴별 상세 기능 -->
+    <div class="section" id="section4">
+      <h2>4. 메뉴별 상세 기능</h2>
+
+      <h3>4.1 대시보드</h3>
+      <p>오늘의 현황을 한눈에 파악합니다.</p>
+
+      <h4>제공 정보</h4>
+      <ul>
+        <li>오늘 총 통화 건수</li>
+        <li>신규 환자 수</li>
+        <li>예정된 콜백 수</li>
+        <li>부재중 전화 수</li>
+        <li>이번 달 매출 현황 (예상/실제)</li>
+        <li>주의가 필요한 환자 (노쇼 위험, 콜백 누락 등)</li>
+      </ul>
+
+      <div class="tip-box">
+        <p>출근 직후 대시보드에서 오늘 할 일을 파악하세요. 알림 카드를 클릭하면 해당 환자로 바로 이동합니다.</p>
+      </div>
+
+      <h3>4.2 통화 기록</h3>
+      <p>모든 수신/발신 통화를 기록하고 AI가 분석합니다.</p>
+
+      <h4>주요 기능</h4>
+      <ul>
+        <li>날짜별 통화 기록 조회</li>
+        <li>분류별 필터 (환자/거래처/스팸/기타)</li>
+        <li>수신/발신 필터</li>
+        <li>AI 분석 결과 확인 및 수정</li>
+        <li>바로 환자 등록</li>
+      </ul>
+
+      <h4>AI 분석 정보</h4>
+      <table>
+        <tr>
+          <th>항목</th>
+          <th>설명</th>
+        </tr>
+        <tr>
+          <td>분류</td>
+          <td>환자인지 아닌지 자동 판별</td>
+        </tr>
+        <tr>
+          <td>관심 시술</td>
+          <td>통화에서 언급된 시술 (임플란트, 교정 등)</td>
+        </tr>
+        <tr>
+          <td>관심도</td>
+          <td>Hot(높음) / Warm(중간) / Cold(낮음)</td>
+        </tr>
+        <tr>
+          <td>요약</td>
+          <td>통화 내용 3줄 요약</td>
+        </tr>
+      </table>
+
+      <div class="tip-box">
+        <p>AI가 잘못 분류한 경우 <strong>[분류 변경]</strong> 버튼으로 수동 수정할 수 있습니다.</p>
+      </div>
+
+      <h3>4.3 환자 관리</h3>
+      <p>등록된 모든 환자를 관리합니다.</p>
+
+      <h4>필터 기능</h4>
+      <ul>
+        <li><strong>기간 필터:</strong> 최근 1개월/3개월/6개월/전체</li>
+        <li><strong>상태 필터:</strong> 퍼널 단계별 필터</li>
+        <li><strong>긴급 필터:</strong> 오늘 예약/콜백 누락/노쇼 위험</li>
+      </ul>
+
+      <h4>환자 카드 정보</h4>
+      <ul>
+        <li>이름, 전화번호</li>
+        <li>현재 상태 (퍼널 단계)</li>
+        <li>관심 시술</li>
+        <li>관심도 (온도 아이콘)</li>
+        <li>마지막 연락일</li>
+        <li>예상/실 금액</li>
+      </ul>
+
+      <h4>환자 상세 페이지</h4>
+      <ul>
+        <li>기본 정보 조회/수정</li>
+        <li>상태 변경 (퍼널 이동)</li>
+        <li>통화 이력</li>
+        <li>상담 기록</li>
+        <li>금액 정보 (예상/실제/수납상태)</li>
+        <li>메모</li>
+      </ul>
+
+      <h3>4.4 일정 관리</h3>
+      <p>콜백, 리콜, 감사전화를 관리합니다.</p>
+
+      <h4>3개 탭</h4>
+      <table>
+        <tr>
+          <th>탭</th>
+          <th>용도</th>
+        </tr>
+        <tr>
+          <td><strong>콜백</strong></td>
+          <td>전화상담 후 재연락이 필요한 환자 관리</td>
+        </tr>
+        <tr>
+          <td><strong>리콜</strong></td>
+          <td>치료 완료 후 정기 검진 안내</td>
+        </tr>
+        <tr>
+          <td><strong>감사전화</strong></td>
+          <td>환자를 소개해준 분께 감사 인사</td>
+        </tr>
+      </table>
+
+      <h3>4.5 소개 관리</h3>
+      <p>환자 소개 네트워크를 관리합니다.</p>
+
+      <h4>제공 정보</h4>
+      <ul>
+        <li>총 소개 건수</li>
+        <li>감사 전화 완료/대기</li>
+        <li>Top 소개자 랭킹</li>
+      </ul>
+
+      <h4>기능</h4>
+      <ul>
+        <li>소개 관계 등록</li>
+        <li>감사 전화 완료 체크</li>
+        <li>소개자/피소개자 환자 상세로 이동</li>
+      </ul>
+
+      <h3>4.6 리포트</h3>
+      <p>통계 및 분석 데이터를 제공합니다.</p>
+      <ul>
+        <li>일별/주별/월별 통화 현황</li>
+        <li>퍼널별 전환율</li>
+        <li>유입경로별 분석</li>
+        <li>매출 현황</li>
+        <li>상담사별 실적</li>
+      </ul>
+
+      <h3>4.7 설정</h3>
+      <p>시스템 설정을 관리합니다.</p>
+      <ul>
+        <li>상담 타입 관리 (초진/재진 등)</li>
+        <li>관심 시술 목록 관리</li>
+        <li>유입경로 목록 관리</li>
+        <li>리콜 주기 설정</li>
+        <li>사용자 관리</li>
+      </ul>
+    </div>
+
+    <!-- 섹션 5: FAQ -->
+    <div class="section" id="section5">
+      <h2>5. 자주 묻는 질문 (FAQ)</h2>
+
+      <div class="faq-item">
+        <div class="faq-q">AI 분석이 틀렸을 때는 어떻게 하나요?</div>
+        <div class="faq-a">통화 기록에서 해당 건 클릭 → <strong>[분류 변경]</strong> 버튼으로 수동 수정할 수 있습니다.</div>
+      </div>
+
+      <div class="faq-item">
+        <div class="faq-q">이미 등록된 환자가 다시 전화하면?</div>
+        <div class="faq-a">CTI에서 자동으로 기존 환자 정보를 표시하고, 통화 기록이 해당 환자에 자동 연결됩니다.</div>
+      </div>
+
+      <div class="faq-item">
+        <div class="faq-q">환자 상태를 잘못 변경했을 때는?</div>
+        <div class="faq-a">환자 상세 페이지에서 다시 올바른 상태로 변경하면 됩니다. 상태 변경 이력이 모두 기록되어 있어 추적이 가능합니다.</div>
+      </div>
+
+      <div class="faq-item">
+        <div class="faq-q">종결된 환자가 다시 연락오면?</div>
+        <div class="faq-a">환자 상세 페이지에서 <strong>[복구]</strong> 버튼으로 다시 활성화할 수 있습니다.</div>
+      </div>
+
+      <div class="faq-item">
+        <div class="faq-q">콜백 예약을 놓쳤을 때는?</div>
+        <div class="faq-a">대시보드의 <strong>주의 환자</strong> 카드에 "콜백 누락" 환자가 표시됩니다. 클릭하여 바로 처리하세요.</div>
+      </div>
+
+      <div class="faq-item">
+        <div class="faq-q">같은 환자가 여러 번 등록됐을 때는?</div>
+        <div class="faq-a">전화번호가 같은 환자는 중복 등록이 방지됩니다. 만약 중복이 발생했다면 하나를 종결 처리하세요.</div>
+      </div>
+    </div>
+
+    <!-- 푸터 -->
+    <div class="footer">
+      <p>D-Care Console V2 - 치과 환자 관리의 새로운 기준</p>
+      <p style="margin-top: 8px; font-size: 12px;">© 2025 D-Care. All rights reserved.</p>
+    </div>
+  </div>
+</body>
+</html>

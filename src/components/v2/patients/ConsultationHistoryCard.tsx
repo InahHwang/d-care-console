@@ -1,7 +1,7 @@
 'use client';
 
 import React, { useState, useEffect } from 'react';
-import { Phone, MessageCircle, Clock, ChevronDown, Sparkles, X, Loader2, Plus, Building, Edit3 } from 'lucide-react';
+import { Phone, MessageCircle, Clock, ChevronDown, Sparkles, X, Loader2, Plus, Building, Edit3, ClipboardCheck, CheckCircle, XCircle, AlertCircle, PhoneMissed, Ban } from 'lucide-react';
 import { format } from 'date-fns';
 import { ko } from 'date-fns/locale';
 import { CHANNEL_CONFIG, ChannelType } from '@/types/v2';
@@ -44,7 +44,7 @@ function formatSummaryWithBullets(summary: string): string[] {
 
 interface ConsultationItem {
   id: string;
-  type: 'call' | 'chat' | 'manual';
+  type: 'call' | 'chat' | 'manual' | 'result';
   channel?: string;
   direction?: string;
   date: string;
@@ -52,7 +52,7 @@ interface ConsultationItem {
   content?: string;
   consultantName?: string;
   manualType?: 'phone' | 'visit' | 'other';
-  source?: 'ai' | 'manual' | 'system';
+  source?: 'ai' | 'manual' | 'system' | 'consultation_result';
   aiAnalysis?: {
     interest?: string;
     temperature?: string;
@@ -61,6 +61,38 @@ interface ConsultationItem {
   };
   duration?: number;
   status?: string;
+  // 상담 결과 전용 필드
+  resultType?: 'phone' | 'visit';
+  resultStatus?: 'agreed' | 'disagreed' | 'pending' | 'no_answer' | 'closed';
+  treatment?: string;
+  originalAmount?: number;
+  finalAmount?: number;
+  disagreeReasons?: string[];
+  appointmentDate?: string;
+  callbackDate?: string;
+  memo?: string;
+  closedReason?: string;
+  closedReasonCustom?: string;
+}
+
+// 상담 결과 (consultations_v2에서 가져오는 데이터)
+interface ConsultationResult {
+  id: string;
+  callLogId?: string;
+  type: 'phone' | 'visit';
+  status: 'agreed' | 'disagreed' | 'pending' | 'no_answer' | 'closed';
+  treatment?: string;
+  originalAmount?: number;
+  discountRate?: number;
+  finalAmount?: number;
+  disagreeReasons?: string[];
+  appointmentDate?: string;
+  callbackDate?: string;
+  consultantName?: string;
+  memo?: string;
+  closedReason?: string;
+  closedReasonCustom?: string;
+  createdAt: string;
 }
 
 interface ConsultationHistoryCardProps {
@@ -70,7 +102,7 @@ interface ConsultationHistoryCardProps {
   onSelectCall?: (callId: string) => void;
 }
 
-type FilterType = 'all' | 'call' | 'chat' | 'manual';
+type FilterType = 'all' | 'call' | 'chat' | 'manual' | 'result';
 
 // 채팅 상세 모달 컴포넌트
 interface ChatDetailModalProps {
@@ -346,54 +378,96 @@ export function ConsultationHistoryCard({ patientId, patientName = '', className
   const fetchConsultations = async () => {
     setIsLoading(true);
     try {
-      const res = await fetch(`/api/v2/patients/${patientId}/consultations?type=${filter}&limit=20`);
-      const data = await res.json();
-      if (data.success) {
-        setConsultations(data.data);
+      // 통화/채팅/수동 이력 조회 (result 필터가 아닐 때만)
+      let callChatItems: ConsultationItem[] = [];
+      if (filter !== 'result') {
+        const res = await fetch(`/api/v2/patients/${patientId}/consultations?type=${filter === 'all' ? 'all' : filter}&limit=20`);
+        const data = await res.json();
+        if (data.success) {
+          callChatItems = data.data;
+        }
+      }
 
-        // AI 분석 안 된 채팅 자동 분석 (백그라운드)
-        const unanalyzedChats = data.data.filter(
-          (item: ConsultationItem) => item.type === 'chat' && !item.aiAnalysis
+      // 상담 결과 조회 (consultations_v2) - 항상 조회
+      const resultsRes = await fetch(`/api/v2/consultations?patientId=${patientId}&limit=50`);
+      const resultsData = await resultsRes.json();
+      let resultItems: ConsultationItem[] = [];
+      if (resultsData.success && resultsData.data?.consultations) {
+        // 상담 결과를 ConsultationItem 형태로 변환
+        // 🆕 내원상담(visit)은 manualConsultations_v2에서 표시하므로 제외 (중복 방지)
+        resultItems = resultsData.data.consultations
+          .filter((r: ConsultationResult) => r.type !== 'visit')
+          .map((r: ConsultationResult) => ({
+            id: `result_${r.id}`,
+            type: 'result' as const,
+            date: r.createdAt,
+            consultantName: r.consultantName,
+            resultType: r.type,
+            resultStatus: r.status,
+            treatment: r.treatment,
+            originalAmount: r.originalAmount,
+            finalAmount: r.finalAmount,
+            disagreeReasons: r.disagreeReasons,
+            appointmentDate: r.appointmentDate,
+            callbackDate: r.callbackDate,
+            memo: r.memo,
+            closedReason: r.closedReason,
+            closedReasonCustom: r.closedReasonCustom,
+          }));
+      }
+
+      // 필터에 따라 목록 구성
+      let mergedItems: ConsultationItem[] = [];
+      if (filter === 'result') {
+        mergedItems = resultItems;
+      } else if (filter === 'all') {
+        mergedItems = [...callChatItems, ...resultItems].sort(
+          (a, b) => new Date(b.date).getTime() - new Date(a.date).getTime()
         );
+      } else {
+        mergedItems = callChatItems;
+      }
 
-        if (unanalyzedChats.length > 0) {
-          // 자동 분석 대상 ID 설정
-          setAutoAnalyzingIds(new Set(unanalyzedChats.map((c: ConsultationItem) => c.id)));
+      setConsultations(mergedItems);
 
-          // 순차적으로 분석 실행 (병렬로 하면 API 부하)
-          for (const chat of unanalyzedChats) {
-            try {
-              const analyzeRes = await fetch('/api/v2/channel-chats/analyze', {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ chatId: chat.id }),
-              });
+      // AI 분석 안 된 채팅 자동 분석 (백그라운드)
+      const unanalyzedChats = callChatItems.filter(
+        (item: ConsultationItem) => item.type === 'chat' && !item.aiAnalysis
+      );
 
-              const analyzeData = await analyzeRes.json();
-              if (analyzeData.success) {
-                // 분석 결과로 목록 업데이트
-                setConsultations((prev) =>
-                  prev.map((item) =>
-                    item.id === chat.id
-                      ? {
-                          ...item,
-                          summary: analyzeData.data.summary,
-                          aiAnalysis: analyzeData.data,
-                        }
-                      : item
-                  )
-                );
-              }
-            } catch (analyzeError) {
-              console.error('채팅 자동 분석 오류:', analyzeError);
-            } finally {
-              // 완료된 항목 제거
-              setAutoAnalyzingIds((prev) => {
-                const next = new Set(prev);
-                next.delete(chat.id);
-                return next;
-              });
+      if (unanalyzedChats.length > 0) {
+        setAutoAnalyzingIds(new Set(unanalyzedChats.map((c: ConsultationItem) => c.id)));
+
+        for (const chat of unanalyzedChats) {
+          try {
+            const analyzeRes = await fetch('/api/v2/channel-chats/analyze', {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({ chatId: chat.id }),
+            });
+
+            const analyzeData = await analyzeRes.json();
+            if (analyzeData.success) {
+              setConsultations((prev) =>
+                prev.map((item) =>
+                  item.id === chat.id
+                    ? {
+                        ...item,
+                        summary: analyzeData.data.summary,
+                        aiAnalysis: analyzeData.data,
+                      }
+                    : item
+                )
+              );
             }
+          } catch (analyzeError) {
+            console.error('채팅 자동 분석 오류:', analyzeError);
+          } finally {
+            setAutoAnalyzingIds((prev) => {
+              const next = new Set(prev);
+              next.delete(chat.id);
+              return next;
+            });
           }
         }
       }
@@ -441,9 +515,10 @@ export function ConsultationHistoryCard({ patientId, patientName = '', className
         </div>
 
         {/* 필터 탭 */}
-        <div className="flex gap-1 mt-3">
+        <div className="flex gap-1 mt-3 flex-wrap">
           {[
             { value: 'all' as FilterType, label: '전체' },
+            { value: 'result' as FilterType, label: '📋 상담결과' },
             { value: 'call' as FilterType, label: '📞 전화' },
             { value: 'chat' as FilterType, label: '💬 채팅' },
             { value: 'manual' as FilterType, label: '✏️ 수동' },
@@ -482,13 +557,22 @@ export function ConsultationHistoryCard({ patientId, patientName = '', className
                 }
                 // manual 타입은 클릭 동작 없음
               }}
-              className={`w-full p-4 text-left ${item.type !== 'manual' ? 'hover:bg-gray-50 cursor-pointer' : ''} transition-colors`}
+              className={`w-full p-4 text-left ${item.type !== 'manual' && item.type !== 'result' ? 'hover:bg-gray-50 cursor-pointer' : ''} transition-colors`}
             >
               <div className="flex items-start gap-3">
                 {/* 아이콘 */}
                 <div
                   className={`w-8 h-8 rounded-full flex items-center justify-center flex-shrink-0 ${
-                    item.type === 'call' ? 'bg-blue-100' : item.type === 'manual' ? 'bg-amber-100' : 'bg-green-100'
+                    item.type === 'call' ? 'bg-blue-100'
+                    : item.type === 'manual' ? 'bg-amber-100'
+                    : item.type === 'result' ? (
+                      item.resultStatus === 'agreed' ? 'bg-emerald-100'
+                      : item.resultStatus === 'disagreed' ? 'bg-rose-100'
+                      : item.resultStatus === 'no_answer' ? 'bg-slate-100'
+                      : item.resultStatus === 'closed' ? 'bg-gray-100'
+                      : 'bg-amber-100'
+                    )
+                    : 'bg-green-100'
                   }`}
                 >
                   {item.type === 'call' ? (
@@ -500,6 +584,18 @@ export function ConsultationHistoryCard({ patientId, patientName = '', className
                       <Building size={14} className="text-amber-600" />
                     ) : (
                       <Edit3 size={14} className="text-amber-600" />
+                    )
+                  ) : item.type === 'result' ? (
+                    item.resultStatus === 'agreed' ? (
+                      <CheckCircle size={14} className="text-emerald-600" />
+                    ) : item.resultStatus === 'disagreed' ? (
+                      <XCircle size={14} className="text-rose-600" />
+                    ) : item.resultStatus === 'no_answer' ? (
+                      <PhoneMissed size={14} className="text-slate-600" />
+                    ) : item.resultStatus === 'closed' ? (
+                      <Ban size={14} className="text-gray-600" />
+                    ) : (
+                      <AlertCircle size={14} className="text-amber-600" />
                     )
                   ) : (
                     <span className="text-sm">
@@ -524,11 +620,56 @@ export function ConsultationHistoryCard({ patientId, patientName = '', className
                       </span>
                     ) : item.type === 'manual' ? (
                       <>
-                        <span className="px-1.5 py-0.5 rounded text-xs bg-amber-100 text-amber-700">
-                          수동
+                        {/* 내원상담 결과에서 자동 생성된 경우 */}
+                        {item.manualType === 'visit' && item.source === 'consultation_result' ? (
+                          <>
+                            <span className="px-1.5 py-0.5 rounded text-xs bg-purple-100 text-purple-700">
+                              내원상담
+                            </span>
+                            {item.status && (
+                              <span className={`px-2 py-0.5 rounded-full text-xs font-medium ${
+                                item.status === 'agreed' ? 'bg-emerald-100 text-emerald-700'
+                                : item.status === 'disagreed' ? 'bg-rose-100 text-rose-700'
+                                : item.status === 'closed' ? 'bg-gray-200 text-gray-700'
+                                : 'bg-amber-100 text-amber-700'
+                              }`}>
+                                {item.status === 'agreed' ? '동의'
+                                 : item.status === 'disagreed' ? '미동의'
+                                 : item.status === 'closed' ? '종결'
+                                 : '보류'}
+                              </span>
+                            )}
+                          </>
+                        ) : (
+                          <>
+                            <span className="px-1.5 py-0.5 rounded text-xs bg-amber-100 text-amber-700">
+                              수동
+                            </span>
+                            <span className="px-1.5 py-0.5 rounded text-xs bg-gray-100 text-gray-600">
+                              {item.manualType === 'phone' ? '전화' : item.manualType === 'visit' ? '내원' : '기타'}
+                            </span>
+                          </>
+                        )}
+                      </>
+                    ) : item.type === 'result' ? (
+                      <>
+                        <span className={`px-1.5 py-0.5 rounded text-xs ${
+                          item.resultType === 'phone' ? 'bg-blue-100 text-blue-700' : 'bg-purple-100 text-purple-700'
+                        }`}>
+                          {item.resultType === 'phone' ? '전화상담' : '내원상담'}
                         </span>
-                        <span className="px-1.5 py-0.5 rounded text-xs bg-gray-100 text-gray-600">
-                          {item.manualType === 'phone' ? '전화' : item.manualType === 'visit' ? '내원' : '기타'}
+                        <span className={`px-2 py-0.5 rounded-full text-xs font-medium ${
+                          item.resultStatus === 'agreed' ? 'bg-emerald-100 text-emerald-700'
+                          : item.resultStatus === 'disagreed' ? 'bg-rose-100 text-rose-700'
+                          : item.resultStatus === 'no_answer' ? 'bg-slate-100 text-slate-700'
+                          : item.resultStatus === 'closed' ? 'bg-gray-200 text-gray-700'
+                          : 'bg-amber-100 text-amber-700'
+                        }`}>
+                          {item.resultStatus === 'agreed' ? '동의'
+                           : item.resultStatus === 'disagreed' ? '미동의'
+                           : item.resultStatus === 'no_answer' ? '부재중'
+                           : item.resultStatus === 'closed' ? '종결'
+                           : '보류'}
                         </span>
                       </>
                     ) : (
@@ -555,13 +696,49 @@ export function ConsultationHistoryCard({ patientId, patientName = '', className
                     {item.type === 'call' && item.status === 'missed' && (
                       <span className="text-xs text-red-500">부재중</span>
                     )}
+
+                    {/* 상담 결과 담당자 */}
+                    {item.type === 'result' && item.consultantName && (
+                      <span className="text-gray-400 text-xs">({item.consultantName})</span>
+                    )}
                   </div>
 
-                  {/* 요약 - 수동 입력은 원문 그대로, 나머지는 bullet point */}
+                  {/* 요약 - 수동 입력은 원문 그대로, 상담결과는 상세 정보, 나머지는 bullet point */}
                   {item.type === 'manual' && item.content ? (
                     <p className="mt-1 text-sm text-gray-700 whitespace-pre-wrap">
                       {item.content}
                     </p>
+                  ) : item.type === 'result' ? (
+                    <div className="mt-1 space-y-1 text-sm text-gray-700">
+                      {/* 치료/관심항목 */}
+                      {item.treatment && (
+                        <p><span className="text-gray-500">치료:</span> {item.treatment}</p>
+                      )}
+                      {/* 금액 정보 (동의 시) */}
+                      {item.resultStatus === 'agreed' && item.finalAmount !== undefined && item.finalAmount > 0 && (
+                        <p><span className="text-gray-500">금액:</span> {item.finalAmount.toLocaleString()}원</p>
+                      )}
+                      {/* 미동의 사유 */}
+                      {item.resultStatus === 'disagreed' && item.disagreeReasons && item.disagreeReasons.length > 0 && (
+                        <p><span className="text-gray-500">사유:</span> {item.disagreeReasons.join(', ')}</p>
+                      )}
+                      {/* 종결 사유 */}
+                      {item.resultStatus === 'closed' && item.closedReason && (
+                        <p><span className="text-gray-500">종결 사유:</span> {item.closedReason === '기타' && item.closedReasonCustom ? item.closedReasonCustom : item.closedReason}</p>
+                      )}
+                      {/* 예약일 (동의 시) */}
+                      {item.resultStatus === 'agreed' && item.appointmentDate && (
+                        <p><span className="text-gray-500">예약일:</span> {format(new Date(item.appointmentDate), 'M/d (EEE) HH:mm', { locale: ko })}</p>
+                      )}
+                      {/* 콜백 예정일 (미동의/보류/부재중 시) */}
+                      {(item.resultStatus === 'disagreed' || item.resultStatus === 'pending' || item.resultStatus === 'no_answer') && item.callbackDate && (
+                        <p><span className="text-gray-500">콜백:</span> {format(new Date(item.callbackDate), 'M/d (EEE)', { locale: ko })}</p>
+                      )}
+                      {/* 메모 */}
+                      {item.memo && (
+                        <p className="text-gray-500 text-xs">{item.memo}</p>
+                      )}
+                    </div>
                   ) : item.summary && (
                     <ul className="mt-1 space-y-0.5">
                       {formatSummaryWithBullets(item.summary).slice(0, 3).map((text, idx) => (
@@ -573,8 +750,8 @@ export function ConsultationHistoryCard({ patientId, patientName = '', className
                     </ul>
                   )}
 
-                  {/* AI 분석 */}
-                  {item.aiAnalysis ? (
+                  {/* AI 분석 - 실제 분석 내용이 있을 때만 표시 */}
+                  {item.aiAnalysis && (item.aiAnalysis.interest || item.aiAnalysis.followUp || item.aiAnalysis.summary) ? (
                     <div className="flex items-center gap-2 mt-2">
                       <Sparkles size={12} className="text-purple-500" />
                       <span className="text-xs text-purple-600">
@@ -603,8 +780,8 @@ export function ConsultationHistoryCard({ patientId, patientName = '', className
                   ) : null}
                 </div>
 
-                {/* 상세보기 안내 (수동 제외) */}
-                {item.type !== 'manual' && (
+                {/* 상세보기 안내 (수동, 상담결과 제외) */}
+                {item.type !== 'manual' && item.type !== 'result' && (
                   <div className="text-xs text-blue-500 flex-shrink-0 self-center">
                     상세보기
                   </div>

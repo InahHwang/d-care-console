@@ -1,0 +1,292 @@
+# SK Broadband 착신녹취 API 가이드 (핵심 요약)
+# CatchAll 통화 녹음 연동용
+
+================================================================================
+## 1. 착신녹취 서비스 개요
+================================================================================
+
+착신녹취 서비스는 걸려온 전화(인바운드)에 대한 통화 녹음 서비스입니다.
+
+### 서비스 흐름
+1. 전화 착신 → EVT_READY_SERVICE 이벤트 수신
+2. IMS_TermRec_Start() 호출 → 녹음 시작
+3. 통화 진행 중 녹음
+4. IMS_TermRec_Stop() 호출 → 녹음 종료 (통화는 유지)
+   또는 IMS_TermRec_StopService() 호출 → 녹음 + 통화 모두 종료
+5. EVT_STOP_RECORD 이벤트로 녹음 파일명 수신
+
+### 중요 사항
+- 착신녹취는 EVT_READY_SERVICE 이벤트를 수신한 경우에만 요청 가능
+- 녹음 파일명은 EVT_START_RECORD, EVT_STOP_RECORD 이벤트의 strExtInfo로 전달됨
+
+================================================================================
+## 2. API 메소드
+================================================================================
+
+### 2.1 IMS_TermRec_Start() - 녹음 시작
+--------------------------------------------------------------------------------
+[DllImport("SKB_OpenAPI_IMS.dll")]
+public static extern int IMS_TermRec_Start();
+
+Parameters: 없음
+
+Return Code:
+- SUCCESS (0x0000): 성공
+- API_FC_ETC_FAIL (0x0800): 기타 오류
+- API_FC_IN_SERVICE (0x0804): 이미 서비스 진행중
+- API_FC_HOST_NOT_CONNECTED (0x0814): 호스트 연결되어있지 않음
+- API_FC_NOT_READY (0x800D): 서비스 준비 상태가 아님 (READY 이벤트 미수신)
+- API_FC_USER_NOT_LOGIN (0x080B): 사용자 로그인되어있지 않음
+- API_FC_NOT_ALLOWED_SERVICE (0x8075): 부가서비스 가입 상태가 아님
+
+Sample Code:
+private void btnTermRec_StartRec_Click(object sender, System.EventArgs e)
+{
+    int nResult;
+    nResult = IMS_TermRec_Start();
+    if (nResult != (int)ERRCODE.SUCCESS) 
+        Log (">>>> [TERM_REC] 녹취 시작 요청 실패 : Cause[" + nResult + "-" + ERR.StrFCause(nResult) + "]");
+}
+
+### 2.2 IMS_TermRec_Stop() - 녹음 종료 (통화 유지)
+--------------------------------------------------------------------------------
+[DllImport("SKB_OpenAPI_IMS.dll")]
+public static extern int IMS_TermRec_Stop();
+
+Parameters: 없음
+- 녹음만 종료하고 통화는 계속 유지됨
+
+Return Code:
+- SUCCESS (0x0000): 성공
+- API_FC_HOST_NOT_CONNECTED (0x0814): 호스트 연결되어있지 않음
+- API_FC_NOT_READY (0x800D): 서비스 준비 상태가 아님
+- API_FC_USER_NOT_LOGIN (0x080B): 사용자 로그인되어있지 않음
+- API_FC_NOT_ALLOWED_SERVICE (0x8075): 부가서비스 가입 상태가 아님
+
+Event:
+- EVT_STOP_RECORD (0x0308): 녹음 종료 - strExtInfo에 파일명 포함
+
+Sample Code:
+private void btnTermRec_StopRec_Click(object sender, System.EventArgs e)
+{
+    int nResult;
+    nResult = IMS_TermRec_Stop();
+    if (nResult != (int)ERRCODE.SUCCESS) 
+        Log (">>>> [TERM_REC] 녹취 종료 요청 실패 : Cause[" + nResult + "-" + ERR.StrFCause(nResult) + "]");
+}
+
+### 2.3 IMS_TermRec_CallStatus() - 호 상태 조회
+--------------------------------------------------------------------------------
+[DllImport("SKB_OpenAPI_IMS.dll")]
+public static extern int IMS_TermRec_CallStatus();
+
+Parameters: 없음
+
+호 상태 결과 값 (strExtInfo로 전달):
+- Init: 초기 상태
+- Ready: 통화 연결 후 녹취 전 상태
+- Recording: 녹취 중 상태
+- Release: 호 종료 중 상태
+
+Sample Code:
+private void btnTermRec_Status_Click(object sender, System.EventArgs e)
+{
+    int nResult;
+    nResult = IMS_TermRec_CallStatus();
+    if (nResult != (int)ERRCODE.SUCCESS) 
+        Log (">>>> [TERM_REC] 서비스 상태조회 요청 실패 : Cause[" + nResult + "-" + ERR.StrFCause(nResult) + "]");
+}
+
+### 2.4 IMS_TermRec_StopService() - 서비스 종료 (통화도 종료)
+--------------------------------------------------------------------------------
+[DllImport("SKB_OpenAPI_IMS.dll")]
+public static extern int IMS_TermRec_StopService();
+
+Parameters: 없음
+- 녹음 종료 + 통화 연결도 동시에 종료됨
+
+Event:
+- EVT_STOP_SERVICE (0x0303): 서비스 종료
+
+Sample Code:
+private void btnTermRec_Stop_Click(object sender, System.EventArgs e)
+{
+    int nResult;
+    nResult = IMS_TermRec_StopService();
+    if (nResult != (int)ERRCODE.SUCCESS) 
+        Log (">>>> [TERM_REC] 서비스 종료 요청 실패 : Cause[" + nResult + "-" + ERR.StrFCause(nResult) + "]");
+}
+
+================================================================================
+## 3. 이벤트 수신
+================================================================================
+
+### 3.1 이벤트 구조체
+--------------------------------------------------------------------------------
+[StructLayout(LayoutKind.Sequential, Pack=1), Serializable]
+public struct _EVTMSG
+{
+    public int nService;      // 서비스 유형
+    public int nEvtType;      // 이벤트 유형
+    public int nResult;       // 결과코드
+    [MarshalAs(UnmanagedType.ByValTStr, SizeConst=32)]
+    public string strDn1;     // 발신번호
+    [MarshalAs(UnmanagedType.ByValTStr, SizeConst=32)]
+    public string strDn2;     // 착신번호
+    [MarshalAs(UnmanagedType.ByValTStr, SizeConst=1024)]
+    public string strExtInfo; // 추가 정보 (녹음 파일명 등)
+}
+
+### 3.2 이벤트 수신 메소드
+--------------------------------------------------------------------------------
+[DllImport("SKB_OpenAPI_IMS.dll")]
+public static extern int IMS_GetEvent(ref _EVTMSG stEvtMsg);
+
+- Timer 등을 사용하여 주기적으로 호출해야 함
+- Return: 0 = 이벤트 있음, -1 = 이벤트 없음
+
+### 3.3 이벤트 수신 Sample Code
+--------------------------------------------------------------------------------
+private void tmrEvent_Tick(object sender, System.EventArgs e)
+{
+    int nResult;
+    tmrEvent.Enabled = false;
+    nResult = IMS_GetEvent(ref m_stEvtMsg);
+    if (nResult == (int)ERRCODE.SUCCESS)
+    {
+        EVT.Proc(m_stEvtMsg.nService, m_stEvtMsg.nEvtType, m_stEvtMsg.nResult,
+                 m_stEvtMsg.strDn1, m_stEvtMsg.strDn2, m_stEvtMsg.strExtInfo);
+    }
+    tmrEvent.Enabled = true;
+}
+
+================================================================================
+## 4. 착신녹취 이벤트 처리 Sample Code
+================================================================================
+
+// 서비스 분기 처리
+public void Proc(int nSvc, int nEvtType, int nResult, string strDn1, string strDn2, string strExtInfo)
+{
+    switch (nSvc)
+    {
+        case (int)SVCCODE.IMS_SVC_TERM_REC:
+            EvtProc_TermRec(nEvtType, nResult, strDn1, strDn2, strExtInfo);
+            break;
+    }
+}
+
+// 착신녹취 이벤트 상세 처리
+private void EvtProc_TermRec(int nEvtType, int nResult, string strSrcDn, string strDestDn, string strExtInfo)
+{
+    switch (nEvtType)
+    {
+        case (int)EVTTYPE.EVT_NORMAL:
+            MAIN.Log(">>>> [TERM_REC] Cause[" + nResult + "-" + ERR.StrFCause(nResult) + "]");
+            break;
+            
+        case (int)EVTTYPE.EVT_CALL_STATUS:
+            MAIN.Log("**** [TERM_REC] 서비스 상태 : " + strExtInfo);
+            break;
+            
+        case (int)EVTTYPE.EVT_READY_SERVICE:
+            // ★ 이 이벤트를 수신해야 녹취 시작 가능
+            MAIN.Log("**** [TERM_REC] 착신녹취 준비");
+            break;
+            
+        case (int)EVTTYPE.EVT_START_SERVICE:
+            if (nResult == (int)ERRCODE.SUCCESS)
+            {
+                MAIN.Log("**** [TERM_REC] 서비스 시작 성공 [" + strSrcDn + "->" + strDestDn + "]");
+            }
+            else
+            {
+                MAIN.Log(">>>> [TERM_REC] 서비스 시작 실패. Cause[" + nResult + "] 추가정보[" + strExtInfo + "]");
+            }
+            break;
+            
+        case (int)EVTTYPE.EVT_STOP_SERVICE:
+            MAIN.Log("**** [TERM_REC] 서비스 종료. 종료원인[" + nResult + "] 추가정보[" + strExtInfo + "]");
+            break;
+            
+        case (int)EVTTYPE.EVT_START_RECORD:
+            if (nResult == (int)ERRCODE.SUCCESS)
+            {
+                // ★ strExtInfo에 녹음 파일명이 포함됨
+                MAIN.Log("**** [TERM_REC] 녹음 시작. 파일명[" + strExtInfo + "]");
+            }
+            else
+            {
+                MAIN.Log("**** [TERM_REC] 녹음 실패");
+            }
+            break;
+            
+        case (int)EVTTYPE.EVT_STOP_RECORD:
+            // ★ strExtInfo에 녹음 파일명이 포함됨
+            MAIN.Log("**** [TERM_REC] 녹음 종료. 파일명[" + strExtInfo + "]");
+            break;
+            
+        default:
+            MAIN.Log(">>>> [TERM_REC] 잘못된 이벤트 수신. EvtType[" + nEvtType + "]");
+            break;
+    }
+}
+
+================================================================================
+## 5. 서비스 코드 (SVCCODE)
+================================================================================
+
+IMS_SVC_TERM_REC - 착신녹취 서비스
+IMS_SVC_CID - CID 수신 서비스 (발신번호 표시)
+IMS_SVC_CLICK_CALL - 클릭콜 서비스
+
+================================================================================
+## 6. 이벤트 코드 (EVTTYPE)
+================================================================================
+
+착신녹취 관련 이벤트:
+- EVT_TIMEOUT (0x0000): 시간 초과
+- EVT_NORMAL (0x0001): 일반 이벤트
+- EVT_CALL_STATUS (0x0301): 호 상태 조회
+- EVT_START_SERVICE (0x0302): 서비스 시작
+- EVT_STOP_SERVICE (0x0303): 서비스 종료
+- EVT_READY_SERVICE (0x0304): 서비스 준비 (★ 녹취 시작 가능 신호)
+- EVT_INIT_RECORD (0x0306): 착신녹취 준비
+- EVT_START_RECORD (0x0307): 녹음 시작 (파일명 전달)
+- EVT_STOP_RECORD (0x0308): 녹음 종료 (파일명 전달)
+
+================================================================================
+## 7. 에러 코드
+================================================================================
+
+- SUCCESS (0x0000): 성공
+- API_FC_ETC_FAIL (0x8000): 기타 오류
+- API_FC_INIT_FAIL (0x8001): API 초기화 실패
+- API_FC_IN_SERVICE (0x8004): 이미 서비스 진행중
+- API_FC_NOT_IN_SERVICE (0x8005): 서비스 미진행중
+- API_FC_USER_NOT_LOGIN (0x800B): 사용자 로그인되어있지 않음
+- API_FC_HOST_NOT_CONNECTED (0x8014): 호스트 연결되어있지 않음
+- API_FC_NOT_RECORDING (0x8021): 녹음중이 아님
+- API_FC_ALREADY_RECORDING (0x8022): 이미 녹음중
+- API_FC_RECORD_FAIL (0x8027): 녹음 실패
+- API_FC_RECORD_TIME_EXPIRED (0x8028): 최대 녹음시간 만료
+- API_FC_NOT_ALLOWED_SERVICE (0x8075): 부가서비스 가입 상태가 아님
+
+================================================================================
+## 8. CatchAll 연동 시 구현 포인트
+================================================================================
+
+1. 기존 CID 이벤트(IMS_SVC_CID) 수신 로직에 착신녹취 연동 추가
+
+2. 자동 녹음 흐름:
+   - CID 이벤트 수신 (전화 착신 감지)
+   - EVT_READY_SERVICE 이벤트 대기
+   - EVT_READY_SERVICE 수신 시 IMS_TermRec_Start() 자동 호출
+   - 통화 종료 시 EVT_STOP_RECORD에서 파일명 추출
+   - 파일명을 CatchAll 서버로 전달 (Socket.IO 또는 HTTP)
+
+3. 녹음 파일 처리:
+   - strExtInfo에서 파일명/경로 파싱
+   - 파일을 STT 서비스로 전달하여 텍스트 변환
+   - 변환된 텍스트를 AI 분석으로 전달
+
+================================================================================

@@ -34,27 +34,46 @@ export async function DELETE(request: NextRequest) {
 
 export async function GET(request: NextRequest) {
   console.log('GET 요청 수신: /api/messages/log');
-  
+
   try {
+    const { searchParams } = new URL(request.url);
+    const startDate = searchParams.get('startDate');
+    const endDate = searchParams.get('endDate');
+
     console.log('MongoDB 연결 시도...');
     const { db } = await connectToDatabase();
     console.log('MongoDB 연결 성공!');
-    
-    const logs = await db.collection('messageLogs').find({}).toArray();
+
+    // 날짜 필터 쿼리 구성
+    const query: Record<string, any> = {};
+    if (startDate || endDate) {
+      query.createdAt = {};
+      if (startDate) {
+        query.createdAt.$gte = `${startDate}T00:00:00`;
+      }
+      if (endDate) {
+        query.createdAt.$lte = `${endDate}T23:59:59`;
+      }
+    }
+
+    const logs = await db.collection('messageLogs')
+      .find(query)
+      .sort({ createdAt: -1 })
+      .toArray();
     console.log(`조회된 로그 개수: ${logs.length}`);
-    
-    return NextResponse.json({ 
-      success: true, 
-      data: logs 
+
+    return NextResponse.json({
+      success: true,
+      data: logs
     });
   } catch (error) {
     console.error('메시지 로그 조회 중 오류 발생:', error);
-    
+
     return NextResponse.json(
-      { 
-        success: false, 
+      {
+        success: false,
         message: '로그 조회 실패',
-        error: error instanceof Error ? error.message : '알 수 없는 오류가 발생했습니다.' 
+        error: error instanceof Error ? error.message : '알 수 없는 오류가 발생했습니다.'
       },
       { status: 500 }
     );

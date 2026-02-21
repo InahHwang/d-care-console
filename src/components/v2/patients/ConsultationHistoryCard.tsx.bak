@@ -1,0 +1,662 @@
+'use client';
+
+import React, { useState, useEffect } from 'react';
+import { Phone, MessageCircle, Clock, ChevronDown, Sparkles, X, Loader2, Plus, Building, Edit3 } from 'lucide-react';
+import { format } from 'date-fns';
+import { ko } from 'date-fns/locale';
+import { CHANNEL_CONFIG, ChannelType } from '@/types/v2';
+import { ManualConsultationModal } from './ManualConsultationModal';
+
+// ============================================
+// 통합 상담 이력 카드 (전화 + 채팅)
+// ============================================
+
+// AI 요약 텍스트를 bullet point로 포맷팅하는 함수
+function formatSummaryWithBullets(summary: string): string[] {
+  if (!summary) return [];
+
+  // 문장 구분: 마침표, 쉼표+공백, 줄바꿈 등으로 분리
+  // 1. 먼저 이미 bullet point가 있으면 그대로 분리
+  if (summary.includes('•') || summary.includes('-')) {
+    return summary
+      .split(/[•\-]/)
+      .map(s => s.trim())
+      .filter(s => s.length > 0);
+  }
+
+  // 2. 문장 단위로 분리 (마침표, 느낌표, 물음표 기준)
+  const sentences = summary
+    .split(/(?<=[.!?])\s+/)
+    .map(s => s.trim())
+    .filter(s => s.length > 0);
+
+  // 3. 문장이 1개면 쉼표로 분리 시도
+  if (sentences.length === 1 && summary.includes(',')) {
+    const parts = summary
+      .split(/,\s*/)
+      .map(s => s.trim())
+      .filter(s => s.length > 3); // 너무 짧은 건 제외
+    if (parts.length > 1) return parts;
+  }
+
+  return sentences;
+}
+
+interface ConsultationItem {
+  id: string;
+  type: 'call' | 'chat' | 'manual';
+  channel?: string;
+  direction?: string;
+  date: string;
+  summary?: string;
+  content?: string;
+  consultantName?: string;
+  manualType?: 'phone' | 'visit' | 'other';
+  source?: 'ai' | 'manual' | 'system';
+  aiAnalysis?: {
+    interest?: string;
+    temperature?: string;
+    summary?: string;
+    followUp?: string;
+  };
+  duration?: number;
+  status?: string;
+}
+
+interface ConsultationHistoryCardProps {
+  patientId: string;
+  patientName?: string;
+  className?: string;
+  onSelectCall?: (callId: string) => void;
+  embedded?: boolean; // true이면 Card 래퍼 없이 렌더링
+}
+
+type FilterType = 'all' | 'call' | 'chat' | 'manual';
+
+// 채팅 상세 모달 컴포넌트
+interface ChatDetailModalProps {
+  isOpen: boolean;
+  onClose: () => void;
+  chatId: string;
+}
+
+function ChatDetailModal({ isOpen, onClose, chatId }: ChatDetailModalProps) {
+  const [chat, setChat] = useState<any>(null);
+  const [messages, setMessages] = useState<any[]>([]);
+  const [isLoading, setIsLoading] = useState(false);
+  const [isAnalyzing, setIsAnalyzing] = useState(false);
+
+  useEffect(() => {
+    if (isOpen && chatId) {
+      fetchChatDetail();
+    }
+  }, [isOpen, chatId]);
+
+  const fetchChatDetail = async () => {
+    setIsLoading(true);
+    try {
+      const [chatRes, messagesRes] = await Promise.all([
+        fetch(`/api/v2/channel-chats/${chatId}`),
+        fetch(`/api/v2/channel-chats/${chatId}/messages?limit=100`),
+      ]);
+
+      const chatData = await chatRes.json();
+      const messagesData = await messagesRes.json();
+
+      if (chatData.success) {
+        setChat(chatData.data);
+      }
+      if (messagesData.success) {
+        setMessages(messagesData.data);
+      }
+    } catch (error) {
+      console.error('채팅 상세 조회 오류:', error);
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  // AI 분석 요청
+  const handleAnalyze = async () => {
+    if (!chatId || isAnalyzing) return;
+
+    setIsAnalyzing(true);
+    try {
+      const res = await fetch('/api/v2/channel-chats/analyze', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ chatId }),
+      });
+
+      const data = await res.json();
+      if (data.success) {
+        // 분석 결과로 chat 업데이트
+        setChat((prev: any) => prev ? { ...prev, aiAnalysis: data.data } : prev);
+      } else {
+        alert(data.error || 'AI 분석에 실패했습니다.');
+      }
+    } catch (error) {
+      console.error('AI 분석 오류:', error);
+      alert('AI 분석 중 오류가 발생했습니다.');
+    } finally {
+      setIsAnalyzing(false);
+    }
+  };
+
+  if (!isOpen) return null;
+
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center">
+      <div className="absolute inset-0 bg-black/50" onClick={onClose} />
+      <div className="relative bg-white rounded-2xl shadow-xl w-full max-w-2xl mx-4 max-h-[85vh] flex flex-col">
+        {/* 헤더 */}
+        <div className="flex items-center justify-between p-4 border-b">
+          <div className="flex items-center gap-2">
+            <MessageCircle size={20} className="text-green-500" />
+            <h2 className="text-lg font-bold text-gray-900">채팅 상담 상세</h2>
+            {chat?.channel && (
+              <span className={`px-2 py-0.5 rounded text-xs ${
+                CHANNEL_CONFIG[chat.channel as ChannelType]?.bgColor || 'bg-gray-100 text-gray-700'
+              }`}>
+                {CHANNEL_CONFIG[chat.channel as ChannelType]?.label || chat.channel}
+              </span>
+            )}
+          </div>
+          <button
+            onClick={onClose}
+            className="p-1 text-gray-400 hover:text-gray-600 rounded-lg hover:bg-gray-100"
+          >
+            <X size={20} />
+          </button>
+        </div>
+
+        {isLoading ? (
+          <div className="flex-1 flex items-center justify-center py-12">
+            <Loader2 size={32} className="animate-spin text-gray-400" />
+          </div>
+        ) : (
+          <>
+            {/* AI 분석 결과 */}
+            <div className="p-4 border-b bg-purple-50">
+              <div className="flex items-center justify-between mb-2">
+                <div className="flex items-center gap-2">
+                  <Sparkles size={16} className="text-purple-500" />
+                  <span className="font-medium text-purple-900">AI 분석</span>
+                </div>
+                {!chat?.aiAnalysis && (
+                  <button
+                    onClick={handleAnalyze}
+                    disabled={isAnalyzing}
+                    className="px-3 py-1 bg-purple-600 text-white text-xs rounded-lg hover:bg-purple-700 disabled:opacity-50 flex items-center gap-1"
+                  >
+                    {isAnalyzing ? (
+                      <>
+                        <Loader2 size={12} className="animate-spin" />
+                        분석 중...
+                      </>
+                    ) : (
+                      <>
+                        <Sparkles size={12} />
+                        AI 분석하기
+                      </>
+                    )}
+                  </button>
+                )}
+              </div>
+              {chat?.aiAnalysis ? (
+                <div className="space-y-2 text-sm">
+                  {chat.aiAnalysis.summary && (
+                    <div>
+                      <span className="text-purple-600 font-medium">요약</span>
+                      <ul className="mt-1 space-y-1">
+                        {formatSummaryWithBullets(chat.aiAnalysis.summary).map((item, idx) => (
+                          <li key={idx} className="text-gray-700 flex items-start gap-2">
+                            <span className="text-purple-400 mt-0.5">•</span>
+                            <span>{item}</span>
+                          </li>
+                        ))}
+                      </ul>
+                    </div>
+                  )}
+                  {chat.aiAnalysis.interest && (
+                    <div>
+                      <span className="text-purple-600 font-medium">관심사: </span>
+                      <span className="text-gray-700">{chat.aiAnalysis.interest}</span>
+                    </div>
+                  )}
+                  {chat.aiAnalysis.temperature && (
+                    <div>
+                      <span className="text-purple-600 font-medium">온도: </span>
+                      <span className="text-gray-700">{chat.aiAnalysis.temperature}</span>
+                    </div>
+                  )}
+                  {chat.aiAnalysis.followUp && (
+                    <div>
+                      <span className="text-purple-600 font-medium">후속조치: </span>
+                      <span className="text-gray-700">{chat.aiAnalysis.followUp}</span>
+                    </div>
+                  )}
+                </div>
+              ) : (
+                <p className="text-sm text-purple-600">AI 분석을 실행하면 상담 내용을 자동으로 요약합니다.</p>
+              )}
+            </div>
+
+            {/* 메시지 목록 */}
+            <div className="flex-1 overflow-y-auto p-4 space-y-3">
+              {messages.length === 0 ? (
+                <p className="text-center text-gray-400 py-8">메시지가 없습니다</p>
+              ) : (
+                messages.map((msg, idx) => (
+                  <div
+                    key={msg._id || idx}
+                    className={`flex ${msg.senderType === 'agent' ? 'justify-end' : 'justify-start'}`}
+                  >
+                    <div
+                      className={`max-w-[75%] px-3 py-2 rounded-xl text-sm ${
+                        msg.senderType === 'agent'
+                          ? 'bg-blue-500 text-white'
+                          : 'bg-gray-100 text-gray-900'
+                      }`}
+                    >
+                      <p>{msg.content}</p>
+                      <p className={`text-xs mt-1 ${
+                        msg.senderType === 'agent' ? 'text-blue-200' : 'text-gray-400'
+                      }`}>
+                        {format(new Date(msg.createdAt), 'M/d HH:mm', { locale: ko })}
+                      </p>
+                    </div>
+                  </div>
+                ))
+              )}
+            </div>
+
+            {/* 정보 푸터 */}
+            <div className="p-4 border-t bg-gray-50 text-xs text-gray-500">
+              <div className="flex items-center justify-between">
+                <span>
+                  시작: {chat?.createdAt && format(new Date(chat.createdAt), 'yyyy.M.d HH:mm', { locale: ko })}
+                </span>
+                <span>총 {messages.length}개 메시지</span>
+              </div>
+            </div>
+          </>
+        )}
+      </div>
+    </div>
+  );
+}
+
+export function ConsultationHistoryCard({ patientId, patientName = '', className = '', onSelectCall, embedded = false }: ConsultationHistoryCardProps) {
+  const [filter, setFilter] = useState<FilterType>('all');
+  const [consultations, setConsultations] = useState<ConsultationItem[]>([]);
+  const [isLoading, setIsLoading] = useState(false);
+  const [isExpanded, setIsExpanded] = useState(false);
+
+  // 채팅 상세 모달
+  const [selectedChatId, setSelectedChatId] = useState<string | null>(null);
+  const [chatModalOpen, setChatModalOpen] = useState(false);
+
+  // 수동 입력 모달
+  const [manualModalOpen, setManualModalOpen] = useState(false);
+
+  // 인라인 AI 분석 상태
+  const [analyzingChatId, setAnalyzingChatId] = useState<string | null>(null);
+  // 자동 분석 중인 채팅 ID 목록
+  const [autoAnalyzingIds, setAutoAnalyzingIds] = useState<Set<string>>(new Set());
+
+  // 채팅 AI 분석 (목록에서 바로 실행)
+  const handleAnalyzeChat = async (chatId: string, e: React.MouseEvent) => {
+    e.stopPropagation(); // 상세보기 클릭 방지
+    if (analyzingChatId) return;
+
+    setAnalyzingChatId(chatId);
+    try {
+      const res = await fetch('/api/v2/channel-chats/analyze', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ chatId }),
+      });
+
+      const data = await res.json();
+      if (data.success) {
+        // 분석 결과로 목록 업데이트
+        setConsultations((prev) =>
+          prev.map((item) =>
+            item.id === chatId
+              ? {
+                  ...item,
+                  summary: data.data.summary,
+                  aiAnalysis: data.data,
+                }
+              : item
+          )
+        );
+      } else {
+        alert(data.error || 'AI 분석에 실패했습니다.');
+      }
+    } catch (error) {
+      console.error('AI 분석 오류:', error);
+      alert('AI 분석 중 오류가 발생했습니다.');
+    } finally {
+      setAnalyzingChatId(null);
+    }
+  };
+
+  // 상담 이력 조회 함수
+  const fetchConsultations = async () => {
+    setIsLoading(true);
+    try {
+      const res = await fetch(`/api/v2/patients/${patientId}/consultations?type=${filter}&limit=20`);
+      const data = await res.json();
+      if (data.success) {
+        setConsultations(data.data);
+
+        // AI 분석 안 된 채팅 자동 분석 (백그라운드)
+        const unanalyzedChats = data.data.filter(
+          (item: ConsultationItem) => item.type === 'chat' && !item.aiAnalysis
+        );
+
+        if (unanalyzedChats.length > 0) {
+          // 자동 분석 대상 ID 설정
+          setAutoAnalyzingIds(new Set(unanalyzedChats.map((c: ConsultationItem) => c.id)));
+
+          // 순차적으로 분석 실행 (병렬로 하면 API 부하)
+          for (const chat of unanalyzedChats) {
+            try {
+              const analyzeRes = await fetch('/api/v2/channel-chats/analyze', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ chatId: chat.id }),
+              });
+
+              const analyzeData = await analyzeRes.json();
+              if (analyzeData.success) {
+                // 분석 결과로 목록 업데이트
+                setConsultations((prev) =>
+                  prev.map((item) =>
+                    item.id === chat.id
+                      ? {
+                          ...item,
+                          summary: analyzeData.data.summary,
+                          aiAnalysis: analyzeData.data,
+                        }
+                      : item
+                  )
+                );
+              }
+            } catch (analyzeError) {
+              console.error('채팅 자동 분석 오류:', analyzeError);
+            } finally {
+              // 완료된 항목 제거
+              setAutoAnalyzingIds((prev) => {
+                const next = new Set(prev);
+                next.delete(chat.id);
+                return next;
+              });
+            }
+          }
+        }
+      }
+    } catch (error) {
+      console.error('상담 이력 조회 오류:', error);
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  // 상담 이력 조회
+  useEffect(() => {
+    if (patientId) {
+      fetchConsultations();
+    }
+  }, [patientId, filter]);
+
+  // 시간 포맷
+  const formatTime = (seconds: number) => {
+    const mins = Math.floor(seconds / 60);
+    const secs = seconds % 60;
+    return `${mins}분 ${secs}초`;
+  };
+
+  // 표시할 항목 (확장 여부에 따라)
+  const displayItems = isExpanded ? consultations : consultations.slice(0, 5);
+
+  return (
+    <div className={embedded ? className : `bg-white rounded-xl border ${className}`}>
+      {/* 헤더 */}
+      <div className={embedded ? "pb-4" : "p-4 border-b"}>
+        <div className="flex items-center justify-between">
+          <h3 className="font-bold text-gray-900 flex items-center gap-2">
+            <Clock size={18} className="text-gray-400" />
+            상담 이력
+            <span className="text-sm font-normal text-gray-500">({consultations.length}건)</span>
+          </h3>
+          <button
+            onClick={() => setManualModalOpen(true)}
+            className="flex items-center gap-1 px-3 py-1.5 text-xs font-medium text-blue-600 bg-blue-50 rounded-lg hover:bg-blue-100 transition-colors"
+          >
+            <Plus size={14} />
+            수동 입력
+          </button>
+        </div>
+
+        {/* 필터 탭 */}
+        <div className="flex gap-1 mt-3">
+          {[
+            { value: 'all' as FilterType, label: '전체' },
+            { value: 'call' as FilterType, label: '📞 전화' },
+            { value: 'chat' as FilterType, label: '💬 채팅' },
+            { value: 'manual' as FilterType, label: '✏️ 수동' },
+          ].map((tab) => (
+            <button
+              key={tab.value}
+              onClick={() => setFilter(tab.value)}
+              className={`px-3 py-1.5 text-xs font-medium rounded-lg transition-colors ${
+                filter === tab.value
+                  ? 'bg-blue-100 text-blue-700'
+                  : 'text-gray-500 hover:bg-gray-100'
+              }`}
+            >
+              {tab.label}
+            </button>
+          ))}
+        </div>
+      </div>
+
+      {/* 목록 */}
+      <div className="divide-y">
+        {isLoading ? (
+          <div className="p-8 text-center text-gray-400">로딩 중...</div>
+        ) : displayItems.length === 0 ? (
+          <div className="p-8 text-center text-gray-400">상담 이력이 없습니다</div>
+        ) : (
+          displayItems.map((item) => (
+            <div
+              key={item.id}
+              onClick={() => {
+                if (item.type === 'call' && onSelectCall) {
+                  onSelectCall(item.id);
+                } else if (item.type === 'chat') {
+                  setSelectedChatId(item.id);
+                  setChatModalOpen(true);
+                }
+                // manual 타입은 클릭 동작 없음
+              }}
+              className={`w-full p-4 text-left ${item.type !== 'manual' ? 'hover:bg-gray-50 cursor-pointer' : ''} transition-colors`}
+            >
+              <div className="flex items-start gap-3">
+                {/* 아이콘 */}
+                <div
+                  className={`w-8 h-8 rounded-full flex items-center justify-center flex-shrink-0 ${
+                    item.type === 'call' ? 'bg-blue-100' : item.type === 'manual' ? 'bg-amber-100' : 'bg-green-100'
+                  }`}
+                >
+                  {item.type === 'call' ? (
+                    <Phone size={14} className="text-blue-600" />
+                  ) : item.type === 'manual' ? (
+                    item.manualType === 'phone' ? (
+                      <Phone size={14} className="text-amber-600" />
+                    ) : item.manualType === 'visit' ? (
+                      <Building size={14} className="text-amber-600" />
+                    ) : (
+                      <Edit3 size={14} className="text-amber-600" />
+                    )
+                  ) : (
+                    <span className="text-sm">
+                      {CHANNEL_CONFIG[item.channel as ChannelType]?.icon || '💬'}
+                    </span>
+                  )}
+                </div>
+
+                {/* 내용 */}
+                <div className="flex-1 min-w-0">
+                  <div className="flex items-center gap-2 text-sm flex-wrap">
+                    {/* 타입 뱃지 */}
+                    {item.type === 'call' ? (
+                      <span
+                        className={`px-1.5 py-0.5 rounded text-xs ${
+                          item.direction === 'inbound'
+                            ? 'bg-blue-100 text-blue-700'
+                            : 'bg-purple-100 text-purple-700'
+                        }`}
+                      >
+                        {item.direction === 'inbound' ? '수신' : '발신'}
+                      </span>
+                    ) : item.type === 'manual' ? (
+                      <>
+                        <span className="px-1.5 py-0.5 rounded text-xs bg-amber-100 text-amber-700">
+                          수동
+                        </span>
+                        <span className="px-1.5 py-0.5 rounded text-xs bg-gray-100 text-gray-600">
+                          {item.manualType === 'phone' ? '전화' : item.manualType === 'visit' ? '내원' : '기타'}
+                        </span>
+                      </>
+                    ) : (
+                      <span
+                        className={`px-1.5 py-0.5 rounded text-xs ${
+                          CHANNEL_CONFIG[item.channel as ChannelType]?.bgColor || 'bg-gray-100 text-gray-700'
+                        }`}
+                      >
+                        {CHANNEL_CONFIG[item.channel as ChannelType]?.label || '채팅'}
+                      </span>
+                    )}
+
+                    {/* 날짜/시간 */}
+                    <span className="text-gray-500">
+                      {format(new Date(item.date), 'M/d HH:mm', { locale: ko })}
+                    </span>
+
+                    {/* 통화 시간 */}
+                    {item.type === 'call' && item.duration !== undefined && (
+                      <span className="text-gray-400">({formatTime(item.duration)})</span>
+                    )}
+
+                    {/* 통화 상태 */}
+                    {item.type === 'call' && item.status === 'missed' && (
+                      <span className="text-xs text-red-500">부재중</span>
+                    )}
+                  </div>
+
+                  {/* 요약 - 수동 입력은 원문 그대로, 나머지는 bullet point */}
+                  {item.type === 'manual' && item.content ? (
+                    <p className="mt-1 text-sm text-gray-700 whitespace-pre-wrap">
+                      {item.content}
+                    </p>
+                  ) : item.summary && (
+                    <ul className="mt-1 space-y-0.5">
+                      {formatSummaryWithBullets(item.summary).slice(0, 3).map((text, idx) => (
+                        <li key={idx} className="text-sm text-gray-700 flex items-start gap-1.5">
+                          <span className="text-purple-400 mt-0.5">•</span>
+                          <span className="line-clamp-1">{text}</span>
+                        </li>
+                      ))}
+                    </ul>
+                  )}
+
+                  {/* AI 분석 */}
+                  {item.aiAnalysis ? (
+                    <div className="flex items-center gap-2 mt-2">
+                      <Sparkles size={12} className="text-purple-500" />
+                      <span className="text-xs text-purple-600">
+                        {item.aiAnalysis.interest && `관심: ${item.aiAnalysis.interest}`}
+                        {item.aiAnalysis.followUp && ` · ${item.aiAnalysis.followUp}`}
+                      </span>
+                    </div>
+                  ) : item.type === 'chat' ? (
+                    // 채팅인데 AI 분석이 없는 경우
+                    autoAnalyzingIds.has(item.id) || analyzingChatId === item.id ? (
+                      // 자동 분석 중이면 로딩 표시
+                      <div className="flex items-center gap-1 mt-2 text-purple-500 text-xs">
+                        <Loader2 size={12} className="animate-spin" />
+                        AI 분석 중...
+                      </div>
+                    ) : (
+                      // 분석 버튼 표시 (자동 분석 실패 시 수동 실행 가능)
+                      <button
+                        onClick={(e) => handleAnalyzeChat(item.id, e)}
+                        className="flex items-center gap-1 mt-2 px-2 py-1 bg-purple-100 text-purple-600 text-xs rounded-lg hover:bg-purple-200 transition-colors"
+                      >
+                        <Sparkles size={12} />
+                        AI 요약
+                      </button>
+                    )
+                  ) : null}
+                </div>
+
+                {/* 상세보기 안내 (수동 제외) */}
+                {item.type !== 'manual' && (
+                  <div className="text-xs text-blue-500 flex-shrink-0 self-center">
+                    상세보기
+                  </div>
+                )}
+                {/* 수동 입력 상담자 표시 */}
+                {item.type === 'manual' && item.consultantName && (
+                  <div className="text-xs text-gray-400 flex-shrink-0 self-center">
+                    {item.consultantName}
+                  </div>
+                )}
+              </div>
+            </div>
+          ))
+        )}
+      </div>
+
+      {/* 더보기 */}
+      {consultations.length > 5 && (
+        <button
+          onClick={() => setIsExpanded(!isExpanded)}
+          className="w-full p-3 text-sm text-blue-600 hover:bg-gray-50 flex items-center justify-center gap-1 border-t"
+        >
+          <span>{isExpanded ? '접기' : `더보기 (${consultations.length - 5}건)`}</span>
+          <ChevronDown size={16} className={`transition-transform ${isExpanded ? 'rotate-180' : ''}`} />
+        </button>
+      )}
+
+      {/* 채팅 상세 모달 */}
+      {selectedChatId && (
+        <ChatDetailModal
+          isOpen={chatModalOpen}
+          onClose={() => {
+            setChatModalOpen(false);
+            setSelectedChatId(null);
+          }}
+          chatId={selectedChatId}
+        />
+      )}
+
+      {/* 수동 상담 입력 모달 */}
+      <ManualConsultationModal
+        isOpen={manualModalOpen}
+        onClose={() => setManualModalOpen(false)}
+        patientId={patientId}
+        patientName={patientName}
+        onSuccess={() => {
+          fetchConsultations();
+        }}
+      />
+    </div>
+  );
+}
+
+export default ConsultationHistoryCard;

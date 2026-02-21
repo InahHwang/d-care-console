@@ -294,6 +294,127 @@ export async function POST(request: NextRequest) {
       });
     }
 
+    // 실패한 분석 일괄 재처리
+    if (action === 'retry-failed') {
+      const { date } = body; // YYYY-MM-DD 형식
+
+      if (!date) {
+        return NextResponse.json(
+          { success: false, error: 'date (YYYY-MM-DD) required' },
+          { status: 400 }
+        );
+      }
+
+      const startOfDay = new Date(`${date}T00:00:00+09:00`);
+      const endOfDay = new Date(`${date}T23:59:59+09:00`);
+
+      // 실패/pending 상태인 통화기록 조회 (녹음 데이터 있는 것만)
+      const failedLogs = await db.collection('callLogs_v2').find({
+        aiStatus: { $in: ['failed', 'pending'] },
+        $or: [
+          { startedAt: { $gte: startOfDay, $lte: endOfDay } },
+          { createdAt: { $gte: startOfDay.toISOString(), $lte: endOfDay.toISOString() } },
+        ],
+        recordingUrl: { $exists: true, $ne: null },
+      }).toArray();
+
+      if (failedLogs.length === 0) {
+        return NextResponse.json({
+          success: true,
+          message: 'No failed logs found for this date',
+          count: 0,
+        });
+      }
+
+      // 녹음 데이터 존재 여부 확인
+      const retryTargets: { id: string; phone: string }[] = [];
+      for (const log of failedLogs) {
+        const recording = await db.collection('callRecordings_v2').findOne({
+          callLogId: log._id.toString(),
+        });
+        if (recording?.recordingBase64) {
+          retryTargets.push({ id: log._id.toString(), phone: log.phone });
+        }
+      }
+
+      if (retryTargets.length === 0) {
+        return NextResponse.json({
+          success: true,
+          message: 'No failed logs with recording data found',
+          count: 0,
+        });
+      }
+
+      console.log(`[Status v2] 일괄 재처리 시작: ${retryTargets.length}건 (${date})`);
+      retryTargets.forEach(t => console.log(`  - ${t.id} (${t.phone})`));
+
+      // 상태 일괄 리셋
+      const retryIds = retryTargets.map(t => new ObjectId(t.id));
+      await db.collection('callLogs_v2').updateMany(
+        { _id: { $in: retryIds } },
+        {
+          $set: { aiStatus: 'pending', updatedAt: new Date().toISOString() },
+          $unset: { 'aiAnalysis.error': '' },
+        }
+      );
+
+      // 백그라운드에서 순차 처리 (rate limit 방지를 위해 건별 5초 대기)
+      const baseUrl = process.env.NEXT_PUBLIC_BASE_URL || 'https://d-care-console.vercel.app';
+
+      waitUntil(
+        (async () => {
+          for (let i = 0; i < retryTargets.length; i++) {
+            const target = retryTargets[i];
+            try {
+              console.log(`[Retry] (${i + 1}/${retryTargets.length}) STT 시작: ${target.id} (${target.phone})`);
+
+              const sttRes = await fetch(`${baseUrl}/api/v2/call-analysis/transcribe`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ callLogId: target.id }),
+              });
+              const sttResult = await sttRes.json();
+
+              if (!sttResult.success) {
+                console.error(`[Retry] STT 실패: ${target.id} - ${sttResult.error}`);
+                continue;
+              }
+
+              console.log(`[Retry] (${i + 1}/${retryTargets.length}) AI 분석 시작: ${target.id}`);
+
+              const analyzeRes = await fetch(`${baseUrl}/api/v2/call-analysis/analyze`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ callLogId: target.id }),
+              });
+              const analyzeResult = await analyzeRes.json();
+
+              if (analyzeResult.success) {
+                console.log(`[Retry] ✅ 완료: ${target.id} (${target.phone})`);
+              } else {
+                console.error(`[Retry] AI 분석 실패: ${target.id} - ${analyzeResult.error}`);
+              }
+
+              // rate limit 방지: 다음 건 전에 5초 대기
+              if (i < retryTargets.length - 1) {
+                await new Promise(r => setTimeout(r, 5000));
+              }
+            } catch (err) {
+              console.error(`[Retry] 오류: ${target.id}`, err);
+            }
+          }
+          console.log(`[Retry] 일괄 재처리 완료: ${retryTargets.length}건`);
+        })()
+      );
+
+      return NextResponse.json({
+        success: true,
+        message: `Retry triggered for ${retryTargets.length} failed logs`,
+        count: retryTargets.length,
+        targets: retryTargets,
+      });
+    }
+
     return NextResponse.json(
       { success: false, error: 'Invalid action' },
       { status: 400 }

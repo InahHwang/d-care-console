@@ -1,0 +1,609 @@
+import React, { useState, useEffect } from 'react';
+import { Phone, PhoneOutgoing, PhoneIncoming, Clock, Calendar, Check, ChevronRight, Search, Bell, MoreVertical, PhoneCall, FileText, Plus, User, Settings, Home, Users, BarChart3, Filter, ChevronDown, ArrowUpDown, ChevronLeft, Sparkles, Play, Loader2, CheckCircle2, XCircle, AlertCircle, RefreshCw, Eye, UserPlus, Ban, Building2, X, Flame, Thermometer, Snowflake } from 'lucide-react';
+
+export default function CallLogWithAI() {
+  const [selectedFilter, setSelectedFilter] = useState('all');
+  const [searchQuery, setSearchQuery] = useState('');
+  const [selectedCall, setSelectedCall] = useState(null);
+
+  const filters = [
+    { id: 'all', label: '전체', count: 89 },
+    { id: 'new_patient', label: '신규환자', count: 23, color: 'blue' },
+    { id: 'existing', label: '기존환자', count: 34, color: 'emerald' },
+    { id: 'callback', label: '콜백필요', count: 12, color: 'amber' },
+    { id: 'missed', label: '부재중', count: 15, color: 'gray' },
+    { id: 'other', label: '거래처/기타', count: 5, color: 'slate' },
+  ];
+
+  const calls = [
+    { 
+      id: 1,
+      type: 'outbound',
+      phone: '010-9876-5432',
+      date: '오늘',
+      time: '14:32',
+      duration: '03:24',
+      hasRecording: true,
+      aiStatus: 'completed',
+      aiResult: {
+        classification: 'new_patient',
+        classificationLabel: '신규환자',
+        patientName: '김미영',
+        interest: '임플란트',
+        temperature: 'hot',
+        summary: '앞니 임플란트 상담. 가격 문의, 다음주 내원 희망. 오전 선호.',
+        nextAction: 'callback',
+        suggestedCallback: '1/17 오전',
+        confidence: 94
+      },
+      isRegistered: true,
+      patientId: 'P001'
+    },
+    { 
+      id: 2,
+      type: 'outbound',
+      phone: '010-1234-5678',
+      date: '오늘',
+      time: '14:15',
+      duration: '02:10',
+      hasRecording: true,
+      aiStatus: 'analyzing',
+      aiResult: null,
+      isRegistered: false,
+      patientId: null
+    },
+    { 
+      id: 3,
+      type: 'inbound',
+      phone: '010-5555-1234',
+      date: '오늘',
+      time: '13:50',
+      duration: '04:32',
+      hasRecording: true,
+      aiStatus: 'completed',
+      aiResult: {
+        classification: 'existing',
+        classificationLabel: '기존환자',
+        patientName: '박서연',
+        interest: '정기검진',
+        temperature: 'warm',
+        summary: '6개월 정기검진 예약 문의. 이번주 토요일 희망.',
+        nextAction: 'reservation',
+        suggestedCallback: null,
+        confidence: 98
+      },
+      isRegistered: true,
+      patientId: 'P045'
+    },
+    { 
+      id: 4,
+      type: 'outbound',
+      phone: '010-7777-8888',
+      date: '오늘',
+      time: '11:20',
+      duration: '00:00',
+      hasRecording: false,
+      aiStatus: 'completed',
+      aiResult: {
+        classification: 'missed',
+        classificationLabel: '부재중',
+        patientName: null,
+        interest: null,
+        temperature: null,
+        summary: '연결 안 됨',
+        nextAction: 'retry',
+        suggestedCallback: '오늘 오후 재시도',
+        confidence: 100
+      },
+      isRegistered: false,
+      patientId: null
+    },
+    { 
+      id: 5,
+      type: 'inbound',
+      phone: '02-1234-5678',
+      date: '오늘',
+      time: '10:45',
+      duration: '01:23',
+      hasRecording: true,
+      aiStatus: 'completed',
+      aiResult: {
+        classification: 'other',
+        classificationLabel: '거래처',
+        patientName: null,
+        interest: null,
+        temperature: null,
+        summary: '의료기기 업체 영업 전화',
+        nextAction: 'none',
+        suggestedCallback: null,
+        confidence: 91
+      },
+      isRegistered: false,
+      patientId: null
+    },
+    { 
+      id: 6,
+      type: 'outbound',
+      phone: '010-2222-3333',
+      date: '오늘',
+      time: '10:15',
+      duration: '05:47',
+      hasRecording: true,
+      aiStatus: 'completed',
+      aiResult: {
+        classification: 'new_patient',
+        classificationLabel: '신규환자',
+        patientName: '이정훈',
+        interest: '교정',
+        temperature: 'warm',
+        summary: '투명교정 비용 상담. 타 병원과 비교 중. 2주 내 결정 예정.',
+        nextAction: 'callback',
+        suggestedCallback: '1/22',
+        confidence: 89
+      },
+      isRegistered: true,
+      patientId: 'P002'
+    },
+    { 
+      id: 7,
+      type: 'outbound',
+      phone: '010-4444-5555',
+      date: '어제',
+      time: '16:30',
+      duration: '01:15',
+      hasRecording: true,
+      aiStatus: 'completed',
+      aiResult: {
+        classification: 'new_patient',
+        classificationLabel: '신규환자',
+        patientName: null,
+        interest: '임플란트',
+        temperature: 'cold',
+        summary: '가격만 물어보고 끊음. 관심도 낮음.',
+        nextAction: 'none',
+        suggestedCallback: null,
+        confidence: 85
+      },
+      isRegistered: true,
+      patientId: 'P003'
+    },
+  ];
+
+  const getClassificationStyle = (classification) => {
+    switch(classification) {
+      case 'new_patient': return 'bg-blue-100 text-blue-700';
+      case 'existing': return 'bg-emerald-100 text-emerald-700';
+      case 'callback': return 'bg-amber-100 text-amber-700';
+      case 'missed': return 'bg-gray-100 text-gray-500';
+      case 'other': return 'bg-slate-100 text-slate-600';
+      default: return 'bg-gray-100 text-gray-700';
+    }
+  };
+
+  const getTemperatureIcon = (temp) => {
+    switch(temp) {
+      case 'hot': return <Flame size={14} className="text-red-500" />;
+      case 'warm': return <Thermometer size={14} className="text-amber-500" />;
+      case 'cold': return <Snowflake size={14} className="text-blue-400" />;
+      default: return null;
+    }
+  };
+
+  const getTemperatureLabel = (temp) => {
+    switch(temp) {
+      case 'hot': return '높음';
+      case 'warm': return '중간';
+      case 'cold': return '낮음';
+      default: return '-';
+    }
+  };
+
+  const filteredCalls = calls.filter(c => {
+    if (selectedFilter !== 'all' && c.aiResult?.classification !== selectedFilter) return false;
+    if (searchQuery && !c.phone.includes(searchQuery) && !c.aiResult?.patientName?.includes(searchQuery)) return false;
+    return true;
+  });
+
+  return (
+    <div className="min-h-screen bg-gray-100 flex">
+      
+      {/* 사이드바 */}
+      <div className="w-64 bg-white border-r flex flex-col">
+        <div className="p-5 border-b">
+          <h1 className="text-xl font-bold text-blue-600">CatchAll</h1>
+          <p className="text-xs text-gray-400 mt-1">치과 상담 관리</p>
+        </div>
+        
+        <nav className="flex-1 p-3">
+          <div className="space-y-1">
+            <button className="w-full flex items-center gap-3 px-4 py-3 text-gray-600 hover:bg-gray-50 rounded-xl">
+              <Home size={20} />
+              <span>대시보드</span>
+            </button>
+            <button className="w-full flex items-center gap-3 px-4 py-3 bg-blue-50 text-blue-600 rounded-xl font-medium">
+              <Phone size={20} />
+              <span>통화 기록</span>
+              <span className="ml-auto bg-blue-500 text-white text-xs px-2 py-0.5 rounded-full">3</span>
+            </button>
+            <button className="w-full flex items-center gap-3 px-4 py-3 text-gray-600 hover:bg-gray-50 rounded-xl">
+              <Users size={20} />
+              <span>환자 관리</span>
+            </button>
+            <button className="w-full flex items-center gap-3 px-4 py-3 text-gray-600 hover:bg-gray-50 rounded-xl">
+              <Bell size={20} />
+              <span>콜백 일정</span>
+              <span className="ml-auto bg-amber-500 text-white text-xs px-2 py-0.5 rounded-full">5</span>
+            </button>
+            <button className="w-full flex items-center gap-3 px-4 py-3 text-gray-600 hover:bg-gray-50 rounded-xl">
+              <BarChart3 size={20} />
+              <span>리포트</span>
+            </button>
+          </div>
+        </nav>
+
+        <div className="p-3 border-t">
+          <div className="flex items-center gap-3 px-3 py-2">
+            <div className="w-9 h-9 bg-gray-200 rounded-full flex items-center justify-center">
+              <User size={18} className="text-gray-500" />
+            </div>
+            <div className="flex-1 min-w-0">
+              <div className="text-sm font-medium text-gray-900 truncate">김상담</div>
+              <div className="text-xs text-gray-400">상담사</div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      {/* 메인 컨텐츠 */}
+      <div className="flex-1 flex flex-col">
+        
+        {/* 헤더 */}
+        <div className="bg-white border-b px-6 py-4">
+          <div className="flex items-center justify-between">
+            <div>
+              <h2 className="text-xl font-bold text-gray-900">통화 기록</h2>
+              <p className="text-sm text-gray-500 mt-1">
+                AI가 자동으로 분석하고 환자를 등록합니다
+              </p>
+            </div>
+            <div className="flex items-center gap-3">
+              <div className="flex items-center gap-2 text-sm text-emerald-600 bg-emerald-50 px-3 py-1.5 rounded-full">
+                <Sparkles size={16} />
+                <span>AI 분석 활성화</span>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        {/* 필터 & 검색 */}
+        <div className="bg-white border-b px-6 py-3">
+          <div className="flex items-center justify-between">
+            <div className="flex items-center gap-2">
+              {filters.map(filter => (
+                <button
+                  key={filter.id}
+                  onClick={() => setSelectedFilter(filter.id)}
+                  className={`px-4 py-2 rounded-full text-sm font-medium transition-all ${
+                    selectedFilter === filter.id
+                      ? 'bg-blue-500 text-white'
+                      : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
+                  }`}
+                >
+                  {filter.label}
+                  <span className={`ml-1.5 ${selectedFilter === filter.id ? 'text-blue-100' : 'text-gray-400'}`}>
+                    {filter.count}
+                  </span>
+                </button>
+              ))}
+            </div>
+
+            <div className="flex items-center gap-3">
+              <div className="relative">
+                <Search size={18} className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" />
+                <input
+                  type="text"
+                  placeholder="전화번호, 이름 검색"
+                  value={searchQuery}
+                  onChange={(e) => setSearchQuery(e.target.value)}
+                  className="pl-10 pr-4 py-2 border border-gray-200 rounded-lg w-64 focus:outline-none focus:ring-2 focus:ring-blue-500"
+                />
+              </div>
+            </div>
+          </div>
+        </div>
+
+        {/* 통화 목록 */}
+        <div className="flex-1 overflow-auto p-6">
+          <div className="bg-white rounded-2xl shadow-sm overflow-hidden">
+            {/* 테이블 헤더 */}
+            <div className="grid grid-cols-12 gap-4 px-5 py-3 bg-gray-50 border-b text-sm font-medium text-gray-500">
+              <div className="col-span-1">유형</div>
+              <div className="col-span-2">전화번호</div>
+              <div className="col-span-1">시간</div>
+              <div className="col-span-1">통화</div>
+              <div className="col-span-2">AI 분류</div>
+              <div className="col-span-1">관심도</div>
+              <div className="col-span-3">AI 요약</div>
+              <div className="col-span-1">상태</div>
+            </div>
+
+            {/* 테이블 바디 */}
+            <div className="divide-y">
+              {filteredCalls.map((call) => (
+                <div 
+                  key={call.id}
+                  onClick={() => setSelectedCall(call)}
+                  className={`grid grid-cols-12 gap-4 px-5 py-4 hover:bg-gray-50 cursor-pointer items-center transition-colors ${
+                    selectedCall?.id === call.id ? 'bg-blue-50' : ''
+                  }`}
+                >
+                  {/* 유형 */}
+                  <div className="col-span-1">
+                    <div className={`w-8 h-8 rounded-full flex items-center justify-center ${
+                      call.type === 'outbound' ? 'bg-blue-100' : 'bg-green-100'
+                    }`}>
+                      {call.type === 'outbound' ? (
+                        <PhoneOutgoing size={16} className="text-blue-600" />
+                      ) : (
+                        <PhoneIncoming size={16} className="text-green-600" />
+                      )}
+                    </div>
+                  </div>
+
+                  {/* 전화번호 + 이름 */}
+                  <div className="col-span-2">
+                    <div className="font-medium text-gray-900">{call.phone}</div>
+                    {call.aiResult?.patientName && (
+                      <div className="text-sm text-gray-500">{call.aiResult.patientName}</div>
+                    )}
+                  </div>
+
+                  {/* 시간 */}
+                  <div className="col-span-1 text-sm text-gray-600">
+                    <div>{call.date}</div>
+                    <div className="text-gray-400">{call.time}</div>
+                  </div>
+
+                  {/* 통화시간 */}
+                  <div className="col-span-1 text-sm text-gray-600">
+                    {call.duration === '00:00' ? (
+                      <span className="text-gray-400">-</span>
+                    ) : (
+                      call.duration
+                    )}
+                  </div>
+
+                  {/* AI 분류 */}
+                  <div className="col-span-2">
+                    {call.aiStatus === 'analyzing' ? (
+                      <div className="flex items-center gap-2 text-purple-600">
+                        <Loader2 size={16} className="animate-spin" />
+                        <span className="text-sm">분석 중...</span>
+                      </div>
+                    ) : call.aiResult ? (
+                      <div className="flex items-center gap-2">
+                        <span className={`px-2 py-1 rounded-full text-xs font-medium ${getClassificationStyle(call.aiResult.classification)}`}>
+                          {call.aiResult.classificationLabel}
+                        </span>
+                        {call.aiResult.interest && (
+                          <span className="text-xs text-gray-500">{call.aiResult.interest}</span>
+                        )}
+                      </div>
+                    ) : null}
+                  </div>
+
+                  {/* 관심도 */}
+                  <div className="col-span-1">
+                    {call.aiResult?.temperature ? (
+                      <div className="flex items-center gap-1">
+                        {getTemperatureIcon(call.aiResult.temperature)}
+                        <span className="text-sm text-gray-600">{getTemperatureLabel(call.aiResult.temperature)}</span>
+                      </div>
+                    ) : (
+                      <span className="text-gray-400">-</span>
+                    )}
+                  </div>
+
+                  {/* AI 요약 */}
+                  <div className="col-span-3">
+                    {call.aiStatus === 'analyzing' ? (
+                      <div className="h-4 bg-gray-100 rounded animate-pulse w-3/4"></div>
+                    ) : call.aiResult ? (
+                      <p className="text-sm text-gray-600 truncate">{call.aiResult.summary}</p>
+                    ) : null}
+                  </div>
+
+                  {/* 등록 상태 */}
+                  <div className="col-span-1">
+                    {call.isRegistered ? (
+                      <div className="flex items-center gap-1 text-emerald-600">
+                        <CheckCircle2 size={16} />
+                        <span className="text-xs">등록됨</span>
+                      </div>
+                    ) : call.aiResult?.classification === 'other' ? (
+                      <span className="text-xs text-gray-400">제외</span>
+                    ) : call.aiStatus === 'analyzing' ? (
+                      <span className="text-xs text-gray-400">대기</span>
+                    ) : call.aiResult?.classification === 'missed' ? (
+                      <span className="text-xs text-gray-400">재시도</span>
+                    ) : (
+                      <span className="text-xs text-gray-400">-</span>
+                    )}
+                  </div>
+                </div>
+              ))}
+            </div>
+          </div>
+        </div>
+      </div>
+
+      {/* 우측 상세 패널 */}
+      {selectedCall && (
+        <div className="w-96 bg-white border-l flex flex-col">
+          {/* 패널 헤더 */}
+          <div className="p-4 border-b flex items-center justify-between">
+            <h3 className="font-bold text-gray-900">통화 상세</h3>
+            <button 
+              onClick={() => setSelectedCall(null)}
+              className="p-1 hover:bg-gray-100 rounded"
+            >
+              <X size={20} className="text-gray-400" />
+            </button>
+          </div>
+
+          {/* 패널 내용 */}
+          <div className="flex-1 overflow-auto p-4 space-y-4">
+            {/* 기본 정보 */}
+            <div className="bg-gray-50 rounded-xl p-4">
+              <div className="flex items-center gap-3 mb-3">
+                <div className={`w-10 h-10 rounded-full flex items-center justify-center ${
+                  selectedCall.type === 'outbound' ? 'bg-blue-100' : 'bg-green-100'
+                }`}>
+                  {selectedCall.type === 'outbound' ? (
+                    <PhoneOutgoing size={20} className="text-blue-600" />
+                  ) : (
+                    <PhoneIncoming size={20} className="text-green-600" />
+                  )}
+                </div>
+                <div>
+                  <div className="font-bold text-lg text-gray-900">{selectedCall.phone}</div>
+                  <div className="text-sm text-gray-500">
+                    {selectedCall.date} {selectedCall.time} · {selectedCall.duration}
+                  </div>
+                </div>
+              </div>
+              
+              {selectedCall.hasRecording && (
+                <button className="w-full py-2 bg-white border border-gray-200 rounded-lg text-sm hover:bg-gray-50 flex items-center justify-center gap-2">
+                  <Play size={16} className="text-blue-500" />
+                  녹취 재생
+                </button>
+              )}
+            </div>
+
+            {/* AI 분석 결과 */}
+            {selectedCall.aiStatus === 'completed' && selectedCall.aiResult && (
+              <div className="bg-purple-50 rounded-xl p-4">
+                <div className="flex items-center gap-2 text-purple-700 font-medium mb-3">
+                  <Sparkles size={18} />
+                  AI 분석 결과
+                  <span className="ml-auto text-xs font-normal text-purple-500">
+                    신뢰도 {selectedCall.aiResult.confidence}%
+                  </span>
+                </div>
+
+                <div className="space-y-3">
+                  <div className="flex justify-between items-center">
+                    <span className="text-sm text-gray-600">분류</span>
+                    <span className={`px-2 py-1 rounded-full text-xs font-medium ${getClassificationStyle(selectedCall.aiResult.classification)}`}>
+                      {selectedCall.aiResult.classificationLabel}
+                    </span>
+                  </div>
+
+                  {selectedCall.aiResult.patientName && (
+                    <div className="flex justify-between items-center">
+                      <span className="text-sm text-gray-600">이름</span>
+                      <span className="font-medium text-gray-900">{selectedCall.aiResult.patientName}</span>
+                    </div>
+                  )}
+
+                  {selectedCall.aiResult.interest && (
+                    <div className="flex justify-between items-center">
+                      <span className="text-sm text-gray-600">관심 시술</span>
+                      <span className="font-medium text-gray-900">{selectedCall.aiResult.interest}</span>
+                    </div>
+                  )}
+
+                  {selectedCall.aiResult.temperature && (
+                    <div className="flex justify-between items-center">
+                      <span className="text-sm text-gray-600">관심도</span>
+                      <div className="flex items-center gap-1">
+                        {getTemperatureIcon(selectedCall.aiResult.temperature)}
+                        <span className="font-medium text-gray-900">{getTemperatureLabel(selectedCall.aiResult.temperature)}</span>
+                      </div>
+                    </div>
+                  )}
+
+                  {selectedCall.aiResult.suggestedCallback && (
+                    <div className="flex justify-between items-center">
+                      <span className="text-sm text-gray-600">추천 콜백</span>
+                      <span className="font-medium text-amber-600">{selectedCall.aiResult.suggestedCallback}</span>
+                    </div>
+                  )}
+                </div>
+
+                <div className="mt-3 pt-3 border-t border-purple-100">
+                  <p className="text-sm text-gray-700">{selectedCall.aiResult.summary}</p>
+                </div>
+              </div>
+            )}
+
+            {selectedCall.aiStatus === 'analyzing' && (
+              <div className="bg-purple-50 rounded-xl p-4">
+                <div className="flex items-center gap-3 text-purple-700">
+                  <Loader2 size={20} className="animate-spin" />
+                  <div>
+                    <div className="font-medium">AI 분석 중...</div>
+                    <div className="text-sm text-purple-500">약 20초 소요</div>
+                  </div>
+                </div>
+              </div>
+            )}
+
+            {/* 액션 버튼 */}
+            <div className="space-y-2">
+              {selectedCall.isRegistered ? (
+                <button className="w-full py-3 bg-blue-500 hover:bg-blue-600 text-white rounded-xl font-medium flex items-center justify-center gap-2">
+                  <Eye size={18} />
+                  환자 상세 보기
+                </button>
+              ) : selectedCall.aiResult?.classification === 'new_patient' ? (
+                <button className="w-full py-3 bg-blue-500 hover:bg-blue-600 text-white rounded-xl font-medium flex items-center justify-center gap-2">
+                  <UserPlus size={18} />
+                  환자로 등록
+                </button>
+              ) : null}
+
+              {selectedCall.aiResult?.classification === 'missed' && (
+                <button className="w-full py-3 bg-emerald-500 hover:bg-emerald-600 text-white rounded-xl font-medium flex items-center justify-center gap-2">
+                  <PhoneCall size={18} />
+                  다시 전화하기
+                </button>
+              )}
+
+              {selectedCall.aiResult?.suggestedCallback && !selectedCall.isRegistered && (
+                <button className="w-full py-3 border border-amber-500 text-amber-600 hover:bg-amber-50 rounded-xl font-medium flex items-center justify-center gap-2">
+                  <Bell size={18} />
+                  콜백 예약
+                </button>
+              )}
+
+              {selectedCall.aiResult?.classification !== 'other' && (
+                <div className="flex gap-2">
+                  <button className="flex-1 py-2 border border-gray-200 text-gray-600 hover:bg-gray-50 rounded-lg text-sm flex items-center justify-center gap-1">
+                    <Building2 size={14} />
+                    거래처
+                  </button>
+                  <button className="flex-1 py-2 border border-gray-200 text-gray-600 hover:bg-gray-50 rounded-lg text-sm flex items-center justify-center gap-1">
+                    <Ban size={14} />
+                    스팸
+                  </button>
+                </div>
+              )}
+            </div>
+
+            {/* AI 수정 안내 */}
+            {selectedCall.aiStatus === 'completed' && (
+              <div className="bg-gray-50 rounded-lg p-3">
+                <p className="text-xs text-gray-500 text-center">
+                  AI 분석이 틀렸나요?
+                  <button className="text-blue-500 hover:text-blue-600 ml-1">직접 수정</button>
+                </p>
+              </div>
+            )}
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}

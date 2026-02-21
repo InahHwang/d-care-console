@@ -18,6 +18,7 @@ import {
   AlertCircle,
   CheckCircle2,
   CalendarCheck,
+  Calendar,
   UserPlus,
   BookOpen,
 } from 'lucide-react';
@@ -106,6 +107,12 @@ export function CTIPanel() {
   const [pendingCallbacks, setPendingCallbacks] = useState<PendingCallback[]>([]);
   const [isCallEnded, setIsCallEnded] = useState(false);
   const [processingCallback, setProcessingCallback] = useState(false);
+
+  // ★ 퀵 콜백 상태 (부재중 후 빠른 콜백 예약)
+  const [callEndDuration, setCallEndDuration] = useState<number | null>(null);
+  const [quickCallbackMode, setQuickCallbackMode] = useState<'buttons' | 'datepicker' | 'success' | null>(null);
+  const [quickCallbackDate, setQuickCallbackDate] = useState('');
+  const [quickCallbackLoading, setQuickCallbackLoading] = useState(false);
 
   // ★ 매뉴얼 패널 상태
   const [showManualPanel, setShowManualPanel] = useState(false);
@@ -317,11 +324,22 @@ export function CTIPanel() {
     });
 
     // 통화 종료
-    channel.bind('call-ended', (data: { callLogId: string; duration: number; patientId?: string }) => {
+    channel.bind('call-ended', (data: { callLogId: string; duration: number; patientId?: string; phone?: string }) => {
       console.log('[CTI v2] 통화 종료:', data);
-      if (currentCall?.callLogId === data.callLogId) {
+      // callLogId 또는 phone으로 매칭 (발신 시 callLogId가 다를 수 있음)
+      const isCurrentCall = currentCall?.callLogId === data.callLogId ||
+        (currentCall?.phone && data.phone &&
+          currentCall.phone.replace(/\D/g, '') === data.phone.replace(/\D/g, ''));
+
+      if (isCurrentCall) {
         setIsRinging(false);
         setIsCallEnded(true);
+        setCallEndDuration(data.duration ?? null);
+
+        // 부재중이면 퀵 콜백 모드 활성화
+        if (data.duration === 0) {
+          setQuickCallbackMode('buttons');
+        }
 
         // 환자ID가 있으면 콜백 확인 (통화 종료 후에도)
         const patientId = data.patientId || currentCall.patientId;
@@ -370,7 +388,36 @@ export function CTIPanel() {
     setLatestAnalysis(null);
     setIsCallEnded(false);
     setPendingCallbacks([]);
+    setCallEndDuration(null);
+    setQuickCallbackMode(null);
+    setQuickCallbackDate('');
   };
+
+  // ★ 퀵 콜백 핸들러
+  const handleQuickCallback = useCallback(async (selectedDate: string) => {
+    if (!currentCall?.patientId) return;
+    setQuickCallbackLoading(true);
+    try {
+      const res = await fetch('/api/v2/callbacks/quick', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          patientId: currentCall.patientId,
+          scheduledAt: selectedDate,
+        }),
+      });
+      if (res.ok) {
+        setQuickCallbackMode('success');
+        setTimeout(() => setQuickCallbackMode(null), 3000);
+      } else {
+        console.error('[CTI v2] 퀵 콜백 실패');
+      }
+    } catch (error) {
+      console.error('[CTI v2] 퀵 콜백 오류:', error);
+    } finally {
+      setQuickCallbackLoading(false);
+    }
+  }, [currentCall]);
 
   const handlePatientClick = (patientId?: string) => {
     if (patientId) {
@@ -431,7 +478,7 @@ export function CTIPanel() {
         <div className="flex items-center justify-between px-4 py-3 bg-gray-50 border-b">
           <div className="flex items-center gap-2">
             <Phone size={18} className="text-gray-500" />
-            <span className="font-medium text-gray-700">CTI 패널</span>
+            <span className="font-medium text-gray-700">발신자표시</span>
             {/* CTI 연결 상태 표시 */}
             {ctiStatus ? (
               <span className={`w-2 h-2 rounded-full ${ctiStatus.ctiConnected ? 'bg-green-500' : 'bg-red-500'}`} title={ctiStatus.ctiConnected ? 'CTI 연결됨' : 'CTI 연결 안됨'} />
@@ -591,6 +638,82 @@ export function CTIPanel() {
                     </button>
                   ))}
                 </div>
+              </div>
+            )}
+
+            {/* 퀵 콜백 - 부재중 후 빠른 콜백 예약 */}
+            {isCallEnded && callEndDuration === 0 && currentCall.patientId && pendingCallbacks.length === 0 && quickCallbackMode && (
+              <div className="mt-3 p-3 bg-amber-50 rounded-lg">
+                {quickCallbackMode === 'success' ? (
+                  <div className="flex items-center gap-2 text-sm text-emerald-600">
+                    <CheckCircle2 size={14} />
+                    <span className="font-medium">콜백이 예약되었습니다</span>
+                  </div>
+                ) : quickCallbackMode === 'datepicker' ? (
+                  <div>
+                    <div className="flex items-center gap-2 mb-2">
+                      <Calendar size={14} className="text-amber-500" />
+                      <span className="text-xs font-medium text-amber-600">콜백 날짜 선택</span>
+                    </div>
+                    <div className="flex gap-2">
+                      <input
+                        type="date"
+                        value={quickCallbackDate}
+                        min={new Date().toISOString().split('T')[0]}
+                        onChange={(e) => setQuickCallbackDate(e.target.value)}
+                        className="flex-1 px-2 py-1.5 text-sm border border-gray-300 rounded-lg focus:outline-none focus:ring-1 focus:ring-amber-400"
+                      />
+                      <button
+                        onClick={() => {
+                          if (quickCallbackDate) handleQuickCallback(quickCallbackDate);
+                        }}
+                        disabled={!quickCallbackDate || quickCallbackLoading}
+                        className="px-3 py-1.5 bg-amber-500 text-white text-sm font-medium rounded-lg hover:bg-amber-600 disabled:opacity-50 transition-colors"
+                      >
+                        {quickCallbackLoading ? <Loader2 size={14} className="animate-spin" /> : '확인'}
+                      </button>
+                      <button
+                        onClick={() => { setQuickCallbackMode('buttons'); setQuickCallbackDate(''); }}
+                        className="px-3 py-1.5 bg-gray-200 text-gray-600 text-sm rounded-lg hover:bg-gray-300 transition-colors"
+                      >
+                        취소
+                      </button>
+                    </div>
+                  </div>
+                ) : (
+                  <div>
+                    <div className="flex items-center gap-2 mb-2">
+                      <PhoneMissed size={14} className="text-amber-500" />
+                      <span className="text-xs font-medium text-amber-600">부재중 - 다음 콜백</span>
+                    </div>
+                    <div className="grid grid-cols-4 gap-1.5">
+                      {[
+                        { label: '오늘', days: 0 },
+                        { label: '내일', days: 1 },
+                        { label: '모레', days: 2 },
+                      ].map(({ label, days }) => (
+                        <button
+                          key={label}
+                          onClick={() => {
+                            const d = new Date();
+                            d.setDate(d.getDate() + days);
+                            handleQuickCallback(d.toISOString().split('T')[0]);
+                          }}
+                          disabled={quickCallbackLoading}
+                          className="py-2 px-2 bg-white border border-amber-200 text-amber-700 text-sm font-medium rounded-lg hover:bg-amber-100 disabled:opacity-50 transition-colors"
+                        >
+                          {quickCallbackLoading ? <Loader2 size={12} className="animate-spin mx-auto" /> : label}
+                        </button>
+                      ))}
+                      <button
+                        onClick={() => setQuickCallbackMode('datepicker')}
+                        className="py-2 px-2 bg-white border border-gray-200 text-gray-600 text-sm rounded-lg hover:bg-gray-100 transition-colors"
+                      >
+                        직접선택
+                      </button>
+                    </div>
+                  </div>
+                )}
               </div>
             )}
 

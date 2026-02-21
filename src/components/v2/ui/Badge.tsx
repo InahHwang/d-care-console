@@ -100,7 +100,7 @@ export function AIBadge({ confidence, size = 'sm' }: { confidence?: number; size
 
 // 상담 결과 뱃지
 interface ConsultationStatusBadgeProps {
-  status: 'agreed' | 'disagreed' | 'pending';
+  status: 'agreed' | 'disagreed' | 'pending' | 'no_answer';
   size?: 'sm' | 'md';
 }
 
@@ -109,6 +109,7 @@ export function ConsultationStatusBadge({ status, size = 'md' }: ConsultationSta
     agreed: { label: '동의', variant: 'success' as const },
     disagreed: { label: '미동의', variant: 'danger' as const },
     pending: { label: '보류', variant: 'warning' as const },
+    no_answer: { label: '부재중', variant: 'default' as const },
   };
 
   const { label, variant } = config[status];

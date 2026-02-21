@@ -98,16 +98,19 @@ async function createCallLogV2(
   patientId: string | undefined,
   callTime: string
 ): Promise<CallLogV2> {
-  const now = new Date().toISOString();
+  const now = new Date();
+  // ★ 날짜는 반드시 Date 객체로 저장 (String 저장 시 MongoDB 비교 연산 실패)
+  const startedAtDate = callTime ? new Date(callTime) : now;
 
   const callLog: CallLogV2 = {
     phone: formatPhone(callerNumber),
+    calledNumber: calledNumber || '',  // ★ 착신번호 (031/070 회선)
     patientId: patientId,
     direction: 'inbound',
-    status: 'connected',
+    status: 'ringing',  // ★ ringing으로 생성 → "start" 이벤트에서 connected로 전환
     duration: 0,
-    startedAt: callTime || now,
-    endedAt: now,
+    startedAt: startedAtDate,
+    endedAt: now,  // ★ 임시값; "end" 이벤트에서 실제 종료시간으로 갱신
     aiStatus: 'pending',
     createdAt: now,
   };
@@ -136,21 +139,20 @@ export async function POST(request: NextRequest) {
     const callTime = timestamp || new Date().toISOString();
     let isNewPatient = false;
 
-    // 1. 환자 검색 또는 생성
-    let patient = await findPatientV2(db, callerNumber);
+    // 1. 환자 검색 (자동등록 비활성화 - 상담사가 수동으로만 등록)
+    const patient = await findPatientV2(db, callerNumber);
 
     if (!patient) {
       isNewPatient = true;
-      patient = await createPatientV2(db, callerNumber, callTime);
-      console.log(`[CTI v2] 신규 환자 생성: ${patient._id}`);
+      console.log(`[CTI v2] 미등록 전화번호: ${formatPhone(callerNumber)} (자동등록 비활성화)`);
     }
 
-    // 2. 통화 기록 생성
+    // 2. 통화 기록 생성 (환자가 없어도 통화 기록은 생성)
     const callLog = await createCallLogV2(
       db,
       callerNumber,
       calledNumber,
-      patient._id?.toString(),
+      patient?._id?.toString(),
       callTime
     );
 
@@ -158,10 +160,10 @@ export async function POST(request: NextRequest) {
     const event = {
       callLogId: callLog._id?.toString(),
       phone: formatPhone(callerNumber),
-      patientId: patient._id?.toString(),
-      patientName: patient.name,
-      patientStatus: patient.status,
-      temperature: patient.temperature,
+      patientId: patient?._id?.toString(),
+      patientName: patient?.name || '미등록',
+      patientStatus: patient?.status,
+      temperature: patient?.temperature,
       isNewPatient,
       callTime,
     };
@@ -178,13 +180,13 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({
       success: true,
       isNewPatient,
-      patient: {
+      patient: patient ? {
         id: patient._id?.toString(),
         name: patient.name,
         phone: patient.phone,
         status: patient.status,
         temperature: patient.temperature,
-      },
+      } : null,
       callLog: {
         id: callLog._id?.toString(),
         phone: callLog.phone,

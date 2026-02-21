@@ -1,0 +1,3 @@
+URL=https://d-care-console.vercel.app
+# 로컬 개발시: URL=http://localhost:3000
+# Vercel 배포시: URL=https://d-care-console.vercel.app

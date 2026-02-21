@@ -17,8 +17,11 @@ const pusher = new Pusher({
 // 네이버톡톡 발송 API
 const NAVER_TALKTALK_API_URL = 'https://gw.talk.naver.com/chatbot/v1/event';
 
-// 카카오 상담톡 API
+// 카카오 상담톡 API (레거시)
 const KAKAO_CONSULTALK_API_URL = 'https://api.business.kakao.com/v1/message/send';
+
+// 비즈고(인포뱅크) 카카오 상담톡 API
+const BIZGO_CSTALK_API_URL = 'https://mars.ibapi.kr/api/comm/v1/send/cstalk/plain';
 
 // 인스타그램 Graph API
 const INSTAGRAM_GRAPH_API_URL = 'https://graph.facebook.com/v18.0';
@@ -366,7 +369,69 @@ async function sendKakaoMessage(
   messageType: string,
   imageUrl?: string
 ): Promise<{ success: boolean; error?: string; pending?: boolean }> {
-  // 상담톡 API 토큰이 있는 경우 직접 발송 시도
+  // ============================================
+  // 1순위: 비즈고(인포뱅크) 상담톡 API
+  // ============================================
+  const bizgoApiKey = process.env.BIZGO_API_KEY;
+  const bizgoSenderKey = process.env.BIZGO_SENDER_KEY;
+
+  if (bizgoApiKey && bizgoSenderKey && userKey) {
+    try {
+      const bizgoMsgType = messageType === 'image' ? 'IMAGE' : 'TEXT';
+      const requestBody: any = {
+        userKey,
+        senderKey: bizgoSenderKey,
+        msgType: bizgoMsgType,
+        message: content,
+      };
+
+      // 이미지 첨부 (비즈고 Omni API V2 스펙: attachment.image.imgUrl)
+      if (messageType === 'image' && imageUrl) {
+        requestBody.attachment = { image: { imgUrl: imageUrl } };
+      }
+
+      console.log('[비즈고 상담톡] 발송 요청:', JSON.stringify(requestBody, null, 2));
+
+      const response = await fetch(BIZGO_CSTALK_API_URL, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          Accept: 'application/json',
+          Authorization: bizgoApiKey,
+        },
+        body: JSON.stringify(requestBody),
+      });
+
+      const result = await response.json();
+      console.log('[비즈고 상담톡] 응답:', JSON.stringify(result, null, 2));
+
+      if (response.ok && result.data?.code === 'A000') {
+        return { success: true };
+      }
+
+      // 에러 코드별 메시지
+      const errorCode = result.data?.code || result.common?.authCode;
+      const errorMessages: Record<string, string> = {
+        'A001': '인증 토큰이 만료되었습니다.',
+        'A010': '요청 형식이 잘못되었습니다.',
+        'A020': '요청 제한 초과. 잠시 후 다시 시도해주세요.',
+        'A403': '사용자 세션이 만료되었거나 유효하지 않은 사용자입니다.',
+        'A999': '서버 오류가 발생했습니다.',
+      };
+
+      const errorMsg = errorMessages[errorCode] || result.data?.result || `발송 실패 (코드: ${errorCode})`;
+      console.error('[비즈고 상담톡] 발송 실패:', errorMsg);
+
+      return { success: false, error: `카카오 상담톡 발송 실패: ${errorMsg}` };
+    } catch (error) {
+      console.error('[비즈고 상담톡] API 오류:', error);
+      return { success: false, error: '비즈고 API 호출 중 오류가 발생했습니다.' };
+    }
+  }
+
+  // ============================================
+  // 2순위: 카카오 상담톡 API (레거시)
+  // ============================================
   const consultalkToken = process.env.KAKAO_CONSULTALK_API_TOKEN;
 
   if (consultalkToken && userKey) {
@@ -400,22 +465,21 @@ async function sendKakaoMessage(
         return { success: true };
       }
 
-      // 상담톡 API 실패 시 pending_send로 저장
+      // 상담톡 API 실패 시 pending_send로 전환
       console.log('[카카오 상담톡] API 발송 실패, pending_send로 전환');
     } catch (error) {
       console.error('[카카오 상담톡] API 오류:', error);
     }
   }
 
-  // 상담톡 API 미설정 또는 실패 시: pending_send 상태로 저장
-  // 고객이 다음 메시지를 보낼 때 웹훅 응답으로 전송됨
+  // ============================================
+  // 3순위: pending_send (챗봇 응답으로 전송)
+  // ============================================
   console.log('[카카오 발송] 상담톡 API 미설정 - pending_send로 저장');
 
-  // pending 메시지 저장 (메인 로직에서 별도로 저장하므로 여기서는 상태만 반환)
-  // 실제 pending 저장은 /api/v2/webhooks/kakao/send에서 처리
   return {
-    success: true, // 저장 자체는 성공
-    pending: true, // 즉시 발송되지 않음을 표시
+    success: true,
+    pending: true,
   };
 }
 

@@ -1,0 +1,526 @@
+﻿2026-01-08 09:18:54.157 +09:00 [INF] CTI Bridge 서비스 시작 중...
+2026-01-08 09:18:55.267 +09:00 [INF] CTI Bridge 서비스 시작 중...
+2026-01-08 09:18:55.275 +09:00 [INF] 설정 파일에서 URL 로드: https://d-care-console.vercel.app
+2026-01-08 09:18:55.538 +09:00 [INF] ═══════════════════════════════════════════════════════
+2026-01-08 09:18:55.538 +09:00 [INF] 📡 HTTP 서버 시작: http://localhost:5080/
+2026-01-08 09:18:55.539 +09:00 [INF]    발신 요청: POST /api/click-call
+2026-01-08 09:18:55.539 +09:00 [INF]    상태 조회: GET /api/status
+2026-01-08 09:18:55.539 +09:00 [INF] ═══════════════════════════════════════════════════════
+2026-01-08 09:18:55.546 +09:00 [INF] CTI Bridge 서비스 실행 시작
+2026-01-08 09:18:55.550 +09:00 [INF] SK CTI API 초기화 중...
+2026-01-08 09:18:55.713 +09:00 [INF] CTI 초기화 성공
+2026-01-08 09:18:55.942 +09:00 [INF] [이벤트] Svc=30, Evt=0x101, Res=0x0, Dn1=, Dn2=, Ext=
+2026-01-08 09:18:55.942 +09:00 [INF] 서버 연결됨
+2026-01-08 09:19:56.061 +09:00 [INF] 로그인 2차 재시도...
+2026-01-08 09:19:57.771 +09:00 [INF] [이벤트] Svc=30, Evt=0x104, Res=0x0, Dn1=, Dn2=, Ext=
+2026-01-08 09:19:57.771 +09:00 [INF] 로그인 완료
+2026-01-08 09:19:57.772 +09:00 [INF] [이벤트] Svc=22, Evt=0x1, Res=0x0, Dn1=, Dn2=, Ext=
+2026-01-08 09:20:03.078 +09:00 [INF] CTI 로그인 성공
+2026-01-08 09:20:03.078 +09:00 [INF] ═══════════════════════════════════════════════════════
+2026-01-08 09:20:03.078 +09:00 [INF] 📋 Sub DN 목록 조회 시작 (가입자 소속 전화번호 확인)
+2026-01-08 09:20:03.078 +09:00 [INF] 📋 Sub DN 목록 조회 요청 성공 - EVT_SUBS_DN_QRY(0x0107) 응답 대기
+2026-01-08 09:20:03.079 +09:00 [INF] ═══════════════════════════════════════════════════════
+2026-01-08 09:20:03.587 +09:00 [INF] ═══════════════════════════════════════════════════════
+2026-01-08 09:20:03.587 +09:00 [INF] 📞 070 모니터링 번호 등록 시작
+2026-01-08 09:20:03.587 +09:00 [INF] ✅ 070 모니터링 등록 요청 성공! (07047414202)
+2026-01-08 09:20:03.587 +09:00 [INF]    → 070의 기본 사용자가 로그아웃/부재중일 때 이벤트 수신 가능
+2026-01-08 09:20:03.587 +09:00 [INF] 📋 모니터링 목록 조회 요청 성공
+2026-01-08 09:20:03.587 +09:00 [INF] ═══════════════════════════════════════════════════════
+2026-01-08 09:20:03.587 +09:00 [INF] [이벤트] Svc=30, Evt=0x107, Res=0x0, Dn1=, Dn2=, Ext=07047414202
+2026-01-08 09:20:03.588 +09:00 [INF] ═══════════════════════════════════════════════════════
+2026-01-08 09:20:03.588 +09:00 [INF] 📋 [Sub DN 목록 응답] EVT_SUBS_DN_QRY (0x0107)
+2026-01-08 09:20:03.588 +09:00 [INF] 📋 Result: 0x0
+2026-01-08 09:20:03.588 +09:00 [INF] 📋 Dn1: 
+2026-01-08 09:20:03.588 +09:00 [INF] 📋 Dn2: 
+2026-01-08 09:20:03.588 +09:00 [INF] 📋 ExtInfo: 07047414202
+2026-01-08 09:20:03.588 +09:00 [INF] ═══════════════════════════════════════════════════════
+2026-01-08 09:20:03.588 +09:00 [INF] ✅ 070 번호가 Sub DN 목록에 포함되어 있습니다!
+2026-01-08 09:20:03.590 +09:00 [INF] [SendWorker] 전송 워커 시작
+2026-01-08 09:20:03.628 +09:00 [INF] [Backup] 6개 pending 이벤트 로드
+2026-01-08 09:20:03.751 +09:00 [INF] [Backup] 복구 완료: 20260106_223645_281309c6-ad3c-4199-af76-b71338366af6.json
+2026-01-08 09:20:03.752 +09:00 [INF] [Backup] 복구 완료: 20260106_224945_5332ce7b-1038-400f-950d-1062725bf9fe.json
+2026-01-08 09:20:03.754 +09:00 [INF] [Backup] 복구 완료: 20260107_134205_df966367-ba2e-4486-ace1-2134945b5799.json
+2026-01-08 09:20:03.929 +09:00 [INF] [Backup] 복구 완료: 20260107_134350_a30d04b3-910a-42cd-9f9c-3f46631d9e8b.json
+2026-01-08 09:20:03.930 +09:00 [INF] [Backup] 복구 완료: 20260107_191641_faf95bc2-bff1-44fd-be2a-7401c340eaba.json
+2026-01-08 09:20:03.931 +09:00 [INF] [Backup] 복구 완료: 20260107_204724_1706ff82-0e0a-4dbb-b16e-c1d8389155f2.json
+2026-01-08 09:20:04.035 +09:00 [INF] [이벤트] Svc=30, Evt=0x109, Res=0x7000, Dn1=, Dn2=, Ext=07047414202
+2026-01-08 09:20:04.036 +09:00 [INF] [이벤트] Svc=30, Evt=0x108, Res=0x0, Dn1=, Dn2=, Ext=07047414202
+2026-01-08 09:20:06.317 +09:00 [WRN] [CallLog] 전송 실패: HTTP 400 - {"success":false,"error":"Invalid eventType"}
+2026-01-08 09:20:09.681 +09:00 [WRN] [CallLog] 전송 실패: HTTP 400 - {"success":false,"error":"Invalid eventType"}
+2026-01-08 09:20:14.985 +09:00 [WRN] [CallLog] 전송 실패: HTTP 400 - {"success":false,"error":"Invalid eventType"}
+2026-01-08 09:20:14.985 +09:00 [WRN] [SendWorker] 모든 재시도 실패, 로컬 백업: "CallLog" 01030511241
+2026-01-08 09:20:14.995 +09:00 [INF] [Backup] 로컬 백업 저장: 20260106_223645_281309c6-ad3c-4199-af76-b71338366af6.json
+2026-01-08 09:20:16.261 +09:00 [WRN] [CallLog] 전송 실패: HTTP 400 - {"success":false,"error":"Invalid eventType"}
+2026-01-08 09:20:19.549 +09:00 [WRN] [CallLog] 전송 실패: HTTP 400 - {"success":false,"error":"Invalid eventType"}
+2026-01-08 09:20:24.785 +09:00 [WRN] [CallLog] 전송 실패: HTTP 400 - {"success":false,"error":"Invalid eventType"}
+2026-01-08 09:20:24.786 +09:00 [WRN] [SendWorker] 모든 재시도 실패, 로컬 백업: "CallLog" 01054419822
+2026-01-08 09:20:24.786 +09:00 [INF] [Backup] 로컬 백업 저장: 20260106_224945_5332ce7b-1038-400f-950d-1062725bf9fe.json
+2026-01-08 09:20:26.027 +09:00 [WRN] [CallLog] 전송 실패: HTTP 400 - {"success":false,"error":"Invalid eventType"}
+2026-01-08 09:20:29.318 +09:00 [WRN] [CallLog] 전송 실패: HTTP 400 - {"success":false,"error":"Invalid eventType"}
+2026-01-08 09:20:34.726 +09:00 [WRN] [CallLog] 전송 실패: HTTP 400 - {"success":false,"error":"Invalid eventType"}
+2026-01-08 09:20:34.727 +09:00 [WRN] [SendWorker] 모든 재시도 실패, 로컬 백업: "CallLog" 01030511241
+2026-01-08 09:20:34.727 +09:00 [INF] [Backup] 로컬 백업 저장: 20260107_134205_df966367-ba2e-4486-ace1-2134945b5799.json
+2026-01-08 09:20:36.021 +09:00 [WRN] [CallLog] 전송 실패: HTTP 400 - {"success":false,"error":"Invalid eventType"}
+2026-01-08 09:20:39.353 +09:00 [WRN] [CallLog] 전송 실패: HTTP 400 - {"success":false,"error":"Invalid eventType"}
+2026-01-08 09:20:44.666 +09:00 [WRN] [CallLog] 전송 실패: HTTP 400 - {"success":false,"error":"Invalid eventType"}
+2026-01-08 09:20:44.666 +09:00 [WRN] [SendWorker] 모든 재시도 실패, 로컬 백업: "CallLog" 01030511241
+2026-01-08 09:20:44.667 +09:00 [INF] [Backup] 로컬 백업 저장: 20260107_134350_a30d04b3-910a-42cd-9f9c-3f46631d9e8b.json
+2026-01-08 09:20:45.973 +09:00 [WRN] [CallLog] 전송 실패: HTTP 400 - {"success":false,"error":"Invalid eventType"}
+2026-01-08 09:20:49.321 +09:00 [WRN] [CallLog] 전송 실패: HTTP 400 - {"success":false,"error":"Invalid eventType"}
+2026-01-08 09:20:54.604 +09:00 [WRN] [CallLog] 전송 실패: HTTP 400 - {"success":false,"error":"Invalid eventType"}
+2026-01-08 09:20:54.604 +09:00 [WRN] [SendWorker] 모든 재시도 실패, 로컬 백업: "CallLog" 01030511241
+2026-01-08 09:20:54.605 +09:00 [INF] [Backup] 로컬 백업 저장: 20260107_191641_faf95bc2-bff1-44fd-be2a-7401c340eaba.json
+2026-01-08 09:20:55.851 +09:00 [WRN] [CallLog] 전송 실패: HTTP 400 - {"success":false,"error":"Invalid eventType"}
+2026-01-08 09:20:59.143 +09:00 [WRN] [CallLog] 전송 실패: HTTP 400 - {"success":false,"error":"Invalid eventType"}
+2026-01-08 09:21:04.440 +09:00 [WRN] [CallLog] 전송 실패: HTTP 400 - {"success":false,"error":"Invalid eventType"}
+2026-01-08 09:21:04.441 +09:00 [WRN] [SendWorker] 모든 재시도 실패, 로컬 백업: "CallLog" 01030511241
+2026-01-08 09:21:04.442 +09:00 [INF] [Backup] 로컬 백업 저장: 20260107_204724_1706ff82-0e0a-4dbb-b16e-c1d8389155f2.json
+2026-01-08 09:25:03.632 +09:00 [INF] [Backup] 6개 pending 이벤트 로드
+2026-01-08 09:25:03.634 +09:00 [INF] [Backup] 복구 완료: 20260106_223645_281309c6-ad3c-4199-af76-b71338366af6.json
+2026-01-08 09:25:03.650 +09:00 [INF] [Backup] 복구 완료: 20260106_224945_5332ce7b-1038-400f-950d-1062725bf9fe.json
+2026-01-08 09:25:03.651 +09:00 [INF] [Backup] 복구 완료: 20260107_134205_df966367-ba2e-4486-ace1-2134945b5799.json
+2026-01-08 09:25:03.652 +09:00 [INF] [Backup] 복구 완료: 20260107_134350_a30d04b3-910a-42cd-9f9c-3f46631d9e8b.json
+2026-01-08 09:25:03.654 +09:00 [INF] [Backup] 복구 완료: 20260107_191641_faf95bc2-bff1-44fd-be2a-7401c340eaba.json
+2026-01-08 09:25:03.656 +09:00 [INF] [Backup] 복구 완료: 20260107_204724_1706ff82-0e0a-4dbb-b16e-c1d8389155f2.json
+2026-01-08 09:25:06.116 +09:00 [WRN] [CallLog] 전송 실패: HTTP 400 - {"success":false,"error":"Invalid eventType"}
+2026-01-08 09:25:09.362 +09:00 [WRN] [CallLog] 전송 실패: HTTP 400 - {"success":false,"error":"Invalid eventType"}
+2026-01-08 09:25:14.662 +09:00 [WRN] [CallLog] 전송 실패: HTTP 400 - {"success":false,"error":"Invalid eventType"}
+2026-01-08 09:25:14.663 +09:00 [WRN] [SendWorker] 모든 재시도 실패, 로컬 백업: "CallLog" 01030511241
+2026-01-08 09:25:14.934 +09:00 [INF] [Backup] 로컬 백업 저장: 20260106_223645_281309c6-ad3c-4199-af76-b71338366af6.json
+2026-01-08 09:25:16.143 +09:00 [WRN] [CallLog] 전송 실패: HTTP 400 - {"success":false,"error":"Invalid eventType"}
+2026-01-08 09:25:19.439 +09:00 [WRN] [CallLog] 전송 실패: HTTP 400 - {"success":false,"error":"Invalid eventType"}
+2026-01-08 09:25:24.778 +09:00 [WRN] [CallLog] 전송 실패: HTTP 400 - {"success":false,"error":"Invalid eventType"}
+2026-01-08 09:25:24.778 +09:00 [WRN] [SendWorker] 모든 재시도 실패, 로컬 백업: "CallLog" 01054419822
+2026-01-08 09:25:24.779 +09:00 [INF] [Backup] 로컬 백업 저장: 20260106_224945_5332ce7b-1038-400f-950d-1062725bf9fe.json
+2026-01-08 09:25:25.997 +09:00 [WRN] [CallLog] 전송 실패: HTTP 400 - {"success":false,"error":"Invalid eventType"}
+2026-01-08 09:25:29.164 +09:00 [WRN] [CallLog] 전송 실패: HTTP 400 - {"success":false,"error":"Invalid eventType"}
+2026-01-08 09:25:34.387 +09:00 [WRN] [CallLog] 전송 실패: HTTP 400 - {"success":false,"error":"Invalid eventType"}
+2026-01-08 09:25:34.387 +09:00 [WRN] [SendWorker] 모든 재시도 실패, 로컬 백업: "CallLog" 01030511241
+2026-01-08 09:25:34.389 +09:00 [INF] [Backup] 로컬 백업 저장: 20260107_134205_df966367-ba2e-4486-ace1-2134945b5799.json
+2026-01-08 09:25:35.600 +09:00 [WRN] [CallLog] 전송 실패: HTTP 400 - {"success":false,"error":"Invalid eventType"}
+2026-01-08 09:25:38.829 +09:00 [WRN] [CallLog] 전송 실패: HTTP 400 - {"success":false,"error":"Invalid eventType"}
+2026-01-08 09:25:44.083 +09:00 [WRN] [CallLog] 전송 실패: HTTP 400 - {"success":false,"error":"Invalid eventType"}
+2026-01-08 09:25:44.084 +09:00 [WRN] [SendWorker] 모든 재시도 실패, 로컬 백업: "CallLog" 01030511241
+2026-01-08 09:25:44.084 +09:00 [INF] [Backup] 로컬 백업 저장: 20260107_134350_a30d04b3-910a-42cd-9f9c-3f46631d9e8b.json
+2026-01-08 09:25:45.514 +09:00 [WRN] [CallLog] 전송 실패: HTTP 400 - {"success":false,"error":"Invalid eventType"}
+2026-01-08 09:25:48.803 +09:00 [WRN] [CallLog] 전송 실패: HTTP 400 - {"success":false,"error":"Invalid eventType"}
+2026-01-08 09:25:54.072 +09:00 [WRN] [CallLog] 전송 실패: HTTP 400 - {"success":false,"error":"Invalid eventType"}
+2026-01-08 09:25:54.072 +09:00 [WRN] [SendWorker] 모든 재시도 실패, 로컬 백업: "CallLog" 01030511241
+2026-01-08 09:25:54.073 +09:00 [INF] [Backup] 로컬 백업 저장: 20260107_191641_faf95bc2-bff1-44fd-be2a-7401c340eaba.json
+2026-01-08 09:25:55.356 +09:00 [WRN] [CallLog] 전송 실패: HTTP 400 - {"success":false,"error":"Invalid eventType"}
+2026-01-08 09:25:58.662 +09:00 [WRN] [CallLog] 전송 실패: HTTP 400 - {"success":false,"error":"Invalid eventType"}
+2026-01-08 09:26:03.927 +09:00 [WRN] [CallLog] 전송 실패: HTTP 400 - {"success":false,"error":"Invalid eventType"}
+2026-01-08 09:26:03.927 +09:00 [WRN] [SendWorker] 모든 재시도 실패, 로컬 백업: "CallLog" 01030511241
+2026-01-08 09:26:03.928 +09:00 [INF] [Backup] 로컬 백업 저장: 20260107_204724_1706ff82-0e0a-4dbb-b16e-c1d8389155f2.json
+2026-01-08 09:30:03.721 +09:00 [INF] [Backup] 6개 pending 이벤트 로드
+2026-01-08 09:30:03.722 +09:00 [INF] [Backup] 복구 완료: 20260106_223645_281309c6-ad3c-4199-af76-b71338366af6.json
+2026-01-08 09:30:03.723 +09:00 [INF] [Backup] 복구 완료: 20260106_224945_5332ce7b-1038-400f-950d-1062725bf9fe.json
+2026-01-08 09:30:03.724 +09:00 [INF] [Backup] 복구 완료: 20260107_134205_df966367-ba2e-4486-ace1-2134945b5799.json
+2026-01-08 09:30:03.725 +09:00 [INF] [Backup] 복구 완료: 20260107_134350_a30d04b3-910a-42cd-9f9c-3f46631d9e8b.json
+2026-01-08 09:30:03.727 +09:00 [INF] [Backup] 복구 완료: 20260107_191641_faf95bc2-bff1-44fd-be2a-7401c340eaba.json
+2026-01-08 09:30:03.728 +09:00 [INF] [Backup] 복구 완료: 20260107_204724_1706ff82-0e0a-4dbb-b16e-c1d8389155f2.json
+2026-01-08 09:30:05.280 +09:00 [WRN] [CallLog] 전송 실패: HTTP 400 - {"success":false,"error":"Invalid eventType"}
+2026-01-08 09:30:08.662 +09:00 [WRN] [CallLog] 전송 실패: HTTP 400 - {"success":false,"error":"Invalid eventType"}
+2026-01-08 09:30:13.971 +09:00 [WRN] [CallLog] 전송 실패: HTTP 400 - {"success":false,"error":"Invalid eventType"}
+2026-01-08 09:30:13.971 +09:00 [WRN] [SendWorker] 모든 재시도 실패, 로컬 백업: "CallLog" 01030511241
+2026-01-08 09:30:13.973 +09:00 [INF] [Backup] 로컬 백업 저장: 20260106_223645_281309c6-ad3c-4199-af76-b71338366af6.json
+2026-01-08 09:30:15.352 +09:00 [WRN] [CallLog] 전송 실패: HTTP 400 - {"success":false,"error":"Invalid eventType"}
+2026-01-08 09:30:18.640 +09:00 [WRN] [CallLog] 전송 실패: HTTP 400 - {"success":false,"error":"Invalid eventType"}
+2026-01-08 09:30:24.075 +09:00 [WRN] [CallLog] 전송 실패: HTTP 400 - {"success":false,"error":"Invalid eventType"}
+2026-01-08 09:30:24.075 +09:00 [WRN] [SendWorker] 모든 재시도 실패, 로컬 백업: "CallLog" 01054419822
+2026-01-08 09:30:24.076 +09:00 [INF] [Backup] 로컬 백업 저장: 20260106_224945_5332ce7b-1038-400f-950d-1062725bf9fe.json
+2026-01-08 09:30:25.329 +09:00 [WRN] [CallLog] 전송 실패: HTTP 400 - {"success":false,"error":"Invalid eventType"}
+2026-01-08 09:30:28.565 +09:00 [WRN] [CallLog] 전송 실패: HTTP 400 - {"success":false,"error":"Invalid eventType"}
+2026-01-08 09:30:33.945 +09:00 [WRN] [CallLog] 전송 실패: HTTP 400 - {"success":false,"error":"Invalid eventType"}
+2026-01-08 09:30:33.945 +09:00 [WRN] [SendWorker] 모든 재시도 실패, 로컬 백업: "CallLog" 01030511241
+2026-01-08 09:30:33.946 +09:00 [INF] [Backup] 로컬 백업 저장: 20260107_134205_df966367-ba2e-4486-ace1-2134945b5799.json
+2026-01-08 09:30:35.244 +09:00 [WRN] [CallLog] 전송 실패: HTTP 400 - {"success":false,"error":"Invalid eventType"}
+2026-01-08 09:30:38.590 +09:00 [WRN] [CallLog] 전송 실패: HTTP 400 - {"success":false,"error":"Invalid eventType"}
+2026-01-08 09:30:43.920 +09:00 [WRN] [CallLog] 전송 실패: HTTP 400 - {"success":false,"error":"Invalid eventType"}
+2026-01-08 09:30:43.921 +09:00 [WRN] [SendWorker] 모든 재시도 실패, 로컬 백업: "CallLog" 01030511241
+2026-01-08 09:30:43.922 +09:00 [INF] [Backup] 로컬 백업 저장: 20260107_134350_a30d04b3-910a-42cd-9f9c-3f46631d9e8b.json
+2026-01-08 09:30:45.310 +09:00 [WRN] [CallLog] 전송 실패: HTTP 400 - {"success":false,"error":"Invalid eventType"}
+2026-01-08 09:30:48.539 +09:00 [WRN] [CallLog] 전송 실패: HTTP 400 - {"success":false,"error":"Invalid eventType"}
+2026-01-08 09:30:53.873 +09:00 [WRN] [CallLog] 전송 실패: HTTP 400 - {"success":false,"error":"Invalid eventType"}
+2026-01-08 09:30:53.873 +09:00 [WRN] [SendWorker] 모든 재시도 실패, 로컬 백업: "CallLog" 01030511241
+2026-01-08 09:30:53.874 +09:00 [INF] [Backup] 로컬 백업 저장: 20260107_191641_faf95bc2-bff1-44fd-be2a-7401c340eaba.json
+2026-01-08 09:30:55.214 +09:00 [WRN] [CallLog] 전송 실패: HTTP 400 - {"success":false,"error":"Invalid eventType"}
+2026-01-08 09:30:58.547 +09:00 [WRN] [CallLog] 전송 실패: HTTP 400 - {"success":false,"error":"Invalid eventType"}
+2026-01-08 09:31:03.861 +09:00 [WRN] [CallLog] 전송 실패: HTTP 400 - {"success":false,"error":"Invalid eventType"}
+2026-01-08 09:31:03.861 +09:00 [WRN] [SendWorker] 모든 재시도 실패, 로컬 백업: "CallLog" 01030511241
+2026-01-08 09:31:03.862 +09:00 [INF] [Backup] 로컬 백업 저장: 20260107_204724_1706ff82-0e0a-4dbb-b16e-c1d8389155f2.json
+2026-01-08 09:31:46.195 +09:00 [INF] [HTTP] GET /api/status
+2026-01-08 09:31:51.115 +09:00 [INF] [HTTP] GET /api/status
+2026-01-08 09:31:56.120 +09:00 [INF] [HTTP] GET /api/status
+2026-01-08 09:32:01.118 +09:00 [INF] [HTTP] GET /api/status
+2026-01-08 09:32:06.117 +09:00 [INF] [HTTP] GET /api/status
+2026-01-08 09:32:11.115 +09:00 [INF] [HTTP] GET /api/status
+2026-01-08 09:32:16.119 +09:00 [INF] [HTTP] GET /api/status
+2026-01-08 09:32:21.127 +09:00 [INF] [HTTP] GET /api/status
+2026-01-08 09:32:26.118 +09:00 [INF] [HTTP] GET /api/status
+2026-01-08 09:32:32.063 +09:00 [INF] [HTTP] GET /api/status
+2026-01-08 09:32:37.059 +09:00 [INF] [HTTP] GET /api/status
+2026-01-08 09:32:42.052 +09:00 [INF] [HTTP] GET /api/status
+2026-01-08 09:32:46.115 +09:00 [INF] [HTTP] GET /api/status
+2026-01-08 09:32:51.116 +09:00 [INF] [HTTP] GET /api/status
+2026-01-08 09:32:56.122 +09:00 [INF] [HTTP] GET /api/status
+2026-01-08 09:33:01.117 +09:00 [INF] [HTTP] GET /api/status
+2026-01-08 09:33:06.129 +09:00 [INF] [HTTP] GET /api/status
+2026-01-08 09:33:11.122 +09:00 [INF] [HTTP] GET /api/status
+2026-01-08 09:33:16.120 +09:00 [INF] [HTTP] GET /api/status
+2026-01-08 09:33:21.114 +09:00 [INF] [HTTP] GET /api/status
+2026-01-08 09:33:26.115 +09:00 [INF] [HTTP] GET /api/status
+2026-01-08 09:33:31.123 +09:00 [INF] [HTTP] GET /api/status
+2026-01-08 09:33:36.128 +09:00 [INF] [HTTP] GET /api/status
+2026-01-08 09:33:42.052 +09:00 [INF] [HTTP] GET /api/status
+2026-01-08 09:33:47.062 +09:00 [INF] [HTTP] GET /api/status
+2026-01-08 09:33:51.127 +09:00 [INF] [HTTP] GET /api/status
+2026-01-08 09:33:56.123 +09:00 [INF] [HTTP] GET /api/status
+2026-01-08 09:34:01.122 +09:00 [INF] [HTTP] GET /api/status
+2026-01-08 09:34:06.120 +09:00 [INF] [HTTP] GET /api/status
+2026-01-08 09:34:11.124 +09:00 [INF] [HTTP] GET /api/status
+2026-01-08 09:34:16.128 +09:00 [INF] [HTTP] GET /api/status
+2026-01-08 09:34:21.118 +09:00 [INF] [HTTP] GET /api/status
+2026-01-08 09:34:26.123 +09:00 [INF] [HTTP] GET /api/status
+2026-01-08 09:34:31.128 +09:00 [INF] [HTTP] GET /api/status
+2026-01-08 09:34:36.121 +09:00 [INF] [HTTP] GET /api/status
+2026-01-08 09:34:41.115 +09:00 [INF] [HTTP] GET /api/status
+2026-01-08 09:34:46.117 +09:00 [INF] [HTTP] GET /api/status
+2026-01-08 09:34:51.121 +09:00 [INF] [HTTP] GET /api/status
+2026-01-08 09:34:56.119 +09:00 [INF] [HTTP] GET /api/status
+2026-01-08 09:35:01.123 +09:00 [INF] [HTTP] GET /api/status
+2026-01-08 09:35:03.782 +09:00 [INF] [Backup] 6개 pending 이벤트 로드
+2026-01-08 09:35:03.783 +09:00 [INF] [Backup] 복구 완료: 20260106_223645_281309c6-ad3c-4199-af76-b71338366af6.json
+2026-01-08 09:35:03.783 +09:00 [INF] [Backup] 복구 완료: 20260106_224945_5332ce7b-1038-400f-950d-1062725bf9fe.json
+2026-01-08 09:35:03.784 +09:00 [INF] [Backup] 복구 완료: 20260107_134205_df966367-ba2e-4486-ace1-2134945b5799.json
+2026-01-08 09:35:03.784 +09:00 [INF] [Backup] 복구 완료: 20260107_134350_a30d04b3-910a-42cd-9f9c-3f46631d9e8b.json
+2026-01-08 09:35:03.785 +09:00 [INF] [Backup] 복구 완료: 20260107_191641_faf95bc2-bff1-44fd-be2a-7401c340eaba.json
+2026-01-08 09:35:03.785 +09:00 [INF] [Backup] 복구 완료: 20260107_204724_1706ff82-0e0a-4dbb-b16e-c1d8389155f2.json
+2026-01-08 09:35:05.235 +09:00 [WRN] [CallLog] 전송 실패: HTTP 400 - {"success":false,"error":"Invalid eventType"}
+2026-01-08 09:35:06.125 +09:00 [INF] [HTTP] GET /api/status
+2026-01-08 09:35:08.540 +09:00 [WRN] [CallLog] 전송 실패: HTTP 400 - {"success":false,"error":"Invalid eventType"}
+2026-01-08 09:35:11.125 +09:00 [INF] [HTTP] GET /api/status
+2026-01-08 09:35:13.929 +09:00 [WRN] [CallLog] 전송 실패: HTTP 400 - {"success":false,"error":"Invalid eventType"}
+2026-01-08 09:35:13.929 +09:00 [WRN] [SendWorker] 모든 재시도 실패, 로컬 백업: "CallLog" 01030511241
+2026-01-08 09:35:13.931 +09:00 [INF] [Backup] 로컬 백업 저장: 20260106_223645_281309c6-ad3c-4199-af76-b71338366af6.json
+2026-01-08 09:35:15.402 +09:00 [WRN] [CallLog] 전송 실패: HTTP 400 - {"success":false,"error":"Invalid eventType"}
+2026-01-08 09:35:16.129 +09:00 [INF] [HTTP] GET /api/status
+2026-01-08 09:35:18.764 +09:00 [WRN] [CallLog] 전송 실패: HTTP 400 - {"success":false,"error":"Invalid eventType"}
+2026-01-08 09:35:21.122 +09:00 [INF] [HTTP] GET /api/status
+2026-01-08 09:35:24.176 +09:00 [WRN] [CallLog] 전송 실패: HTTP 400 - {"success":false,"error":"Invalid eventType"}
+2026-01-08 09:35:24.176 +09:00 [WRN] [SendWorker] 모든 재시도 실패, 로컬 백업: "CallLog" 01054419822
+2026-01-08 09:35:24.177 +09:00 [INF] [Backup] 로컬 백업 저장: 20260106_224945_5332ce7b-1038-400f-950d-1062725bf9fe.json
+2026-01-08 09:35:25.560 +09:00 [WRN] [CallLog] 전송 실패: HTTP 400 - {"success":false,"error":"Invalid eventType"}
+2026-01-08 09:35:26.124 +09:00 [INF] [HTTP] GET /api/status
+2026-01-08 09:35:28.906 +09:00 [WRN] [CallLog] 전송 실패: HTTP 400 - {"success":false,"error":"Invalid eventType"}
+2026-01-08 09:35:31.123 +09:00 [INF] [HTTP] GET /api/status
+2026-01-08 09:35:34.231 +09:00 [WRN] [CallLog] 전송 실패: HTTP 400 - {"success":false,"error":"Invalid eventType"}
+2026-01-08 09:35:34.231 +09:00 [WRN] [SendWorker] 모든 재시도 실패, 로컬 백업: "CallLog" 01030511241
+2026-01-08 09:35:34.233 +09:00 [INF] [Backup] 로컬 백업 저장: 20260107_134205_df966367-ba2e-4486-ace1-2134945b5799.json
+2026-01-08 09:35:35.531 +09:00 [WRN] [CallLog] 전송 실패: HTTP 400 - {"success":false,"error":"Invalid eventType"}
+2026-01-08 09:35:36.115 +09:00 [INF] [HTTP] GET /api/status
+2026-01-08 09:35:39.005 +09:00 [WRN] [CallLog] 전송 실패: HTTP 400 - {"success":false,"error":"Invalid eventType"}
+2026-01-08 09:35:41.115 +09:00 [INF] [HTTP] GET /api/status
+2026-01-08 09:35:44.426 +09:00 [WRN] [CallLog] 전송 실패: HTTP 400 - {"success":false,"error":"Invalid eventType"}
+2026-01-08 09:35:44.426 +09:00 [WRN] [SendWorker] 모든 재시도 실패, 로컬 백업: "CallLog" 01030511241
+2026-01-08 09:35:44.427 +09:00 [INF] [Backup] 로컬 백업 저장: 20260107_134350_a30d04b3-910a-42cd-9f9c-3f46631d9e8b.json
+2026-01-08 09:35:45.701 +09:00 [WRN] [CallLog] 전송 실패: HTTP 400 - {"success":false,"error":"Invalid eventType"}
+2026-01-08 09:35:46.121 +09:00 [INF] [HTTP] GET /api/status
+2026-01-08 09:35:49.040 +09:00 [WRN] [CallLog] 전송 실패: HTTP 400 - {"success":false,"error":"Invalid eventType"}
+2026-01-08 09:35:51.123 +09:00 [INF] [HTTP] GET /api/status
+2026-01-08 09:35:54.294 +09:00 [WRN] [CallLog] 전송 실패: HTTP 400 - {"success":false,"error":"Invalid eventType"}
+2026-01-08 09:35:54.294 +09:00 [WRN] [SendWorker] 모든 재시도 실패, 로컬 백업: "CallLog" 01030511241
+2026-01-08 09:35:54.295 +09:00 [INF] [Backup] 로컬 백업 저장: 20260107_191641_faf95bc2-bff1-44fd-be2a-7401c340eaba.json
+2026-01-08 09:35:55.585 +09:00 [WRN] [CallLog] 전송 실패: HTTP 400 - {"success":false,"error":"Invalid eventType"}
+2026-01-08 09:35:56.128 +09:00 [INF] [HTTP] GET /api/status
+2026-01-08 09:35:58.921 +09:00 [WRN] [CallLog] 전송 실패: HTTP 400 - {"success":false,"error":"Invalid eventType"}
+2026-01-08 09:36:01.121 +09:00 [INF] [HTTP] GET /api/status
+2026-01-08 09:36:04.236 +09:00 [WRN] [CallLog] 전송 실패: HTTP 400 - {"success":false,"error":"Invalid eventType"}
+2026-01-08 09:36:04.388 +09:00 [WRN] [SendWorker] 모든 재시도 실패, 로컬 백업: "CallLog" 01030511241
+2026-01-08 09:36:04.389 +09:00 [INF] [Backup] 로컬 백업 저장: 20260107_204724_1706ff82-0e0a-4dbb-b16e-c1d8389155f2.json
+2026-01-08 09:36:06.121 +09:00 [INF] [HTTP] GET /api/status
+2026-01-08 09:36:11.118 +09:00 [INF] [HTTP] GET /api/status
+2026-01-08 09:36:16.126 +09:00 [INF] [HTTP] GET /api/status
+2026-01-08 09:36:21.128 +09:00 [INF] [HTTP] GET /api/status
+2026-01-08 09:36:26.115 +09:00 [INF] [HTTP] GET /api/status
+2026-01-08 09:36:31.128 +09:00 [INF] [HTTP] GET /api/status
+2026-01-08 09:36:36.128 +09:00 [INF] [HTTP] GET /api/status
+2026-01-08 09:36:41.117 +09:00 [INF] [HTTP] GET /api/status
+2026-01-08 09:36:47.051 +09:00 [INF] [HTTP] GET /api/status
+2026-01-08 09:36:52.051 +09:00 [INF] [HTTP] GET /api/status
+2026-01-08 09:36:57.060 +09:00 [INF] [HTTP] GET /api/status
+2026-01-08 09:37:02.053 +09:00 [INF] [HTTP] GET /api/status
+2026-01-08 09:37:07.059 +09:00 [INF] [HTTP] GET /api/status
+2026-01-08 09:37:12.058 +09:00 [INF] [HTTP] GET /api/status
+2026-01-08 09:37:17.059 +09:00 [INF] [HTTP] GET /api/status
+2026-01-08 09:37:22.065 +09:00 [INF] [HTTP] GET /api/status
+2026-01-08 09:37:27.056 +09:00 [INF] [HTTP] GET /api/status
+2026-01-08 09:37:32.064 +09:00 [INF] [HTTP] GET /api/status
+2026-01-08 09:37:37.065 +09:00 [INF] [HTTP] GET /api/status
+2026-01-08 09:37:42.054 +09:00 [INF] [HTTP] GET /api/status
+2026-01-08 09:38:37.057 +09:00 [INF] [HTTP] GET /api/status
+2026-01-08 09:39:37.060 +09:00 [INF] [HTTP] GET /api/status
+2026-01-08 09:40:03.803 +09:00 [INF] [Backup] 6개 pending 이벤트 로드
+2026-01-08 09:40:03.803 +09:00 [INF] [Backup] 복구 완료: 20260106_223645_281309c6-ad3c-4199-af76-b71338366af6.json
+2026-01-08 09:40:03.804 +09:00 [INF] [Backup] 복구 완료: 20260106_224945_5332ce7b-1038-400f-950d-1062725bf9fe.json
+2026-01-08 09:40:03.804 +09:00 [INF] [Backup] 복구 완료: 20260107_134205_df966367-ba2e-4486-ace1-2134945b5799.json
+2026-01-08 09:40:03.804 +09:00 [INF] [Backup] 복구 완료: 20260107_134350_a30d04b3-910a-42cd-9f9c-3f46631d9e8b.json
+2026-01-08 09:40:03.805 +09:00 [INF] [Backup] 복구 완료: 20260107_191641_faf95bc2-bff1-44fd-be2a-7401c340eaba.json
+2026-01-08 09:40:03.805 +09:00 [INF] [Backup] 복구 완료: 20260107_204724_1706ff82-0e0a-4dbb-b16e-c1d8389155f2.json
+2026-01-08 09:40:05.393 +09:00 [WRN] [CallLog] 전송 실패: HTTP 400 - {"success":false,"error":"Invalid eventType"}
+2026-01-08 09:40:08.786 +09:00 [WRN] [CallLog] 전송 실패: HTTP 400 - {"success":false,"error":"Invalid eventType"}
+2026-01-08 09:40:17.555 +09:00 [WRN] [CallLog] 전송 실패: HTTP 400 - {"success":false,"error":"Invalid eventType"}
+2026-01-08 09:40:17.555 +09:00 [WRN] [SendWorker] 모든 재시도 실패, 로컬 백업: "CallLog" 01030511241
+2026-01-08 09:40:17.557 +09:00 [INF] [Backup] 로컬 백업 저장: 20260106_223645_281309c6-ad3c-4199-af76-b71338366af6.json
+2026-01-08 09:40:22.757 +09:00 [WRN] [CallLog] 전송 실패: HTTP 400 - {"success":false,"error":"Invalid eventType"}
+2026-01-08 09:40:37.054 +09:00 [INF] [HTTP] GET /api/status
+2026-01-08 09:40:37.475 +09:00 [WRN] [CallLog] 전송 실패: HTTP 400 - {"success":false,"error":"Invalid eventType"}
+2026-01-08 09:40:44.503 +09:00 [WRN] [CallLog] 전송 실패: HTTP 400 - {"success":false,"error":"Invalid eventType"}
+2026-01-08 09:40:44.503 +09:00 [WRN] [SendWorker] 모든 재시도 실패, 로컬 백업: "CallLog" 01054419822
+2026-01-08 09:40:44.504 +09:00 [INF] [Backup] 로컬 백업 저장: 20260106_224945_5332ce7b-1038-400f-950d-1062725bf9fe.json
+2026-01-08 09:40:49.779 +09:00 [WRN] [CallLog] 전송 실패: HTTP 400 - {"success":false,"error":"Invalid eventType"}
+2026-01-08 09:40:54.608 +09:00 [WRN] [CallLog] 전송 실패: HTTP 400 - {"success":false,"error":"Invalid eventType"}
+2026-01-08 09:41:11.073 +09:00 [WRN] [CallLog] 전송 실패: HTTP 400 - {"success":false,"error":"Invalid eventType"}
+2026-01-08 09:41:11.073 +09:00 [WRN] [SendWorker] 모든 재시도 실패, 로컬 백업: "CallLog" 01030511241
+2026-01-08 09:41:11.074 +09:00 [INF] [Backup] 로컬 백업 저장: 20260107_134205_df966367-ba2e-4486-ace1-2134945b5799.json
+2026-01-08 09:41:12.301 +09:00 [WRN] [CallLog] 전송 실패: HTTP 400 - {"success":false,"error":"Invalid eventType"}
+2026-01-08 09:41:15.531 +09:00 [WRN] [CallLog] 전송 실패: HTTP 400 - {"success":false,"error":"Invalid eventType"}
+2026-01-08 09:41:20.767 +09:00 [WRN] [CallLog] 전송 실패: HTTP 400 - {"success":false,"error":"Invalid eventType"}
+2026-01-08 09:41:20.767 +09:00 [WRN] [SendWorker] 모든 재시도 실패, 로컬 백업: "CallLog" 01030511241
+2026-01-08 09:41:20.769 +09:00 [INF] [Backup] 로컬 백업 저장: 20260107_134350_a30d04b3-910a-42cd-9f9c-3f46631d9e8b.json
+2026-01-08 09:41:22.035 +09:00 [WRN] [CallLog] 전송 실패: HTTP 400 - {"success":false,"error":"Invalid eventType"}
+2026-01-08 09:41:25.318 +09:00 [WRN] [CallLog] 전송 실패: HTTP 400 - {"success":false,"error":"Invalid eventType"}
+2026-01-08 09:41:30.628 +09:00 [WRN] [CallLog] 전송 실패: HTTP 400 - {"success":false,"error":"Invalid eventType"}
+2026-01-08 09:41:30.628 +09:00 [WRN] [SendWorker] 모든 재시도 실패, 로컬 백업: "CallLog" 01030511241
+2026-01-08 09:41:30.629 +09:00 [INF] [Backup] 로컬 백업 저장: 20260107_191641_faf95bc2-bff1-44fd-be2a-7401c340eaba.json
+2026-01-08 09:41:31.849 +09:00 [WRN] [CallLog] 전송 실패: HTTP 400 - {"success":false,"error":"Invalid eventType"}
+2026-01-08 09:41:34.821 +09:00 [INF] [HTTP] GET /api/status
+2026-01-08 09:41:35.072 +09:00 [WRN] [CallLog] 전송 실패: HTTP 400 - {"success":false,"error":"Invalid eventType"}
+2026-01-08 09:41:40.313 +09:00 [WRN] [CallLog] 전송 실패: HTTP 400 - {"success":false,"error":"Invalid eventType"}
+2026-01-08 09:41:40.314 +09:00 [WRN] [SendWorker] 모든 재시도 실패, 로컬 백업: "CallLog" 01030511241
+2026-01-08 09:41:40.315 +09:00 [INF] [Backup] 로컬 백업 저장: 20260107_204724_1706ff82-0e0a-4dbb-b16e-c1d8389155f2.json
+2026-01-08 09:42:34.825 +09:00 [INF] [HTTP] GET /api/status
+2026-01-08 09:43:34.828 +09:00 [INF] [HTTP] GET /api/status
+2026-01-08 09:44:34.829 +09:00 [INF] [HTTP] GET /api/status
+2026-01-08 09:45:03.823 +09:00 [INF] [Backup] 6개 pending 이벤트 로드
+2026-01-08 09:45:03.823 +09:00 [INF] [Backup] 복구 완료: 20260106_223645_281309c6-ad3c-4199-af76-b71338366af6.json
+2026-01-08 09:45:03.824 +09:00 [INF] [Backup] 복구 완료: 20260106_224945_5332ce7b-1038-400f-950d-1062725bf9fe.json
+2026-01-08 09:45:03.824 +09:00 [INF] [Backup] 복구 완료: 20260107_134205_df966367-ba2e-4486-ace1-2134945b5799.json
+2026-01-08 09:45:03.825 +09:00 [INF] [Backup] 복구 완료: 20260107_134350_a30d04b3-910a-42cd-9f9c-3f46631d9e8b.json
+2026-01-08 09:45:03.825 +09:00 [INF] [Backup] 복구 완료: 20260107_191641_faf95bc2-bff1-44fd-be2a-7401c340eaba.json
+2026-01-08 09:45:03.826 +09:00 [INF] [Backup] 복구 완료: 20260107_204724_1706ff82-0e0a-4dbb-b16e-c1d8389155f2.json
+2026-01-08 09:45:05.433 +09:00 [WRN] [CallLog] 전송 실패: HTTP 400 - {"success":false,"error":"Invalid eventType"}
+2026-01-08 09:45:08.901 +09:00 [WRN] [CallLog] 전송 실패: HTTP 400 - {"success":false,"error":"Invalid eventType"}
+2026-01-08 09:45:14.173 +09:00 [WRN] [CallLog] 전송 실패: HTTP 400 - {"success":false,"error":"Invalid eventType"}
+2026-01-08 09:45:14.174 +09:00 [WRN] [SendWorker] 모든 재시도 실패, 로컬 백업: "CallLog" 01030511241
+2026-01-08 09:45:14.176 +09:00 [INF] [Backup] 로컬 백업 저장: 20260106_223645_281309c6-ad3c-4199-af76-b71338366af6.json
+2026-01-08 09:45:15.433 +09:00 [WRN] [CallLog] 전송 실패: HTTP 400 - {"success":false,"error":"Invalid eventType"}
+2026-01-08 09:45:18.766 +09:00 [WRN] [CallLog] 전송 실패: HTTP 400 - {"success":false,"error":"Invalid eventType"}
+2026-01-08 09:45:24.118 +09:00 [WRN] [CallLog] 전송 실패: HTTP 400 - {"success":false,"error":"Invalid eventType"}
+2026-01-08 09:45:24.118 +09:00 [WRN] [SendWorker] 모든 재시도 실패, 로컬 백업: "CallLog" 01054419822
+2026-01-08 09:45:24.120 +09:00 [INF] [Backup] 로컬 백업 저장: 20260106_224945_5332ce7b-1038-400f-950d-1062725bf9fe.json
+2026-01-08 09:45:25.421 +09:00 [WRN] [CallLog] 전송 실패: HTTP 400 - {"success":false,"error":"Invalid eventType"}
+2026-01-08 09:45:28.795 +09:00 [WRN] [CallLog] 전송 실패: HTTP 400 - {"success":false,"error":"Invalid eventType"}
+2026-01-08 09:45:34.042 +09:00 [WRN] [CallLog] 전송 실패: HTTP 400 - {"success":false,"error":"Invalid eventType"}
+2026-01-08 09:45:34.042 +09:00 [WRN] [SendWorker] 모든 재시도 실패, 로컬 백업: "CallLog" 01030511241
+2026-01-08 09:45:34.044 +09:00 [INF] [Backup] 로컬 백업 저장: 20260107_134205_df966367-ba2e-4486-ace1-2134945b5799.json
+2026-01-08 09:45:34.831 +09:00 [INF] [HTTP] GET /api/status
+2026-01-08 09:45:35.315 +09:00 [WRN] [CallLog] 전송 실패: HTTP 400 - {"success":false,"error":"Invalid eventType"}
+2026-01-08 09:45:38.618 +09:00 [WRN] [CallLog] 전송 실패: HTTP 400 - {"success":false,"error":"Invalid eventType"}
+2026-01-08 09:45:43.880 +09:00 [WRN] [CallLog] 전송 실패: HTTP 400 - {"success":false,"error":"Invalid eventType"}
+2026-01-08 09:45:43.880 +09:00 [WRN] [SendWorker] 모든 재시도 실패, 로컬 백업: "CallLog" 01030511241
+2026-01-08 09:45:43.881 +09:00 [INF] [Backup] 로컬 백업 저장: 20260107_134350_a30d04b3-910a-42cd-9f9c-3f46631d9e8b.json
+2026-01-08 09:45:45.132 +09:00 [WRN] [CallLog] 전송 실패: HTTP 400 - {"success":false,"error":"Invalid eventType"}
+2026-01-08 09:45:48.432 +09:00 [WRN] [CallLog] 전송 실패: HTTP 400 - {"success":false,"error":"Invalid eventType"}
+2026-01-08 09:45:53.705 +09:00 [WRN] [CallLog] 전송 실패: HTTP 400 - {"success":false,"error":"Invalid eventType"}
+2026-01-08 09:45:53.705 +09:00 [WRN] [SendWorker] 모든 재시도 실패, 로컬 백업: "CallLog" 01030511241
+2026-01-08 09:45:53.706 +09:00 [INF] [Backup] 로컬 백업 저장: 20260107_191641_faf95bc2-bff1-44fd-be2a-7401c340eaba.json
+2026-01-08 09:45:55.009 +09:00 [WRN] [CallLog] 전송 실패: HTTP 400 - {"success":false,"error":"Invalid eventType"}
+2026-01-08 09:45:58.212 +09:00 [WRN] [CallLog] 전송 실패: HTTP 400 - {"success":false,"error":"Invalid eventType"}
+2026-01-08 09:46:03.440 +09:00 [WRN] [CallLog] 전송 실패: HTTP 400 - {"success":false,"error":"Invalid eventType"}
+2026-01-08 09:46:03.440 +09:00 [WRN] [SendWorker] 모든 재시도 실패, 로컬 백업: "CallLog" 01030511241
+2026-01-08 09:46:03.441 +09:00 [INF] [Backup] 로컬 백업 저장: 20260107_204724_1706ff82-0e0a-4dbb-b16e-c1d8389155f2.json
+2026-01-08 09:46:34.817 +09:00 [INF] [HTTP] GET /api/status
+2026-01-08 09:47:34.820 +09:00 [INF] [HTTP] GET /api/status
+2026-01-08 09:48:34.823 +09:00 [INF] [HTTP] GET /api/status
+2026-01-08 09:49:34.821 +09:00 [INF] [HTTP] GET /api/status
+2026-01-08 09:50:03.925 +09:00 [INF] [Backup] 6개 pending 이벤트 로드
+2026-01-08 09:50:03.925 +09:00 [INF] [Backup] 복구 완료: 20260106_223645_281309c6-ad3c-4199-af76-b71338366af6.json
+2026-01-08 09:50:03.926 +09:00 [INF] [Backup] 복구 완료: 20260106_224945_5332ce7b-1038-400f-950d-1062725bf9fe.json
+2026-01-08 09:50:03.926 +09:00 [INF] [Backup] 복구 완료: 20260107_134205_df966367-ba2e-4486-ace1-2134945b5799.json
+2026-01-08 09:50:03.927 +09:00 [INF] [Backup] 복구 완료: 20260107_134350_a30d04b3-910a-42cd-9f9c-3f46631d9e8b.json
+2026-01-08 09:50:03.927 +09:00 [INF] [Backup] 복구 완료: 20260107_191641_faf95bc2-bff1-44fd-be2a-7401c340eaba.json
+2026-01-08 09:50:03.928 +09:00 [INF] [Backup] 복구 완료: 20260107_204724_1706ff82-0e0a-4dbb-b16e-c1d8389155f2.json
+2026-01-08 09:50:05.578 +09:00 [WRN] [CallLog] 전송 실패: HTTP 400 - {"success":false,"error":"Invalid eventType"}
+2026-01-08 09:50:08.955 +09:00 [WRN] [CallLog] 전송 실패: HTTP 400 - {"success":false,"error":"Invalid eventType"}
+2026-01-08 09:50:14.182 +09:00 [WRN] [CallLog] 전송 실패: HTTP 400 - {"success":false,"error":"Invalid eventType"}
+2026-01-08 09:50:14.182 +09:00 [WRN] [SendWorker] 모든 재시도 실패, 로컬 백업: "CallLog" 01030511241
+2026-01-08 09:50:14.184 +09:00 [INF] [Backup] 로컬 백업 저장: 20260106_223645_281309c6-ad3c-4199-af76-b71338366af6.json
+2026-01-08 09:50:15.424 +09:00 [WRN] [CallLog] 전송 실패: HTTP 400 - {"success":false,"error":"Invalid eventType"}
+2026-01-08 09:50:18.707 +09:00 [WRN] [CallLog] 전송 실패: HTTP 400 - {"success":false,"error":"Invalid eventType"}
+2026-01-08 09:50:23.992 +09:00 [WRN] [CallLog] 전송 실패: HTTP 400 - {"success":false,"error":"Invalid eventType"}
+2026-01-08 09:50:23.992 +09:00 [WRN] [SendWorker] 모든 재시도 실패, 로컬 백업: "CallLog" 01054419822
+2026-01-08 09:50:23.993 +09:00 [INF] [Backup] 로컬 백업 저장: 20260106_224945_5332ce7b-1038-400f-950d-1062725bf9fe.json
+2026-01-08 09:50:25.283 +09:00 [WRN] [CallLog] 전송 실패: HTTP 400 - {"success":false,"error":"Invalid eventType"}
+2026-01-08 09:50:28.479 +09:00 [WRN] [CallLog] 전송 실패: HTTP 400 - {"success":false,"error":"Invalid eventType"}
+2026-01-08 09:50:33.687 +09:00 [WRN] [CallLog] 전송 실패: HTTP 400 - {"success":false,"error":"Invalid eventType"}
+2026-01-08 09:50:33.687 +09:00 [WRN] [SendWorker] 모든 재시도 실패, 로컬 백업: "CallLog" 01030511241
+2026-01-08 09:50:33.688 +09:00 [INF] [Backup] 로컬 백업 저장: 20260107_134205_df966367-ba2e-4486-ace1-2134945b5799.json
+2026-01-08 09:50:34.817 +09:00 [INF] [HTTP] GET /api/status
+2026-01-08 09:50:34.920 +09:00 [WRN] [CallLog] 전송 실패: HTTP 400 - {"success":false,"error":"Invalid eventType"}
+2026-01-08 09:50:38.181 +09:00 [WRN] [CallLog] 전송 실패: HTTP 400 - {"success":false,"error":"Invalid eventType"}
+2026-01-08 09:50:43.441 +09:00 [WRN] [CallLog] 전송 실패: HTTP 400 - {"success":false,"error":"Invalid eventType"}
+2026-01-08 09:50:43.441 +09:00 [WRN] [SendWorker] 모든 재시도 실패, 로컬 백업: "CallLog" 01030511241
+2026-01-08 09:50:43.442 +09:00 [INF] [Backup] 로컬 백업 저장: 20260107_134350_a30d04b3-910a-42cd-9f9c-3f46631d9e8b.json
+2026-01-08 09:50:44.660 +09:00 [WRN] [CallLog] 전송 실패: HTTP 400 - {"success":false,"error":"Invalid eventType"}
+2026-01-08 09:50:47.903 +09:00 [WRN] [CallLog] 전송 실패: HTTP 400 - {"success":false,"error":"Invalid eventType"}
+2026-01-08 09:50:53.287 +09:00 [WRN] [CallLog] 전송 실패: HTTP 400 - {"success":false,"error":"Invalid eventType"}
+2026-01-08 09:50:53.287 +09:00 [WRN] [SendWorker] 모든 재시도 실패, 로컬 백업: "CallLog" 01030511241
+2026-01-08 09:50:53.288 +09:00 [INF] [Backup] 로컬 백업 저장: 20260107_191641_faf95bc2-bff1-44fd-be2a-7401c340eaba.json
+2026-01-08 09:50:54.614 +09:00 [WRN] [CallLog] 전송 실패: HTTP 400 - {"success":false,"error":"Invalid eventType"}
+2026-01-08 09:50:57.805 +09:00 [WRN] [CallLog] 전송 실패: HTTP 400 - {"success":false,"error":"Invalid eventType"}
+2026-01-08 09:51:03.058 +09:00 [WRN] [CallLog] 전송 실패: HTTP 400 - {"success":false,"error":"Invalid eventType"}
+2026-01-08 09:51:03.058 +09:00 [WRN] [SendWorker] 모든 재시도 실패, 로컬 백업: "CallLog" 01030511241
+2026-01-08 09:51:03.059 +09:00 [INF] [Backup] 로컬 백업 저장: 20260107_204724_1706ff82-0e0a-4dbb-b16e-c1d8389155f2.json
+2026-01-08 09:51:34.816 +09:00 [INF] [HTTP] GET /api/status
+2026-01-08 09:52:34.829 +09:00 [INF] [HTTP] GET /api/status
+2026-01-08 09:53:16.233 +09:00 [INF] [이벤트] Svc=7, Evt=0x1, Res=0x0, Dn1=07047414471, Dn2=0315672278, Ext=
+2026-01-08 09:53:16.233 +09:00 [INF] 📞 전화 수신: 07047414471 → 0315672278
+2026-01-08 09:53:18.067 +09:00 [INF] [SendWorker] 전송 성공: "IncomingCall" 07047414471 (시도 1)
+2026-01-08 09:53:18.112 +09:00 [INF] [SendWorker] 전송 성공: "CallLog" 07047414471 (시도 1)
+2026-01-08 09:53:18.243 +09:00 [INF] [이벤트] Svc=8, Evt=0x304, Res=0x0, Dn1=07047414471, Dn2=0315672278, Ext=
+2026-01-08 09:53:18.243 +09:00 [INF] ═══════════════════════════════════════════════════════
+2026-01-08 09:53:18.243 +09:00 [INF] [녹취 이벤트] Service=8, EvtType=0x304, Result=0x0
+2026-01-08 09:53:18.243 +09:00 [INF] [녹취 이벤트] Dn1=07047414471, Dn2=0315672278
+2026-01-08 09:53:18.244 +09:00 [INF] [녹취 이벤트] ExtInfo=
+2026-01-08 09:53:18.244 +09:00 [INF] ═══════════════════════════════════════════════════════
+2026-01-08 09:53:18.244 +09:00 [INF] 🎙️ 착신녹취 준비: 07047414471 → 0315672278
+2026-01-08 09:53:18.244 +09:00 [INF] 녹취 시작 요청 성공
+2026-01-08 09:53:18.349 +09:00 [INF] [이벤트] Svc=13, Evt=0x1, Res=0x0, Dn1=07047414471, Dn2=0315672278, Ext=20260108095318
+2026-01-08 09:53:18.349 +09:00 [INF] 📱 통화 응답: 07047414471
+2026-01-08 09:53:18.441 +09:00 [INF] [SendWorker] 전송 성공: "CallLog" 07047414471 (시도 1)
+2026-01-08 09:53:18.665 +09:00 [INF] [이벤트] Svc=8, Evt=0x307, Res=0x0, Dn1=, Dn2=, Ext=http://orec.skbroadband.com/nas_recording/ddz/bM/2
+2026-01-08 09:53:18.665 +09:00 [INF] ═══════════════════════════════════════════════════════
+2026-01-08 09:53:18.665 +09:00 [INF] [녹취 이벤트] Service=8, EvtType=0x307, Result=0x0
+2026-01-08 09:53:18.665 +09:00 [INF] [녹취 이벤트] Dn1=, Dn2=
+2026-01-08 09:53:18.666 +09:00 [INF] [녹취 이벤트] ExtInfo=http://orec.skbroadband.com/nas_recording/ddz/bM/2Pr/Wv/kT_.wav
+2026-01-08 09:53:18.666 +09:00 [INF] ═══════════════════════════════════════════════════════
+2026-01-08 09:53:18.666 +09:00 [INF] 🔴 녹취 시작!
+2026-01-08 09:53:34.827 +09:00 [INF] [HTTP] GET /api/status
+2026-01-08 09:54:34.819 +09:00 [INF] [HTTP] GET /api/status
+2026-01-08 09:54:58.976 +09:00 [INF] [이벤트] Svc=8, Evt=0x308, Res=0x0, Dn1=, Dn2=, Ext=http://orec.skbroadband.com/nas_recording/ddz/bM/2
+2026-01-08 09:54:58.976 +09:00 [INF] ═══════════════════════════════════════════════════════
+2026-01-08 09:54:58.976 +09:00 [INF] [녹취 이벤트] Service=8, EvtType=0x308, Result=0x0
+2026-01-08 09:54:58.976 +09:00 [INF] [녹취 이벤트] Dn1=, Dn2=
+2026-01-08 09:54:58.976 +09:00 [INF] [녹취 이벤트] ExtInfo=http://orec.skbroadband.com/nas_recording/ddz/bM/2Pr/Wv/kT_.wav
+2026-01-08 09:54:58.976 +09:00 [INF] ═══════════════════════════════════════════════════════
+2026-01-08 09:54:58.976 +09:00 [INF] ⏹️ 녹취 완료! 통화시간: 100초
+2026-01-08 09:54:58.977 +09:00 [INF] [이벤트] Svc=14, Evt=0x1, Res=0x0, Dn1=07047414471, Dn2=0315672278, Ext=20260108095458
+2026-01-08 09:54:58.977 +09:00 [INF] 📴 통화 종료: 07047414471
+2026-01-08 09:54:58.977 +09:00 [INF] [이벤트] Svc=8, Evt=0x303, Res=0x0, Dn1=, Dn2=, Ext=
+2026-01-08 09:54:58.977 +09:00 [INF] ═══════════════════════════════════════════════════════
+2026-01-08 09:54:58.977 +09:00 [INF] [녹취 이벤트] Service=8, EvtType=0x303, Result=0x0
+2026-01-08 09:54:58.977 +09:00 [INF] [녹취 이벤트] Dn1=, Dn2=
+2026-01-08 09:54:58.977 +09:00 [INF] [녹취 이벤트] ExtInfo=
+2026-01-08 09:54:58.977 +09:00 [INF] ═══════════════════════════════════════════════════════
+2026-01-08 09:54:58.977 +09:00 [INF] 녹취 서비스 종료
+2026-01-08 09:54:58.992 +09:00 [INF] [Recording] 녹취 전송 시작: 07047414471
+2026-01-08 09:54:59.087 +09:00 [INF] [Recording] 다운로드 완료: 803084 bytes
+2026-01-08 09:54:59.128 +09:00 [INF] [Recording] Base64 변환: 803084 bytes → 1070780 chars
+2026-01-08 09:55:02.629 +09:00 [INF] [Recording] 전송 성공!
+2026-01-08 09:55:02.629 +09:00 [INF] [SendWorker] 전송 성공: "Recording" 07047414471 (시도 1)
+2026-01-08 09:55:02.646 +09:00 [INF] [SendWorker] 전송 성공: "CallLog" 07047414471 (시도 1)
+2026-01-08 09:55:03.946 +09:00 [INF] [Backup] 6개 pending 이벤트 로드
+2026-01-08 09:55:03.947 +09:00 [INF] [Backup] 복구 완료: 20260106_223645_281309c6-ad3c-4199-af76-b71338366af6.json
+2026-01-08 09:55:03.947 +09:00 [INF] [Backup] 복구 완료: 20260106_224945_5332ce7b-1038-400f-950d-1062725bf9fe.json
+2026-01-08 09:55:03.948 +09:00 [INF] [Backup] 복구 완료: 20260107_134205_df966367-ba2e-4486-ace1-2134945b5799.json
+2026-01-08 09:55:03.948 +09:00 [INF] [Backup] 복구 완료: 20260107_134350_a30d04b3-910a-42cd-9f9c-3f46631d9e8b.json
+2026-01-08 09:55:03.948 +09:00 [INF] [Backup] 복구 완료: 20260107_191641_faf95bc2-bff1-44fd-be2a-7401c340eaba.json
+2026-01-08 09:55:03.949 +09:00 [INF] [Backup] 복구 완료: 20260107_204724_1706ff82-0e0a-4dbb-b16e-c1d8389155f2.json
+2026-01-08 09:55:06.107 +09:00 [WRN] [CallLog] 전송 실패: HTTP 400 - {"success":false,"error":"Invalid eventType"}
+2026-01-08 09:55:09.392 +09:00 [WRN] [CallLog] 전송 실패: HTTP 400 - {"success":false,"error":"Invalid eventType"}
+2026-01-08 09:55:14.744 +09:00 [WRN] [CallLog] 전송 실패: HTTP 400 - {"success":false,"error":"Invalid eventType"}
+2026-01-08 09:55:14.744 +09:00 [WRN] [SendWorker] 모든 재시도 실패, 로컬 백업: "CallLog" 01030511241
+2026-01-08 09:55:14.747 +09:00 [INF] [Backup] 로컬 백업 저장: 20260106_223645_281309c6-ad3c-4199-af76-b71338366af6.json
+2026-01-08 09:55:15.984 +09:00 [WRN] [CallLog] 전송 실패: HTTP 400 - {"success":false,"error":"Invalid eventType"}
+2026-01-08 09:55:19.253 +09:00 [WRN] [CallLog] 전송 실패: HTTP 400 - {"success":false,"error":"Invalid eventType"}
+2026-01-08 09:55:20.650 +09:00 [INF] [이벤트] Svc=7, Evt=0x1, Res=0x0, Dn1=01035064160, Dn2=0315672278, Ext=
+2026-01-08 09:55:20.650 +09:00 [INF] 📞 전화 수신: 01035064160 → 0315672278
+2026-01-08 09:55:22.447 +09:00 [INF] [이벤트] Svc=8, Evt=0x304, Res=0x0, Dn1=01035064160, Dn2=0315672278, Ext=
+2026-01-08 09:55:22.447 +09:00 [INF] ═══════════════════════════════════════════════════════
+2026-01-08 09:55:22.447 +09:00 [INF] [녹취 이벤트] Service=8, EvtType=0x304, Result=0x0
+2026-01-08 09:55:22.447 +09:00 [INF] [녹취 이벤트] Dn1=01035064160, Dn2=0315672278
+2026-01-08 09:55:22.447 +09:00 [INF] [녹취 이벤트] ExtInfo=
+2026-01-08 09:55:22.447 +09:00 [INF] ═══════════════════════════════════════════════════════
+2026-01-08 09:55:22.447 +09:00 [INF] 🎙️ 착신녹취 준비: 01035064160 → 0315672278
+2026-01-08 09:55:22.447 +09:00 [INF] 녹취 시작 요청 성공
+2026-01-08 09:55:22.447 +09:00 [INF] [이벤트] Svc=15, Evt=0x304, Res=0x0, Dn1=0315672278, Dn2=01035064160, Ext=called
+2026-01-08 09:55:22.888 +09:00 [INF] 📱 통화 연결: 01035064160
+2026-01-08 09:55:22.888 +09:00 [INF] [이벤트] Svc=13, Evt=0x1, Res=0x0, Dn1=01035064160, Dn2=0315672278, Ext=20260108095522
+2026-01-08 09:55:22.888 +09:00 [INF] 📱 통화 응답: 01035064160
+2026-01-08 09:55:22.888 +09:00 [INF] [이벤트] Svc=8, Evt=0x307, Res=0x0, Dn1=, Dn2=, Ext=http://orec.skbroadband.com/nas_recording/ddz/bM/2
+2026-01-08 09:55:22.888 +09:00 [INF] ═══════════════════════════════════════════════════════
+2026-01-08 09:55:22.888 +09:00 [INF] [녹취 이벤트] Service=8, EvtType=0x307, Result=0x0
+2026-01-08 09:55:22.889 +09:00 [INF] [녹취 이벤트] Dn1=, Dn2=
+2026-01-08 09:55:22.889 +09:00 [INF] [녹취 이벤트] ExtInfo=http://orec.skbroadband.com/nas_recording/ddz/bM/2Pr/22/WT_.wav
+2026-01-08 09:55:22.889 +09:00 [INF] ═══════════════════════════════════════════════════════
+2026-01-08 09:55:22.889 +09:00 [INF] 🔴 녹취 시작!
+2026-01-08 09:55:24.530 +09:00 [WRN] [CallLog] 전송 실패: HTTP 400 - {"success":false,"error":"Invalid eventType"}
+2026-01-08 09:55:24.530 +09:00 [WRN] [SendWorker] 모든 재시도 실패, 로컬 백업: "CallLog" 01054419822
+2026-01-08 09:55:24.532 +09:00 [INF] [Backup] 로컬 백업 저장: 20260106_224945_5332ce7b-1038-400f-950d-1062725bf9fe.json
+2026-01-08 09:55:25.802 +09:00 [WRN] [CallLog] 전송 실패: HTTP 400 - {"success":false,"error":"Invalid eventType"}
+2026-01-08 09:55:29.051 +09:00 [WRN] [CallLog] 전송 실패: HTTP 400 - {"success":false,"error":"Invalid eventType"}
+2026-01-08 09:55:34.419 +09:00 [WRN] [CallLog] 전송 실패: HTTP 400 - {"success":false,"error":"Invalid eventType"}
+2026-01-08 09:55:34.419 +09:00 [WRN] [SendWorker] 모든 재시도 실패, 로컬 백업: "CallLog" 01030511241
+2026-01-08 09:55:34.420 +09:00 [INF] [Backup] 로컬 백업 저장: 20260107_134205_df966367-ba2e-4486-ace1-2134945b5799.json
+2026-01-08 09:55:34.824 +09:00 [INF] [HTTP] GET /api/status
+2026-01-08 09:55:35.654 +09:00 [WRN] [CallLog] 전송 실패: HTTP 400 - {"success":false,"error":"Invalid eventType"}
+2026-01-08 09:55:39.839 +09:00 [WRN] [CallLog] 전송 실패: HTTP 400 - {"success":false,"error":"Invalid eventType"}
+2026-01-08 09:55:45.149 +09:00 [WRN] [CallLog] 전송 실패: HTTP 400 - {"success":false,"error":"Invalid eventType"}
+2026-01-08 09:55:45.149 +09:00 [WRN] [SendWorker] 모든 재시도 실패, 로컬 백업: "CallLog" 01030511241
+2026-01-08 09:55:45.150 +09:00 [INF] [Backup] 로컬 백업 저장: 20260107_134350_a30d04b3-910a-42cd-9f9c-3f46631d9e8b.json
+2026-01-08 09:55:46.330 +09:00 [WRN] [CallLog] 전송 실패: HTTP 400 - {"success":false,"error":"Invalid eventType"}
+2026-01-08 09:55:49.556 +09:00 [WRN] [CallLog] 전송 실패: HTTP 400 - {"success":false,"error":"Invalid eventType"}
+2026-01-08 09:55:54.879 +09:00 [WRN] [CallLog] 전송 실패: HTTP 400 - {"success":false,"error":"Invalid eventType"}
+2026-01-08 09:55:54.879 +09:00 [WRN] [SendWorker] 모든 재시도 실패, 로컬 백업: "CallLog" 01030511241
+2026-01-08 09:55:54.880 +09:00 [INF] [Backup] 로컬 백업 저장: 20260107_191641_faf95bc2-bff1-44fd-be2a-7401c340eaba.json
+2026-01-08 09:55:56.072 +09:00 [WRN] [CallLog] 전송 실패: HTTP 400 - {"success":false,"error":"Invalid eventType"}
+2026-01-08 09:55:59.324 +09:00 [WRN] [CallLog] 전송 실패: HTTP 400 - {"success":false,"error":"Invalid eventType"}
+2026-01-08 09:56:04.628 +09:00 [WRN] [CallLog] 전송 실패: HTTP 400 - {"success":false,"error":"Invalid eventType"}
+2026-01-08 09:56:04.628 +09:00 [WRN] [SendWorker] 모든 재시도 실패, 로컬 백업: "CallLog" 01030511241
+2026-01-08 09:56:05.479 +09:00 [INF] [Backup] 로컬 백업 저장: 20260107_204724_1706ff82-0e0a-4dbb-b16e-c1d8389155f2.json
+2026-01-08 09:56:06.922 +09:00 [INF] [SendWorker] 전송 성공: "IncomingCall" 01035064160 (시도 1)
+2026-01-08 09:56:08.238 +09:00 [INF] [SendWorker] 전송 성공: "CallLog" 01035064160 (시도 1)
+2026-01-08 09:56:09.495 +09:00 [INF] [SendWorker] 전송 성공: "CallLog" 01035064160 (시도 1)
+2026-01-08 09:56:12.794 +09:00 [INF] [SendWorker] 전송 성공: "CallLog" 01035064160 (시도 1)
+2026-01-08 09:56:34.821 +09:00 [INF] [HTTP] GET /api/status
+2026-01-08 09:56:55.010 +09:00 [INF] [이벤트] Svc=8, Evt=0x308, Res=0x0, Dn1=, Dn2=, Ext=http://orec.skbroadband.com/nas_recording/ddz/bM/2
+2026-01-08 09:56:55.010 +09:00 [INF] ═══════════════════════════════════════════════════════
+2026-01-08 09:56:55.010 +09:00 [INF] [녹취 이벤트] Service=8, EvtType=0x308, Result=0x0
+2026-01-08 09:56:55.010 +09:00 [INF] [녹취 이벤트] Dn1=, Dn2=
+2026-01-08 09:56:55.010 +09:00 [INF] [녹취 이벤트] ExtInfo=http://orec.skbroadband.com/nas_recording/ddz/bM/2Pr/22/WT_.wav
+2026-01-08 09:56:55.010 +09:00 [INF] ═══════════════════════════════════════════════════════
+2026-01-08 09:56:55.010 +09:00 [INF] ⏹️ 녹취 완료! 통화시간: 92초
+2026-01-08 09:56:55.010 +09:00 [INF] [이벤트] Svc=8, Evt=0x303, Res=0x0, Dn1=, Dn2=, Ext=
+2026-01-08 09:56:55.010 +09:00 [INF] ═══════════════════════════════════════════════════════
+2026-01-08 09:56:55.010 +09:00 [INF] [녹취 이벤트] Service=8, EvtType=0x303, Result=0x0
+2026-01-08 09:56:55.010 +09:00 [INF] [녹취 이벤트] Dn1=, Dn2=
+2026-01-08 09:56:55.010 +09:00 [INF] [녹취 이벤트] ExtInfo=
+2026-01-08 09:56:55.010 +09:00 [INF] ═══════════════════════════════════════════════════════
+2026-01-08 09:56:55.010 +09:00 [INF] 녹취 서비스 종료
+2026-01-08 09:56:55.010 +09:00 [INF] [이벤트] Svc=14, Evt=0x1, Res=0x0, Dn1=01035064160, Dn2=0315672278, Ext=20260108095654
+2026-01-08 09:56:55.010 +09:00 [INF] 📴 통화 종료: 01035064160
+2026-01-08 09:56:55.055 +09:00 [INF] [Recording] 녹취 전송 시작: 01035064160
+2026-01-08 09:56:55.123 +09:00 [INF] [Recording] 다운로드 완료: 737484 bytes
+2026-01-08 09:56:55.124 +09:00 [INF] [Recording] Base64 변환: 737484 bytes → 983312 chars
+2026-01-08 09:56:57.458 +09:00 [INF] [Recording] 전송 성공!
+2026-01-08 09:56:57.458 +09:00 [INF] [SendWorker] 전송 성공: "Recording" 01035064160 (시도 1)
+2026-01-08 09:57:00.453 +09:00 [INF] [SendWorker] 전송 성공: "CallLog" 01035064160 (시도 1)
+2026-01-08 09:57:34.827 +09:00 [INF] [HTTP] GET /api/status
+2026-01-08 09:58:09.390 +09:00 [INF] [이벤트] Svc=15, Evt=0x304, Res=0x0, Dn1=0315672278, Dn2=01094263968, Ext=calling
+2026-01-08 09:58:09.496 +09:00 [INF] [이벤트] Svc=11, Evt=0x1, Res=0x0, Dn1=0315672278, Dn2=01094263968, Ext=20260108095809
+2026-01-08 09:58:09.497 +09:00 [INF] 📱 통화 시작: 0315672278
+2026-01-08 09:58:10.916 +09:00 [INF] [SendWorker] 전송 성공: "CallLog" 0315672278 (시도 1)
+2026-01-08 09:58:20.485 +09:00 [INF] [이벤트] Svc=12, Evt=0x1, Res=0x0, Dn1=0315672278, Dn2=01094263968, Ext=20260108095820
+2026-01-08 09:58:34.819 +09:00 [INF] [HTTP] GET /api/status
+2026-01-08 09:59:34.820 +09:00 [INF] [HTTP] GET /api/status

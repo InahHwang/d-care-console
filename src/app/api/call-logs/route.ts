@@ -4,6 +4,15 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { getCallLogsCollection, connectToDatabase } from '@/utils/mongodb';
 import { ObjectId } from 'mongodb';
+import Pusher from 'pusher';
+
+const pusherV2 = new Pusher({
+  appId: process.env.PUSHER_APP_ID!,
+  key: process.env.PUSHER_KEY!,
+  secret: process.env.PUSHER_SECRET!,
+  cluster: process.env.PUSHER_CLUSTER!,
+  useTLS: true,
+});
 
 // 통화 상태 타입
 export type CallStatus = 'ringing' | 'answered' | 'missed' | 'ended';
@@ -740,6 +749,111 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({
         success: true,
         message: 'No matching outbound call found'
+      });
+    }
+
+    // CTIBridge 클릭콜 종료 이벤트 처리 (no_answer, service_stopped, busy, cancelled, rejected)
+    if (['no_answer', 'service_stopped', 'busy', 'cancelled', 'rejected'].includes(eventType)) {
+      const patientPhone = formatPhone(callerNumber);
+      const normalizedPatient = normalizePhone(callerNumber);
+      const isMissedCall = ['no_answer', 'service_stopped', 'busy'].includes(eventType);
+
+      console.log(`[CallLog] 클릭콜 종료 - eventType: ${eventType}, 환자: ${patientPhone}, 부재중: ${isMissedCall}`);
+
+      // V1: 발신 통화 업데이트
+      const existingCall = await callLogsCollection.findOne(
+        {
+          $or: [
+            { phoneNumber: patientPhone },
+            { phoneNumber: normalizedPatient },
+            { phoneNumber: callerNumber }
+          ],
+          callDirection: 'outbound',
+          callStatus: { $in: ['ringing', 'answered'] }
+        },
+        { sort: { callStartTime: -1 } }
+      );
+
+      if (existingCall) {
+        const endTime = timestamp || now;
+        await callLogsCollection.updateOne(
+          { _id: existingCall._id },
+          {
+            $set: {
+              callStatus: isMissedCall ? 'missed' : 'ended',
+              isMissed: isMissedCall,
+              callEndTime: endTime,
+              updatedAt: now
+            }
+          }
+        );
+        console.log(`[CallLog] V1 발신 통화 업데이트: ${existingCall.callId} → ${isMissedCall ? 'missed' : 'ended'}`);
+      }
+
+      // V2: 발신 통화 업데이트
+      try {
+        const { db } = await connectToDatabase();
+        const fiveMinutesAgo = new Date(Date.now() - 5 * 60 * 1000);
+        const v2Status = isMissedCall ? 'missed' : 'connected';
+
+        const v2UpdateData: Record<string, unknown> = {
+          status: v2Status,
+          duration: 0,
+          endedAt: new Date(timestamp || now),
+          updatedAt: new Date()
+        };
+
+        // 부재중이면 AI 분석 상태도 설정
+        if (isMissedCall) {
+          v2UpdateData.aiStatus = 'completed';
+          v2UpdateData.aiAnalysis = {
+            classification: '부재중',
+            summary: '발신 부재중 통화',
+            interest: '',
+            temperature: '',
+            followUp: '재통화 필요'
+          };
+        }
+
+        const v2Result = await db.collection('callLogs_v2').findOneAndUpdate(
+          {
+            phone: patientPhone,
+            direction: 'outbound',
+            status: { $in: ['ringing', 'connected'] },
+            createdAt: { $gte: fiveMinutesAgo }
+          },
+          { $set: v2UpdateData },
+          { sort: { createdAt: -1 }, returnDocument: 'after' }
+        );
+
+        if (v2Result) {
+          console.log(`[CallLog V2] 발신 통화 업데이트 완료 → ${v2Status}`);
+
+          // CTI 패널에 발신 통화 종료 알림 (퀵 콜백 등에 활용)
+          try {
+            await pusherV2.trigger('cti-v2', 'call-ended', {
+              callLogId: v2Result._id?.toString(),
+              phone: patientPhone,
+              duration: 0,
+              status: v2Status,
+              patientId: v2Result.patientId,
+            });
+            console.log(`[CallLog V2] Pusher call-ended 전송 완료`);
+          } catch (pusherError) {
+            console.error(`[CallLog V2] Pusher call-ended 전송 실패:`, pusherError);
+          }
+        } else {
+          console.log(`[CallLog V2] 매칭되는 발신 통화 없음 (phone: ${patientPhone})`);
+        }
+      } catch (v2Error) {
+        console.error(`[CallLog V2] 발신 종료 업데이트 실패:`, v2Error);
+      }
+
+      return NextResponse.json({
+        success: true,
+        message: `Outbound call ${eventType} processed`,
+        callId: existingCall?.callId,
+        status: isMissedCall ? 'missed' : 'ended'
       });
     }
 

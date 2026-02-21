@@ -1,0 +1,867 @@
+10:32:32.371 Running build in Portland, USA (West) – pdx1
+10:32:32.373 Build machine configuration: 4 cores, 8 GB
+10:32:32.476 Retrieving list of deployment files...
+10:32:33.037 Downloading 1194 deployment files...
+10:32:39.474 Restored build cache from previous deployment (22XgqnMLgU8gY3whZqdVfaAnJpXZ)
+10:32:40.268 Running "vercel build"
+10:32:40.661 Vercel CLI 50.1.3
+10:32:41.054 Installing dependencies...
+10:32:42.306 
+10:32:42.307 up to date in 1s
+10:32:42.307 
+10:32:42.307 164 packages are looking for funding
+10:32:42.307   run `npm fund` for details
+10:32:42.334 Detected Next.js version: 14.2.15
+10:32:42.338 Running "npm run build"
+10:32:42.436 
+10:32:42.437 > d-care-console@0.1.0 build
+10:32:42.437 > next build
+10:32:42.437 
+10:32:43.139   ▲ Next.js 14.2.15
+10:32:43.139 
+10:32:43.190    Creating an optimized production build ...
+10:32:50.610 Browserslist: browsers data (caniuse-lite) is 9 months old. Please run:
+10:32:50.611   npx update-browserslist-db@latest
+10:32:50.611   Why you should do it regularly: https://github.com/browserslist/update-db#readme
+10:32:52.709  ✓ Compiled successfully
+10:32:52.710    Linting and checking validity of types ...
+10:33:11.934    Collecting page data ...
+10:33:12.660 [KakaoReport] CoolSMS SDK 임포트 성공
+10:33:12.731 ✅ CoolSMS SDK 임포트 성공
+10:33:14.429    Generating static pages (0/92) ...
+10:33:15.119 ✅ 연결된 DB: d-care-db (production)
+10:33:15.177 ✅ 연결된 DB: d-care-db (production)
+10:33:15.487 Users 인덱스 생성 중 오류: MongoServerError: Index build failed: 0baa9bcc-b45a-4f5a-a09d-a6dbaa82ba78: Collection d-care-db.users ( fe47a846-e771-4b12-8657-cdba6db29c17 ) :: caused by :: E11000 duplicate key error collection: d-care-db.users index: email_1 dup key: { email: null }
+10:33:15.487     at Connection.sendCommand (/vercel/path0/node_modules/mongodb/lib/cmap/connection.js:299:27)
+10:33:15.487     at process.processTicksAndRejections (node:internal/process/task_queues:105:5)
+10:33:15.487     at async Connection.command (/vercel/path0/node_modules/mongodb/lib/cmap/connection.js:327:26)
+10:33:15.488     at async Server.command (/vercel/path0/node_modules/mongodb/lib/sdam/server.js:168:29)
+10:33:15.488     at async CreateIndexesOperation.executeCommand (/vercel/path0/node_modules/mongodb/lib/operations/command.js:76:16)
+10:33:15.488     at async CreateIndexesOperation.execute (/vercel/path0/node_modules/mongodb/lib/operations/indexes.js:122:9)
+10:33:15.488     at async tryOperation (/vercel/path0/node_modules/mongodb/lib/operations/execute_operation.js:207:20)
+10:33:15.488     at async executeOperation (/vercel/path0/node_modules/mongodb/lib/operations/execute_operation.js:75:16)
+10:33:15.488     at async Collection.createIndex (/vercel/path0/node_modules/mongodb/lib/collection.js:329:25)
+10:33:15.488     at async s (/vercel/path0/.next/server/chunks/8816.js:1:908) {
+10:33:15.488   errorLabelSet: Set(0) {},
+10:33:15.488   errorResponse: {
+10:33:15.489     ok: 0,
+10:33:15.489     errmsg: 'Index build failed: 0baa9bcc-b45a-4f5a-a09d-a6dbaa82ba78: Collection d-care-db.users ( fe47a846-e771-4b12-8657-cdba6db29c17 ) :: caused by :: E11000 duplicate key error collection: d-care-db.users index: email_1 dup key: { email: null }',
+10:33:15.489     code: 11000,
+10:33:15.489     codeName: 'DuplicateKey',
+10:33:15.489     keyPattern: { email: 1 },
+10:33:15.489     keyValue: { email: null },
+10:33:15.489     '$clusterTime': {
+10:33:15.489       clusterTime: new Timestamp({ t: 1767317595, i: 10 }),
+10:33:15.489       signature: [Object]
+10:33:15.489     },
+10:33:15.489     operationTime: new Timestamp({ t: 1767317595, i: 8 })
+10:33:15.489   },
+10:33:15.489   ok: 0,
+10:33:15.489   code: 11000,
+10:33:15.489   codeName: 'DuplicateKey',
+10:33:15.489   keyPattern: { email: 1 },
+10:33:15.489   keyValue: { email: null },
+10:33:15.489   '$clusterTime': {
+10:33:15.489     clusterTime: new Timestamp({ t: 1767317595, i: 10 }),
+10:33:15.490     signature: {
+10:33:15.490       hash: Binary.createFromBase64('Z1Uu7/4oqn7pfzeN/OOFcAemUEk=', 0),
+10:33:15.490       keyId: new Long('7551473124017963070')
+10:33:15.490     }
+10:33:15.490   },
+10:33:15.490   operationTime: new Timestamp({ t: 1767317595, i: 8 })
+10:33:15.490 }
+10:33:15.503 Users 인덱스 생성 중 오류: MongoServerError: Index build failed: a0c26fc7-5656-4869-897d-4d360827d57d: Collection d-care-db.users ( fe47a846-e771-4b12-8657-cdba6db29c17 ) :: caused by :: E11000 duplicate key error collection: d-care-db.users index: email_1 dup key: { email: null }
+10:33:15.503     at Connection.sendCommand (/vercel/path0/node_modules/mongodb/lib/cmap/connection.js:299:27)
+10:33:15.503     at process.processTicksAndRejections (node:internal/process/task_queues:105:5)
+10:33:15.504     at async Connection.command (/vercel/path0/node_modules/mongodb/lib/cmap/connection.js:327:26)
+10:33:15.504     at async Server.command (/vercel/path0/node_modules/mongodb/lib/sdam/server.js:168:29)
+10:33:15.504     at async CreateIndexesOperation.executeCommand (/vercel/path0/node_modules/mongodb/lib/operations/command.js:76:16)
+10:33:15.504     at async CreateIndexesOperation.execute (/vercel/path0/node_modules/mongodb/lib/operations/indexes.js:122:9)
+10:33:15.504     at async tryOperation (/vercel/path0/node_modules/mongodb/lib/operations/execute_operation.js:207:20)
+10:33:15.504     at async executeOperation (/vercel/path0/node_modules/mongodb/lib/operations/execute_operation.js:75:16)
+10:33:15.504     at async Collection.createIndex (/vercel/path0/node_modules/mongodb/lib/collection.js:329:25)
+10:33:15.504     at async s (/vercel/path0/.next/server/chunks/8816.js:1:908) {
+10:33:15.504   errorLabelSet: Set(0) {},
+10:33:15.504   errorResponse: {
+10:33:15.505     ok: 0,
+10:33:15.505     errmsg: 'Index build failed: a0c26fc7-5656-4869-897d-4d360827d57d: Collection d-care-db.users ( fe47a846-e771-4b12-8657-cdba6db29c17 ) :: caused by :: E11000 duplicate key error collection: d-care-db.users index: email_1 dup key: { email: null }',
+10:33:15.505     code: 11000,
+10:33:15.505     codeName: 'DuplicateKey',
+10:33:15.505     keyPattern: { email: 1 },
+10:33:15.505     keyValue: { email: null },
+10:33:15.505     '$clusterTime': {
+10:33:15.505       clusterTime: new Timestamp({ t: 1767317595, i: 15 }),
+10:33:15.505       signature: [Object]
+10:33:15.505     },
+10:33:15.505     operationTime: new Timestamp({ t: 1767317595, i: 15 })
+10:33:15.505   },
+10:33:15.505   ok: 0,
+10:33:15.505   code: 11000,
+10:33:15.505   codeName: 'DuplicateKey',
+10:33:15.505   keyPattern: { email: 1 },
+10:33:15.505   keyValue: { email: null },
+10:33:15.505   '$clusterTime': {
+10:33:15.505     clusterTime: new Timestamp({ t: 1767317595, i: 15 }),
+10:33:15.505     signature: {
+10:33:15.505       hash: Binary.createFromBase64('Z1Uu7/4oqn7pfzeN/OOFcAemUEk=', 0),
+10:33:15.506       keyId: new Long('7551473124017963070')
+10:33:15.506     }
+10:33:15.506   },
+10:33:15.506   operationTime: new Timestamp({ t: 1767317595, i: 15 })
+10:33:15.506 }
+10:33:15.835 ✅ 연결된 DB: d-care-db (production)
+10:33:16.021 Users 인덱스 생성 중 오류: MongoServerError: Index build failed: 31f729b1-5ffc-4e82-9c47-7a85e1da2ac0: Collection d-care-db.users ( fe47a846-e771-4b12-8657-cdba6db29c17 ) :: caused by :: E11000 duplicate key error collection: d-care-db.users index: email_1 dup key: { email: null }
+10:33:16.021     at Connection.sendCommand (/vercel/path0/node_modules/mongodb/lib/cmap/connection.js:299:27)
+10:33:16.021     at process.processTicksAndRejections (node:internal/process/task_queues:105:5)
+10:33:16.021     at async Connection.command (/vercel/path0/node_modules/mongodb/lib/cmap/connection.js:327:26)
+10:33:16.021     at async Server.command (/vercel/path0/node_modules/mongodb/lib/sdam/server.js:168:29)
+10:33:16.021     at async CreateIndexesOperation.executeCommand (/vercel/path0/node_modules/mongodb/lib/operations/command.js:76:16)
+10:33:16.021     at async CreateIndexesOperation.execute (/vercel/path0/node_modules/mongodb/lib/operations/indexes.js:122:9)
+10:33:16.021     at async tryOperation (/vercel/path0/node_modules/mongodb/lib/operations/execute_operation.js:207:20)
+10:33:16.021     at async executeOperation (/vercel/path0/node_modules/mongodb/lib/operations/execute_operation.js:75:16)
+10:33:16.021     at async Collection.createIndex (/vercel/path0/node_modules/mongodb/lib/collection.js:329:25)
+10:33:16.022     at async s (/vercel/path0/.next/server/chunks/8816.js:1:908) {
+10:33:16.022   errorLabelSet: Set(0) {},
+10:33:16.022   errorResponse: {
+10:33:16.022     ok: 0,
+10:33:16.022     errmsg: 'Index build failed: 31f729b1-5ffc-4e82-9c47-7a85e1da2ac0: Collection d-care-db.users ( fe47a846-e771-4b12-8657-cdba6db29c17 ) :: caused by :: E11000 duplicate key error collection: d-care-db.users index: email_1 dup key: { email: null }',
+10:33:16.022     code: 11000,
+10:33:16.022     codeName: 'DuplicateKey',
+10:33:16.022     keyPattern: { email: 1 },
+10:33:16.022     keyValue: { email: null },
+10:33:16.023     '$clusterTime': {
+10:33:16.023       clusterTime: new Timestamp({ t: 1767317595, i: 25 }),
+10:33:16.023       signature: [Object]
+10:33:16.023     },
+10:33:16.023     operationTime: new Timestamp({ t: 1767317595, i: 25 })
+10:33:16.023   },
+10:33:16.023   ok: 0,
+10:33:16.023   code: 11000,
+10:33:16.023   codeName: 'DuplicateKey',
+10:33:16.023   keyPattern: { email: 1 },
+10:33:16.023   keyValue: { email: null },
+10:33:16.023   '$clusterTime': {
+10:33:16.024     clusterTime: new Timestamp({ t: 1767317595, i: 25 }),
+10:33:16.024     signature: {
+10:33:16.024       hash: Binary.createFromBase64('Z1Uu7/4oqn7pfzeN/OOFcAemUEk=', 0),
+10:33:16.024       keyId: new Long('7551473124017963070')
+10:33:16.024     }
+10:33:16.024   },
+10:33:16.024   operationTime: new Timestamp({ t: 1767317595, i: 25 })
+10:33:16.024 }
+10:33:17.918 ⚠️ 스키마 검증 규칙 적용 실패: user is not allowed to do action [collMod] on [d-care-db.patients]
+10:33:17.918 ⚠️ 스키마 검증 규칙 적용 실패: user is not allowed to do action [collMod] on [d-care-db.patients]
+10:33:18.213 ⚠️ 스키마 검증 규칙 적용 실패: user is not allowed to do action [collMod] on [d-care-db.patients]
+10:33:20.049 ✅ MongoDB 인덱스 생성/확인 완료 (d-care-db)
+10:33:20.050 🔍 나이 필드 분석 시작...
+10:33:20.284 ✅ MongoDB 인덱스 생성/확인 완료 (d-care-db)
+10:33:20.285 📊 나이 필드 타입별 분석: [
+10:33:20.285   {
+10:33:20.285     _id: 'int',
+10:33:20.285     count: 279,
+10:33:20.286     examples: [
+10:33:20.286       [Object], [Object], [Object], [Object], [Object], [Object],
+10:33:20.286       [Object], [Object], [Object], [Object], [Object], [Object],
+10:33:20.286       [Object], [Object], [Object], [Object], [Object], [Object],
+10:33:20.286       [Object], [Object], [Object], [Object], [Object], [Object],
+10:33:20.286       [Object], [Object], [Object], [Object], [Object], [Object],
+10:33:20.286       [Object], [Object], [Object], [Object], [Object], [Object],
+10:33:20.287       [Object], [Object], [Object], [Object], [Object], [Object],
+10:33:20.287       [Object], [Object], [Object], [Object], [Object], [Object],
+10:33:20.287       [Object], [Object], [Object], [Object], [Object], [Object],
+10:33:20.287       [Object], [Object], [Object], [Object], [Object], [Object],
+10:33:20.287       [Object], [Object], [Object], [Object], [Object], [Object],
+10:33:20.287       [Object], [Object], [Object], [Object], [Object], [Object],
+10:33:20.287       [Object], [Object], [Object], [Object], [Object], [Object],
+10:33:20.287       [Object], [Object], [Object], [Object], [Object], [Object],
+10:33:20.287       [Object], [Object], [Object], [Object], [Object], [Object],
+10:33:20.288       [Object], [Object], [Object], [Object], [Object], [Object],
+10:33:20.288       [Object], [Object], [Object], [Object],
+10:33:20.288       ... 179 more items
+10:33:20.288     ]
+10:33:20.288   },
+10:33:20.288   {
+10:33:20.288     _id: 'missing',
+10:33:20.288     count: 200,
+10:33:20.288     examples: [
+10:33:20.288       [Object], [Object], [Object], [Object], [Object], [Object],
+10:33:20.288       [Object], [Object], [Object], [Object], [Object], [Object],
+10:33:20.288       [Object], [Object], [Object], [Object], [Object], [Object],
+10:33:20.288       [Object], [Object], [Object], [Object], [Object], [Object],
+10:33:20.288       [Object], [Object], [Object], [Object], [Object], [Object],
+10:33:20.288       [Object], [Object], [Object], [Object], [Object], [Object],
+10:33:20.288       [Object], [Object], [Object], [Object], [Object], [Object],
+10:33:20.288       [Object], [Object], [Object], [Object], [Object], [Object],
+10:33:20.288       [Object], [Object], [Object], [Object], [Object], [Object],
+10:33:20.288       [Object], [Object], [Object], [Object], [Object], [Object],
+10:33:20.289       [Object], [Object], [Object], [Object], [Object], [Object],
+10:33:20.289       [Object], [Object], [Object], [Object], [Object], [Object],
+10:33:20.289       [Object], [Object], [Object], [Object], [Object], [Object],
+10:33:20.289       [Object], [Object], [Object], [Object], [Object], [Object],
+10:33:20.289       [Object], [Object], [Object], [Object], [Object], [Object],
+10:33:20.289       [Object], [Object], [Object], [Object], [Object], [Object],
+10:33:20.289       [Object], [Object], [Object], [Object],
+10:33:20.289       ... 100 more items
+10:33:20.289     ]
+10:33:20.289   }
+10:33:20.289 ]
+10:33:20.293 🔍 MongoDB 연결 테스트 시작
+10:33:20.293 📡 MongoDB 클라이언트 생성 중...
+10:33:20.293 🔌 MongoDB 연결 시도 중...
+10:33:20.334 🔍 나이가 1인 환자들: []
+10:33:20.943 🔍 나이 필드가 없는 환자들 (샘플 5명): [
+10:33:20.943   {
+10:33:20.943     _id: new ObjectId('6843baabaaca51f89ce2fc72'),
+10:33:20.944     name: '오인덕',
+10:33:20.944     createdAt: '2025-06-07T04:06:03.461Z'
+10:33:20.944   },
+10:33:20.944   {
+10:33:20.944     _id: new ObjectId('6853a6e750b975c9485a73a0'),
+10:33:20.944     name: '인바운드 010-9876-6005',
+10:33:20.944     createdAt: '2025-06-19T05:57:59.905Z'
+10:33:20.944   },
+10:33:20.944   {
+10:33:20.944     _id: new ObjectId('68747488e8062cf7933143b7'),
+10:33:20.944     name: '안효진',
+10:33:20.944     createdAt: '2025-07-14T03:07:52.287Z',
+10:33:20.944     createdBy: '6848f97bcdc7f528bdccb49b'
+10:33:20.944   },
+10:33:20.944   {
+10:33:20.944     _id: new ObjectId('687867544e20d23476a4f92c'),
+10:33:20.944     name: '최지민',
+10:33:20.944     createdAt: '2025-07-17T03:00:36.916Z',
+10:33:20.944     createdBy: '6848f97bcdc7f528bdccb49b'
+10:33:20.944   },
+10:33:20.944   {
+10:33:20.944     _id: new ObjectId('6880806c228574c09a8b9262'),
+10:33:20.944     name: '마영해',
+10:33:20.944     createdAt: '2025-07-23T06:25:48.562Z',
+10:33:20.944     createdBy: 'master_001'
+10:33:20.944   }
+10:33:20.944 ]
+10:33:20.944 ✅ 연결된 DB: d-care-db (production)
+10:33:20.945 ✅ MongoDB 인덱스 생성/확인 완료 (d-care-db)
+10:33:20.945 Users 인덱스 생성 중 오류: MongoServerError: Index build failed: f2c18796-fb23-44e0-8604-310d14a02a98: Collection d-care-db.users ( fe47a846-e771-4b12-8657-cdba6db29c17 ) :: caused by :: E11000 duplicate key error collection: d-care-db.users index: email_1 dup key: { email: null }
+10:33:20.945     at Connection.sendCommand (/vercel/path0/node_modules/mongodb/lib/cmap/connection.js:299:27)
+10:33:20.945     at process.processTicksAndRejections (node:internal/process/task_queues:105:5)
+10:33:20.945     at async Connection.command (/vercel/path0/node_modules/mongodb/lib/cmap/connection.js:327:26)
+10:33:20.945     at async Server.command (/vercel/path0/node_modules/mongodb/lib/sdam/server.js:168:29)
+10:33:20.945     at async CreateIndexesOperation.executeCommand (/vercel/path0/node_modules/mongodb/lib/operations/command.js:76:16)
+10:33:20.945     at async CreateIndexesOperation.execute (/vercel/path0/node_modules/mongodb/lib/operations/indexes.js:122:9)
+10:33:20.945     at async tryOperation (/vercel/path0/node_modules/mongodb/lib/operations/execute_operation.js:207:20)
+10:33:20.945     at async executeOperation (/vercel/path0/node_modules/mongodb/lib/operations/execute_operation.js:75:16)
+10:33:20.945     at async Collection.createIndex (/vercel/path0/node_modules/mongodb/lib/collection.js:329:25)
+10:33:20.945     at async s (/vercel/path0/.next/server/chunks/8816.js:1:908) {
+10:33:20.945   errorLabelSet: Set(0) {},
+10:33:20.945   errorResponse: {
+10:33:20.945     ok: 0,
+10:33:20.945     errmsg: 'Index build failed: f2c18796-fb23-44e0-8604-310d14a02a98: Collection d-care-db.users ( fe47a846-e771-4b12-8657-cdba6db29c17 ) :: caused by :: E11000 duplicate key error collection: d-care-db.users index: email_1 dup key: { email: null }',
+10:33:20.946     code: 11000,
+10:33:20.946     codeName: 'DuplicateKey',
+10:33:20.946     keyPattern: { email: 1 },
+10:33:20.946     keyValue: { email: null },
+10:33:20.946     '$clusterTime': {
+10:33:20.946       clusterTime: new Timestamp({ t: 1767317600, i: 9 }),
+10:33:20.946       signature: [Object]
+10:33:20.946     },
+10:33:20.946     operationTime: new Timestamp({ t: 1767317600, i: 9 })
+10:33:20.946   },
+10:33:20.946   ok: 0,
+10:33:20.946   code: 11000,
+10:33:20.946   codeName: 'DuplicateKey',
+10:33:20.946   keyPattern: { email: 1 },
+10:33:20.946   keyValue: { email: null },
+10:33:20.946   '$clusterTime': {
+10:33:20.946     clusterTime: new Timestamp({ t: 1767317600, i: 9 }),
+10:33:20.946     signature: {
+10:33:20.946       hash: Binary.createFromBase64('PZE8gOB5uRbHeah1Zueow9WL1ak=', 0),
+10:33:20.946       keyId: new Long('7551473124017963070')
+10:33:20.946     }
+10:33:20.946   },
+10:33:20.946   operationTime: new Timestamp({ t: 1767317600, i: 9 })
+10:33:20.946 }
+10:33:20.956    Generating static pages (23/92) 
+10:33:20.992 [Patient Alert API] GET 오류: B [Error]: Dynamic server usage: Route /api/patient/alert couldn't be rendered statically because it used `request.url`. See more info here: https://nextjs.org/docs/messages/dynamic-server-error
+10:33:20.992     at V (/vercel/path0/node_modules/next/dist/compiled/next-server/app-route.runtime.prod.js:6:21777)
+10:33:20.993     at Object.get (/vercel/path0/node_modules/next/dist/compiled/next-server/app-route.runtime.prod.js:6:29137)
+10:33:20.993     at l (/vercel/path0/.next/server/app/api/patient/alert/route.js:1:647)
+10:33:20.993     at /vercel/path0/node_modules/next/dist/compiled/next-server/app-route.runtime.prod.js:6:36963
+10:33:20.993     at /vercel/path0/node_modules/next/dist/server/lib/trace/tracer.js:140:36
+10:33:20.993     at NoopContextManager.with (/vercel/path0/node_modules/next/dist/compiled/@opentelemetry/api/index.js:1:7062)
+10:33:20.993     at ContextAPI.with (/vercel/path0/node_modules/next/dist/compiled/@opentelemetry/api/index.js:1:518)
+10:33:20.993     at NoopTracer.startActiveSpan (/vercel/path0/node_modules/next/dist/compiled/@opentelemetry/api/index.js:1:18093)
+10:33:20.993     at ProxyTracer.startActiveSpan (/vercel/path0/node_modules/next/dist/compiled/@opentelemetry/api/index.js:1:18854)
+10:33:20.993     at /vercel/path0/node_modules/next/dist/server/lib/trace/tracer.js:122:103 {
+10:33:20.993   description: "Route /api/patient/alert couldn't be rendered statically because it used `request.url`. See more info here: https://nextjs.org/docs/messages/dynamic-server-error",
+10:33:20.993   digest: 'DYNAMIC_SERVER_USAGE'
+10:33:20.994 }
+10:33:21.007 [KakaoReport] CoolSMS SDK 임포트 성공
+10:33:21.016 전체 누적 환자 데이터 조회 시작
+10:33:21.016 ✅ 연결된 DB: d-care-db (production)
+10:33:21.334 Users 인덱스 생성 중 오류: MongoServerError: Index build failed: 50ecea7e-4752-490d-8a77-aa085464ae3b: Collection d-care-db.users ( fe47a846-e771-4b12-8657-cdba6db29c17 ) :: caused by :: E11000 duplicate key error collection: d-care-db.users index: email_1 dup key: { email: null }
+10:33:21.338     at Connection.sendCommand (/vercel/path0/node_modules/mongodb/lib/cmap/connection.js:299:27)
+10:33:21.338     at process.processTicksAndRejections (node:internal/process/task_queues:105:5)
+10:33:21.338     at async Connection.command (/vercel/path0/node_modules/mongodb/lib/cmap/connection.js:327:26)
+10:33:21.338     at async Server.command (/vercel/path0/node_modules/mongodb/lib/sdam/server.js:168:29)
+10:33:21.338     at async CreateIndexesOperation.executeCommand (/vercel/path0/node_modules/mongodb/lib/operations/command.js:76:16)
+10:33:21.338     at async CreateIndexesOperation.execute (/vercel/path0/node_modules/mongodb/lib/operations/indexes.js:122:9)
+10:33:21.338     at async tryOperation (/vercel/path0/node_modules/mongodb/lib/operations/execute_operation.js:207:20)
+10:33:21.339     at async executeOperation (/vercel/path0/node_modules/mongodb/lib/operations/execute_operation.js:75:16)
+10:33:21.339     at async Collection.createIndex (/vercel/path0/node_modules/mongodb/lib/collection.js:329:25)
+10:33:21.339     at async s (/vercel/path0/.next/server/chunks/8816.js:1:908) {
+10:33:21.339   errorLabelSet: Set(0) {},
+10:33:21.339   errorResponse: {
+10:33:21.339     ok: 0,
+10:33:21.339     errmsg: 'Index build failed: 50ecea7e-4752-490d-8a77-aa085464ae3b: Collection d-care-db.users ( fe47a846-e771-4b12-8657-cdba6db29c17 ) :: caused by :: E11000 duplicate key error collection: d-care-db.users index: email_1 dup key: { email: null }',
+10:33:21.339     code: 11000,
+10:33:21.339     codeName: 'DuplicateKey',
+10:33:21.339     keyPattern: { email: 1 },
+10:33:21.339     keyValue: { email: null },
+10:33:21.339     '$clusterTime': {
+10:33:21.339       clusterTime: new Timestamp({ t: 1767317601, i: 8 }),
+10:33:21.339       signature: [Object]
+10:33:21.339     },
+10:33:21.339     operationTime: new Timestamp({ t: 1767317601, i: 8 })
+10:33:21.339   },
+10:33:21.339   ok: 0,
+10:33:21.339   code: 11000,
+10:33:21.339   codeName: 'DuplicateKey',
+10:33:21.340   keyPattern: { email: 1 },
+10:33:21.340   keyValue: { email: null },
+10:33:21.340   '$clusterTime': {
+10:33:21.340     clusterTime: new Timestamp({ t: 1767317601, i: 8 }),
+10:33:21.340     signature: {
+10:33:21.340       hash: Binary.createFromBase64('isqtrCoZGlOATfM/MRBYpT9gldU=', 0),
+10:33:21.340       keyId: new Long('7551473124017963070')
+10:33:21.340     }
+10:33:21.340   },
+10:33:21.340   operationTime: new Timestamp({ t: 1767317601, i: 8 })
+10:33:21.340 }
+10:33:21.470 📋 데이터베이스 목록 조회 중...
+10:33:21.590 🗃️ 데이터베이스 'd-care-development' 컬렉션 조회 중...
+10:33:22.063 🔒 MongoDB 연결 닫음
+10:33:22.063 ✅ MongoDB 테스트 완료: {
+10:33:22.063   timestamp: '2026-01-02T01:33:20.287Z',
+10:33:22.063   tests: [
+10:33:22.063     {
+10:33:22.063       name: '환경 변수 확인',
+10:33:22.063       success: true,
+10:33:22.063       details: 'URI 존재 (mongodb+srv://dsbrde...)'
+10:33:22.063     },
+10:33:22.063     { name: 'MongoDB 연결', success: true, details: '연결 성공' },
+10:33:22.063     {
+10:33:22.063       name: '데이터베이스 목록',
+10:33:22.063       success: true,
+10:33:22.064       details: '총 7개 DB 발견',
+10:33:22.064       data: [Array]
+10:33:22.064     },
+10:33:22.064     {
+10:33:22.064       name: "데이터베이스 'd-care-development' 컬렉션",
+10:33:22.064       success: true,
+10:33:22.064       details: '총 2개 컬렉션 발견',
+10:33:22.064       data: [Array]
+10:33:22.064     },
+10:33:22.064     { name: 'patients 컬렉션', success: true, details: '0개 문서 발견' },
+10:33:22.064     { name: '쓰기/삭제 테스트', success: true, details: '쓰기 및 삭제 성공' }
+10:33:22.064   ]
+10:33:22.064 }
+10:33:22.069 이벤트 타겟 환자 목록 조회 API 호출
+10:33:22.069 ✅ 연결된 DB: d-care-db (production)
+10:33:22.418 Users 인덱스 생성 중 오류: MongoServerError: Index build failed: 99c47dfe-929a-4579-9da4-233827280abc: Collection d-care-db.users ( fe47a846-e771-4b12-8657-cdba6db29c17 ) :: caused by :: E11000 duplicate key error collection: d-care-db.users index: email_1 dup key: { email: null }
+10:33:22.418     at Connection.sendCommand (/vercel/path0/node_modules/mongodb/lib/cmap/connection.js:299:27)
+10:33:22.418     at process.processTicksAndRejections (node:internal/process/task_queues:105:5)
+10:33:22.418     at async Connection.command (/vercel/path0/node_modules/mongodb/lib/cmap/connection.js:327:26)
+10:33:22.418     at async Server.command (/vercel/path0/node_modules/mongodb/lib/sdam/server.js:168:29)
+10:33:22.418     at async CreateIndexesOperation.executeCommand (/vercel/path0/node_modules/mongodb/lib/operations/command.js:76:16)
+10:33:22.418     at async CreateIndexesOperation.execute (/vercel/path0/node_modules/mongodb/lib/operations/indexes.js:122:9)
+10:33:22.418     at async tryOperation (/vercel/path0/node_modules/mongodb/lib/operations/execute_operation.js:207:20)
+10:33:22.418     at async executeOperation (/vercel/path0/node_modules/mongodb/lib/operations/execute_operation.js:75:16)
+10:33:22.419     at async Collection.createIndex (/vercel/path0/node_modules/mongodb/lib/collection.js:329:25)
+10:33:22.419     at async s (/vercel/path0/.next/server/chunks/8816.js:1:908) {
+10:33:22.419   errorLabelSet: Set(0) {},
+10:33:22.419   errorResponse: {
+10:33:22.419     ok: 0,
+10:33:22.419     errmsg: 'Index build failed: 99c47dfe-929a-4579-9da4-233827280abc: Collection d-care-db.users ( fe47a846-e771-4b12-8657-cdba6db29c17 ) :: caused by :: E11000 duplicate key error collection: d-care-db.users index: email_1 dup key: { email: null }',
+10:33:22.419     code: 11000,
+10:33:22.419     codeName: 'DuplicateKey',
+10:33:22.419     keyPattern: { email: 1 },
+10:33:22.419     keyValue: { email: null },
+10:33:22.419     '$clusterTime': {
+10:33:22.419       clusterTime: new Timestamp({ t: 1767317602, i: 9 }),
+10:33:22.419       signature: [Object]
+10:33:22.419     },
+10:33:22.419     operationTime: new Timestamp({ t: 1767317602, i: 9 })
+10:33:22.419   },
+10:33:22.419   ok: 0,
+10:33:22.419   code: 11000,
+10:33:22.419   codeName: 'DuplicateKey',
+10:33:22.419   keyPattern: { email: 1 },
+10:33:22.419   keyValue: { email: null },
+10:33:22.419   '$clusterTime': {
+10:33:22.419     clusterTime: new Timestamp({ t: 1767317602, i: 9 }),
+10:33:22.419     signature: {
+10:33:22.419       hash: Binary.createFromBase64('loIZ7waPSi9TPzFFxvbNKufnENc=', 0),
+10:33:22.419       keyId: new Long('7551473124017963070')
+10:33:22.420     }
+10:33:22.420   },
+10:33:22.420   operationTime: new Timestamp({ t: 1767317602, i: 9 })
+10:33:22.420 }
+10:33:22.951 ⚠️ 스키마 검증 규칙 적용 실패: user is not allowed to do action [collMod] on [d-care-db.patients]
+10:33:23.495 ⚠️ 스키마 검증 규칙 적용 실패: user is not allowed to do action [collMod] on [d-care-db.patients]
+10:33:24.659 ⚠️ 스키마 검증 규칙 적용 실패: user is not allowed to do action [collMod] on [d-care-db.patients]
+10:33:25.260 ✅ MongoDB 인덱스 생성/확인 완료 (d-care-db)
+10:33:25.383 📋 Patients 컬렉션 정보: {
+10:33:25.383   "name": "patients",
+10:33:25.383   "type": "collection",
+10:33:25.383   "options": {},
+10:33:25.383   "info": {
+10:33:25.383     "readOnly": false,
+10:33:25.383     "uuid": "1d1cdb98-2c28-4654-a1b9-50258bc2feeb"
+10:33:25.383   },
+10:33:25.383   "idIndex": {
+10:33:25.383     "v": 2,
+10:33:25.383     "key": {
+10:33:25.383       "_id": 1
+10:33:25.383     },
+10:33:25.383     "name": "_id_"
+10:33:25.383   }
+10:33:25.383 }
+10:33:25.383 ✅ 스키마 검증 규칙 없음
+10:33:25.393 ✅ 연결된 DB: d-care-db (production)
+10:33:25.708 Users 인덱스 생성 중 오류: MongoServerError: Index build failed: fa8f7f3a-09ca-4a51-8b99-8075717e7b8b: Collection d-care-db.users ( fe47a846-e771-4b12-8657-cdba6db29c17 ) :: caused by :: E11000 duplicate key error collection: d-care-db.users index: email_1 dup key: { email: null }
+10:33:25.709     at Connection.sendCommand (/vercel/path0/node_modules/mongodb/lib/cmap/connection.js:299:27)
+10:33:25.709     at process.processTicksAndRejections (node:internal/process/task_queues:105:5)
+10:33:25.709     at async Connection.command (/vercel/path0/node_modules/mongodb/lib/cmap/connection.js:327:26)
+10:33:25.709     at async Server.command (/vercel/path0/node_modules/mongodb/lib/sdam/server.js:168:29)
+10:33:25.709     at async CreateIndexesOperation.executeCommand (/vercel/path0/node_modules/mongodb/lib/operations/command.js:76:16)
+10:33:25.709     at async CreateIndexesOperation.execute (/vercel/path0/node_modules/mongodb/lib/operations/indexes.js:122:9)
+10:33:25.709     at async tryOperation (/vercel/path0/node_modules/mongodb/lib/operations/execute_operation.js:207:20)
+10:33:25.709     at async executeOperation (/vercel/path0/node_modules/mongodb/lib/operations/execute_operation.js:75:16)
+10:33:25.709     at async Collection.createIndex (/vercel/path0/node_modules/mongodb/lib/collection.js:329:25)
+10:33:25.709     at async s (/vercel/path0/.next/server/chunks/8816.js:1:908) {
+10:33:25.709   errorLabelSet: Set(0) {},
+10:33:25.709   errorResponse: {
+10:33:25.709     ok: 0,
+10:33:25.709     errmsg: 'Index build failed: fa8f7f3a-09ca-4a51-8b99-8075717e7b8b: Collection d-care-db.users ( fe47a846-e771-4b12-8657-cdba6db29c17 ) :: caused by :: E11000 duplicate key error collection: d-care-db.users index: email_1 dup key: { email: null }',
+10:33:25.709     code: 11000,
+10:33:25.709     codeName: 'DuplicateKey',
+10:33:25.709     keyPattern: { email: 1 },
+10:33:25.709     keyValue: { email: null },
+10:33:25.709     '$clusterTime': {
+10:33:25.709       clusterTime: new Timestamp({ t: 1767317605, i: 8 }),
+10:33:25.709       signature: [Object]
+10:33:25.709     },
+10:33:25.710     operationTime: new Timestamp({ t: 1767317605, i: 8 })
+10:33:25.710   },
+10:33:25.710   ok: 0,
+10:33:25.710   code: 11000,
+10:33:25.710   codeName: 'DuplicateKey',
+10:33:25.710   keyPattern: { email: 1 },
+10:33:25.710   keyValue: { email: null },
+10:33:25.710   '$clusterTime': {
+10:33:25.710     clusterTime: new Timestamp({ t: 1767317605, i: 8 }),
+10:33:25.710     signature: {
+10:33:25.710       hash: Binary.createFromBase64('xmLCJusLmt25BksatEt/BurzhyI=', 0),
+10:33:25.710       keyId: new Long('7551473124017963070')
+10:33:25.710     }
+10:33:25.710   },
+10:33:25.710   operationTime: new Timestamp({ t: 1767317605, i: 8 })
+10:33:25.710 }
+10:33:25.804 ✅ MongoDB 인덱스 생성/확인 완료 (d-care-db)
+10:33:26.855 전체 누적 환자 데이터 조회 완료: 479명
+10:33:26.886 ✅ 연결된 DB: d-care-db (production)
+10:33:27.064 ✅ MongoDB 인덱스 생성/확인 완료 (d-care-db)
+10:33:27.202 Users 인덱스 생성 중 오류: MongoServerError: Index build failed: a94ab68f-c1f2-4222-b540-8759edb2dcd5: Collection d-care-db.users ( fe47a846-e771-4b12-8657-cdba6db29c17 ) :: caused by :: E11000 duplicate key error collection: d-care-db.users index: email_1 dup key: { email: null }
+10:33:27.202     at Connection.sendCommand (/vercel/path0/node_modules/mongodb/lib/cmap/connection.js:299:27)
+10:33:27.202     at process.processTicksAndRejections (node:internal/process/task_queues:105:5)
+10:33:27.202     at async Connection.command (/vercel/path0/node_modules/mongodb/lib/cmap/connection.js:327:26)
+10:33:27.202     at async Server.command (/vercel/path0/node_modules/mongodb/lib/sdam/server.js:168:29)
+10:33:27.202     at async CreateIndexesOperation.executeCommand (/vercel/path0/node_modules/mongodb/lib/operations/command.js:76:16)
+10:33:27.202     at async CreateIndexesOperation.execute (/vercel/path0/node_modules/mongodb/lib/operations/indexes.js:122:9)
+10:33:27.203     at async tryOperation (/vercel/path0/node_modules/mongodb/lib/operations/execute_operation.js:207:20)
+10:33:27.203     at async executeOperation (/vercel/path0/node_modules/mongodb/lib/operations/execute_operation.js:75:16)
+10:33:27.203     at async Collection.createIndex (/vercel/path0/node_modules/mongodb/lib/collection.js:329:25)
+10:33:27.203     at async s (/vercel/path0/.next/server/chunks/8816.js:1:908) {
+10:33:27.203   errorLabelSet: Set(0) {},
+10:33:27.203   errorResponse: {
+10:33:27.203     ok: 0,
+10:33:27.203     errmsg: 'Index build failed: a94ab68f-c1f2-4222-b540-8759edb2dcd5: Collection d-care-db.users ( fe47a846-e771-4b12-8657-cdba6db29c17 ) :: caused by :: E11000 duplicate key error collection: d-care-db.users index: email_1 dup key: { email: null }',
+10:33:27.203     code: 11000,
+10:33:27.203     codeName: 'DuplicateKey',
+10:33:27.203     keyPattern: { email: 1 },
+10:33:27.203     keyValue: { email: null },
+10:33:27.203     '$clusterTime': {
+10:33:27.203       clusterTime: new Timestamp({ t: 1767317607, i: 8 }),
+10:33:27.203       signature: [Object]
+10:33:27.203     },
+10:33:27.203     operationTime: new Timestamp({ t: 1767317607, i: 8 })
+10:33:27.203   },
+10:33:27.203   ok: 0,
+10:33:27.203   code: 11000,
+10:33:27.203   codeName: 'DuplicateKey',
+10:33:27.203   keyPattern: { email: 1 },
+10:33:27.203   keyValue: { email: null },
+10:33:27.203   '$clusterTime': {
+10:33:27.203     clusterTime: new Timestamp({ t: 1767317607, i: 8 }),
+10:33:27.204     signature: {
+10:33:27.204       hash: Binary.createFromBase64('ytXPcHE0yooc/lPXILOYjPi3b70=', 0),
+10:33:27.204       keyId: new Long('7551473124017963070')
+10:33:27.204     }
+10:33:27.204   },
+10:33:27.204   operationTime: new Timestamp({ t: 1767317607, i: 8 })
+10:33:27.204 }
+10:33:27.447 조회된 이벤트 타겟 환자 수: 9명
+10:33:27.448 이벤트 타겟 환자 목록: [
+10:33:27.448   {
+10:33:27.449     id: '683a7a5dea1b2b2ce4f84524',
+10:33:27.449     name: '박민주',
+10:33:27.449     isEventTarget: true,
+10:33:27.449     targetReason: 'price_hesitation',
+10:33:27.449     scheduledDate: '2025-07-05',
+10:33:27.449     createdAt: '2025-06-05T07:07:40.377Z'
+10:33:27.449   },
+10:33:27.449   {
+10:33:27.449     id: '683570d86861f8f18c157c46',
+10:33:27.449     name: '정승구',
+10:33:27.449     isEventTarget: true,
+10:33:27.449     targetReason: 'other',
+10:33:27.449     scheduledDate: '2025-07-05',
+10:33:27.449     createdAt: '2025-06-05T07:05:40.857Z'
+10:33:27.449   },
+10:33:27.449   {
+10:33:27.449     id: '685612f99cf5576273776d3f',
+10:33:27.449     name: '양성우',
+10:33:27.449     isEventTarget: true,
+10:33:27.449     targetReason: 'price_hesitation',
+10:33:27.449     scheduledDate: '2025-07-07',
+10:33:27.449     createdAt: '2025-07-20T13:59:42.803Z'
+10:33:27.449   },
+10:33:27.449   {
+10:33:27.449     id: '684167442c9d4a37e55f4393',
+10:33:27.449     name: '김상준',
+10:33:27.449     isEventTarget: true,
+10:33:27.449     targetReason: 'scheduling_issue',
+10:33:27.450     scheduledDate: '2025-07-10',
+10:33:27.450     createdAt: '2025-07-03T05:20:20.878Z'
+10:33:27.450   },
+10:33:27.450   {
+10:33:27.450     id: '68562239bb161cd511a4eba2',
+10:33:27.450     name: '백재은',
+10:33:27.450     isEventTarget: true,
+10:33:27.450     targetReason: 'price_hesitation',
+10:33:27.450     scheduledDate: '2025-07-22',
+10:33:27.450     createdAt: '2025-07-22T01:30:49.079Z'
+10:33:27.450   },
+10:33:27.450   {
+10:33:27.450     id: '685cdbd8833e41060509b0a8',
+10:33:27.450     name: '박수빈C',
+10:33:27.450     isEventTarget: true,
+10:33:27.450     targetReason: 'price_hesitation',
+10:33:27.450     scheduledDate: '2025-08-02',
+10:33:27.450     createdAt: '2025-07-03T05:44:06.259Z'
+10:33:27.450   },
+10:33:27.450   {
+10:33:27.450     id: '68662c51288c293e3962874f',
+10:33:27.450     name: '장재호',
+10:33:27.450     isEventTarget: true,
+10:33:27.450     targetReason: 'other',
+10:33:27.450     scheduledDate: '2025-09-10',
+10:33:27.450     createdAt: '2025-07-11T07:44:56.269Z'
+10:33:27.450   },
+10:33:27.450   {
+10:33:27.450     id: '68b103a79e00d5b558d34872',
+10:33:27.451     name: '차희',
+10:33:27.451     isEventTarget: true,
+10:33:27.451     targetReason: 'other',
+10:33:27.451     scheduledDate: '2025-09-19',
+10:33:27.451     createdAt: '2025-09-19T02:33:01.113Z'
+10:33:27.451   },
+10:33:27.451   {
+10:33:27.451     id: '68c4c285df11bb8eeb774444',
+10:33:27.451     name: '윤보미',
+10:33:27.451     isEventTarget: true,
+10:33:27.451     targetReason: 'scheduling_issue',
+10:33:27.451     scheduledDate: '2025-11-05',
+10:33:27.451     createdAt: '2025-11-05T03:32:10.574Z'
+10:33:27.451   }
+10:33:27.451 ]
+10:33:27.460 테스트 API 호출: MongoDB 연결 시도...
+10:33:27.460 ✅ 연결된 DB: d-care-db (production)
+10:33:27.786 Users 인덱스 생성 중 오류: MongoServerError: Index build failed: cf158858-531f-49eb-8bcf-667a568475db: Collection d-care-db.users ( fe47a846-e771-4b12-8657-cdba6db29c17 ) :: caused by :: E11000 duplicate key error collection: d-care-db.users index: email_1 dup key: { email: null }
+10:33:27.786     at Connection.sendCommand (/vercel/path0/node_modules/mongodb/lib/cmap/connection.js:299:27)
+10:33:27.786     at process.processTicksAndRejections (node:internal/process/task_queues:105:5)
+10:33:27.786     at async Connection.command (/vercel/path0/node_modules/mongodb/lib/cmap/connection.js:327:26)
+10:33:27.786     at async Server.command (/vercel/path0/node_modules/mongodb/lib/sdam/server.js:168:29)
+10:33:27.786     at async CreateIndexesOperation.executeCommand (/vercel/path0/node_modules/mongodb/lib/operations/command.js:76:16)
+10:33:27.786     at async CreateIndexesOperation.execute (/vercel/path0/node_modules/mongodb/lib/operations/indexes.js:122:9)
+10:33:27.787     at async tryOperation (/vercel/path0/node_modules/mongodb/lib/operations/execute_operation.js:207:20)
+10:33:27.787     at async executeOperation (/vercel/path0/node_modules/mongodb/lib/operations/execute_operation.js:75:16)
+10:33:27.787     at async Collection.createIndex (/vercel/path0/node_modules/mongodb/lib/collection.js:329:25)
+10:33:27.787     at async s (/vercel/path0/.next/server/chunks/8816.js:1:908) {
+10:33:27.787   errorLabelSet: Set(0) {},
+10:33:27.787   errorResponse: {
+10:33:27.787     ok: 0,
+10:33:27.787     errmsg: 'Index build failed: cf158858-531f-49eb-8bcf-667a568475db: Collection d-care-db.users ( fe47a846-e771-4b12-8657-cdba6db29c17 ) :: caused by :: E11000 duplicate key error collection: d-care-db.users index: email_1 dup key: { email: null }',
+10:33:27.787     code: 11000,
+10:33:27.787     codeName: 'DuplicateKey',
+10:33:27.787     keyPattern: { email: 1 },
+10:33:27.787     keyValue: { email: null },
+10:33:27.787     '$clusterTime': {
+10:33:27.787       clusterTime: new Timestamp({ t: 1767317607, i: 18 }),
+10:33:27.787       signature: [Object]
+10:33:27.787     },
+10:33:27.787     operationTime: new Timestamp({ t: 1767317607, i: 18 })
+10:33:27.787   },
+10:33:27.787   ok: 0,
+10:33:27.787   code: 11000,
+10:33:27.787   codeName: 'DuplicateKey',
+10:33:27.787   keyPattern: { email: 1 },
+10:33:27.787   keyValue: { email: null },
+10:33:27.787   '$clusterTime': {
+10:33:27.788     clusterTime: new Timestamp({ t: 1767317607, i: 18 }),
+10:33:27.788     signature: {
+10:33:27.788       hash: Binary.createFromBase64('ytXPcHE0yooc/lPXILOYjPi3b70=', 0),
+10:33:27.788       keyId: new Long('7551473124017963070')
+10:33:27.788     }
+10:33:27.788   },
+10:33:27.788   operationTime: new Timestamp({ t: 1767317607, i: 18 })
+10:33:27.788 }
+10:33:27.876 ⚠️ 스키마 검증 규칙 적용 실패: user is not allowed to do action [collMod] on [d-care-db.patients]
+10:33:29.384 ⚠️ 스키마 검증 규칙 적용 실패: user is not allowed to do action [collMod] on [d-care-db.patients]
+10:33:30.069 ⚠️ 스키마 검증 규칙 적용 실패: user is not allowed to do action [collMod] on [d-care-db.patients]
+10:33:30.290 ✅ MongoDB 인덱스 생성/확인 완료 (d-care-db)
+10:33:31.056 내원 후 관리 환자 목록 조회: 266 명
+10:33:31.064    Generating static pages (46/92) 
+10:33:31.105 [Status v2] 오류: B [Error]: Dynamic server usage: Route /api/v2/call-analysis/status couldn't be rendered statically because it used `request.url`. See more info here: https://nextjs.org/docs/messages/dynamic-server-error
+10:33:31.106     at V (/vercel/path0/node_modules/next/dist/compiled/next-server/app-route.runtime.prod.js:6:21777)
+10:33:31.106     at Object.get (/vercel/path0/node_modules/next/dist/compiled/next-server/app-route.runtime.prod.js:6:29137)
+10:33:31.106     at u (/vercel/path0/.next/server/app/api/v2/call-analysis/status/route.js:1:646)
+10:33:31.106     at /vercel/path0/node_modules/next/dist/compiled/next-server/app-route.runtime.prod.js:6:36963
+10:33:31.106     at /vercel/path0/node_modules/next/dist/server/lib/trace/tracer.js:140:36
+10:33:31.106     at NoopContextManager.with (/vercel/path0/node_modules/next/dist/compiled/@opentelemetry/api/index.js:1:7062)
+10:33:31.106     at ContextAPI.with (/vercel/path0/node_modules/next/dist/compiled/@opentelemetry/api/index.js:1:518)
+10:33:31.106     at NoopTracer.startActiveSpan (/vercel/path0/node_modules/next/dist/compiled/@opentelemetry/api/index.js:1:18093)
+10:33:31.106     at ProxyTracer.startActiveSpan (/vercel/path0/node_modules/next/dist/compiled/@opentelemetry/api/index.js:1:18854)
+10:33:31.107     at /vercel/path0/node_modules/next/dist/server/lib/trace/tracer.js:122:103 {
+10:33:31.107   description: "Route /api/v2/call-analysis/status couldn't be rendered statically because it used `request.url`. See more info here: https://nextjs.org/docs/messages/dynamic-server-error",
+10:33:31.107   digest: 'DYNAMIC_SERVER_USAGE'
+10:33:31.107 }
+10:33:31.113 ✅ CoolSMS SDK 임포트 성공
+10:33:31.116 ✅ 연결된 DB: d-care-db (production)
+10:33:31.440 Users 인덱스 생성 중 오류: MongoServerError: Index build failed: 3cda7e6c-3818-444f-b6bf-3bcf4184caa5: Collection d-care-db.users ( fe47a846-e771-4b12-8657-cdba6db29c17 ) :: caused by :: E11000 duplicate key error collection: d-care-db.users index: email_1 dup key: { email: null }
+10:33:31.440     at Connection.sendCommand (/vercel/path0/node_modules/mongodb/lib/cmap/connection.js:299:27)
+10:33:31.440     at process.processTicksAndRejections (node:internal/process/task_queues:105:5)
+10:33:31.440     at async Connection.command (/vercel/path0/node_modules/mongodb/lib/cmap/connection.js:327:26)
+10:33:31.440     at async Server.command (/vercel/path0/node_modules/mongodb/lib/sdam/server.js:168:29)
+10:33:31.440     at async CreateIndexesOperation.executeCommand (/vercel/path0/node_modules/mongodb/lib/operations/command.js:76:16)
+10:33:31.440     at async CreateIndexesOperation.execute (/vercel/path0/node_modules/mongodb/lib/operations/indexes.js:122:9)
+10:33:31.440     at async tryOperation (/vercel/path0/node_modules/mongodb/lib/operations/execute_operation.js:207:20)
+10:33:31.440     at async executeOperation (/vercel/path0/node_modules/mongodb/lib/operations/execute_operation.js:75:16)
+10:33:31.441     at async Collection.createIndex (/vercel/path0/node_modules/mongodb/lib/collection.js:329:25)
+10:33:31.441     at async s (/vercel/path0/.next/server/chunks/8816.js:1:908) {
+10:33:31.442   errorLabelSet: Set(0) {},
+10:33:31.442   errorResponse: {
+10:33:31.442     ok: 0,
+10:33:31.442     errmsg: 'Index build failed: 3cda7e6c-3818-444f-b6bf-3bcf4184caa5: Collection d-care-db.users ( fe47a846-e771-4b12-8657-cdba6db29c17 ) :: caused by :: E11000 duplicate key error collection: d-care-db.users index: email_1 dup key: { email: null }',
+10:33:31.442     code: 11000,
+10:33:31.442     codeName: 'DuplicateKey',
+10:33:31.442     keyPattern: { email: 1 },
+10:33:31.442     keyValue: { email: null },
+10:33:31.442     '$clusterTime': {
+10:33:31.442       clusterTime: new Timestamp({ t: 1767317611, i: 8 }),
+10:33:31.442       signature: [Object]
+10:33:31.442     },
+10:33:31.442     operationTime: new Timestamp({ t: 1767317611, i: 8 })
+10:33:31.442   },
+10:33:31.442   ok: 0,
+10:33:31.442   code: 11000,
+10:33:31.442   codeName: 'DuplicateKey',
+10:33:31.442   keyPattern: { email: 1 },
+10:33:31.442   keyValue: { email: null },
+10:33:31.442   '$clusterTime': {
+10:33:31.442     clusterTime: new Timestamp({ t: 1767317611, i: 8 }),
+10:33:31.442     signature: {
+10:33:31.443       hash: Binary.createFromBase64('iUZlsurdgTWo3rAN3WSfScwucQc=', 0),
+10:33:31.443       keyId: new Long('7551473124017963070')
+10:33:31.443     }
+10:33:31.443   },
+10:33:31.443   operationTime: new Timestamp({ t: 1767317611, i: 8 })
+10:33:31.443 }
+10:33:31.708 ✅ MongoDB 인덱스 생성/확인 완료 (d-care-db)
+10:33:32.030    Generating static pages (69/92) 
+10:33:32.085 🔥 대시보드 페이지 디버깅: {
+10:33:32.085   todayCalls: [],
+10:33:32.085   todayCallsLength: 0,
+10:33:32.085   todayCallsType: 'object',
+10:33:32.085   isArray: true,
+10:33:32.085   statusCounts: {
+10:33:32.085     overdueCallbacks: { consultation: 0, visit: 0 },
+10:33:32.085     todayScheduled: { consultation: 0, visit: 0 },
+10:33:32.085     callbackUnregistered: { consultation: 0, visit: 0 },
+10:33:32.085     reminderCallbacks: { registrationNeeded: 0 }
+10:33:32.085   },
+10:33:32.085   '첫번째콜': null
+10:33:32.085 }
+10:33:32.480 ✅ MongoDB 인덱스 생성/확인 완료 (d-care-db)
+10:33:33.582 ⚠️ 스키마 검증 규칙 적용 실패: user is not allowed to do action [collMod] on [d-care-db.patients]
+10:33:35.878 ✅ MongoDB 인덱스 생성/확인 완료 (d-care-db)
+10:33:37.243  ✓ Generating static pages (92/92)
+10:33:37.264    Finalizing page optimization ...
+10:33:37.264    Collecting build traces ...
+10:33:37.268 
+10:33:37.273 Route (app)                                           Size     First Load JS
+10:33:37.273 ┌ ○ /                                                 18.9 kB         377 kB
+10:33:37.273 ├ ○ /_not-found                                       880 B          88.4 kB
+10:33:37.273 ├ ○ /admin                                            12.2 kB         306 kB
+10:33:37.273 ├ ƒ /api/activity-logs                                0 B                0 B
+10:33:37.273 ├ ƒ /api/activity-logs/[id]                           0 B                0 B
+10:33:37.273 ├ ƒ /api/activity-logs/cleanup                        0 B                0 B
+10:33:37.273 ├ ƒ /api/activity-logs/export                         0 B                0 B
+10:33:37.273 ├ ƒ /api/activity-logs/target/[targetId]              0 B                0 B
+10:33:37.273 ├ ƒ /api/admin/daily-tasks                            0 B                0 B
+10:33:37.274 ├ ○ /api/admin/environment                            0 B                0 B
+10:33:37.274 ├ ƒ /api/admin/stats                                  0 B                0 B
+10:33:37.274 ├ ƒ /api/auth/login                                   0 B                0 B
+10:33:37.274 ├ ƒ /api/call-analysis/analyze                        0 B                0 B
+10:33:37.274 ├ ƒ /api/call-analysis/recording                      0 B                0 B
+10:33:37.274 ├ ƒ /api/call-analysis/test                           0 B                0 B
+10:33:37.274 ├ ƒ /api/call-analysis/transcribe                     0 B                0 B
+10:33:37.274 ├ ƒ /api/call-logs                                    0 B                0 B
+10:33:37.274 ├ ƒ /api/call-logs/archive                            0 B                0 B
+10:33:37.274 ├ ƒ /api/call-logs/cleanup                            0 B                0 B
+10:33:37.274 ├ ƒ /api/cti/commands                                 0 B                0 B
+10:33:37.274 ├ ƒ /api/cti/events                                   0 B                0 B
+10:33:37.274 ├ ƒ /api/cti/incoming-call                            0 B                0 B
+10:33:37.274 ├ ƒ /api/cti/outgoing-call                            0 B                0 B
+10:33:37.275 ├ ƒ /api/cti/stream                                   0 B                0 B
+10:33:37.275 ├ ƒ /api/cti/test                                     0 B                0 B
+10:33:37.275 ├ ○ /api/dashboard/stats                              0 B                0 B
+10:33:37.275 ├ ○ /api/debug/age-analysis                           0 B                0 B
+10:33:37.275 ├ ○ /api/debug/check-all-schemas                      0 B                0 B
+10:33:37.275 ├ ƒ /api/debug/clear-test-data                        0 B                0 B
+10:33:37.275 ├ ○ /api/debug/count-patients                         0 B                0 B
+10:33:37.275 ├ ○ /api/debug/mongodb-test                           0 B                0 B
+10:33:37.275 ├ ƒ /api/follow-up                                    0 B                0 B
+10:33:37.275 ├ ƒ /api/goals                                        0 B                0 B
+10:33:37.275 ├ ƒ /api/kakao/send-report                            0 B                0 B
+10:33:37.275 ├ ƒ /api/legacy-patients                              0 B                0 B
+10:33:37.275 ├ ƒ /api/memos                                        0 B                0 B
+10:33:37.275 ├ ƒ /api/memos/[id]                                   0 B                0 B
+10:33:37.275 ├ ƒ /api/messages/log                                 0 B                0 B
+10:33:37.275 ├ ƒ /api/messages/send                                0 B                0 B
+10:33:37.275 ├ ƒ /api/migration/add-visit-confirmed                0 B                0 B
+10:33:37.275 ├ ƒ /api/patient/alert                                0 B                0 B
+10:33:37.275 ├ ƒ /api/patients                                     0 B                0 B
+10:33:37.275 ├ ƒ /api/patients/[id]                                0 B                0 B
+10:33:37.275 ├ ƒ /api/patients/[id]/callbacks                      0 B                0 B
+10:33:37.275 ├ ƒ /api/patients/[id]/callbacks/[callbackId]         0 B                0 B
+10:33:37.275 ├ ƒ /api/patients/[id]/callbacks/[callbackId]/cancel  0 B                0 B
+10:33:37.276 ├ ƒ /api/patients/[id]/cancel-completion              0 B                0 B
+10:33:37.276 ├ ƒ /api/patients/[id]/cancel-visit-confirmation      0 B                0 B
+10:33:37.276 ├ ƒ /api/patients/[id]/complete                       0 B                0 B
+10:33:37.276 ├ ƒ /api/patients/[id]/consultation                   0 B                0 B
+10:33:37.276 ├ ƒ /api/patients/[id]/event-target                   0 B                0 B
+10:33:37.276 ├ ƒ /api/patients/[id]/post-visit-status              0 B                0 B
+10:33:37.276 ├ ƒ /api/patients/[id]/reservation-complete           0 B                0 B
+10:33:37.276 ├ ƒ /api/patients/[id]/reset-post-visit               0 B                0 B
+10:33:37.276 ├ ƒ /api/patients/[id]/visit-confirmation             0 B                0 B
+10:33:37.276 ├ ƒ /api/patients/check-phone                         0 B                0 B
+10:33:37.276 ├ ○ /api/patients/cumulative                          0 B                0 B
+10:33:37.276 ├ ƒ /api/patients/event-target                        0 B                0 B
+10:33:37.276 ├ ○ /api/patients/event-targets                       0 B                0 B
+10:33:37.276 ├ ƒ /api/patients/event-targets/filter                0 B                0 B
+10:33:37.276 ├ ƒ /api/patients/filtered                            0 B                0 B
+10:33:37.276 ├ ƒ /api/patients/inbound                             0 B                0 B
+10:33:37.276 ├ ƒ /api/patients/post-reservation-update             0 B                0 B
+10:33:37.276 ├ ○ /api/patients/post-visit                          0 B                0 B
+10:33:37.276 ├ ƒ /api/patients/status-filter                       0 B                0 B
+10:33:37.276 ├ ƒ /api/referrals                                    0 B                0 B
+10:33:37.276 ├ ƒ /api/report/daily/[date]                          0 B                0 B
+10:33:37.276 ├ ƒ /api/report/mobile/[date]                         0 B                0 B
+10:33:37.276 ├ ƒ /api/reports                                      0 B                0 B
+10:33:37.277 ├ ƒ /api/reports/[id]                                 0 B                0 B
+10:33:37.277 ├ ƒ /api/reports/daily                                0 B                0 B
+10:33:37.277 ├ ƒ /api/reports/monthly                              0 B                0 B
+10:33:37.277 ├ ○ /api/settings/call-retention                      0 B                0 B
+10:33:37.277 ├ ƒ /api/settings/categories                          0 B                0 B
+10:33:37.277 ├ ƒ /api/socket                                       0 B                0 B
+10:33:37.277 ├ ƒ /api/statistics                                   0 B                0 B
+10:33:37.277 ├ ƒ /api/statistics/daily                             0 B                0 B
+10:33:37.277 ├ ƒ /api/statistics/daily-report                      0 B                0 B
+10:33:37.277 ├ ƒ /api/templates                                    0 B                0 B
+10:33:37.277 ├ ○ /api/test                                         0 B                0 B
+10:33:37.277 ├ ƒ /api/test/daily-report-v2                         0 B                0 B
+10:33:37.277 ├ ƒ /api/test/patients-v2                             0 B                0 B
+10:33:37.277 ├ ƒ /api/test/patients-v2/[id]/callback               0 B                0 B
+10:33:37.277 ├ ƒ /api/test/patients-v2/[id]/consultation           0 B                0 B
+10:33:37.277 ├ ƒ /api/test/patients-v2/[id]/post-visit-status      0 B                0 B
+10:33:37.277 ├ ƒ /api/test/patients-v2/[id]/status                 0 B                0 B
+10:33:37.277 ├ ƒ /api/test/patients-v2/[id]/teeth                  0 B                0 B
+10:33:37.277 ├ ƒ /api/test/seed                                    0 B                0 B
+10:33:37.277 ├ ƒ /api/upload                                       0 B                0 B
+10:33:37.277 ├ ƒ /api/users                                        0 B                0 B
+10:33:37.277 ├ ƒ /api/users/[id]                                   0 B                0 B
+10:33:37.277 ├ ƒ /api/v2/call-analysis/analyze                     0 B                0 B
+10:33:37.277 ├ ƒ /api/v2/call-analysis/recording                   0 B                0 B
+10:33:37.277 ├ ƒ /api/v2/call-analysis/status                      0 B                0 B
+10:33:37.277 ├ ƒ /api/v2/call-analysis/transcribe                  0 B                0 B
+10:33:37.278 ├ ƒ /api/v2/call-logs                                 0 B                0 B
+10:33:37.278 ├ ƒ /api/v2/call-logs/[id]                            0 B                0 B
+10:33:37.278 ├ ƒ /api/v2/callbacks                                 0 B                0 B
+10:33:37.278 ├ ƒ /api/v2/cti/call-end                              0 B                0 B
+10:33:37.278 ├ ƒ /api/v2/cti/incoming-call                         0 B                0 B
+10:33:37.278 ├ ○ /api/v2/dashboard                                 0 B                0 B
+10:33:37.278 ├ ƒ /api/v2/patients                                  0 B                0 B
+10:33:37.278 ├ ƒ /api/v2/patients/[id]                             0 B                0 B
+10:33:37.278 ├ ƒ /api/v2/referrals                                 0 B                0 B
+10:33:37.278 ├ ƒ /api/v2/reports/daily/[date]                      0 B                0 B
+10:33:37.278 ├ ƒ /api/v2/reports/monthly/[yearMonth]               0 B                0 B
+10:33:37.278 ├ ƒ /api/v2/seed                                      0 B                0 B
+10:33:37.278 ├ ƒ /api/v2/settings                                  0 B                0 B
+10:33:37.278 ├ ○ /call-archive                                     3.78 kB         367 kB
+10:33:37.278 ├ ○ /call-logs                                        3.95 kB         367 kB
+10:33:37.278 ├ ○ /event-target-management                          15.7 kB         374 kB
+10:33:37.278 ├ ○ /follow-up                                        8.42 kB         310 kB
+10:33:37.278 ├ ○ /guide                                            4.21 kB         103 kB
+10:33:37.278 ├ ○ /login                                            2.31 kB         140 kB
+10:33:37.278 ├ ○ /management                                       4.83 kB         380 kB
+10:33:37.278 ├ ○ /referrals                                        7.47 kB         310 kB
+10:33:37.278 ├ ƒ /report/daily/[date]                              4.27 kB        91.8 kB
+10:33:37.278 ├ ƒ /report/mobile/[date]                             3.98 kB        91.5 kB
+10:33:37.278 ├ ○ /reports                                          23.6 kB         326 kB
+10:33:37.279 ├ ○ /settings                                         7.06 kB         309 kB
+10:33:37.279 ├ ○ /test/consultation-v2                             6.69 kB        94.2 kB
+10:33:37.279 ├ ○ /test/consultation-v2-table                       7.59 kB        95.1 kB
+10:33:37.279 ├ ○ /test/daily-report-v2                             2.43 kB          90 kB
+10:33:37.279 ├ ○ /test/visit-v2                                    5.17 kB        92.7 kB
+10:33:37.279 ├ ○ /test/visit-v2-table                              13.1 kB         101 kB
+10:33:37.279 ├ ○ /unauthroized                                     2.57 kB         245 kB
+10:33:37.279 ├ ○ /unified-patients                                 4.11 kB         379 kB
+10:33:37.280 ├ ○ /v2/call-logs                                     9.3 kB         96.8 kB
+10:33:37.280 ├ ○ /v2/dashboard                                     7.02 kB        94.5 kB
+10:33:37.280 ├ ○ /v2/patients                                      7.42 kB        94.9 kB
+10:33:37.280 ├ ƒ /v2/patients/[id]                                 10.5 kB        99.5 kB
+10:33:37.280 ├ ○ /v2/referrals                                     5.33 kB        92.9 kB
+10:33:37.280 ├ ○ /v2/reports                                       5.31 kB        92.8 kB
+10:33:37.280 ├ ○ /v2/schedules                                     6.2 kB         93.7 kB
+10:33:37.280 ├ ○ /v2/settings                                      4.13 kB        91.6 kB
+10:33:37.280 └ ○ /visit-management                                 13.4 kB         372 kB
+10:33:37.280 + First Load JS shared by all                         87.5 kB
+10:33:37.280   ├ chunks/2117-3028a251115651fe.js                   31.9 kB
+10:33:37.280   ├ chunks/fd9d1056-4886f45810ca49e7.js               53.6 kB
+10:33:37.280   └ other shared chunks (total)                       1.96 kB
+10:33:37.280 
+10:33:37.280 
+10:33:37.281 ○  (Static)   prerendered as static content
+10:33:37.281 ƒ  (Dynamic)  server-rendered on demand
+10:33:37.281 
+10:33:37.580 Traced Next.js server files in: 44.966ms
+10:33:38.145 Created all serverless functions in: 565.135ms
+10:33:38.161 Collected static files (public/, static/, .next/static): 8.37ms
+10:33:38.289 Build Completed in /vercel/output [57s]
+10:33:38.523 Deploying outputs...
+10:33:48.114 Deployment completed
+10:33:49.004 Creating build cache...
+10:34:00.101 Created build cache: 11.096s
+10:34:00.101 Uploading build cache [219.15 MB]
+10:34:02.493 Build cache uploaded: 2.391s

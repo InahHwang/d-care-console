@@ -1,0 +1,12 @@
+{
+  "Id": "faf95bc2-bff1-44fd-be2a-7401c340eaba",
+  "Type": 1,
+  "CallerNumber": "01030511241",
+  "CalledNumber": "",
+  "EventType": "service_stopped",
+  "ExtInfo": "number=0315672278:status=Success^number=01030511241:status=Success^recfile=http://orec.skbroadband.com/nas_recording/ddz/bM/2Pr/y3/Wbe.wav",
+  "RecordingInfo": null,
+  "Duration": 73,
+  "CreatedAt": "2026-01-07T19:16:41.7602329+09:00",
+  "RetryCount": 59
+}

@@ -119,45 +119,80 @@ async function getRecordingBase64(db: Awaited<ReturnType<typeof connectToDatabas
   }
 }
 
-// OpenAI Transcription API 호출
+// 지연 함수
+function sleep(ms: number): Promise<void> {
+  return new Promise(resolve => setTimeout(resolve, ms));
+}
+
+// OpenAI Transcription API 호출 (429 에러 시 재시도 로직 포함)
 async function transcribeWithOpenAI(audioBuffer: Buffer, fileName: string): Promise<OpenAITranscriptionResponse> {
   const apiKey = process.env.OPENAI_API_KEY;
   if (!apiKey) {
     throw new Error('OPENAI_API_KEY가 설정되지 않았습니다.');
   }
 
-  // FormData 생성
-  const formData = new FormData();
+  const maxRetries = 5;
+  let lastError: Error | null = null;
 
-  // Buffer를 Blob으로 변환
-  const audioBlob = new Blob([audioBuffer], { type: 'audio/wav' });
-  formData.append('file', audioBlob, fileName || 'recording.wav');
-  formData.append('model', 'whisper-1');
-  formData.append('language', 'ko');
-  formData.append('response_format', 'verbose_json');
-  // 타임스탬프 포함
-  formData.append('timestamp_granularities[]', 'word');
+  for (let attempt = 1; attempt <= maxRetries; attempt++) {
+    // FormData 생성
+    const formData = new FormData();
 
-  console.log('[Transcribe] OpenAI API 호출 중...');
+    // Buffer를 Blob으로 변환
+    const audioBlob = new Blob([audioBuffer], { type: 'audio/wav' });
+    formData.append('file', audioBlob, fileName || 'recording.wav');
+    formData.append('model', 'whisper-1');
+    formData.append('language', 'ko');
+    formData.append('response_format', 'verbose_json');
+    // 타임스탬프 포함
+    formData.append('timestamp_granularities[]', 'word');
 
-  const response = await fetch('https://api.openai.com/v1/audio/transcriptions', {
-    method: 'POST',
-    headers: {
-      'Authorization': `Bearer ${apiKey}`,
-    },
-    body: formData,
-  });
+    console.log(`[Transcribe] OpenAI API 호출 중... (시도 ${attempt}/${maxRetries})`);
 
-  if (!response.ok) {
+    const response = await fetch('https://api.openai.com/v1/audio/transcriptions', {
+      method: 'POST',
+      headers: {
+        'Authorization': `Bearer ${apiKey}`,
+      },
+      body: formData,
+    });
+
+    if (response.ok) {
+      const result = await response.json();
+      if (attempt > 1) {
+        console.log(`[Transcribe] OpenAI API 성공 (시도 ${attempt}/${maxRetries})`);
+      } else {
+        console.log('[Transcribe] OpenAI API 응답 성공');
+      }
+      return result;
+    }
+
+    // 429 Rate Limit 에러인 경우 재시도
+    if (response.status === 429) {
+      const retryAfter = response.headers.get('Retry-After');
+      const waitTime = retryAfter ? parseInt(retryAfter) * 1000 : Math.min(1000 * Math.pow(2, attempt), 30000);
+
+      console.log(`[Transcribe] Rate Limit 초과 (429), ${waitTime/1000}초 후 재시도... (시도 ${attempt}/${maxRetries})`);
+
+      if (attempt < maxRetries) {
+        await sleep(waitTime);
+        continue;
+      }
+    }
+
+    // 다른 에러 또는 최대 재시도 횟수 초과
     const errorText = await response.text();
+    lastError = new Error(`OpenAI API 오류: ${response.status} - ${errorText}`);
     console.error('[Transcribe] OpenAI API 오류:', errorText);
-    throw new Error(`OpenAI API 오류: ${response.status} - ${errorText}`);
+
+    // 429 외의 에러는 재시도하지 않음
+    if (response.status !== 429) {
+      throw lastError;
+    }
   }
 
-  const result = await response.json();
-  console.log('[Transcribe] OpenAI API 응답 성공');
-
-  return result;
+  // 최대 재시도 횟수 초과
+  throw lastError || new Error('OpenAI API 최대 재시도 횟수 초과');
 }
 
 // POST - STT 변환 요청

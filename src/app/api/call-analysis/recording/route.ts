@@ -340,6 +340,7 @@ async function triggerV2AnalysisPipeline(callLogId: string) {
 }
 
 // V2 녹취 저장 및 분석 트리거
+// ★ callLogId 파라미터 추가: CTI Bridge에서 직접 전달받은 경우 전화번호 매칭 없이 바로 사용
 async function saveRecordingToV2(
   db: Awaited<ReturnType<typeof connectToDatabase>>['db'],
   callerNumber: string,
@@ -347,7 +348,8 @@ async function saveRecordingToV2(
   recordingFileName: string,
   recordingUrl: string | null,  // 녹취 파일 전체 URL 추가
   recordingBase64: string | null,
-  duration: number
+  duration: number,
+  directCallLogId?: string | null  // ★ CTI Bridge에서 직접 전달받은 callLogId
 ): Promise<{ callLogId: string | null; hasRecording: boolean }> {
   try {
     console.log('='.repeat(50));
@@ -359,14 +361,32 @@ async function saveRecordingToV2(
     console.log(`  recordingBase64 있음: ${!!recordingBase64}`);
     console.log(`  recordingBase64 길이: ${recordingBase64?.length || 0}`);
     console.log(`  duration: ${duration}`);
+    console.log(`  directCallLogId: ${directCallLogId || '없음'}`);  // ★ 추가
     console.log('='.repeat(50));
 
     const now = new Date();
     const formattedCaller = formatPhone(callerNumber);
     const formattedCalled = formatPhone(calledNumber);
 
-    // V2 통화기록 찾기
-    const callLog = await findCallLogV2(db, callerNumber, calledNumber);
+    // ★ directCallLogId가 있으면 전화번호 검색 없이 바로 사용 (정확한 매칭)
+    let callLog = null;
+    if (directCallLogId) {
+      try {
+        callLog = await db.collection('callLogs_v2').findOne({ _id: new ObjectId(directCallLogId) });
+        if (callLog) {
+          console.log(`[CallAnalysis V2] ✅ directCallLogId로 통화기록 직접 찾음: ${directCallLogId}`);
+        } else {
+          console.log(`[CallAnalysis V2] ⚠️ directCallLogId로 통화기록 못찾음, 전화번호 검색으로 fallback`);
+        }
+      } catch (e) {
+        console.error(`[CallAnalysis V2] directCallLogId 조회 오류:`, e);
+      }
+    }
+
+    // directCallLogId로 못 찾으면 전화번호로 검색 (기존 방식 - fallback)
+    if (!callLog) {
+      callLog = await findCallLogV2(db, callerNumber, calledNumber);
+    }
 
     let callLogId: string;
 
@@ -547,7 +567,8 @@ export async function POST(request: NextRequest) {
       recordingFileName,
       recordingBase64,  // CTI Bridge에서 보내는 base64 인코딩된 오디오
       duration,
-      timestamp
+      timestamp,
+      callLogId: directCallLogId  // ★ CTI Bridge에서 직접 전달한 V2 callLogId (ClickCall용)
     } = body;
 
     console.log('='.repeat(60));
@@ -558,6 +579,7 @@ export async function POST(request: NextRequest) {
     console.log(`  통화시간: ${duration}초`);
     console.log(`  시각: ${timestamp}`);
     console.log(`  base64 데이터: ${recordingBase64 ? `있음 (${recordingBase64.length} chars)` : '없음'}`);
+    console.log(`  directCallLogId: ${directCallLogId || '없음 (전화번호 매칭 사용)'}`);  // ★ 추가
     console.log('='.repeat(60));
 
     if (!callerNumber || !recordingFileName) {
@@ -664,7 +686,8 @@ export async function POST(request: NextRequest) {
         recordingFileName,
         body.recordingUrl || null,  // 전체 URL 전달
         recordingBase64 || null,
-        duration || 0
+        duration || 0,
+        directCallLogId || null  // ★ CTI Bridge에서 직접 전달한 callLogId
       );
 
       v2CallLogId = v2Result.callLogId;

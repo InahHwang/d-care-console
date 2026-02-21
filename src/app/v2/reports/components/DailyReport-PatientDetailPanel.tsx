@@ -7,8 +7,9 @@ import Link from 'next/link';
 import { ExternalLink } from 'lucide-react';
 import {
   DailyReportPatient,
-  CONSULTATION_STATUS_CONFIG,
   DISAGREE_REASON_CATEGORIES,
+  getPatientStatusConfig,
+  getNoConsultationConfig,
 } from './types';
 
 // 통화 시간(초)를 분:초 형식으로 변환
@@ -39,7 +40,7 @@ export function DailyReportPatientDetailPanel({
     );
   }
 
-  const config = CONSULTATION_STATUS_CONFIG[patient.status];
+  const config = getPatientStatusConfig(patient);
   const hasDiscount = patient.discountRate > 0;
 
   return (
@@ -88,15 +89,6 @@ export function DailyReportPatientDetailPanel({
             <div className="font-medium">{patient.phone}</div>
           </div>
           <div>
-            <div className="text-sm text-gray-500 mb-1">통화 시간</div>
-            <div className="font-medium">{formatDuration(patient.duration)}</div>
-            <div className="text-xs text-gray-400">{patient.time}</div>
-          </div>
-          <div>
-            <div className="text-sm text-gray-500 mb-1">담당 상담사</div>
-            <div className="font-medium">{patient.consultantName}</div>
-          </div>
-          <div>
             <div className="text-sm text-gray-500 mb-1">금액</div>
             {hasDiscount ? (
               <div className="flex items-center gap-2">
@@ -117,6 +109,22 @@ export function DailyReportPatientDetailPanel({
             ) : (
               <div className="text-gray-400">-</div>
             )}
+          </div>
+          <div>
+            <div className="text-sm text-gray-500 mb-1">나이</div>
+            <div className="font-medium">
+              {patient.age ? `${patient.age}세` : '-'}
+            </div>
+          </div>
+          <div>
+            <div className="text-sm text-gray-500 mb-1">거주지</div>
+            <div className="font-medium">
+              {patient.region
+                ? typeof patient.region === 'string'
+                  ? patient.region
+                  : `${patient.region.province}${patient.region.city ? ` ${patient.region.city}` : ''}`
+                : '-'}
+            </div>
           </div>
         </div>
 
@@ -140,8 +148,59 @@ export function DailyReportPatientDetailPanel({
 
       {/* 본문 섹션 */}
       <div className="p-6 space-y-4">
-        {/* 상담 내용 (AI 요약) - 불렛포인트로 표시 */}
-        {patient.aiSummary && (
+        {/* 미입력 안내 (aiSummary 유무에 따라 상담미입력/결과미입력 구분) */}
+        {patient.status === 'no_consultation' && (() => {
+          const noConsultConfig = getNoConsultationConfig(patient.aiSummary);
+          return (
+          <div className={`${noConsultConfig.bgColor} rounded-xl p-5 border ${noConsultConfig.borderColor}`}>
+            <h3 className="font-semibold text-gray-700 mb-2 flex items-center gap-2">
+              <span>📋</span> {noConsultConfig.label}
+            </h3>
+            <p className="text-gray-600 text-sm">
+              {patient.aiSummary
+                ? '이 환자는 상담은 진행되었으나 결과(동의/미동의/보류)가 입력되지 않았습니다. 상담 결과를 입력해주세요.'
+                : '이 환자는 아직 상담이 진행되지 않았습니다. 상담 완료 후 기록을 입력해주세요.'}
+            </p>
+          </div>
+          );
+        })()}
+
+        {/* 상담 내용 - consultations 배열이 있으면 최신순 표시 */}
+        {patient.consultations && patient.consultations.length > 0 ? (
+          <div className="space-y-3">
+            {[...patient.consultations].reverse().map((entry, idx) => (
+              <div key={idx} className="bg-white rounded-xl p-5 shadow-sm">
+                <div className="flex items-center justify-between mb-3">
+                  <h3 className="font-semibold text-gray-900 flex items-center gap-2">
+                    <span>{entry.type === 'visit' ? '🏥' : '📞'}</span>
+                    {entry.type === 'visit' ? '내원 상담' : '전화 상담'}
+                    <span className="text-xs text-gray-400 font-normal">{entry.time}</span>
+                  </h3>
+                  <div className="flex items-center gap-3 text-sm text-gray-500">
+                    {entry.type !== 'visit' && entry.duration != null && entry.duration > 0 && (
+                      <span>{formatDuration(entry.duration)}</span>
+                    )}
+                    {entry.consultantName && (
+                      <span className="px-2 py-0.5 bg-gray-100 rounded text-xs">{entry.consultantName}</span>
+                    )}
+                  </div>
+                </div>
+                {entry.content ? (
+                  <ul className="space-y-2">
+                    {entry.content.split('\n').filter(line => line.trim()).map((line, lineIdx) => (
+                      <li key={lineIdx} className="flex items-start gap-2 text-gray-700">
+                        <span className="text-blue-500 mt-1">•</span>
+                        <span>{line.trim()}</span>
+                      </li>
+                    ))}
+                  </ul>
+                ) : (
+                  <p className="text-gray-400 text-sm">상담 내용 없음</p>
+                )}
+              </div>
+            ))}
+          </div>
+        ) : patient.aiSummary ? (
           <div className="bg-white rounded-xl p-5 shadow-sm">
             <h3 className="font-semibold text-gray-900 mb-3 flex items-center gap-2">
               <span>📞</span> 상담 내용
@@ -156,7 +215,24 @@ export function DailyReportPatientDetailPanel({
               ))}
             </ul>
           </div>
-        )}
+        ) : null}
+
+        {/* 상담사 메모 (상담 타임라인에 이미 포함된 내용이면 중복 표시 안 함) */}
+        {patient.memo && (() => {
+          const memoTrimmed = patient.memo.trim();
+          const isDuplicate = patient.consultations?.some(
+            (entry) => entry.content?.trim() === memoTrimmed || entry.content?.trim().includes(memoTrimmed)
+          );
+          if (isDuplicate) return null;
+          return (
+            <div className="bg-amber-50 rounded-xl p-5 shadow-sm">
+              <h3 className="font-semibold text-gray-900 mb-3 flex items-center gap-2">
+                <span>📝</span> 상담사 메모
+              </h3>
+              <p className="text-gray-700 whitespace-pre-wrap">{patient.memo}</p>
+            </div>
+          );
+        })()}
 
         {/* 미동의/보류 사유 (카테고리별 그리드) */}
         {(patient.status === 'disagreed' || patient.status === 'pending') &&
@@ -217,26 +293,36 @@ export function DailyReportPatientDetailPanel({
           </div>
         )}
 
-        {/* 콜백 예정 (미동의/보류 시) */}
-        {(patient.status === 'disagreed' || patient.status === 'pending') &&
+        {/* 콜백 예정 (미동의/보류/부재중 시) */}
+        {(patient.status === 'disagreed' || patient.status === 'pending' || patient.status === 'no_answer') &&
           patient.callbackDate && (
             <div
               className={`rounded-xl p-5 border ${
                 patient.status === 'disagreed'
                   ? 'bg-rose-50 border-rose-200'
-                  : 'bg-amber-50 border-amber-200'
+                  : patient.status === 'no_answer'
+                    ? 'bg-slate-50 border-slate-200'
+                    : 'bg-amber-50 border-amber-200'
               }`}
             >
               <h3
                 className={`font-semibold mb-3 flex items-center gap-2 ${
-                  patient.status === 'disagreed' ? 'text-rose-900' : 'text-amber-900'
+                  patient.status === 'disagreed'
+                    ? 'text-rose-900'
+                    : patient.status === 'no_answer'
+                      ? 'text-slate-900'
+                      : 'text-amber-900'
                 }`}
               >
                 <span>📞</span> 콜백 예정
               </h3>
               <p
                 className={`text-2xl font-bold ${
-                  patient.status === 'disagreed' ? 'text-rose-800' : 'text-amber-800'
+                  patient.status === 'disagreed'
+                    ? 'text-rose-800'
+                    : patient.status === 'no_answer'
+                      ? 'text-slate-800'
+                      : 'text-amber-800'
                 }`}
               >
                 {patient.callbackDate}

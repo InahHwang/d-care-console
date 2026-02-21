@@ -2,87 +2,60 @@
 'use client';
 
 import React, { useState, useEffect, useCallback } from 'react';
-import { useRouter } from 'next/navigation';
 import { PageHeader } from '@/components/v2/layout/PageHeader';
 import {
-  StatsCards,
-  AlertsCard,
-  AIAnalysisCard,
-  CallbacksCard,
-  RecentPatientsCard,
-  CallClassificationCard,
   RevenueCard,
   TodayTasksCard,
+  ConversionFunnelCard,
   TodayTasks,
 } from '@/components/v2/dashboard';
-import { Temperature } from '@/types/v2';
+
+interface ConversionRates {
+  newInquiries: {
+    count: number;
+    trend: number;
+  };
+  reservationRate: {
+    value: number;
+    trend: number;
+    count: number;
+  };
+  visitRate: {
+    value: number;
+    trend: number;
+    count: number;
+  };
+  paymentRate: {
+    value: number;
+    trend: number;
+    count: number;
+  };
+}
 
 interface RevenueData {
   thisMonth: {
-    actual: number;
-    estimated: number;
+    confirmed: number;
+    missed: number;
+    missedCount: number;
     patientCount: number;
     paidCount: number;
   };
   lastMonth: {
-    actual: number;
-  };
-  total: {
-    actual: number;
-    estimated: number;
-    patientCount: number;
+    confirmed: number;
   };
   discountRate: number;
   avgRevenue: number;
   growthRate: number;
+  monthlyTarget: number;
 }
 
 interface DashboardData {
-  today: {
-    totalCalls: number;
-    analyzed: number;
-    analyzing: number;
-    newPatients: number;
-    existingPatients: number;
-    missed: number;
-    other: number;
-  };
-  alerts: Array<{
-    id: string;
-    type: string;
-    label: string;
-    count: number;
-    patients: string[];
-    color: 'amber' | 'red' | 'orange';
-  }>;
-  callbacks: Array<{
-    id: string;
-    name: string;
-    phone: string;
-    time: string;
-    interest: string;
-    temperature: Temperature;
-  }>;
-  recentPatients: Array<{
-    id: string;
-    name: string;
-    time: string;
-    interest: string;
-    temperature: Temperature;
-    status: 'new' | 'existing';
-  }>;
-  analysisQueue: Array<{
-    id: string;
-    phone: string;
-    time: string;
-    progress: number;
-  }>;
+  conversionRates: ConversionRates;
   revenue?: RevenueData;
   todayTasks?: TodayTasks;
 }
 
 export default function DashboardPage() {
-  const router = useRouter();
   const [data, setData] = useState<DashboardData | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -120,24 +93,12 @@ export default function DashboardPage() {
     fetchDashboardData();
   };
 
-  const handleCallCallback = (callback: { id: string; phone: string }) => {
-    window.dispatchEvent(new CustomEvent('cti-call', { detail: { phone: callback.phone } }));
-  };
-
-  const handlePatientClick = (patient: { id: string }) => {
-    router.push(`/v2/patients/${patient.id}`);
-  };
-
-  const handleAlertClick = (type: string, item: { id: string }) => {
-    router.push(`/v2/patients/${item.id}`);
-  };
-
   if (error) {
     return (
       <div className="p-6">
         <PageHeader
           title="대시보드"
-          subtitle="오늘의 상담 현황을 한눈에 확인하세요"
+          subtitle="이번달 성과와 오늘 할 일을 확인하세요"
           onRefresh={handleRefresh}
         />
         <div className="mt-6 bg-red-50 border border-red-200 rounded-xl p-6 text-center">
@@ -158,78 +119,32 @@ export default function DashboardPage() {
     <div className="p-6 space-y-6">
       <PageHeader
         title="대시보드"
-        subtitle="오늘의 상담 현황을 한눈에 확인하세요"
+        subtitle="이번달 성과와 오늘 할 일을 확인하세요"
         onRefresh={handleRefresh}
       />
 
-      {/* 2단 그리드: 오늘 통계 + 오늘 할 일 */}
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-        <div className="lg:col-span-2">
-          {/* 오늘의 통계 카드 */}
-          <StatsCards
-            stats={{
-              totalCalls: data?.today.totalCalls ?? 0,
-              newPatients: data?.today.newPatients ?? 0,
-              callbackCount: data?.callbacks?.length ?? 0,
-              missed: data?.today.missed ?? 0,
-            }}
-            loading={loading}
-          />
-        </div>
+      {/* 이번달 성과 (전환율 퍼널) */}
+      <ConversionFunnelCard
+        data={data?.conversionRates ?? null}
+        loading={loading}
+      />
 
+      {/* 2열 그리드: 오늘 할 일 + 매출 */}
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
         {/* 오늘 할 일 카드 */}
         <TodayTasksCard
           tasks={data?.todayTasks ?? null}
           loading={loading}
         />
-      </div>
 
-      {/* 매출 통계 카드 */}
-      <RevenueCard
-        thisMonth={data?.revenue?.thisMonth ?? { actual: 0, estimated: 0, patientCount: 0, paidCount: 0 }}
-        lastMonth={data?.revenue?.lastMonth ?? { actual: 0 }}
-        discountRate={data?.revenue?.discountRate ?? 0}
-        avgRevenue={data?.revenue?.avgRevenue ?? 0}
-        growthRate={data?.revenue?.growthRate ?? 0}
-        loading={loading}
-      />
-
-      {/* 통화 분류 현황 */}
-      <CallClassificationCard
-        newPatients={data?.today.newPatients ?? 0}
-        existingPatients={data?.today.existingPatients ?? 0}
-        missed={data?.today.missed ?? 0}
-        other={data?.today.other ?? 0}
-        onViewCallLogs={() => router.push('/v2/call-logs')}
-        loading={loading}
-      />
-
-      {/* 알림 및 주의 환자 */}
-      <AlertsCard
-        alerts={data?.alerts ?? []}
-        loading={loading}
-      />
-
-      {/* 3열 그리드: 콜백, 최근 환자, AI 분석 */}
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-        <CallbacksCard
-          callbacks={data?.callbacks ?? []}
-          onCall={handleCallCallback}
-          onViewAll={() => router.push('/v2/schedules?tab=callbacks')}
-          loading={loading}
-        />
-
-        <RecentPatientsCard
-          patients={data?.recentPatients ?? []}
-          onPatientClick={handlePatientClick}
-          onViewAll={() => router.push('/v2/patients')}
-          loading={loading}
-        />
-
-        <AIAnalysisCard
-          analyzed={data?.today.analyzed ?? 0}
-          analyzing={data?.today.analyzing ?? 0}
-          queue={data?.analysisQueue ?? []}
+        {/* 매출 통계 카드 */}
+        <RevenueCard
+          thisMonth={data?.revenue?.thisMonth ?? { confirmed: 0, missed: 0, missedCount: 0, patientCount: 0, paidCount: 0 }}
+          lastMonth={data?.revenue?.lastMonth ?? { confirmed: 0 }}
+          discountRate={data?.revenue?.discountRate ?? 0}
+          avgRevenue={data?.revenue?.avgRevenue ?? 0}
+          growthRate={data?.revenue?.growthRate ?? 0}
+          monthlyTarget={data?.revenue?.monthlyTarget ?? 0}
           loading={loading}
         />
       </div>

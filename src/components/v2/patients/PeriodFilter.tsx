@@ -4,7 +4,7 @@
 import React, { useState, useRef, useEffect } from 'react';
 import { Calendar, ChevronDown } from 'lucide-react';
 
-export type PeriodType = '1month' | '3months' | '6months' | '1year' | 'all' | 'custom';
+export type PeriodType = 'thisMonth' | '1month' | '3months' | '6months' | '1year' | 'all' | 'custom';
 
 export interface DateRange {
   startDate: string;
@@ -19,6 +19,7 @@ interface PeriodFilterProps {
 }
 
 const periodOptions: Array<{ id: PeriodType; label: string }> = [
+  { id: 'thisMonth', label: '이번 달' },
   { id: '1month', label: '최근 1개월' },
   { id: '3months', label: '최근 3개월' },
   { id: '6months', label: '최근 6개월' },
@@ -147,6 +148,10 @@ export function getPeriodStartDate(period: PeriodType): string | null {
 
   const now = new Date();
   let monthsBack = 3; // 기본값
+
+  if (period === 'thisMonth') {
+    return new Date(now.getFullYear(), now.getMonth(), 1).toISOString().split('T')[0];
+  }
 
   switch (period) {
     case '1month': monthsBack = 1; break;

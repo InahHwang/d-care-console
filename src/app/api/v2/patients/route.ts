@@ -7,11 +7,17 @@ import { PatientStatus, Temperature, Journey } from '@/types/v2';
 export const dynamic = 'force-dynamic';
 
 interface PatientQuery {
-  status?: PatientStatus | { $ne: string };
+  status?: PatientStatus | { $ne: string } | { $in: string[] };
+  paymentStatus?: string | { $in: string[] } | { $nin: string[] };
   temperature?: Temperature;
   'aiAnalysis.interest'?: { $regex: string; $options: string };
-  $or?: Array<{ name?: { $regex: string; $options: string }; phone?: { $regex: string } }>;
+  $or?: Array<{ name?: string | { $regex: string; $options: string }; phone?: { $regex: string } }>;
   createdAt?: { $gte?: Date; $lte?: Date };
+}
+
+// 정규식 특수문자 이스케이프 함수
+function escapeRegex(str: string): string {
+  return str.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
 }
 
 // 상태별 체류일 경고 임계값 (일)
@@ -32,9 +38,10 @@ type UrgencyType = 'noshow' | 'today' | 'overdue' | 'normal';
 function getUrgency(
   status: PatientStatus,
   nextActionDate: string | Date | null | undefined,
-  daysInStatus: number
+  daysInStatus: number,
+  referenceDate?: Date  // 기준 날짜 (없으면 오늘)
 ): UrgencyType {
-  const now = new Date();
+  const now = referenceDate ? new Date(referenceDate) : new Date();
   now.setHours(0, 0, 0, 0);
 
   if (nextActionDate) {
@@ -43,7 +50,7 @@ function getUrgency(
     const diffDays = Math.round((actionDate.getTime() - now.getTime()) / (1000 * 60 * 60 * 24));
 
     if (diffDays < 0) return 'noshow';  // 예정일 지남
-    if (diffDays === 0) return 'today'; // 오늘
+    if (diffDays === 0) return 'today'; // 기준일과 동일
   } else {
     // nextActionDate 없는 경우: 체류일 임계값 체크
     const threshold = DAYS_THRESHOLD[status];
@@ -60,6 +67,11 @@ function getPeriodStartDate(period: string | null): Date | null {
   if (!period || period === 'all') return null;
 
   const now = new Date();
+
+  if (period === 'thisMonth') {
+    return new Date(now.getFullYear(), now.getMonth(), 1, 0, 0, 0, 0);
+  }
+
   let monthsBack = 3;
 
   switch (period) {
@@ -81,7 +93,7 @@ export async function GET(request: NextRequest) {
     const searchParams = request.nextUrl.searchParams;
     const page = parseInt(searchParams.get('page') || '1');
     const limit = Math.min(parseInt(searchParams.get('limit') || '20'), 50);
-    const status = searchParams.get('status') as PatientStatus | null;
+    const status = searchParams.get('status'); // 단일 상태 또는 콤마 구분 다중 상태
     const temperature = searchParams.get('temperature') as Temperature | null;
     const interest = searchParams.get('interest');
     const search = searchParams.get('search');
@@ -91,6 +103,9 @@ export async function GET(request: NextRequest) {
     const sortBy = searchParams.get('sortBy') || 'createdAt';
     const sortOrder = searchParams.get('sortOrder') === 'asc' ? 1 : -1;
     const urgency = searchParams.get('urgency') as UrgencyType | null; // 긴급 필터
+    const callbackDate = searchParams.get('callbackDate'); // 콜백 날짜 필터 (YYYY-MM-DD)
+    const paymentStatusParam = searchParams.get('paymentStatus'); // 결제상태 필터
+    const hasEstimate = searchParams.get('hasEstimate') === 'true'; // 견적 있는 환자만
 
     const { db } = await connectToDatabase();
     const collection = db.collection('patients_v2');
@@ -99,10 +114,29 @@ export async function GET(request: NextRequest) {
     const query: PatientQuery = {};
 
     if (status) {
-      // 특정 상태 필터링 (closed 포함)
-      query.status = status;
+      // 콤마 구분 다중 상태 지원 (대시보드 전환율 클릭 등)
+      if (status.includes(',')) {
+        query.status = { $in: status.split(',') };
+      } else {
+        query.status = status as PatientStatus;
+      }
     }
     // 상태 필터가 없으면 전체 환자 표시 (종결 포함)
+
+    if (paymentStatusParam) {
+      if (paymentStatusParam === 'none') {
+        // 미결제 환자: paymentStatus가 partial/completed가 아닌 환자
+        query.paymentStatus = { $nin: ['partial', 'completed'] };
+      } else if (paymentStatusParam.includes(',')) {
+        query.paymentStatus = { $in: paymentStatusParam.split(',') };
+      } else {
+        query.paymentStatus = paymentStatusParam;
+      }
+    }
+
+    if (hasEstimate) {
+      (query as any).estimatedAmount = { $gt: 0 };
+    }
 
     if (temperature) {
       query.temperature = temperature;
@@ -113,12 +147,19 @@ export async function GET(request: NextRequest) {
     }
 
     if (search) {
+      const trimmedSearch = search.trim();
+      const escapedSearch = escapeRegex(trimmedSearch);
+
       // 전화번호 검색: 대시 유무와 관계없이 검색
-      const phoneDigits = search.replace(/\D/g, ''); // 숫자만 추출
-      const orConditions: Array<{ name?: { $regex: string; $options: string }; phone?: { $regex: string } }> = [
-        { name: { $regex: search, $options: 'i' } },
-        { phone: { $regex: search } },  // 원본 그대로 검색
-      ];
+      const phoneDigits = trimmedSearch.replace(/\D/g, ''); // 숫자만 추출
+      const orConditions: Array<{ name?: string | { $regex: string; $options: string }; phone?: { $regex: string } }> = [];
+
+      // 이름 검색: 검색어로 "시작"하는 이름 매칭
+      // "박황" → "박황제" 찾음, "박신규" → "박신규"만 찾음 (박씨 전체 X)
+      orConditions.push({ name: { $regex: `^${escapedSearch}`, $options: 'i' } });
+
+      // 전화번호 검색 (부분 매칭 유지)
+      orConditions.push({ phone: { $regex: escapedSearch } });
 
       // 숫자가 4자리 이상이면 뒷자리로도 검색 (더 유연한 매칭)
       if (phoneDigits.length >= 4) {
@@ -200,9 +241,15 @@ export async function GET(request: NextRequest) {
         .limit(limit)
         .toArray(),
       collection.countDocuments(query),
-      // 필터 통계 (전체 + 각 상태별)
-      collection.aggregate([
-        {
+      // 필터 통계 (기간+검색 필터 적용, 상태 필터 제외)
+      (() => {
+        const baseQuery: Record<string, unknown> = { ...query };
+        delete baseQuery.status; // 상태 필터 제외 (각 상태별로 따로 카운트)
+        const pipeline: Record<string, unknown>[] = [];
+        if (Object.keys(baseQuery).length > 0) {
+          pipeline.push({ $match: baseQuery });
+        }
+        pipeline.push({
           $facet: {
             all: [{ $count: 'count' }],
             consulting: [{ $match: { status: 'consulting' } }, { $count: 'count' }],
@@ -214,8 +261,9 @@ export async function GET(request: NextRequest) {
             followup: [{ $match: { status: 'followup' } }, { $count: 'count' }],
             closed: [{ $match: { status: 'closed' } }, { $count: 'count' }],
           },
-        },
-      ]).toArray(),
+        });
+        return collection.aggregate(pipeline).toArray();
+      })(),
     ]);
 
     // 필터 통계 정리
@@ -246,9 +294,9 @@ export async function GET(request: NextRequest) {
     // 체류일 및 긴급도 계산
     const now = new Date();
 
-    // 기간 필터가 적용된 환자들의 긴급 통계 계산 (종결 환자 제외)
+    // 기간 필터가 적용된 환자들의 긴급 통계 계산 (종결/완료 환자 제외)
     const periodQuery: Record<string, unknown> = {
-      status: { $ne: 'closed' }
+      status: { $nin: ['closed', 'completed'] }
     };
     const periodStartDate = getPeriodStartDate(period);
     if (periodStartDate) {
@@ -321,9 +369,20 @@ export async function GET(request: NextRequest) {
     });
 
     // 긴급 필터 적용 (클라이언트 사이드 필터링 - 페이지네이션 재계산 필요)
+    // callbackDate가 있으면 해당 날짜를 기준으로 'today' 필터링
+    const urgencyReferenceDate = (urgency === 'today' && callbackDate)
+      ? new Date(callbackDate + 'T00:00:00')
+      : undefined;
+
     if (urgency && urgency !== 'normal') {
+      // status 필터가 있으면 urgentSource에도 적용 (대시보드 세부 항목 클릭 시)
+      let urgentSource = allPatientsForUrgent;
+      if (status) {
+        const statusList = status.includes(',') ? status.split(',') : [status];
+        urgentSource = urgentSource.filter((p) => statusList.includes(p.status));
+      }
       // 전체 환자를 긴급도 기준으로 필터링
-      const allMapped = allPatientsForUrgent.map((p) => {
+      const allMapped = urgentSource.map((p) => {
         // 치료중 상태일 때는 treatmentStartDate 우선 사용
         let statusDate: Date;
         if (p.status === 'treatment' && p.treatmentStartDate) {
@@ -348,7 +407,7 @@ export async function GET(request: NextRequest) {
           nextActionDate: p.nextActionDate || null,
           nextActionNote: p.nextActionNote || '',
           daysInStatus: days,
-          urgency: getUrgency(p.status, p.nextActionDate, days),
+          urgency: getUrgency(p.status, p.nextActionDate, days, urgencyReferenceDate),
           age: p.age || undefined,
           region: p.region || undefined,
           // 금액 관련 필드
@@ -409,7 +468,9 @@ export async function GET(request: NextRequest) {
 export async function POST(request: NextRequest) {
   try {
     const body = await request.json();
-    const { name, phone, consultationType, interest, source, temperature = 'warm', nextAction, age, region } = body;
+    const { name, phone, consultationType, interest, source, temperature = 'warm', nextAction, age, region, firstConsultDate, changedBy } = body;
+
+    console.log('[Patient POST] changedBy 받음:', changedBy, '| body.changedBy:', body.changedBy);
 
     if (!name || !phone) {
       return NextResponse.json(
@@ -434,19 +495,38 @@ export async function POST(request: NextRequest) {
     const journeyId = new ObjectId().toString();
     const treatmentType = interest || '일반진료';
 
+    // 첫 상담일 결정: 1) 수동 입력 → 2) 통화기록 첫 통화일 → 3) 현재 시간
+    let consultEventDate = now;
+
+    if (firstConsultDate) {
+      // 수동 입력된 상담일 사용
+      consultEventDate = new Date(firstConsultDate);
+    } else {
+      // 통화기록에서 첫 통화일 조회
+      const firstCallLog = await db.collection('callLogs_v2')
+        .find({ phone })
+        .sort({ callTime: 1 })
+        .limit(1)
+        .toArray();
+
+      if (firstCallLog.length > 0 && firstCallLog[0].callTime) {
+        consultEventDate = new Date(firstCallLog[0].callTime);
+      }
+    }
+
     // 첫 번째 여정 생성
     const firstJourney: Journey = {
       id: journeyId,
       treatmentType,
       status: 'consulting' as PatientStatus,
-      startedAt: now,
+      startedAt: consultEventDate,
       paymentStatus: 'none',
       statusHistory: [{
         from: 'consulting' as PatientStatus,
         to: 'consulting' as PatientStatus,
-        eventDate: now,
+        eventDate: consultEventDate,
         changedAt: now,
-        changedBy: '시스템',
+        changedBy: changedBy || '시스템',
       }],
       isActive: true,
       createdAt: now,
@@ -472,8 +552,8 @@ export async function POST(request: NextRequest) {
       // 시간 필드
       createdAt: now,
       updatedAt: now,
-      lastContactAt: now,
-      statusChangedAt: now,
+      lastContactAt: consultEventDate,
+      statusChangedAt: consultEventDate,
       nextAction: nextAction || '',
     };
 

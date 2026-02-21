@@ -33,6 +33,7 @@ import {
 } from 'lucide-react';
 import { Pagination } from '@/components/v2/ui/Pagination';
 import { Temperature } from '@/types/v2';
+import { useAppSelector } from '@/hooks/reduxHooks';
 
 interface CallLog {
   id: string;
@@ -177,6 +178,7 @@ const REGION_DATA: Record<string, string[]> = {
 const PROVINCES = Object.keys(REGION_DATA);
 
 function RegisterPatientModal({ call, onClose, onSuccess }: RegisterPatientModalProps) {
+  const user = useAppSelector((state) => state.auth.user);
   const [name, setName] = useState(call.patientName || '');
   const [phone] = useState(call.phone);
   const [consultationType, setConsultationType] = useState('');
@@ -240,6 +242,7 @@ function RegisterPatientModal({ call, onClose, onSuccess }: RegisterPatientModal
         consultationType,
         interest,
         source,
+        changedBy: user?.name || '시스템',
       };
 
       // 나이 추가 (입력된 경우)
@@ -816,6 +819,10 @@ function formatCalledNumber(calledNumber?: string) {
 function CallLogsPageContent() {
   const router = useRouter();
   const searchParams = useSearchParams();
+  const { user } = useAppSelector((state) => state.auth);
+
+  // 관리자 권한 체크 (admin 또는 master만 녹취 재생 가능)
+  const isAdmin = user?.role === 'admin' || user?.role === 'master';
 
   const initialFilter = (searchParams.get('filter') as ClassificationFilter) || 'all';
 
@@ -823,7 +830,10 @@ function CallLogsPageContent() {
   const [loading, setLoading] = useState(true);
   const [filter, setFilter] = useState<ClassificationFilter>(initialFilter);
   const [searchQuery, setSearchQuery] = useState('');
+  const [searchInput, setSearchInput] = useState(''); // 입력값 (즉시 반영)
   const [currentPage, setCurrentPage] = useState(1);
+  const searchTimeoutRef = useRef<NodeJS.Timeout | null>(null);
+  const abortControllerRef = useRef<AbortController | null>(null);
   const [pagination, setPagination] = useState({ totalCount: 0, totalPages: 1 });
   const [stats, setStats] = useState<CallLogStats | null>(null);
   const [selectedCall, setSelectedCall] = useState<CallLog | null>(null);
@@ -845,6 +855,12 @@ function CallLogsPageContent() {
   const audioRef = useRef<HTMLAudioElement | null>(null);
 
   const fetchCallLogs = useCallback(async () => {
+    // 이전 요청 취소
+    if (abortControllerRef.current) {
+      abortControllerRef.current.abort();
+    }
+    abortControllerRef.current = new AbortController();
+
     setLoading(true);
     try {
       const params = new URLSearchParams();
@@ -878,7 +894,9 @@ function CallLogsPageContent() {
         params.set('direction', directionFilter);
       }
 
-      const response = await fetch(`/api/v2/call-logs?${params.toString()}`);
+      const response = await fetch(`/api/v2/call-logs?${params.toString()}`, {
+        signal: abortControllerRef.current.signal,
+      });
       if (!response.ok) throw new Error('Failed to fetch');
 
       const data: CallLogResponse = await response.json();
@@ -889,6 +907,10 @@ function CallLogsPageContent() {
       });
       setStats(data.stats);
     } catch (error) {
+      // 요청 취소된 경우 무시
+      if (error instanceof Error && error.name === 'AbortError') {
+        return;
+      }
       console.error('Error fetching call logs:', error);
     } finally {
       setLoading(false);
@@ -898,6 +920,18 @@ function CallLogsPageContent() {
   useEffect(() => {
     fetchCallLogs();
   }, [fetchCallLogs]);
+
+  // Cleanup: 컴포넌트 언마운트 시 타이머와 요청 취소
+  useEffect(() => {
+    return () => {
+      if (searchTimeoutRef.current) {
+        clearTimeout(searchTimeoutRef.current);
+      }
+      if (abortControllerRef.current) {
+        abortControllerRef.current.abort();
+      }
+    };
+  }, []);
 
   useEffect(() => {
     const params = new URLSearchParams();
@@ -919,8 +953,19 @@ function CallLogsPageContent() {
   };
 
   const handleSearch = (e: React.ChangeEvent<HTMLInputElement>) => {
-    setSearchQuery(e.target.value);
-    setCurrentPage(1);
+    const value = e.target.value;
+    setSearchInput(value); // 입력값 즉시 반영 (UI)
+
+    // 이전 타이머 취소
+    if (searchTimeoutRef.current) {
+      clearTimeout(searchTimeoutRef.current);
+    }
+
+    // 300ms 후에 실제 검색 실행 (debounce)
+    searchTimeoutRef.current = setTimeout(() => {
+      setSearchQuery(value);
+      setCurrentPage(1);
+    }, 300);
   };
 
   // 날짜 네비게이션
@@ -1413,7 +1458,7 @@ function CallLogsPageContent() {
                 <input
                   type="text"
                   placeholder="전화번호, 이름 검색"
-                  value={searchQuery}
+                  value={searchInput}
                   onChange={handleSearch}
                   className="pl-10 pr-4 py-2 border border-gray-200 rounded-lg w-64 focus:outline-none focus:ring-2 focus:ring-blue-500"
                 />
@@ -1622,7 +1667,8 @@ function CallLogsPageContent() {
                 </div>
               </div>
 
-              {selectedCall.duration > 0 && (
+              {/* 녹취 재생 - 관리자만 표시 */}
+              {isAdmin && selectedCall.duration > 0 && (
                 <div className="space-y-2">
                   <div className="flex gap-2">
                     <button

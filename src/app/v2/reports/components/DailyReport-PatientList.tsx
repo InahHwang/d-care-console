@@ -3,19 +3,22 @@
 'use client';
 
 import React from 'react';
-import { DailyReportPatient, CONSULTATION_STATUS_CONFIG } from './types';
+import { DailyReportPatient, getPatientStatusConfig } from './types';
 
 interface DailyReportPatientListProps {
   patients: DailyReportPatient[];
   selectedId: string | null;
   onSelect: (patient: DailyReportPatient) => void;
-  filter: 'all' | 'agreed' | 'disagreed' | 'pending';
-  onFilterChange: (filter: 'all' | 'agreed' | 'disagreed' | 'pending') => void;
+  filter: 'all' | 'agreed' | 'disagreed' | 'pending' | 'no_answer' | 'no_consultation' | 'closed';
+  onFilterChange: (filter: 'all' | 'agreed' | 'disagreed' | 'pending' | 'no_answer' | 'no_consultation' | 'closed') => void;
   summary: {
     total: number;
     agreed: number;
     disagreed: number;
     pending: number;
+    noAnswer: number;
+    noConsultation: number;
+    closed?: number;
   };
 }
 
@@ -32,29 +35,32 @@ export function DailyReportPatientList({
     (p) => filter === 'all' || p.status === filter
   );
 
-  // 정렬: 미동의 → 보류 → 동의 순서
+  // 정렬: 미동의 → 보류 → 결과미입력 → 동의 순서
   const sortedPatients = [...filteredPatients].sort((a, b) => {
-    const order = { disagreed: 0, pending: 1, agreed: 2 };
-    return order[a.status] - order[b.status];
+    const order: Record<string, number> = { disagreed: 0, pending: 1, no_answer: 2, no_consultation: 3, closed: 4, agreed: 5 };
+    return (order[a.status] ?? 99) - (order[b.status] ?? 99);
   });
 
   const filterButtons = [
     { key: 'all' as const, label: '전체', count: summary.total },
     { key: 'disagreed' as const, label: '미동의', count: summary.disagreed },
     { key: 'pending' as const, label: '보류', count: summary.pending },
+    { key: 'no_answer' as const, label: '부재중', count: summary.noAnswer },
+    { key: 'no_consultation' as const, label: '미입력', count: summary.noConsultation },
     { key: 'agreed' as const, label: '동의', count: summary.agreed },
+    ...((summary.closed ?? 0) > 0 ? [{ key: 'closed' as const, label: '종결', count: summary.closed! }] : []),
   ];
 
   return (
     <div className="flex flex-col h-full">
       {/* 필터 버튼 */}
       <div className="p-4 border-b border-gray-200 bg-gray-50">
-        <div className="flex gap-2">
+        <div className="flex gap-2 overflow-x-auto scrollbar-hide">
           {filterButtons.map((btn) => (
             <button
               key={btn.key}
               onClick={() => onFilterChange(btn.key)}
-              className={`px-4 py-2 rounded-lg text-sm font-medium transition-colors ${
+              className={`px-3 md:px-4 py-2 rounded-lg text-sm font-medium transition-colors whitespace-nowrap ${
                 filter === btn.key
                   ? 'bg-blue-500 text-white'
                   : 'bg-white text-gray-600 hover:bg-gray-100 border border-gray-200'
@@ -67,7 +73,7 @@ export function DailyReportPatientList({
       </div>
 
       {/* 환자 목록 */}
-      <div className="flex-1 overflow-y-auto">
+      <div className="flex-1 min-h-0 overflow-y-auto">
         {sortedPatients.length === 0 ? (
           <div className="p-8 text-center text-gray-500">
             해당 조건의 상담 내역이 없습니다.
@@ -97,7 +103,7 @@ function PatientListItem({
   isSelected: boolean;
   onSelect: (patient: DailyReportPatient) => void;
 }) {
-  const config = CONSULTATION_STATUS_CONFIG[patient.status];
+  const config = getPatientStatusConfig(patient);
   const hasDiscount = patient.discountRate > 0;
 
   return (
@@ -122,6 +128,11 @@ function PatientListItem({
           {patient.consultationNumber && patient.consultationNumber > 1 && (
             <span className="px-1.5 py-0.5 bg-blue-100 text-blue-700 text-xs rounded font-medium">
               {patient.consultationNumber}차
+            </span>
+          )}
+          {patient.consultations && patient.consultations.length > 1 && (
+            <span className="px-1.5 py-0.5 bg-violet-100 text-violet-700 text-xs rounded font-medium">
+              상담 {patient.consultations.length}건
             </span>
           )}
         </div>
@@ -155,12 +166,22 @@ function PatientListItem({
           </div>
         )}
 
-      {/* 4행: 예약일 (동의 시) */}
+      {/* 4행: 예약일 (동의 시) 또는 콜백 예정일 (부재중/미동의/보류 시) */}
       {patient.status === 'agreed' && patient.appointmentDate && (
         <div className="text-sm text-emerald-600 mb-2">
           예약 {patient.appointmentDate}
         </div>
       )}
+      {(patient.status === 'no_answer' || patient.status === 'disagreed' || patient.status === 'pending') &&
+        patient.callbackDate && (
+          <div className={`text-sm mb-2 ${
+            patient.status === 'no_answer' ? 'text-slate-600' :
+            patient.status === 'disagreed' ? 'text-rose-600' :
+            'text-amber-600'
+          }`}>
+            📞 콜백 {patient.callbackDate}
+          </div>
+        )}
 
       {/* 5행: 금액 */}
       <div className="flex items-center gap-2">

@@ -1,0 +1,12 @@
+{
+  "Id": "5332ce7b-1038-400f-950d-1062725bf9fe",
+  "Type": 1,
+  "CallerNumber": "01054419822",
+  "CalledNumber": "07047414202",
+  "EventType": "service_stopped",
+  "ExtInfo": "number=0315672278:status=NoAnswer^number=07047414202:status=ServiceCancel",
+  "RecordingInfo": null,
+  "Duration": 120,
+  "CreatedAt": "2026-01-06T22:49:45.3080803+09:00",
+  "RetryCount": 201
+}

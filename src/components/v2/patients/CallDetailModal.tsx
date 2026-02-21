@@ -3,6 +3,7 @@
 
 import React, { useState, useEffect, useRef } from 'react';
 import { X, Phone, Clock, FileText, Play, Pause, Volume2, AlertCircle, Loader2, Square } from 'lucide-react';
+import { useAppSelector } from '@/hooks/reduxHooks';
 
 // AI 요약 텍스트를 bullet point로 포맷팅하는 함수
 function formatSummaryWithBullets(summary: string): string[] {
@@ -74,6 +75,11 @@ export function CallDetailModal({
   onClose,
   callLogId,
 }: CallDetailModalProps) {
+  const { user } = useAppSelector((state) => state.auth);
+
+  // 관리자 권한 체크 (admin 또는 master만 녹취 재생 가능)
+  const isAdmin = user?.role === 'admin' || user?.role === 'master';
+
   const [callDetail, setCallDetail] = useState<CallDetail | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -258,8 +264,8 @@ export function CallDetailModal({
                 </div>
               </div>
 
-              {/* 녹취 재생 */}
-              {callDetail.recordingUrl && (
+              {/* 녹취 재생 - 관리자만 표시 */}
+              {isAdmin && callDetail.recordingUrl && (
                 <div className="bg-gradient-to-r from-purple-50 to-blue-50 rounded-xl p-4">
                   <div className="flex items-center justify-between">
                     <div className="flex items-center gap-3">
@@ -383,8 +389,8 @@ export function CallDetailModal({
                     )}
                   </div>
 
-                  {/* 전사 텍스트 */}
-                  {callDetail.aiAnalysis.transcript && (
+                  {/* 전사 텍스트 - 관리자(admin, master)만 표시 */}
+                  {isAdmin && callDetail.aiAnalysis.transcript && (
                     <div className="border-t pt-4">
                       <h4 className="font-bold text-gray-900 mb-3">통화 전문</h4>
                       <div className="bg-gray-50 rounded-lg p-4 max-h-64 overflow-y-auto">

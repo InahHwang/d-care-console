@@ -8,6 +8,7 @@ import {
   UserPlus,
   Loader2,
 } from 'lucide-react';
+import { useAppSelector } from '@/hooks/reduxHooks';
 
 interface CategoryItem {
   id: string;
@@ -41,6 +42,7 @@ const PROVINCES = Object.keys(REGION_DATA);
 
 export default function NewPatientPage() {
   const router = useRouter();
+  const user = useAppSelector((state) => state.auth.user);
 
   const [name, setName] = useState('');
   const [phone, setPhone] = useState('');
@@ -51,6 +53,7 @@ export default function NewPatientPage() {
   const [province, setProvince] = useState('');
   const [city, setCity] = useState('');
   const [memo, setMemo] = useState('');
+  const [firstConsultDate, setFirstConsultDate] = useState(''); // 첫 상담일 (수동 입력용)
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState('');
 
@@ -130,6 +133,8 @@ export default function NewPatientPage() {
         interest,
         source,
         memo,
+        firstConsultDate: firstConsultDate || undefined, // 수동 입력한 첫 상담일
+        changedBy: user?.name || '시스템',
       };
 
       if (age) {
@@ -303,6 +308,24 @@ export default function NewPatientPage() {
                 ))}
               </select>
             )}
+          </div>
+
+          {/* 첫 상담일 */}
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-2">
+              첫 상담일
+              <span className="text-gray-400 font-normal ml-2">(선택)</span>
+            </label>
+            <input
+              type="date"
+              value={firstConsultDate}
+              onChange={(e) => setFirstConsultDate(e.target.value)}
+              max={new Date().toISOString().split('T')[0]}
+              className="w-full px-4 py-3 border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+            />
+            <p className="text-xs text-gray-400 mt-1">
+              비워두면 통화기록에서 자동으로 가져옵니다
+            </p>
           </div>
         </div>
 

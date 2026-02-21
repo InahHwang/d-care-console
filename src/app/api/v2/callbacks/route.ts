@@ -19,11 +19,14 @@ export async function GET(request: NextRequest) {
 
     const { db } = await connectToDatabase();
 
+    // KST(UTC+9) 보정: 클라이언트에서 보내는 date는 KST 날짜
+    const KST_OFFSET = 9 * 60 * 60 * 1000;
+
     // 1. callbacks_v2 컬렉션에서 조회
     const callbackFilter: Record<string, unknown> = {};
     if (date) {
-      const startOfDay = new Date(`${date}T00:00:00.000Z`);
-      const endOfDay = new Date(`${date}T23:59:59.999Z`);
+      const startOfDay = new Date(new Date(`${date}T00:00:00.000Z`).getTime() - KST_OFFSET);
+      const endOfDay = new Date(new Date(`${date}T23:59:59.999Z`).getTime() - KST_OFFSET);
       callbackFilter.scheduledAt = { $gte: startOfDay, $lte: endOfDay };
     }
     if (status) callbackFilter.status = status;
@@ -65,15 +68,15 @@ export async function GET(request: NextRequest) {
     }
 
     if (date) {
-      // 날짜 문자열 또는 Date 객체 모두 처리
-      const startOfDay = new Date(`${date}T00:00:00.000Z`);
-      const endOfDay = new Date(`${date}T23:59:59.999Z`);
+      // KST 날짜 기준으로 범위 계산
+      const startOfDay = new Date(new Date(`${date}T00:00:00.000Z`).getTime() - KST_OFFSET);
+      const endOfDay = new Date(new Date(`${date}T23:59:59.999Z`).getTime() - KST_OFFSET);
       patientFilter.$or = [
         // Date 객체로 저장된 경우
         { nextActionDate: { $gte: startOfDay, $lte: endOfDay } },
         // ISO 문자열로 저장된 경우
         { nextActionDate: { $gte: startOfDay.toISOString(), $lte: endOfDay.toISOString() } },
-        // YYYY-MM-DD 형식으로 저장된 경우
+        // YYYY-MM-DD 형식으로 저장된 경우 (이미 KST 날짜)
         { nextActionDate: { $regex: `^${date}` } }
       ];
       delete patientFilter.nextActionDate;
@@ -126,12 +129,11 @@ export async function GET(request: NextRequest) {
     const paginatedCallbacks = allCallbacks.slice((page - 1) * limit, page * limit);
     const totalCount = allCallbacks.length;
 
-    // 4. 오늘 통계 (두 소스 합산)
-    const today = new Date();
-    today.setHours(0, 0, 0, 0);
-    const tomorrow = new Date(today);
-    tomorrow.setDate(tomorrow.getDate() + 1);
-    const todayStr = today.toISOString().split('T')[0];
+    // 4. 오늘 통계 (두 소스 합산) - KST 기준
+    const kstNow = new Date(Date.now() + KST_OFFSET);
+    const today = new Date(Date.UTC(kstNow.getUTCFullYear(), kstNow.getUTCMonth(), kstNow.getUTCDate()) - KST_OFFSET);
+    const tomorrow = new Date(today.getTime() + 24 * 60 * 60 * 1000);
+    const todayStr = `${kstNow.getUTCFullYear()}-${String(kstNow.getUTCMonth() + 1).padStart(2, '0')}-${String(kstNow.getUTCDate()).padStart(2, '0')}`;
 
     // callbacks_v2 통계
     const [callbackStats] = await db.collection('callbacks_v2').aggregate([

@@ -5,7 +5,10 @@ import { NextRequest, NextResponse } from 'next/server';
 import { connectToDatabase } from '@/utils/mongodb';
 import { ObjectId } from 'mongodb';
 import Pusher from 'pusher';
-import type { AIAnalysis, AIConsultationResult, Temperature, AIClassification, FollowUpType, ConsultationStatus, ConsultationV2 } from '@/types/v2';
+import type { AIAnalysis, AIConsultationResult, Temperature, AIClassification, FollowUpType, ConsultationStatus } from '@/types/v2';
+
+// Vercel Function 타임아웃 설정
+export const maxDuration = 60;
 
 const pusher = new Pusher({
   appId: process.env.PUSHER_APP_ID!,
@@ -377,16 +380,6 @@ export async function POST(request: NextRequest) {
       await updatePatientWithAnalysis(db, callLog.patientId, analysis);
     }
 
-    // 자동 상담 결과 저장 (신환/구신환만, 조건 충족 시)
-    if (callLog.patientId && ['신환', '구신환'].includes(analysis.classification)) {
-      await createAutoConsultation(db, {
-        patientId: callLog.patientId,
-        callLogId,
-        analysis,
-        duration: callLog.duration || 0,
-      });
-    }
-
     // Pusher로 분석 완료 알림
     try {
       await pusher.trigger('cti-v2', 'analysis-complete', {
@@ -508,92 +501,3 @@ async function updatePatientWithAnalysis(
   }
 }
 
-// 자동 상담 결과 저장
-async function createAutoConsultation(
-  db: Awaited<ReturnType<typeof connectToDatabase>>['db'],
-  data: {
-    patientId: string;
-    callLogId: string;
-    analysis: AIAnalysis;
-    duration: number;
-  }
-): Promise<void> {
-  const { patientId, callLogId, analysis, duration } = data;
-
-  try {
-    // 조건 체크: 통화 시간 30초 미만이면 스킵
-    if (duration < 30) {
-      console.log(`[Analyze v2] 통화 시간 ${duration}초 - 자동 상담 결과 생성 스킵`);
-      return;
-    }
-
-    // 조건 체크: consultationResult 없거나 신뢰도 낮으면 스킵
-    const consultationResult = analysis.consultationResult;
-    if (!consultationResult || (consultationResult.confidence && consultationResult.confidence < 0.6)) {
-      console.log(`[Analyze v2] 신뢰도 낮음 - 자동 상담 결과 생성 스킵`);
-      return;
-    }
-
-    // 중복 체크: 같은 callLogId로 이미 존재하면 스킵
-    const existingConsultation = await db.collection('consultations_v2').findOne({
-      callLogId: callLogId,
-    });
-
-    if (existingConsultation) {
-      console.log(`[Analyze v2] 이미 상담 결과 존재 - 스킵 (callLogId: ${callLogId})`);
-      return;
-    }
-
-    const now = new Date().toISOString();
-    const status = consultationResult.status || 'pending';
-
-    // 새 상담 결과 생성
-    const newConsultation: Omit<ConsultationV2, '_id'> = {
-      patientId,
-      callLogId,
-      type: 'phone',
-      date: new Date(now),
-      treatment: analysis.interest || '',
-      originalAmount: consultationResult.estimatedAmount || 0,
-      discountRate: 0,
-      discountAmount: 0,
-      finalAmount: status === 'agreed' ? (consultationResult.estimatedAmount || 0) : 0,
-      discountReason: undefined,
-      status,
-      disagreeReasons: status === 'disagreed' ? consultationResult.disagreeReasons : undefined,
-      correctionPlan: undefined,
-      appointmentDate: status === 'agreed' && consultationResult.appointmentDate
-        ? new Date(consultationResult.appointmentDate)
-        : undefined,
-      callbackDate: undefined, // 상담사가 설정
-      consultantName: '(AI 자동분류)',
-      inquiry: undefined,
-      memo: undefined,
-      aiSummary: analysis.summary,
-      aiGenerated: true,
-      createdAt: now,
-    };
-
-    await db.collection('consultations_v2').insertOne(newConsultation);
-
-    console.log(`[Analyze v2] 자동 상담 결과 생성: ${patientId}, 상태: ${status}`);
-
-    // 동의인 경우 환자 상태 업데이트
-    if (status === 'agreed') {
-      await db.collection('patients_v2').updateOne(
-        { _id: new ObjectId(patientId) },
-        {
-          $set: {
-            status: 'reserved',
-            statusChangedAt: now,
-            updatedAt: now,
-          },
-        }
-      );
-      console.log(`[Analyze v2] 환자 상태 변경: reserved (동의)`);
-    }
-  } catch (error) {
-    console.error('[Analyze v2] 자동 상담 결과 생성 오류:', error);
-    // 오류가 발생해도 전체 프로세스는 중단하지 않음
-  }
-}

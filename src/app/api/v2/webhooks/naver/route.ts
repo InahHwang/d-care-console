@@ -91,8 +91,12 @@ export async function POST(request: NextRequest) {
 
     switch (event) {
       case 'open': {
-        // 채팅창 진입 - 대화방 생성 또는 활성화
-        await handleOpenEvent(db, user, body as NaverOpenEvent, now);
+        // 채팅창 진입 - 로그만 기록 (대화방은 실제 메시지 수신 시 생성)
+        // 예약알림 등 시스템 알림은 open 이벤트만 오고 메시지가 없으므로 필터링됨
+        console.log('[네이버 웹훅] 채팅창 진입:', user, {
+          inflow: (body as NaverOpenEvent).options?.inflow,
+          referer: (body as NaverOpenEvent).options?.referer,
+        });
         break;
       }
 

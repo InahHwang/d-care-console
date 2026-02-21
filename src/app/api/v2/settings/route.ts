@@ -2,6 +2,9 @@
 // 설정 관리 API
 
 import { NextRequest, NextResponse } from 'next/server';
+
+// 캐싱 방지: 항상 최신 설정 데이터 반환
+export const dynamic = 'force-dynamic';
 import { connectToDatabase } from '@/utils/mongodb';
 
 interface Settings {

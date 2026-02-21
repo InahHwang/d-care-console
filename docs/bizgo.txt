@@ -1,0 +1,17 @@
+비즈고(인포뱅크) Omni API V2로 카카오 상담톡 연동 이어서 진행해줘.
+
+  현재 상황:
+  - 통합 API 키 발급 완료
+  - 발신프로필 키(senderKey): 1508b3ea718d8fe0f46dd88754c23ace51687451
+
+  API 스펙:
+  - 메시지 수신 웹훅: 비즈고가 POST {우리서버}/cstalk/message로 전달 (msgKey, userKey, senderKey, msgType, contents 등)
+  - 메시지 발송: POST https://mars.ibapi.kr/api/comm/v1/send/cstalk/plain (Authorization: {ApiKey})
+  - 발송 파라미터: userKey, senderKey, msgType(TEXT/IMAGE/FILE), message
+  - 수신 문서: https://infobank-guide.gitbook.io/omni-api-v2/comm/kakao/cstalk/chat-recv/message
+  - 발송 문서: https://infobank-guide.gitbook.io/omni-api-v2/comm/kakao/cstalk/chat/plain
+
+  구현할 것:
+  1. 웹훅 수신 API (/api/v2/webhooks/kakao/cstalk/message) - 네이버톡톡 웹훅(/api/v2/webhooks/naver/route.ts) 패턴 참고, channelChats_v2/channelMessages_v2에 channel:'kakao'로 저장 
+  2. 메시지 발송 API - 상담사가 콘솔에서 답장 보낼 때 비즈고 API 호출
+  3. 환경변수: BIZGO_API_KEY, BIZGO_SENDER_KEY

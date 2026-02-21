@@ -1,0 +1,9262 @@
+문서명
+
+최종 수정일
+2014-10-16
+
+CS OpenAPI 사용 설명서
+
+CS OpenAPI 사용 설명서
+(C# .Net 개발자용)
+
+SK 브로드밴드
+
+무단전제/복제 금지(SK broadband Proprietary)
+
+버전
+1.1
+
+페이지
+1/94
+
+문서명
+
+최종 수정일
+2014-10-16
+
+CS OpenAPI 사용 설명서
+
+Version
+
+작성일
+
+v1.0
+
+2014.10.12
+
+변경 사유
+최초 작성
+부재중 설정 이벤트 처리 Sample Code 추가
+
+v1.1
+
+2014.10.16
+
+프로파일 조회 이벤트 처리 Sample Code 수정
+가용 서비스 조회 추가
+
+무단전제/복제 금지(SK broadband Proprietary)
+
+버전
+1.1
+
+페이지
+2/94
+
+문서명
+
+최종 수정일
+2014-10-16
+
+CS OpenAPI 사용 설명서
+
+버전
+1.1
+
+페이지
+3/94
+
+목차
+1.
+
+개요 .................................................................................................................................................... 5
+
+1.1
+
+목적 ................................................................................................................................................ 5
+
+1.2
+
+범위 ................................................................................................................................................ 5
+
+1.3
+
+API 사용을 위핸 개발자의 준비 ................................................................................................... 7
+
+2.
+
+기능 세부 설명 .................................................................................................................................. 8
+
+2.1
+
+API 초기화 및 종료....................................................................................................................... 9
+
+2.1
+
+API 버전 조회.............................................................................................................................. 12
+
+2.2
+
+로그인/로그 아웃 ......................................................................................................................... 13
+
+2.3
+
+가용 서비스 조회......................................................................................................................... 16
+
+2.4
+
+가입자 등록 및 비밀번호 변경 ................................................................................................... 18
+
+2.5
+
+이벤트 수신.................................................................................................................................. 24
+
+2.6
+
+부재중 설정.................................................................................................................................. 28
+
+2.7
+
+부재중 조회.................................................................................................................................. 30
+
+2.8
+
+프로파일 조회 .............................................................................................................................. 31
+
+2.9
+
+가입자 모니터링번호 관리 .......................................................................................................... 33
+
+2.10
+
+회의통화 서비스 .......................................................................................................................... 40
+
+2.11
+
+ClickCall 서비스 ........................................................................................................................... 48
+
+2.12
+
+SMS 전송 서비스 ........................................................................................................................ 55
+
+2.13
+
+SMS 수신 서비스 ........................................................................................................................ 57
+
+2.14
+
+TTS 설문 조사 서비스 ................................................................................................................ 58
+
+2.15
+
+TTS 메시지 서비스 ..................................................................................................................... 61
+
+2.16
+
+TTS 인증 서비스 ......................................................................................................................... 63
+
+2.17
+
+착신전환 설정 서비스 ................................................................................................................. 66
+
+2.18
+
+착신 녹취 서비스......................................................................................................................... 70
+
+2.19
+
+CID 수신 서비스.......................................................................................................................... 75
+
+2.20
+
+부재중 알림 서비스 ..................................................................................................................... 76
+
+2.21
+
+발신통화시작 통보 서비스 .......................................................................................................... 77
+
+2.22
+
+발신통화종료 통보 서비스 .......................................................................................................... 78
+
+2.23
+
+착신통화시작 통보 서비스 .......................................................................................................... 78
+
+2.24
+
+착신통화종료 통보 서비스 .......................................................................................................... 79
+
+2.25
+
+돌려주기 서비스 .......................................................................................................................... 80
+
+2.26
+
+당겨받기 서비스 .......................................................................................................................... 83
+
+2.27
+
+MMS 전송 서비스 ....................................................................................................................... 86
+
+2.28
+
+MMS 수신 서비스 ....................................................................................................................... 88
+
+2.29
+
+통화중 알림 서비스 ..................................................................................................................... 88
+
+무단전제/복제 금지(SK broadband Proprietary)
+
+문서명
+CS OpenAPI 사용 설명서
+
+최종 수정일
+2014-10-16
+
+버전
+1.1
+
+페이지
+4/94
+
+2.30
+
+당겨받기 알림 서비스 ................................................................................................................. 89
+
+2.31
+
+돌려주기 알림 서비스 ................................................................................................................. 90
+
+3.
+
+코드 정의 ......................................................................................................................................... 92
+
+3.1
+
+이벤트 코드.................................................................................................................................. 92
+
+3.2
+
+오류 코드 ..................................................................................................................................... 93
+
+무단전제/복제 금지(SK broadband Proprietary)
+
+문서명
+
+최종 수정일
+2014-10-16
+
+CS OpenAPI 사용 설명서
+
+1.
+
+개요
+
+1.1
+
+목적
+
+버전
+1.1
+
+페이지
+5/94
+
+본 사용 설명서는 SKbroadband 에서 제공하는 유선전화 부가서비스 개발 SDK 에 대한 설명
+서로 3rd Party Application 개발자가 사용해야 하는 연동 방법 및 이벤트 처리 방법을 포함하
+여 API 의 전반적인 사용 방법과 샘플 코드를 포함한다.
+본 설명서는 SKbroadband C/S OpenAPI
+
+1.2
+
+v1.0 을 사용한 C# .Net 개발자를 기준으로 작성되었다.
+
+범위
+
+SDK 에서 제공하는 기능에 대하여 기술하며 기능의 목록은 다음과 같다.
+번호
+
+기능
+
+기능 설명
+
+1
+
+API 초기화 및 종료
+
+API 를 초기화하고 OpenAPI 서버 연결 및 종료
+
+2
+
+사용자 등록
+
+사용자 인증 및 등록
+
+3
+
+비밀번호 변경
+
+사용자 로그인 비밀번호 변경
+
+4
+
+모니터링 전화번호 관리
+
+모니터링 전화번호 등록/삭제
+
+5
+
+사용자 로그인
+
+사용자 로그인 및 로그아웃
+
+6
+
+사용자 부재중 설정
+
+부재중 설정 및 해제
+
+7
+
+서비스 프로파일 조회
+
+각 서비스별 설정되어있는 프로파일 조회
+
+8
+
+이벤트 수신
+
+서비스에서 발생하는 이벤트 수신
+
+9
+
+회의통화 서비스
+
+다자간 통화연결 서비스
+
+10
+
+ClickCall 서비스
+
+1:1 통화 서비스
+
+11
+
+SMS 전송 서비스
+
+Application 에서 전송하는 SMS 를 단말에 전송
+
+12
+
+SMS 수신 서비스
+
+수신한 SMS 를 Application 에서 수신
+
+13
+
+TTS 설문 서비스
+
+TTS 를 통한 설문조사
+
+14
+
+TTS 메시지 서비스
+
+TTS 메시지 전송
+
+15
+
+TTS 인증 서비스
+
+TTS 를 통한 인증번호 전송 서비스
+
+16
+
+CID 서비스
+
+착신된 전화 알림 서비스
+
+17
+
+착신녹취 서비스
+
+착신된 전화에 대한 통화 녹음 서비스
+
+18
+
+부재중 알림 서비스
+
+부재중 수신된 통화 내역 통보 서비스
+
+19
+
+착신전환 설정
+
+무조건 또는 조건부 착신전환 설정/해제
+
+20
+
+발신통화시작 통보
+
+발신통화 시작에 대한 통보 서비스
+
+서비스
+21
+
+발신통화종료 통보
+
+발신통화 종료에 대한 통보 서비스
+
+서비스
+22
+
+착신통화시작 통보
+
+무단전제/복제 금지(SK broadband Proprietary)
+
+착신통화 시작에 대한 통보 서비스
+
+문서명
+
+최종 수정일
+2014-10-16
+
+CS OpenAPI 사용 설명서
+
+버전
+1.1
+
+서비스
+23
+
+착신통화종료 통보
+
+착신통화 종료에 대한 통보 서비스
+
+서비스
+24
+
+돌려주기 서비스
+
+통화중 다른 가입자에게 호를 전달하는 서비스
+
+25
+
+당겨받기 서비스
+
+다른 가입자에게 걸려오는 호를 당겨받는 서비스
+
+26
+
+MMS 전송 서비스
+
+Application 에서 전송하는 MMS 를 단말에 전송
+
+27
+
+MMS 수신 서비스
+
+수신한 MMS 다운로드 경로를 Application 에서 수신
+
+28
+
+통화중 알림 서비스
+
+통화중 수신된 통화 내역 통보 서비스
+
+29
+
+당겨받기 알림 서비스
+
+해당 호를 다른 가입자가 당겨받은 경우, 당겨받기를
+수행했다라는 정보를 알려주는 서비스
+
+30
+
+돌려주기 알림 서비스
+
+돌려주기 요청시, 상대방에게 돌려주기 호임을
+알려주는 서비스
+
+무단전제/복제 금지(SK broadband Proprietary)
+
+페이지
+6/94
+
+문서명
+CS OpenAPI 사용 설명서
+
+1.3
+
+API 사용을 위핸 개발자의 준비
+
+1.3.1
+
+API 파일 다운로드
+
+최종 수정일
+2014-10-16
+
+버전
+1.1
+
+페이지
+7/94
+
+API 를 사용하기 위해서는 openapi.skbroadband.com 에 개발사로 가입되어 있어야 하며, 가입
+후에는 웹 페이지의 [OpenAPI] 메뉴의 [SDK/매뉴얼 다운로드] 페이지를 통해 다운로드 할
+수 있다.
+
+DLL 파일 복사
+
+1.3.2
+
+API 는 DLL 형태로 제공되며 파일 이름과 저장되어야하는 위치는 다음과 같다.
+
+
+파일 이름 : SKB_OpenAPI_IMS.dll
+
+
+
+파일 위치 : 프로그램 실행 디렉토리 또는 Windows 시스템 디렉토리
+
+무단전제/복제 금지(SK broadband Proprietary)
+
+문서명
+
+최종 수정일
+2014-10-16
+
+CS OpenAPI 사용 설명서
+
+2.
+
+버전
+1.1
+
+페이지
+8/94
+
+기능 세부 설명
+
+다음은 OpenAPI 를 사용하여 각 서비스 기능을 개발하기 위한 API 의 전체 Method 를 나타
+낸다.
+구분
+
+기능
+
+기능 설명
+
+API 초기화 및
+
+IMS_Init()
+
+API 를 초기화 한다.
+
+종료
+
+IMS_Close()
+
+API 사용을 중지한다.
+
+API 버전 조회
+
+IMS_GetVersion()
+
+API 버전을 조회
+
+로그인/로그아웃
+
+IMS_Login()
+
+API 서버로 로그인
+
+IMS_Logout()
+
+로그아웃
+
+IMS_AuthSms()
+
+가입자 인증을 위한 인증번호를 SMS 로
+
+가입자 등록 및
+비밀번호 변경
+
+요청
+IMS_AuthTts()
+
+가입자 인증을 위한 인증번호를 TTS 로
+요청
+
+이벤트 수신
+
+IMS_CreateUser()
+
+새로운 사용자 ID 등록
+
+IMS_ChgPasswd()
+
+로그인 비밀번호 변경
+
+IMS_GetEvent()
+
+OpenAPI 에서 발생하는 이벤트의 내용을
+전달
+
+부재중 설정
+
+IMS_SetRest()
+
+로그인한 사용자의 상태를 부재중으로
+설정/해제
+
+부재중 조회
+
+IMS_GetRest()
+
+로그인한 사용자의 부재중 상태를 조회
+
+프로파일 조회
+
+IMS_GetProfile()
+
+서비스별 프로파일 설정 값 조회
+
+가입자 모니터링
+
+IMS_QrySubDnList()
+
+가입자의 사용가능한 전화번호 리스트
+
+번호 관리
+
+회의통화
+
+ClickCall
+
+조회
+IMS_QryMonDnList()
+
+등록된 모니터링 전화번호 리스트 조회
+
+IMS_AddMonDn()
+
+모니터링 전화번호 추가
+
+IMS_DelMonDn()
+
+모니터링 전화번호 삭제
+
+IMS_Cnfr_Start()
+
+회의통화 서비스 시작 요청
+
+IMS_Cnfr_Stop()
+
+회의통화 서비스 종료 요청
+
+IMS_Cnfr_CallStatus()
+
+회의통화 서비스 상태 조회
+
+IMS_Cnfr_Add()
+
+회의통화 서비스 참여자 추가 요청
+
+IMS_Cnfr_Del()
+
+회의통화 서비스 참여자 추방 요청
+
+IMS_ClickCall_Start()
+
+클릭콜 서비스 시작 요청
+
+IMS_ClickCall_Stop()
+
+클릭콜 서비스 종료 요청
+
+IMS_ClickCall_StartRecord()
+
+클릭콜 서비스 녹음 시작 요청
+
+IMS_ClickCall_StopRecord()
+
+클릭콜 서비스 녹음 종료 요청
+
+IMS_ClickCall_CallStatus()
+
+클릭콜 서비스 상태 조회
+
+무단전제/복제 금지(SK broadband Proprietary)
+
+문서명
+
+최종 수정일
+2014-10-16
+
+CS OpenAPI 사용 설명서
+
+버전
+1.1
+
+SMS 전송
+
+IMS_SendSms()
+
+SMS 발신 서비스 요청
+
+TTS 설문조사
+
+IMS_TtsRs()
+
+TTS 설문조사 서비스 요청
+
+TTS 메시지
+
+IMS_TtsMsg()
+
+TTS 메시지 서비스 요청
+
+TTS 인증
+
+IMS_TtsAuth()
+
+TTS 인증 서비스 요청
+
+착신전환 설정
+
+IMS_CallForward_Get()
+
+착신전환 서비스 설정상태 조회
+
+IMS_CallForward_Reg()
+
+착신전환 서비스 등록 요청
+
+IMS_CallForward_Rel()
+
+착신전환 서비스 해제 요청
+
+IMS_TermRec_Start()
+
+착신녹취 서비스 녹음 시작 요청
+
+IMS_TermRec_Stop()
+
+착신녹취 서비스 녹음 종료 요청
+
+IMS_TermRec_CallStatus()
+
+착신녹취 서비스 상태 조회
+
+IMS_TermRec_StopService()
+
+착신녹취 서비스 종료 요청
+
+돌려주기
+
+IMS_CallTransfer_Start()
+
+돌려주기 서비스 요청
+
+당겨받기
+
+IMS_CallPickup_Start()
+
+당겨받기 서비스 요청
+
+MMS 발신
+
+IMS_SendMms()
+
+MMS 발신 서비스 요청
+
+착신녹취
+
+2.1
+
+API 초기화 및 종료
+
+다음은 API 초기화 및 종료를 위한 Method 를 나열한 것이다.
+No.
+
+Method
+
+수행 기능
+
+비고
+
+1
+
+IMS_Init()
+
+API 초기화 및 서버 연결
+
+프로그램 시작시 호출
+
+2
+
+IMS_Close()
+
+API 종료 및 서버 연결종료
+
+프로그램 종료시 호출
+
+다음은 API 초기화 메소드에 대한 CS OpenAPI 서버와의 연동 FLOW 를 나타낸다.
+
+2.1.1
+
+IMS_Init() – API 초기화
+
+무단전제/복제 금지(SK broadband Proprietary)
+
+페이지
+9/94
+
+문서명
+
+최종 수정일
+2014-10-16
+
+CS OpenAPI 사용 설명서
+
+버전
+1.1
+
+페이지
+10/94
+
+API 를 사용하기 전에 반드시 IMS_Init()을 호출하여 초기화 하고 OpenAPI 에 연결해 서비스
+를 실행할 준비를 해야 한다.
+IMS_Init()은 프로그램 실행 시 한번만 호출 되어야 하며, 중복해서 호출 할 경우 진행 중이
+던 서비스 정보를 포함해 로그인 정보까지 모두 초기화 되어 다시 서비스를 사용하기 위
+해서는 IMS_Init()을 다시 호출하여야 한다.
+가)
+
+Function prototype 선언
+
+[DllImport("SKB_OpenAPI_IMS.dll")]
+public static extern int IMS_Init(string strAppKey);
+
+나)
+
+Parameters
+NAME
+
+strAppKey
+
+다)
+
+TYPE
+String
+
+Description
+Application-Key
+
+Return code
+ERR NAME
+
+VALUE
+
+Description
+
+SUCCESS
+
+0x0000
+
+성공
+
+API_FC_INIT_FAIL
+
+0x8000
+
+API 초기화 실패
+
+API_FC_DISP_CONNECT_FAIL
+
+0x8010
+
+DISP 연결 실패
+
+API_FC_INVALID_APPKEY
+
+0x801B
+
+잘못된 APP-Key
+
+라)
+
+Event
+EVENT NAME
+
+VALUE
+
+Description
+
+EVT_CONNECTING
+
+0x0100
+
+호스트 연결중
+
+EVT_CONNECTED
+
+0x0101
+
+호스트 연결 됨
+
+EVT_CONNECTION_FAIL
+
+0x0103
+
+호스트와 연결 실패
+
+마)
+
+Sample Code
+
+private void btnApiInit_Click(object sender, System.EventArgs e)
+{
+int nResult;
+nResult = IMS_Init(txtAppKey.Text);
+if (nResult == 0)
+Log("**** API 초기화 성공");
+else
+Log(">>>> API 초기화 실패 : Cause[" + nResult + "-" +
+ERR.StrFCause(nResult) + "]");
+}
+
+무단전제/복제 금지(SK broadband Proprietary)
+
+문서명
+
+최종 수정일
+2014-10-16
+
+CS OpenAPI 사용 설명서
+
+버전
+1.1
+
+페이지
+11/94
+
+IMS_Close() – API 종료
+
+2.1.2
+
+API 의 사용을 중지하고 모든 자원을 반환한다. 즉, CS OpenAPI 와의 연결을 종료하고 로그인
+서비스 정보를 모두 Clear 한다.
+Function prototype 선언
+
+가)
+
+[DllImport("SKB_OpenAPI_IMS.dll")]
+public static extern int IMS_Close();
+
+Parameters
+
+나)
+
+-
+
+없음
+Return code
+
+다)
+
+ERR NAME
+SUCCESS
+
+0x0000
+
+Description
+성공
+
+Event
+
+라)
+
+마)
+
+VALUE
+
+없음
+Sample Code
+
+protected override void Dispose( bool disposing )
+{
+IMS_Close();
+if( disposing )
+{
+if (components != null)
+{
+components.Dispose();
+}
+}
+base.Dispose( disposing );
+}
+
+2.1.3
+
+이벤트 처리 Sample Code
+
+public void Proc(int nSvc, int nEvtType, int nResult, string strDn1, string strDn2, string
+strExtInfo)
+{
+switch (nSvc)
+{
+case (int)SVCCODE.IMS_SVC_NORMAL:
+{
+switch (nEvtType)
+{
+case (int)EVTTYPE.EVT_TIMEOUT:
+EvtProc_Timeout(nResult); break;
+
+무단전제/복제 금지(SK broadband Proprietary)
+
+문서명
+
+최종 수정일
+2014-10-16
+
+CS OpenAPI 사용 설명서
+
+버전
+1.1
+
+페이지
+12/94
+
+case (int)EVTTYPE.EVT_CONNECTING:
+EvtProc_Connecting(); break;
+case (int)EVTTYPE.EVT_CONNECTED:
+EvtProc_Connected(); break;
+case (int)EVTTYPE.EVT_DISCONNECTED: EvtProc_Disconnected(nResult); break;
+case (int)EVTTYPE.EVT_CONNECTION_FAIL:EvtProc_ConnectionFail(nResult); break;
+}
+}
+private void EvtProc_Timeout(int nResult)
+{
+MAIN.Log (">>>> 호스트 응답 없음");
+}
+private void EvtProc_Connecting()
+{
+MAIN.Log ("**** 호스트 연결 중");
+}
+private void EvtProc_Connected()
+{
+MAIN.Log ("**** 호스트 연결");
+}
+private void EvtProc_Disconnected(int nResult)
+{
+MAIN.Log (">>>> 호스트 연결 종료 : Cause[" + nResult + "-" + ERR.StrFCause(nResult) + "]");
+}
+private void EvtProc_ConnectionFail(int nResult)
+{
+MAIN.Log (">>>> 호스트 연결 실패 : Cause[" + nResult + "-" + ERR.StrFCause(nResult) + "]");
+}
+
+2.1
+
+API 버전 조회
+
+다음은 API 버전 조회에 필요한 Method 를 나열한 것이다.
+No.
+1
+
+수행 기능
+
+Method
+IMS_GetVersion()
+
+비고
+
+API 버전 조회
+
+2.1.1 IMS_GetVersion() – API 버전 조회
+사용하고 있는 API 의 버전을 조회한다. API 버전 조회 결과는 파라미터로 전달되는 구조체
+에 저장되어 반환된다.
+가)
+
+Function prototype 선언
+
+[DllImport("SKB_OpenAPI_IMS.dll")]
+public static extern int IMS_GetVersion(ref _STVERSION stVersion);
+
+나)
+
+Parameters
+
+무단전제/복제 금지(SK broadband Proprietary)
+
+문서명
+
+최종 수정일
+2014-10-16
+
+CS OpenAPI 사용 설명서
+
+버전
+1.1
+
+페이지
+13/94
+
+API 버전 조회 결과를 수신하기 위한 구조체는 다음과 같이 선언한다.
+NAME
+
+TYPE
+
+Description
+
+[StructLayout(LayoutKind.Sequential, Pack=1), Serializable]
+public struct _STVERSION
+{
+[MarshalAs(UnmanagedType.ByValTStr, SizeConst=16)]
+public string
+strVersion;
+}
+strVersion : API 버전
+
+Return code
+
+다)
+
+ERR NAME
+SUCCESS
+
+VALUE
+0x0000
+
+Description
+성공
+
+Event
+
+라)
+
+마)
+
+없음
+Sample Code
+
+private void button1_Click(object sender, System.EventArgs e)
+{
+int nResult;
+nResult = IMS_GetVersion(ref m_stVersion);
+if (nResult == (int)ERRCODE.SUCCESS)
+{
+Log(">>>> API 버전 : " + m_stVersion.strVersion);
+}
+}
+
+2.2
+
+로그인/로그 아웃
+
+다음은 API 를 사용하기 위해 사용자가 로그인/로그아웃에 필요한 Method 를 나열한 것이다.
+No.
+
+Method
+
+수행 기능
+
+1
+
+IMS_Login()
+
+사용자 로그인
+
+2
+
+IMS_Logout()
+
+사용자 로그아웃
+
+비고
+
+다음은 로그인/로그아웃 메소드에 대한 CS OpenAPI 서버와의 연동 FLOW 를 나타낸다.
+
+무단전제/복제 금지(SK broadband Proprietary)
+
+문서명
+
+최종 수정일
+2014-10-16
+
+CS OpenAPI 사용 설명서
+
+2.2.1
+
+버전
+1.1
+
+페이지
+14/94
+
+IMS_Login() – 사용자 로그인
+
+서비스 사용을 위해서는 미리 등록되어있는 사용자 ID 와 비밀번호로 로그인에 성공해야 한
+다. 사용자 ID 는 IMS_CreateUser()를 사용하여 등록할 수 있다.
+가)
+
+Function prototype 선언
+
+[DllImport("SKB_OpenAPI_IMS.dll")]
+public static extern int IMS_Login(string strUserId, string strPasswd);
+
+나)
+
+Parameters
+NAME
+
+TYPE
+
+Description
+
+strUserId
+
+String
+
+사용자 ID
+
+strPasswd
+
+String
+
+비밀번호
+
+다)
+
+Return code
+ERR NAME
+
+VALUE
+
+Description
+
+SUCCESS
+
+0x0000
+
+성공
+
+API_FC_ETC_FAIL
+
+0x8000
+
+기타 오류
+
+API_FC_ALREADY_LOGIN
+
+0x8007
+
+중복 로그인
+
+API_FC_HOST_NOT_CONNECTED
+
+0x8014
+
+호스트 연결되어있지 않음
+
+API_FC_INVALID_ID
+
+0x8017
+
+잘못된 사용자 ID
+
+API_FC_INVALID_PASSWD
+
+0x8019
+
+비밀번호 오류
+
+API_FC_INVALID_PASSWD_LENGTH
+
+0x8029
+
+비밀번호 길이 오류
+
+라)
+
+Event
+
+무단전제/복제 금지(SK broadband Proprietary)
+
+문서명
+
+최종 수정일
+2014-10-16
+
+CS OpenAPI 사용 설명서
+EVENT NAME
+EVT_LOGIN
+
+VALUE
+0x0104
+
+버전
+1.1
+
+페이지
+15/94
+
+Description
+사용자 로그인
+
+Sample Code
+
+마)
+
+private void btnLogin_Click(object sender, System.EventArgs e)
+{
+int
+nResult;
+nResult = IMS_Login(txtUserId.Text, txtPasswd.Text);
+if (nResult == 0) Log("**** 로그인 요청 성공");
+else
+Log(">>>> 로그인 요청 실패 : Cause[" + nResult + "-" +
+ERR.StrFCause(nResult) + "]");
+}
+
+2.2.2
+
+IMS_Logout() – 사용자 로그아웃
+
+사용자의 로그인 정보를 초기화 하며 CS OpenAPI 서버와의 연결이 종료되기 때문에 호출
+후에는 서비스를 사용할 수 없다.
+Function prototype 선언
+
+가)
+
+[DllImport("SKB_OpenAPI_IMS.dll")]
+public static extern int IMS_Logout();
+
+Parameters
+
+나)
+
+다)
+
+없음
+Return code
+ERR NAME
+
+VALUE
+
+Description
+
+SUCCESS
+
+0x0000
+
+성공
+
+API_FC_USER_NOT_LOGIN
+
+0x800B
+
+사용자 로그인되어있지 않음
+
+라)
+
+Event
+EVENT NAME
+
+EVT_LOGOUT
+
+마)
+
+VALUE
+0x0105
+
+Description
+사용자 로그 아웃
+
+Sample Code
+
+private void btnLogout_Click(object sender, System.EventArgs e)
+{
+int
+nResult;
+nResult = IMS_Logout();
+
+무단전제/복제 금지(SK broadband Proprietary)
+
+문서명
+CS OpenAPI 사용 설명서
+
+최종 수정일
+2014-10-16
+
+버전
+1.1
+
+페이지
+16/94
+
+if (nResult == 0) Log("**** 로그아웃 요청 성공");
+else
+Log(">>>> 로그아웃 요청 실패 : Cause[" + nResult + "-" +
+ERR.StrFCause(nResult) + "]");
+}
+
+2.2.3
+
+이벤트 처리 Sample Code
+
+public void Proc(int nSvc, int nEvtType, int nResult, string strDn1, string strDn2, string
+strExtInfo)
+{
+switch (nSvc)
+{
+Case (int)SVCCODE.IMS_SVC_GET_SERVICE_INFO: EvtProc_GetSvcInfo(nResult); break;
+}
+}
+private void EvtProc_GetSvcInfo(int nResult)
+{
+if (nResult == (int)ERRCODE.SUCCESS)
+{
+MAIN.Log ("**** [IMS_SVC_GET_SERVICE_INFO] 가용 서비스 조회 성공");
+}
+else if(nResult == (int)ERRCODE.API_FC_FAIL)
+{
+MAIN.Log ("**** [IMS_SVC_GET_SERVICE_INFO] 가용 서비스 조회 실패");
+}
+else
+{
+MAIN.Log ("**** [IMS_SVC_GET_SERVICE_INFO] 가용 서비스 조회 실패");
+}
+}
+
+2.3
+
+가용 서비스 조회
+
+로그인이 성공하면 API 는 성공 직후에 바로 가용 서비스 조회 요청을 한다.
+OpenAPI 서버로부터 가용 서비스 조회 성공 응답을 받으면, API 는 가입자가 현재 사용 가
+능한 서비스 목록을 리스트로 저장한다. 이후, 가입자가 서비스 요청시 요청한 서비스가 목
+록에 없는 서비스라면 API_FC_NOT_ALLOWED_SERVICE 를 리턴하게 된다. 가용 서비스 조
+회를 실패하면 가입자는 모든 서비스를 사용 할 수 없다.
+다음은 가용 서비스 조회에 대한 CS OpenAPI 서버와의 연동 FLOW 를 나타낸다.
+
+무단전제/복제 금지(SK broadband Proprietary)
+
+문서명
+
+최종 수정일
+2014-10-16
+
+CS OpenAPI 사용 설명서
+
+바)
+
+페이지
+17/94
+
+Event
+EVENT NAME
+
+EVT_NORMAL
+
+2.3.1
+
+버전
+1.1
+
+VALUE
+0x0001
+
+Description
+서비스 일반
+
+이벤트 처리 Sample Code
+
+public void Proc(int nSvc, int nEvtType, int nResult, string strDn1, string strDn2, string
+strExtInfo)
+{
+switch (nSvc)
+{
+case (int)SVCCODE.IMS_SVC_NORMAL:
+{
+switch (nEvtType)
+{
+case (int)EVTTYPE.EVT_LOGIN:
+EvtProc_Login(nResult); break;
+case (int)EVTTYPE.EVT_LOGOUT:
+EvtProc_Logout(nResult); break;
+}
+}
+break;
+}
+}
+private void EvtProc_Login(int nResult)
+{
+if (nResult == (int)ERRCODE.SUCCESS)
+else
+"-" + ERR.StrFCause(nResult) + "]");
+}
+private void EvtProc_Logout(int nResult)
+{
+if (nResult == (int)ERRCODE.SUCCESS)
+else
+
+무단전제/복제 금지(SK broadband Proprietary)
+
+MAIN.Log ("**** 로그인 성공");
+MAIN.Log (">>>> 로그인 실패 : Cause[" + nResult +
+
+MAIN.Log ("**** 로그아웃 성공");
+MAIN.Log (">>>> 로그아웃 실패 : Cause[" + nResult
+
+문서명
+
+최종 수정일
+2014-10-16
+
+CS OpenAPI 사용 설명서
+
+버전
+1.1
+
+페이지
+18/94
+
++ "-" + ERR.StrFCause(nResult) + "]");
+}
+
+2.4
+
+가입자 등록 및 비밀번호 변경
+
+API 를 사용해 서비스를 제공받으려면 반드시 ID 를 등록해야 한다. 또한, 등록을 위해서는
+사용자의 단말을 통해서 SMS 또는 TTS 로 인증번호를 수신하고, 수신받은 인증번호를 정확
+히 입력하여 등록을 요청해야 한다.
+등록시 인증번호는 TTS 또는 SMS 로 수신할 것을 사용자가 선택할 수 있으며, 한번 부여받
+은 인증번호를 3 분 동안만 유효하다.
+No.
+
+Method
+
+수행 기능
+
+1
+
+IMS_AuthSms()
+
+인증번호를 SMS 로 전송
+
+2
+
+IMS_AuthTts()
+
+인증번호를 TTS 로 전송
+
+3
+
+IMS_CreateUser()
+
+새로운 사용자 등록
+
+4
+
+IMS_ChgPasswd()
+
+비밀번호 변경
+
+비고
+
+다음은 SMS 인증을 사용한 경우 가입자 등록에 대한 CS OpenAPI 서버와의 연동 FLOW 를
+나타낸다.
+
+다음은 TTS 인증을 사용한 경우 가입자 등록에 대한 CS OpenAPI 서버와의 연동 FLOW 를 나
+타낸다.
+
+무단전제/복제 금지(SK broadband Proprietary)
+
+문서명
+
+최종 수정일
+2014-10-16
+
+CS OpenAPI 사용 설명서
+
+2.4.1
+
+버전
+1.1
+
+페이지
+19/94
+
+IMS_AuthSms() – 사용자 등록을 위한 SMS 인증번호 전송
+
+사용자 등록에 앞서 가입자 임을 인증하기 위해 사용자 단말에 SMS 로 인증번호를 전송한
+다. 사용자는 SMS 를 수신할 전화번호를 정확히 입력해야 하며, 해당 전화번호는 CS
+OpenAPI 사용자로 가입되어 있어야 한다.
+가)
+
+Function prototype 선언
+
+[DllImport("SKB_OpenAPI_IMS.dll")]
+public static extern int IMS_AuthSms(string strTelNum);
+
+나)
+
+Parameters
+NAME
+
+strTelNum
+
+다)
+
+TYPE
+String
+
+Description
+사용자 전화번호
+
+Return code
+ERR NAME
+
+VALUE
+
+Description
+
+SUCCESS
+
+0x0000
+
+성공
+
+API_FC_ETC_FAIL
+
+0x8000
+
+기타 오류
+
+API_FC_HOST_NOT_CONNECTED
+
+0x8014
+
+호스트 연결되어있지 않음
+
+API_FC_INVALID_DN
+
+0x8018
+
+잘못된 사용자 전화번호
+
+VALUE
+
+Description
+
+라)
+
+Event
+EVENT NAME
+
+EVT_AUTH_SMS
+
+무단전제/복제 금지(SK broadband Proprietary)
+
+0x0200
+
+등록을 위한 인증 SMS 전송
+
+문서명
+
+최종 수정일
+2014-10-16
+
+CS OpenAPI 사용 설명서
+마)
+
+버전
+1.1
+
+페이지
+20/94
+
+Sample Code
+
+private void btnUserMng_SmsAuth_Click(object sender, System.EventArgs e)
+{
+int nResult;
+nResult = IMS_AuthSms(txtUserMng_TelNum.Text);
+if (nResult != 0) Log(">>>> SMS 인증번호 전송요청 실패 : Cause[" + nResult + "-" +
+ERR.StrFCause(nResult) + "]");
+}
+
+2.4.2
+
+IMS_AuthTts() – 사용자 등록을 위한 TTS 인증번호 전송
+
+사용자 등록에 앞서 가입자 임을 인증하기 위해 사용자 단말에 TTS 로 인증번호를 전송한
+다. 사용자는 음성 TTS 를 수신할 전화번호를 정확히 입력해야 하며, 해당 전화번호는 CS
+OpenAPI 사용자로 가입되어 있어야 한다.
+가)
+
+Function prototype 선언
+
+[DllImport("SKB_OpenAPI_IMS.dll")]
+public static extern int IMS_AuthTts(string strTelNum);
+
+나)
+
+Parameters
+NAME
+
+strTelNum
+
+다)
+
+TYPE
+String
+
+Description
+사용자 전화번호
+
+Return code
+ERR NAME
+
+VALUE
+
+Description
+
+SUCCESS
+
+0x0000
+
+성공
+
+API_FC_ETC_FAIL
+
+0x8000
+
+기타 오류
+
+API_FC_HOST_NOT_CONNECTED
+
+0x8014
+
+호스트 연결되어있지 않음
+
+API_FC_INVALID_DN
+
+0x8018
+
+잘못된 사용자 전화번호
+
+VALUE
+
+Description
+
+라)
+
+Event
+EVENT NAME
+
+EVT_AUTH_TTS
+
+마)
+
+0x0201
+
+등록을 위한 인증 TTS 전송
+
+Sample Code
+
+private void btnUserMng_TtsAuth_Click(object sender, System.EventArgs e)
+{
+int nResult;
+
+무단전제/복제 금지(SK broadband Proprietary)
+
+문서명
+
+최종 수정일
+2014-10-16
+
+CS OpenAPI 사용 설명서
+
+버전
+1.1
+
+페이지
+21/94
+
+nResult = IMS_AuthTts(txtUserMng_TelNum.Text);
+if (nResult != 0) Log(">>>> TTS 인증번호 전송요청 실패 : Cause[" + nResult + "-" +
+ERR.StrFCause(nResult) + "]");
+}
+
+2.4.3
+
+IMS_CreateUser() – 사용자 등록
+
+새로운 사용자를 등록한다. 앞서 IMS_AuthSms() 또는 IMS_AuthTts()를 사용해 수신한 인증번
+호를 정확히 입력해야 하며 사용자 ID 는 중복될 수 없다.
+또한, 등록되는 전화번호는 미리 CS OpenAPI 사용자로 가입되어 있어야 하며 해당 전화번
+호는 등록하는 사용자 ID 의 기본 전화번호로 등록되어 사용자가 먼저 서비스를 요청하는
+발신서비스에서 발신번호로 사용된다.
+동일한 전화번호에 여러 개의 ID 를 등록할 수 있으며, 등록할 수 있는 ID 개수는 시스템에
+서 제한된다. 또한 ID 개수를 제한된 개수 이상으로 등록하기 위해서는 청약과정에서 추가
+로 신청해야 한다.
+비밀번호는 최소 8 자리 이상을 입력해야 하며 영문자와 특수문자, 숫자가 각각 최소 1 개
+이상 포함 되어야 한다.
+가)
+
+Function prototype 선언
+
+[DllImport("SKB_OpenAPI_IMS.dll")]
+public static extern int IMS_CreateUser(string strUserId, string strPasswd, string strTelNum,
+string strAuthNo);
+
+나)
+
+Parameters
+NAME
+
+TYPE
+
+Description
+
+strUserId
+
+String
+
+등록할 사용자 ID
+
+strPasswd
+
+String
+
+비밀번호
+
+strTelNum
+
+String
+
+기본 전화번호
+
+strAuthNo
+
+String
+
+SMS 또는 TTS 로 수신한 인증번호
+
+다)
+
+Return code
+ERR NAME
+
+VALUE
+
+Description
+
+SUCCESS
+
+0x0000
+
+성공
+
+API_FC_ETC_FAIL
+
+0x8000
+
+기타 오류
+
+API_FC_HOST_NOT_CONNECTED
+
+0x8014
+
+호스트 연결되어있지 않음
+
+API_FC_INVALID_ID
+
+0x8017
+
+잘못된 사용자 ID
+
+무단전제/복제 금지(SK broadband Proprietary)
+
+문서명
+
+최종 수정일
+2014-10-16
+
+CS OpenAPI 사용 설명서
+
+버전
+1.1
+
+API_FC_INVALID_PASSWD
+
+0x8019
+
+비밀번호 오류
+
+API_FC_INVALID_DN
+
+0x8018
+
+잘못된 사용자 전화번호
+
+API_FC_INVALID_AUTHNO
+
+0x801C
+
+인증번호 오류
+
+API_FC_INVALID_PASSWD_LENGTH
+
+0x0829
+
+비밀번호 길이 오류
+
+API_FC_INVALID_PASSWD_CHARACTOR
+
+0x082A
+
+비밀번호 문자 오류
+
+API_FC_INVALID_PASSWD_EXPIRED
+
+0x082B
+
+비밀번호 유효기간 만료
+
+라)
+
+22/94
+
+Event
+EVENT NAME
+
+EVT_CREATE_USER
+
+마)
+
+페이지
+
+VALUE
+0x0210
+
+Description
+사용자 등록
+
+Sample Code
+
+private void btnUserMng_CreateUser_Click(object sender, System.EventArgs e)
+{
+int nResult;
+nResult = IMS_CreateUser(txtUserMng_UserId.Text, txtUserMng_Passwd.Text,
+txtUserMng_TelNum.Text, txtUserMng_AuthNo.Text);
+if (nResult != 0) Log(">>>> 사용자 등록 요청 실패 : Cause[" + nResult + "-" +
+ERR.StrFCause(nResult) + "]");
+}
+
+2.4.4
+
+이벤트 처리 Sample Code
+
+public void Proc(int nSvc, int nEvtType, int nResult, string strDn1, string strDn2, string
+strExtInfo)
+{
+switch (nSvc)
+{
+case (int)SVCCODE.IMS_SVC_NORMAL:
+{
+switch (nEvtType)
+{
+case (int)EVTTYPE.EVT_AUTH_SMS:
+EvtProc_AuthSms(nResult); break;
+case (int)EVTTYPE.EVT_AUTH_TTS:
+EvtProc_AuthTts(nResult); break;
+case (int)EVTTYPE.EVT_CREATE_USER:
+EvtProc_CreateUser(nResult); break;
+}
+}
+break;
+}
+}
+private void EvtProc_AuthSms(int nResult)
+{
+if (nResult == (int)ERRCODE.SUCCESS)
+MAIN.Log ("**** SMS 인증번호 전송 성공");
+else
+MAIN.Log (">>>> SMS 인증번호 전송 실패 : Cause[" +
+nResult + "-" + ERR.StrFCause(nResult) + "]");
+
+무단전제/복제 금지(SK broadband Proprietary)
+
+문서명
+
+최종 수정일
+2014-10-16
+
+CS OpenAPI 사용 설명서
+
+버전
+1.1
+
+페이지
+23/94
+
+}
+private void EvtProc_AuthTts(int nResult)
+{
+if (nResult == (int)ERRCODE.SUCCESS)
+MAIN.Log ("**** TTS 인증번호 전송 성공");
+else
+MAIN.Log (">>>> TTS 인증번호 전송 실패 : Cause[" +
+nResult + "-" + ERR.StrFCause(nResult) + "]");
+}
+private void EvtProc_CreateUser(int nResult)
+{
+if (nResult == (int)ERRCODE.SUCCESS)
+MAIN.Log ("**** 사용자 등록 성공");
+else
+MAIN.Log (">>>> 사용자 등록 실패 : Cause[" +
+nResult + "-" + ERR.StrFCause(nResult) + "]");
+}
+
+2.4.1
+
+IMS_ChgPasswd() – 로그인 비밀번호 변경
+
+사용자의 비밀번호를 변경한다. 비밀번호는 최소 8 자리 이상을 입력해야 하며 영문자와 특
+수문자, 숫자가 각각 최소 1 개 이상 포함 되어야 한다. 또한, 변경한 비밀번호는 최대 3 개
+월 까지 사용할 수 있으며 3 개월이 지나면 새로운 비밀번호로 변경해야 로그인이 가능하
+며, 한번 사용한 비밀번호는 6 개월 내에는 재사용할 수 없다.
+가)
+
+Function prototype 선언
+
+[DllImport("SKB_OpenAPI_IMS.dll")]
+public static extern int IMS_ChgPasswd(string strUserId, string strPasswd, string strTelNum,
+string strAuthNo);
+
+나)
+
+Parameters
+NAME
+
+TYPE
+
+Description
+
+strUserId
+
+String
+
+사용자 ID
+
+strPasswd
+
+String
+
+비밀번호
+
+strTelNum
+
+String
+
+기본 전화번호
+
+strAuthNo
+
+String
+
+SMS 또는 TTS 로 수신한 인증번호
+
+다)
+
+Return code
+ERR NAME
+
+VALUE
+
+Description
+
+SUCCESS
+
+0x0000
+
+성공
+
+API_FC_ETC_FAIL
+
+0x8000
+
+기타 오류
+
+API_FC_HOST_NOT_CONNECTED
+
+0x8014
+
+호스트 연결되어있지 않음
+
+API_FC_INVALID_ID
+
+0x8017
+
+잘못된 사용자 ID
+
+API_FC_INVALID_PASSWD
+
+0x8019
+
+비밀번호 오류
+
+API_FC_INVALID_DN
+
+0x8018
+
+잘못된 사용자 전화번호
+
+무단전제/복제 금지(SK broadband Proprietary)
+
+문서명
+
+최종 수정일
+2014-10-16
+
+CS OpenAPI 사용 설명서
+
+버전
+1.1
+
+API_FC_INVALID_AUTHNO
+
+0x801C
+
+인증번호 오류
+
+API_FC_INVALID_PASSWD_LENGTH
+
+0x8029
+
+비밀번호 길이 오류
+
+API_FC_INVALID_PASSWD_CHARACTOR
+
+0x082A
+
+비밀번호 문자 오류
+
+API_FC_INVALID_PASSWD_REUSE_TERM
+
+0x082C
+
+비밀번호 재사용기간 오류
+
+라)
+
+Event
+EVENT NAME
+
+EVT_CHG_PASSWD
+
+마)
+
+VALUE
+0x0211
+
+Description
+비밀번호 변경
+
+Sample Code
+
+private void btnUserMng_ChgPasswd_Click(object sender, System.EventArgs e)
+{
+int nResult;
+nResult = IMS_ChgPasswd(txtUserMng_UserId.Text, txtUserMng_Passwd.Text,
+txtUserMng_TelNum.Text, txtUserMng_AuthNo.Text);
+if (nResult != 0) Log(">>>> 사용자 비밀번호 변경 요청 실패 : Cause[" + nResult + "-" +
+ERR.StrFCause(nResult) + "]");
+}
+
+2.4.2
+
+이벤트 처리 Sample Code
+
+public void Proc(int nSvc, int nEvtType, int nResult, string strDn1, string strDn2, string
+strExtInfo)
+{
+switch (nSvc)
+{
+case (int)SVCCODE.IMS_SVC_NORMAL:
+{
+switch (nEvtType)
+{
+case (int)EVTTYPE.EVT_CHG_IMSSWD:
+EvtProc_ChgPasswd(nResult); break;
+}
+}
+break;
+}
+}
+private void EvtProc_ChgPasswd(int nResult)
+{
+if (nResult == (int)ERRCODE.SUCCESS)
+MAIN.Log ("**** 사용자 비밀번호 변경 성공");
+else
+MAIN.Log (">>>> 사용자 비밀번호 변경 실패 :
+Cause[" + nResult + "-" + ERR.StrFCause(nResult) + "]");
+}
+
+2.5
+
+이벤트 수신
+
+무단전제/복제 금지(SK broadband Proprietary)
+
+페이지
+24/94
+
+문서명
+
+최종 수정일
+2014-10-16
+
+CS OpenAPI 사용 설명서
+
+버전
+1.1
+
+페이지
+25/94
+
+다음은 사용자의 요청에 대한 수행 결과나 서비스 중 발생하는 이벤트를 수신하기 위한
+Method 이다.
+No.
+1
+
+2.5.1
+
+수행 기능
+
+Method
+IMS_GetEvent()
+
+이벤트 수신
+
+비고
+주기적 호출
+
+IMS_GetEvent() – 이벤트 수신
+
+명령 수행 결과나 서비스 중 시스템에서 발생하는 모든 이벤트를 수신한다.
+본 Method 는 Timer 등을 사용하여 주기적으로 사용자의 요구에 의해 호출 되어야 하며, 시
+스템에서 발생한 모든 이벤트는 파라미터로 전달되는 구조체에 저장되어 반환된다. 또한,
+호출 후 수신한 이벤트가 있는 경우는 구조체의 서비스 유형과 이벤트 유형으로 어떠한
+이벤트가 발생하였는가 판단 할 수 있다.
+가)
+
+Function prototype 선언
+
+[DllImport("SKB_OpenAPI_IMS.dll")]
+public static extern int IMS_GetEvent(ref _EVTMSG stEvtMsg);
+
+나)
+
+Parameters
+
+이벤트를 수신하기 위한 구조체는 다음과 같이 선언한다.
+NAME
+
+TYPE
+
+Description
+
+[StructLayout(LayoutKind.Sequential, Pack=1), Serializable]
+public struct _EVTMSG
+{
+public int nService;
+public int nEvtType;
+public int nResult;
+[MarshalAs(UnmanagedType.ByValTStr, SizeConst=32)]
+public string strDn1;
+[MarshalAs(UnmanagedType.ByValTStr, SizeConst=32)]
+public string strDn2;
+[MarshalAs(UnmanagedType.ByValTStr, SizeConst=1024)]
+public string strExtInfo;
+}
+nService: 서비스 유형
+nEvtType: 이벤트 유형
+nResult: 결과코드
+strDn1: 발신번호 또는 이벤트 번호
+strDn2: 착신번호
+strExtInfo: 추가 정보
+
+다)
+
+Return code
+ERR NAME
+
+SUCCESS
+
+무단전제/복제 금지(SK broadband Proprietary)
+
+VALUE
+0x0000
+
+Description
+수신된 이벤트 있음
+
+문서명
+
+최종 수정일
+2014-10-16
+
+CS OpenAPI 사용 설명서
+
+페이지
+26/94
+
+수신된 이벤트 없음
+
+-1
+
+라)
+
+버전
+1.1
+
+Sample Code
+
+private void tmrEvent_Tick(object sender, System.EventArgs e)
+{
+int
+nResult;
+tmrEvent.Enabled = false;
+nResult = IMS_GetEvent(ref m_stEvtMsg);
+if (nResult == (int)ERRCODE.SUCCESS)
+{
+EVT.Proc (m_stEvtMsg.nService, m_stEvtMsg.nEvtType, m_stEvtMsg.nResult,
+m_stEvtMsg.strDn1, m_stEvtMsg.strDn2, m_stEvtMsg.strExtInfo);
+}
+
+tmrEvent.Enabled = true;
+}
+public void Proc(int nSvc, int nEvtType, int nResult, string strDn1, string strDn2, string
+strExtInfo)
+{
+switch (nSvc)
+{
+case (int)SVCCODE.IMS_SVC_NORMAL:
+{
+switch (nEvtType)
+{
+case (int)EVTTYPE.EVT_TIMEOUT:
+EvtProc_Timeout(nResult); break;
+case (int)EVTTYPE.EVT_CONNECTING:
+EvtProc_Connecting(); break;
+case (int)EVTTYPE.EVT_CONNECTED:
+EvtProc_Connected(); break;
+case (int)EVTTYPE.EVT_DISCONNECTED:
+EvtProc_Disconnected(nResult); break;
+case (int)EVTTYPE.EVT_CONNECTION_FAIL: EvtProc_ConnectionFail(nResult);
+break;
+case (int)EVTTYPE.EVT_LOGIN:
+EvtProc_Login(nResult); break;
+case (int)EVTTYPE.EVT_LOGOUT:
+EvtProc_Logout(nResult); break;
+case (int)EVTTYPE.EVT_SET_REST:
+EvtProc_SetRest(nResult); break;
+case (int)EVTTYPE.EVT_SUBS_DN_QRY:
+case (int)EVTTYPE.EVT_MON_DN_QRY:
+case (int)EVTTYPE.EVT_MON_DN_ADD:
+strExtInfo); break;
+case (int)EVTTYPE.EVT_MON_DN_DEL:
+strExtInfo); break;
+
+EvtProc_SubsDnQry(strExtInfo); break;
+EvtProc_MonDnQry(strExtInfo); break;
+EvtProc_MonDnAdd(nResult,
+
+case (int)EVTTYPE.EVT_AUTH_SMS:
+case (int)EVTTYPE.EVT_AUTH_TTS:
+case (int)EVTTYPE.EVT_CREATE_USER:
+case (int)EVTTYPE.EVT_CHG_IMSSWD:
+case (int)EVTTYPE.EVT_SERVICE_INFO:
+
+EvtProc_AuthSms(nResult); break;
+EvtProc_AuthTts(nResult); break;
+EvtProc_CreateUser(nResult); break;
+EvtProc_ChgPasswd(nResult); break;
+EvtProc_SvcInfo(strExtInfo); break;
+
+}
+}
+break;
+
+무단전제/복제 금지(SK broadband Proprietary)
+
+EvtProc_MonDnDel(nResult,
+
+문서명
+CS OpenAPI 사용 설명서
+
+최종 수정일
+2014-10-16
+
+버전
+1.1
+
+case (int)SVCCODE.IMS_SVC_CLICK_CALL: EvtProc_ClickCall(nEvtType, nResult, strDn1,
+strDn2, strExtInfo); break;
+case (int)SVCCODE.IMS_SVC_CID: EvtProc_CIDN(strDn1, strDn2); break;
+case (int)SVCCODE.IMS_SVC_CONFERENCE: EvtProc_Conference(nEvtType, nResult, strDn1,
+strDn2, strExtInfo); break;
+case (int)SVCCODE.IMS_SVC_ABS_NOTI: EvtProc_AbsNoti(strDn1, strDn2, strExtInfo);
+break;
+case (int)SVCCODE.IMS_SVC_SEND_SMS: EvtProc_SendSms(nResult, strExtInfo); break;
+case (int)SVCCODE.IMS_SVC_RECV_SMS: EvtProc_RecvSms(strDn1, strDn2, strExtInfo);
+break;
+case (int)SVCCODE.IMS_SVC_TERM_REC: EvtProc_TermRec(nEvtType, nResult, strDn1,
+strDn2, strExtInfo); break;
+case (int)SVCCODE.IMS_SVC_TTS_RS: EvtProc_TtsRs(nEvtType, nResult, strDn1,
+strExtInfo); break;
+case (int)SVCCODE.IMS_SVC_TTS_MSG: EvtProc_TtsMsg(nEvtType, nResult, strDn1,
+strExtInfo); break;
+case (int)SVCCODE.IMS_SVC_TTS_AUTH: EvtProc_TtsAuth(nEvtType, nResult, strDn1,
+strExtInfo); break;
+case (int)SVCCODE.IMS_SVC_CALL_FWD: EvtProc_CallForward(nResult, strDn1, strDn2,
+strExtInfo); break;
+case (int)SVCCODE.IMS_SVC_ORIGCALL_START_NOTI: EvtProc_OrigcallStartNoti(strDn1,
+strDn2, strExtInfo); break;
+case (int)SVCCODE.IMS_SVC_ORIGCALL_END_NOTI: EvtProc_OrigcallEndNoti(strDn1, strDn2,
+strExtInfo); break;
+case (int)SVCCODE.IMS_SVC_TERMCALL_START_NOTI: EvtProc_TermcallStartNoti(strDn1,
+strDn2, strExtInfo); break;
+case (int)SVCCODE.IMS_SVC_TERMCALL_END_NOTI: EvtProc_TermcallEndNoti(strDn1,
+strDn2, strExtInfo); break;
+case (int)SVCCODE.IMS_SVC_CALL_TRANSFER: EvtProc_CallTransfer(nEvtType, nResult,
+strDn1, strDn2, strExtInfo); break;
+case (int)SVCCODE.IMS_SVC_CALL_PICKUP: EvtProc_CallPickup(nEvtType, nResult,
+strExtInfo); break;
+case (int)SVCCODE.IMS_SVC_SEND_MMS: EvtProc_SendMms(nResult, strExtInfo); break;
+case (int)SVCCODE.IMS_SVC_RECV_MMS: EvtProc_RecvMms(strDn1, strDn2, strExtInfo);
+break;
+case (int)SVCCODE.IMS_SVC_CALLBUSYNOTI: EvtProc_CallBusyNoti(strDn1, strDn2,
+strExtInfo); break;
+case (int)SVCCODE.IMS_SVC_CTRNOTI: EvtProc_CtrNoti(strDn2, strDn1); break;
+case (int)SVCCODE.IMS_SVC_CPUNOTI:EvtProc_CpuNoti(strDn1, strDn2); break;
+case (int)SVCCODE.IMS_SVC_GET_SERVICE_INFO: EvtProc_GetSvcInfo(nResult); break;
+default:
+MAIN.Log (">>>> Invalid service : Service[" + nSvc + "]");
+break;
+}
+}
+
+무단전제/복제 금지(SK broadband Proprietary)
+
+페이지
+27/94
+
+문서명
+
+최종 수정일
+2014-10-16
+
+CS OpenAPI 사용 설명서
+
+2.6
+
+버전
+1.1
+
+페이지
+28/94
+
+부재중 설정
+
+다음은 부재중 설정에 필요한 Method 를 나열한 것이다.
+No.
+1
+
+Method
+IMS_SetRest()
+
+수행 기능
+
+비고
+
+부재중 설정
+
+다음은 부재중 설정 메소드에 대한 CS OpenAPI 서버와의 연동 FLOW 를 나타낸다.
+
+2.6.1
+
+IMS_SetRest() – 부재중 설정
+
+로그인한 사용자의 업무 상태를 변경한다. 사용자의 상태를 업무중으로 설정할 경우에는
+모든 이벤트가 해당 사용자에게만 전달되며, 부재중으로 설정한 경우에 한해 사용자에게
+전달되어야 하는 이벤트중 예를 들어 CID 나 착신녹취 서비스와 같이
+
+CS OpenAPI 에서 먼
+
+저 발생시키는 서비스에 대한 이벤트를 모니터링 전화번호로 등록한 타 사용자에게 전달
+된다..
+가)
+
+Function prototype 선언
+
+[DllImport("SKB_OpenAPI_IMS.dll")]
+public static extern int IMS_SetRest(int nFlag);
+
+나)
+
+Parameters
+NAME
+
+nFlag
+
+TYPE
+int
+
+Description
+0 – 업무 처리중
+1 – 부재중
+
+다)
+
+Return code
+ERR NAME
+
+VALUE
+
+Description
+
+SUCCESS
+
+0x0000
+
+성공
+
+API_FC_ETC_FAIL
+
+0x8000
+
+기타 오류
+
+API_FC_HOST_NOT_CONNECTED
+
+0x8014
+
+호스트 연결되어있지 않음
+
+무단전제/복제 금지(SK broadband Proprietary)
+
+문서명
+
+최종 수정일
+2014-10-16
+
+CS OpenAPI 사용 설명서
+
+버전
+1.1
+
+API_FC_INVALID_ID
+
+0x8017
+
+잘못된 사용자 ID
+
+API_FC_USER_NOT_LOGIN
+
+0x800B
+
+사용자 로그인되어있지 않음
+
+라)
+
+29/94
+
+Event
+EVENT NAME
+
+EVT_SET_REST
+
+마)
+
+페이지
+
+VALUE
+0x0106
+
+Description
+부재중 설정
+
+Sample Code
+
+private void btnSetRest_Click(object sender, System.EventArgs e)
+{
+int
+nResult;
+nResult = IMS_SetRest(1);
+if (nResult == 0) Log("**** 부재중 설정 요청 성공");
+else
+Log(">>>> 부재중 설정 요청 실패 : Cause[" + nResult + "-" +
+ERR.StrFCause(nResult) + "]");
+}
+private void btnUnsetRest_Click(object sender, System.EventArgs e)
+{
+int
+nResult;
+nResult = IMS_SetRest(0);
+if (nResult == 0) Log("**** 부재중 해제 요청 성공");
+else
+Log(">>>> 부재중 해제 요청 실패 : Cause[" + nResult + "-" +
+ERR.StrFCause(nResult) + "]");
+}
+
+2.6.2
+
+이벤트 처리 Sample Code
+
+public void Proc(int nSvc, int nEvtType, int nResult, string strDn1, string strDn2, string
+strExtInfo)
+{
+switch (nSvc)
+{
+case (int)SVCCODE.IMS_SVC_NORMAL:
+{
+switch (nEvtType)
+{
+case (int)EVTTYPE.EVT_SET_REST:
+EvtProc_SetRest(nResult); break;
+}
+}
+break;
+}
+}
+private void EvtProc_SetRest(int nResult)
+{
+if (nResult == (int)ERRCODE.SUCCESS)
+else
+
+무단전제/복제 금지(SK broadband Proprietary)
+
+MAIN.Log ("**** 부재중 설정/해제 성공");
+MAIN.Log (">>>> 부재중 설정/해제 실패 : Cause[" +
+
+문서명
+
+최종 수정일
+2014-10-16
+
+CS OpenAPI 사용 설명서
+
+버전
+1.1
+
+페이지
+30/94
+
+nResult + "-" + ERR.StrFCause(nResult) + "]");
+}
+
+2.7
+
+부재중 조회
+
+다음은 부재중 조회에 필요한 Method 를 나열한 것이다.
+No.
+
+수행 기능
+
+Method
+
+1
+
+IMS_GetRest()
+
+비고
+
+부재중 조회
+
+2.7.1 IMS_GetRest() –부재중 조회
+현재 로그인한 ID 의 부재중 상태를 조회한다. 부재중 조회 결과는 파라미터로 전달되는 구
+조체에 저장되어 반환된다.
+Function prototype 선언
+
+가)
+
+[DllImport("SKB_OpenAPI_IMS.dll")]
+public static extern int IMS_GetRest(ref _STREST stRest);
+나) Parameters
+
+부재중 상태 조회 결과를 수신하기 위한 구조체는 다음과 같이 선언한다.
+NAME
+
+TYPE
+
+Description
+
+[StructLayout(LayoutKind.Sequential, Pack=1), Serializable]
+public struct _STREST
+{
+[MarshalAs(UnmanagedType.ByValTStr, SizeConst=8)]
+public string
+strRest;
+}
+strRest : 부재중 상태
+
+Return code
+
+다)
+
+ERR NAME
+
+VALUE
+
+Description
+
+SUCCESS
+
+0x0000
+
+성공
+
+API_FC_USER_NOT_LOGIN
+
+0x800B
+
+사용자 로그인되어있지 않음
+
+Event
+
+라)
+
+마)
+
+없음
+Sample Code
+
+private void btnGetRest_Click(object sender, System.EventArgs e)
+{
+int nResult;
+nResult = IMS_GetRest(ref m_stRest);
+
+무단전제/복제 금지(SK broadband Proprietary)
+
+문서명
+
+최종 수정일
+2014-10-16
+
+CS OpenAPI 사용 설명서
+
+버전
+1.1
+
+페이지
+31/94
+
+if (nResult == (int)ERRCODE.SUCCESS)
+{
+Log(">>>> 부재중 상태 조회 결과 : " + m_stRest.strRest);
+}
+else
+{
+Log(">>>> 부재중 상태 조회 요청 실패 : Cause[" + nResult + "-" +
+ERR.StrFCause(nResult) + "]");
+}
+}
+
+2.8
+
+프로파일 조회
+
+다음은 프로파일 조회에 필요한 Method 를 나열한 것이다.
+No.
+1
+
+수행 기능
+
+Method
+IMS_GetProfile()
+
+비고
+
+프로파일 조회
+
+다음은 프로파일 조회 메소드에 대한 CS OpenAPI 서버와의 연동 FLOW 를 나타낸다.
+
+2.8.1
+
+IMS_GetProfile() – 프로파일 설정 조회
+
+각 서비스의 프로파일 설정값을 조회한다. 프로파일을 진행중인 서비스가 아니더라도 조회
+할 수 있으며 변경은 불가능하다.
+각 서비스를 사용할 때는 반드시 프로파일을 조회하여 설정되어있는 제한 범위 내의 값으
+로 서비스를 요청해야 하며, 범위를 초과했을 경우 시스템에서는 오류로 리턴한다.
+가)
+
+Function prototype 선언
+
+[DllImport("SKB_OpenAPI_IMS.dll")]
+public static extern int IMS_GetProfile(string strServiceName, string strProfileName);
+
+나)
+
+Parameters
+NAME
+
+무단전제/복제 금지(SK broadband Proprietary)
+
+TYPE
+
+Description
+
+문서명
+
+최종 수정일
+2014-10-16
+
+CS OpenAPI 사용 설명서
+strServicename
+
+String
+
+서비스 이름
+
+strProfileName
+
+String
+
+프로파일 이름
+
+버전
+1.1
+
+페이지
+32/94
+
+프로파일 조회에 사용할 수 있는 서비스 이름과 프로파일 내용은 다음과 같다.
+서비스 이름
+ClickCall
+
+프로파일 명
+CID_NUMBER
+
+기본값
+
+Description
+1 차 착신자(발신자)에게
+
+021004
+
+보여지는 CID
+Conference
+
+CID_NUMBER
+
+1 차 착신자(개설자)에게
+
+021005
+
+보여지는 CID
+CREATE_MAX_USER
+
+회의 개설 시 한번에 지정할 수
+
+16
+
+있는 최대 참여자 수. 최초
+요청 시 적용
+CONF_MAX_USER
+
+회의통화 최대 참여자 수.
+
+31
+
+참여자 추가 시 적용
+SendSms
+
+LIMIT_MAX_RECEIVERS
+
+한번에 보낼 수 있는 최대
+
+16
+
+수신자 수
+TTSMsg
+
+LIMIT_MAX_RECEIVERS
+
+한번에 보낼 수 있는 최대
+
+16
+
+수신자 수
+TTS_MENT_SIZE
+
+TTS 메시지의 멘트 글자 수
+
+140
+
+제한
+TTSRs
+
+LIMIT_MAX_RECEIVERS
+
+한번에 보낼 수 있는 최대
+
+16
+
+수신자 수
+TTS_MENT_SIZE
+
+TTS 설문 내용 멘트 글자 수
+
+140
+
+제한
+TTS_MAX_MENT_SIZE
+
+TTS 설문 내용 및 설문 항목
+
+200
+
+모두 포함한 글자 수 제한
+다)
+
+Return code
+ERR NAME
+
+VALUE
+
+Description
+
+SUCCESS
+
+0x0000
+
+성공
+
+API_FC_ETC_FAIL
+
+0x8000
+
+기타 오류
+
+API_FC_HOST_NOT_CONNECTED
+
+0x8014
+
+호스트 연결되어있지 않음
+
+API_FC_USER_NOT_LOGIN
+
+0x800B
+
+사용자 로그인되어있지 않음
+
+라)
+
+Event
+EVENT NAME
+
+EVT_NORMAL
+
+무단전제/복제 금지(SK broadband Proprietary)
+
+VALUE
+0x0001
+
+Description
+일반 이벤트
+
+문서명
+
+최종 수정일
+2014-10-16
+
+CS OpenAPI 사용 설명서
+
+마)
+
+버전
+1.1
+
+페이지
+33/94
+
+Sample Code
+
+private void btnClickCall_Profile_Click(object sender, System.EventArgs e)
+{
+int
+nResult;
+nResult = IMS_GetProfile("ClickCall", cboClickCall_Profile.Text);
+if (nResult != 0) Log(">>>> [ClickCall] 프로파일 조회 요청 실패 : Cause[" + nResult +
+"-" + ERR.StrFCause(nResult) + "]");
+}
+
+2.8.2
+
+이벤트 처리 Sample Code
+
+public void Proc(int nSvc, int nEvtType, int nResult, string strDn1, string strDn2, string
+strExtInfo)
+{
+lstLog.Items.Add('[' + DateTimeToStr(Now) + '] [이벤트] ' +
+'Service[' + sService + '-' + StrService(pstEvt.nService) + '] ' +
+'EvtType[' + sEvtType + '-' + StrEvent(pstEvt.nEvtType) + '] ' +
+'Result[' + sResult + '-' + StrFCause(pstEvt.nResult) + '] ' +
+'Dn1[' + pstEvt.strDn1 + '] ' +
+'Dn2[' + pstEvt.strDn2 + '] ' +
+'ExtInfo[' + pstEvt.strExtInfo + ']');
+}
+
+2.9
+
+가입자 모니터링번호 관리
+
+다음은 모니터링 전화번호 관리에 필요한 Method 를 나열한 것이다.
+No.
+1
+
+수행 기능
+
+Method
+IMS_QrySubDnList()
+
+사용가능한 전화번호 리스트
+
+비고
+동일 가입자
+
+조회
+2
+
+IMS_QryMonDnList()
+
+모니터링 전화번호 리스트 조회
+
+3
+
+IMS_AddMonDn()
+
+모니터링 전화번호 추가
+
+4
+
+IMS_DelMonDn()
+
+모니터링 전화번호 삭제
+
+다음은 모니터링 전화번호관리 메소드에 대한 CS OpenAPI 서버와의 연동 FLOW 를 나타낸
+다.
+
+무단전제/복제 금지(SK broadband Proprietary)
+
+문서명
+
+최종 수정일
+2014-10-16
+
+CS OpenAPI 사용 설명서
+
+버전
+1.1
+
+페이지
+34/94
+
+IMS_QrySubDnList() – 전화번호 리스트 조회
+
+2.9.1
+
+로그인한 ID 의 가입자가 여러 개의 전화번호를 보유하고 있을 경우 해당 가입자의 모든
+전화번호로 리스트를 조회한다.
+Function prototype 선언
+
+가)
+
+[DllImport("SKB_OpenAPI_IMS.dll")]
+public static extern int IMS_QrySubDnList();
+
+Parameters
+
+나)
+
+다)
+
+없음
+Return code
+ERR NAME
+
+VALUE
+
+Description
+
+SUCCESS
+
+0x0000
+
+성공
+
+API_FC_ETC_FAIL
+
+0x8000
+
+기타 오류
+
+API_FC_HOST_NOT_CONNECTED
+
+0x8014
+
+호스트 연결되어있지 않음
+
+API_FC_INVALID_ID
+
+0x8017
+
+잘못된 사용자 ID
+
+API_FC_USER_NOT_LOGIN
+
+0x800B
+
+사용자 로그인되어있지 않음
+
+무단전제/복제 금지(SK broadband Proprietary)
+
+문서명
+
+최종 수정일
+2014-10-16
+
+CS OpenAPI 사용 설명서
+
+라)
+
+페이지
+35/94
+
+Event
+EVENT NAME
+
+EVT_SUBS_DN_QRY
+
+마)
+
+버전
+1.1
+
+VALUE
+
+Description
+
+0x0107
+
+전화번호 리스트 조회
+
+Sample Code
+
+private void btnDnMng_Query_Click(object sender, System.EventArgs e)
+{
+int nResult;
+lstDnMng_SubsDn.Items.Clear();
+lstDnMng_MonDn.Items.Clear();
+nResult = IMS_QryMonDnList();
+if (nResult == (int)ERRCODE.SUCCESS)
+{
+nResult = IMS_QrySubDnList();
+if (nResult != (int)ERRCODE.SUCCESS) Log (">>>> 가입자 전화번호리스트 조회 요청 실패 :
+Cause[" + nResult + "-" + ERR.StrFCause(nResult) + "]");
+}
+else
+{
+Log (">>>> 모니터링 전화번호리스트 조회 요청 실패 : Cause[" + nResult + "-" +
+ERR.StrFCause(nResult) + "]");
+}
+}
+
+2.9.2
+
+IMS_QryMonDnList() – 모니터링 전화번호 리스트 조회
+
+로그인한 사용자의 기본 전화번호 외에 동일한 가입자로 등록된 전화번호 중 사용자가 등
+록한 모니터링 전화번호 리스트를 조회한다.
+가)
+
+Function prototype 선언
+
+[DllImport("SKB_OpenAPI_IMS.dll")]
+public static extern int IMS_QryMonDnList();
+
+나)
+
+-
+
+Parameters
+
+없음
+다)
+
+Return code
+ERR NAME
+
+SUCCESS
+
+무단전제/복제 금지(SK broadband Proprietary)
+
+VALUE
+0x0000
+
+Description
+성공
+
+문서명
+
+최종 수정일
+2014-10-16
+
+CS OpenAPI 사용 설명서
+
+버전
+1.1
+
+API_FC_ETC_FAIL
+
+0x8000
+
+기타 오류
+
+API_FC_HOST_NOT_CONNECTED
+
+0x8014
+
+호스트 연결되어있지 않음
+
+API_FC_INVALID_ID
+
+0x8017
+
+잘못된 사용자 ID
+
+API_FC_USER_NOT_LOGIN
+
+0x800B
+
+사용자 로그인되어있지 않음
+
+라)
+
+36/94
+
+Event
+EVENT NAME
+
+EVT_MON_DN_QRY
+
+마)
+
+페이지
+
+VALUE
+0x0108
+
+Description
+모니터링 전화번호 리스트 조회
+
+Sample Code
+
+private void btnDnMng_Query_Click(object sender, System.EventArgs e)
+{
+int nResult;
+lstDnMng_SubsDn.Items.Clear();
+lstDnMng_MonDn.Items.Clear();
+nResult = IMS_QryMonDnList();
+if (nResult == (int)ERRCODE.SUCCESS)
+{
+nResult = IMS_QrySubDnList();
+if (nResult != (int)ERRCODE.SUCCESS) Log (">>>> 가입자 전화번호리스트 조회 요청 실패 :
+Cause[" + nResult + "-" + ERR.StrFCause(nResult) + "]");
+}
+else
+{
+Log (">>>> 모니터링 전화번호리스트 조회 요청 실패 : Cause[" + nResult + "-" +
+ERR.StrFCause(nResult) + "]");
+}
+}
+
+2.9.3
+
+IMS_AddMonDn() – 모니터링 전화번호 추가
+
+로그인한 사용자의 기본 전화번호 외에 동일한 가입자로 등록된 전화번호 중 사용자가 모
+니터링을 원하는 번호를 추가로 등록한다. 모니터링 전화번호로 등록하는 경우 해당 전화
+번호의 기본 사용자가 로그아웃상태 또는 부재중 상태일 경우 해당 전화번호에서 발생하
+는 이벤트를 수신할 수 있다..
+한 개의 ID 에서 가능한 모니터링 전화번호의 개수는 시스템에 의해 제한되어 있으며 그
+이상 등록을 원할 경우에는 청약과정을 통해 추가로 신청해야 한다.
+가)
+
+Function prototype 선언
+
+[DllImport("SKB_OpenAPI_IMS.dll")]
+
+무단전제/복제 금지(SK broadband Proprietary)
+
+문서명
+
+최종 수정일
+2014-10-16
+
+CS OpenAPI 사용 설명서
+
+버전
+1.1
+
+페이지
+37/94
+
+public static extern int IMS_AddMonDn(string strDn);
+
+Parameters
+
+나)
+
+NAME
+strDn
+
+다)
+
+TYPE
+String
+
+Description
+전화번호
+
+Return code
+ERR NAME
+
+VALUE
+
+Description
+
+SUCCESS
+
+0x0000
+
+성공
+
+API_FC_ETC_FAIL
+
+0x8000
+
+기타 오류
+
+API_FC_HOST_NOT_CONNECTED
+
+0x8014
+
+호스트 연결되어있지 않음
+
+API_FC_INVALID_ID
+
+0x8017
+
+잘못된 사용자 ID
+
+API_FC_USER_NOT_LOGIN
+
+0x800B
+
+사용자 로그인되어있지 않음
+
+라)
+
+Event
+EVENT NAME
+
+EVT_MON_DN_ADD
+
+마)
+
+VALUE
+0x0109
+
+Description
+모니터링 전화번호 등록
+
+Sample Code
+
+private void btnDnMng_Add_Click(object sender, System.EventArgs e)
+{
+int nResult;
+if (lstDnMng_SubsDn.Items.Count == 0) return;
+nResult = IMS_AddMonDn(lstDnMng_SubsDn.SelectedItem.ToString());
+if (nResult == (int)ERRCODE.SUCCESS) Log (">>>> 모니터링 전화번호 등록 요청 실패 : Cause["
++ nResult + "-" + ERR.StrFCause(nResult) + "]");
+}
+
+2.9.4
+
+IMS_DelMonDn() – 모니터링 전화번호 삭제
+
+로그인한 사용자의 등록되어있는 모니터링 전화번호를 삭제한다.
+가)
+
+Function prototype 선언
+
+[DllImport("SKB_OpenAPI_IMS.dll")]
+public static extern int IMS_DelMonDn(string strDn);
+
+나)
+
+Parameters
+NAME
+
+무단전제/복제 금지(SK broadband Proprietary)
+
+TYPE
+
+Description
+
+문서명
+
+최종 수정일
+2014-10-16
+
+CS OpenAPI 사용 설명서
+strDn
+
+다)
+
+String
+
+버전
+1.1
+
+전화번호
+
+VALUE
+
+Description
+
+SUCCESS
+
+0x0000
+
+성공
+
+API_FC_ETC_FAIL
+
+0x8000
+
+기타 오류
+
+API_FC_HOST_NOT_CONNECTED
+
+0x8014
+
+호스트 연결되어있지 않음
+
+API_FC_INVALID_ID
+
+0x8017
+
+잘못된 사용자 ID
+
+API_FC_USER_NOT_LOGIN
+
+0x800B
+
+사용자 로그인되어있지 않음
+
+Event
+EVENT NAME
+
+EVT_MON_DN_DEL
+
+마)
+
+38/94
+
+Return code
+ERR NAME
+
+라)
+
+페이지
+
+VALUE
+
+Description
+
+0x010A
+
+모니터링 전화번호 삭제
+
+Sample Code
+
+private void btnDnMng_Del_Click(object sender, System.EventArgs e)
+{
+int nResult;
+if (lstDnMng_MonDn.Items.Count == 0) return;
+nResult = IMS_DelMonDn(lstDnMng_MonDn.SelectedItem.ToString());
+if (nResult == (int)ERRCODE.SUCCESS) Log (">>>> 모니터링 전화번호 삭제 요청 실패 : Cause["
++ nResult + "-" + ERR.StrFCause(nResult) + "]");
+}
+
+2.9.5
+
+이벤트 처리 Sample Code
+
+public void Proc(int nSvc, int nEvtType, int nResult, string strDn1, string strDn2, string
+strExtInfo)
+{
+switch (nSvc)
+{
+case (int)SVCCODE.IMS_SVC_NORMAL:
+{
+switch (nEvtType)
+{
+case (int)EVTTYPE.EVT_SUBS_DN_QRY:
+EvtProc_SubsDnQry(strExtInfo); break;
+case (int)EVTTYPE.EVT_MON_DN_QRY:
+EvtProc_MonDnQry(strExtInfo); break;
+case (int)EVTTYPE.EVT_MON_DN_ADD:
+EvtProc_MonDnAdd(nResult,
+strExtInfo); break;
+case (int)EVTTYPE.EVT_MON_DN_DEL:
+EvtProc_MonDnDel(nResult,
+strExtInfo); break;
+}
+}
+
+무단전제/복제 금지(SK broadband Proprietary)
+
+문서명
+CS OpenAPI 사용 설명서
+
+최종 수정일
+2014-10-16
+
+버전
+1.1
+
+페이지
+39/94
+
+break;
+}
+}
+private void EvtProc_SubsDnQry(string strExtInfo)
+{
+int
+nListCnt;
+int
+nItemCnt;
+int
+nFlag;
+string[]
+strDnList = strExtInfo.Split(new char[] {'^'}, 1024);
+for (nItemCnt=0; nItemCnt<strDnList.Length; nItemCnt++)
+{
+nFlag = 0;
+for (nListCnt=0; nListCnt<MAIN.lstDnMng_MonDn.Items.Count; nListCnt++)
+{
+MAIN.Log (MAIN.lstDnMng_MonDn.Items[nListCnt].ToString());
+if (MAIN.lstDnMng_MonDn.Items[nListCnt].Equals(strDnList[nItemCnt]))
+{
+nFlag = 1;
+break;
+}
+}
+if (nFlag == 0) MAIN.lstDnMng_SubsDn.Items.Add(strDnList[nItemCnt]);
+}
+}
+private void EvtProc_MonDnQry(string strExtInfo)
+{
+int
+nCnt;
+string[] strDnList = strExtInfo.Split(new char[] {'^'}, 1024);
+for (nCnt=0; nCnt<strDnList.Length; nCnt++)
+{
+MAIN.lstDnMng_MonDn.Items.Add(strDnList[nCnt]);
+}
+}
+private void EvtProc_MonDnAdd(int nResult, string strExtInfo)
+{
+if (nResult == (int)ERRCODE.SUCCESS)
+{
+MAIN.Log ("**** 모니터링 전화번호 등록 성공 : Dn[" + strExtInfo + "]");
+}
+else
+{
+MAIN.Log (">>>> 모니터링 전화번호 등록 실패 : Dn[" + strExtInfo + "] Cause[" + nResult
++ "-" + ERR.StrFCause(nResult) + "]");
+}
+}
+private void EvtProc_MonDnDel(int nResult, string strExtInfo)
+{
+if (nResult == (int)ERRCODE.SUCCESS)
+
+무단전제/복제 금지(SK broadband Proprietary)
+
+문서명
+
+최종 수정일
+2014-10-16
+
+CS OpenAPI 사용 설명서
+
+버전
+1.1
+
+페이지
+40/94
+
+{
+MAIN.Log ("**** 모니터링 전화번호 삭제 성공 : Dn[" + strExtInfo + "]");
+}
+else
+{
+MAIN.Log (">>>> 모니터링 전화번호 삭제 실패 : Dn[" + strExtInfo + "] Cause[" + nResult
++ "-" + ERR.StrFCause(nResult) + "]");
+}
+}
+
+2.10
+
+회의통화 서비스
+
+다음은 회의통화 서비스에 필요한 Method 를 나열한 것이다.
+No.
+
+Method
+
+수행 기능
+
+1
+
+IMS_Cnfr_Start()
+
+회의통화 시작
+
+2
+
+IMS_Cnfr_Stop()
+
+회의통화 종료
+
+3
+
+IMS_Cnfr_CallStatus()
+
+서비스 호상태 조회
+
+4
+
+IMS_Cnfr_Add()
+
+참여자 추가
+
+5
+
+IMS_Cnfr_Del()
+
+참여자 강퇴
+
+비고
+
+다음은 회의통화 서비스에 대한 CS OpenAPI 서버와의 연동 FLOW 를 나타낸다.
+
+무단전제/복제 금지(SK broadband Proprietary)
+
+문서명
+
+최종 수정일
+2014-10-16
+
+CS OpenAPI 사용 설명서
+
+버전
+1.1
+
+페이지
+41/94
+
+IMS_Cnfr_Start() – 회의통화 시작
+
+2.10.1
+
+회의통화 서비스를 요청한다. 참여자 번호는 ‘|’를 사용해 여러 개를 동시에 입력할 수 있으
+며, 회의 개설시 입력할 수 있는 참여자의 수는 프로파일에 정의되어 있다.
+가)
+
+Function prototype 선언
+
+[DllImport("SKB_OpenAPI_IMS.dll")]
+public static extern int IMS_Cnfr_Start(string strCallee, int nEventF);
+
+나)
+
+Parameters
+NAME
+
+strCallee
+
+TYPE
+
+Description
+
+String
+
+참여자 전화번호 리스트
+여러 개일 경우 구분자 ‘|’ 사용
+
+nEventF
+
+다)
+
+Return code
+
+무단전제/복제 금지(SK broadband Proprietary)
+
+int
+
+이벤트 수신 여부. 0-수신, 1-미수신
+
+문서명
+
+최종 수정일
+2014-10-16
+
+CS OpenAPI 사용 설명서
+ERR NAME
+
+VALUE
+
+버전
+1.1
+
+페이지
+42/94
+
+Description
+
+SUCCESS
+
+0x0000
+
+성공
+
+API_FC_ETC_FAIL
+
+0x8000
+
+기타 오류
+
+API_FC_IN_SERVICE
+
+0x8004
+
+이미 서비스 진행중
+
+API_FC_HOST_NOT_CONNECTED
+
+0x8014
+
+호스트 연결되어있지 않음
+
+API_FC_INVALID_DN
+
+0x8018
+
+잘못된 사용자 전화번호
+
+API_FC_USER_NOT_LOGIN
+
+0x800B
+
+사용자 로그인되어있지 않음
+
+API_FC_NOT_ALLOWED_SERVICE
+
+0x8075
+
+부가서비스 가입 상태가 아님
+
+Event
+
+라)
+
+EVENT NAME
+
+VALUE
+
+Description
+
+EVT_NORMAL
+
+0x0001
+
+일반 이벤트
+
+EVT_PTPNT_ADD
+
+0x0309
+
+참여자 전화 참여
+
+EVT_PTPNT_DEL
+
+0x030A
+
+참여자 전화 종료
+
+Sample Code
+
+마)
+
+private void btnCnfr_Start_Click(object sender, System.EventArgs e)
+{
+int
+nResult;
+int
+nEventF;
+if (chkCnfr_EventF.Checked == true) nEventF = 1;
+else nEventF = 0;
+nResult = IMS_Cnfr_Start(txtCnfr_TelNum.Text, nEventF);
+if (nResult != (int)ERRCODE.SUCCESS) Log (">>>> [CNFR] 회의 시작요청 실패 : Cause[" +
+ERR.StrFCause(nResult) + "]");
+}
+
+2.10.2
+
+IMS_Cnfr_Stop() – 회의통화 종료
+
+회의통화 서비스를 종료한다. 종료 시에는 주관자를 포함하여 연결되어있는 모든 참여자의
+전화가 종료된다.
+Function prototype 선언
+
+가)
+
+[DllImport("SKB_OpenAPI_IMS.dll")]
+public static extern int IMS_Cnfr_Stop();
+
+Parameters
+
+나)
+
+-
+
+없음
+
+무단전제/복제 금지(SK broadband Proprietary)
+
+문서명
+
+최종 수정일
+2014-10-16
+
+CS OpenAPI 사용 설명서
+
+버전
+1.1
+
+Return code
+
+다)
+
+ERR NAME
+
+VALUE
+
+Description
+
+SUCCESS
+
+0x0000
+
+성공
+
+API_FC_ETC_FAIL
+
+0x8000
+
+기타 오류
+
+API_FC_NOT_IN_SERVICE
+
+0x8005
+
+서비스 미진행중
+
+API_FC_HOST_NOT_CONNECTED
+
+0x8014
+
+호스트 연결되어있지 않음
+
+API_FC_INVALID_DN
+
+0x8018
+
+잘못된 사용자 전화번호
+
+API_FC_USER_NOT_LOGIN
+
+0x800B
+
+사용자 로그인되어있지 않음
+
+API_FC_NOT_ALLOWED_SERVICE
+
+0x8075
+
+부가서비스 가입 상태가 아님
+
+Event
+
+라)
+
+EVENT NAME
+EVT_STOP_SERVICE
+
+VALUE
+0x0303
+
+Description
+서비스 종료
+
+Sample Code
+
+마)
+
+private void btnCnfr_Stop_Click(object sender, System.EventArgs e)
+{
+int nResult;
+nResult = IMS_Cnfr_Stop();
+if (nResult != 0) Log(">>>> [CNFR] 회의 종료요청 실패 : Cause[" + nResult + "-" +
+ERR.StrFCause(nResult) + "]");
+}
+
+2.10.3
+
+IMS_Cnfr_CallStatus() – 회의통화 호 상태 조회
+
+회의통화 서비스의 호 상태를 조회한다.
+Function prototype 선언
+
+가)
+
+[DllImport("SKB_OpenAPI_IMS.dll")]
+public static extern int IMS_Cnfr_CallStatus();
+
+Parameters
+
+나)
+
+다)
+
+없음
+Return code
+ERR NAME
+
+VALUE
+
+Description
+
+SUCCESS
+
+0x0000
+
+성공
+
+API_FC_ETC_FAIL
+
+0x8000
+
+기타 오류
+
+무단전제/복제 금지(SK broadband Proprietary)
+
+페이지
+43/94
+
+문서명
+
+최종 수정일
+2014-10-16
+
+CS OpenAPI 사용 설명서
+
+버전
+1.1
+
+API_FC_NOT_IN_SERVICE
+
+0x8005
+
+서비스 미진행중
+
+API_FC_HOST_NOT_CONNECTED
+
+0x8014
+
+호스트 연결되어있지 않음
+
+API_FC_USER_NOT_LOGIN
+
+0x800B
+
+사용자 로그인되어있지 않음
+
+API_FC_NOT_ALLOWED_SERVICE
+
+0x8075
+
+부가서비스 가입 상태가 아님
+
+페이지
+44/94
+
+Event
+
+라)
+
+EVENT NAME
+
+VALUE
+
+EVT_CALL_STATUS
+
+0x0301
+
+Description
+호 상태 조회
+
+호 상태 결과 값
+
+마)
+
+구분
+
+Description
+
+Ready
+
+주관자/참여자 호 시도 전
+
+Ringing
+
+주관자/참여자 호 시도 중
+
+Success
+
+주관자/참여자 통화 수락
+
+Busy
+
+참여자 단말이 BUSY 인 경우
+
+Abandon
+
+참여자가 호 수신을 거부한 경우
+
+NoAnswer
+
+참여 부재중
+
+UserNotFound
+
+참여자 단말로의 호 라우팅 실패
+참여자 번호에 대해 망 장비에서 결번 이벤트 발생
+
+NotReachable
+
+참여자 단말로 호처리 메시지 전달 불가
+
+Disconnect
+
+참여자 통화 후 정상 종료
+
+ServiceCancel
+
+참여자가 회의 참여 전 강퇴를 당한 경우
+
+ServiceRelease
+
+참여자가 회의 참여 중 강퇴를 당한 경우
+
+CallFault
+
+참여자 상태 비정상(번호번역 실패)
+
+바)
+
+Sample Code
+
+private void btnCnfr_Status_Click(object sender, System.EventArgs e)
+{
+int nResult;
+nResult = IMS_Cnfr_CallStatus();
+if (nResult != 0) Log(">>>> [CNFR] 호상태 조회 요청 실패 : Cause[" + nResult + "-" +
+ERR.StrFCause(nResult) + "]");
+}
+
+2.10.4
+
+IMS_Cnfr_Add() – 참여자 추가
+
+진행중인 회의통화 서비스에 참여자를 추가로 호출한다. 참여자 번호는 ‘|’를 사용하여 여러
+개를 등록할 수 있다.
+
+무단전제/복제 금지(SK broadband Proprietary)
+
+문서명
+
+최종 수정일
+2014-10-16
+
+CS OpenAPI 사용 설명서
+
+가)
+
+버전
+1.1
+
+Function prototype 선언
+
+[DllImport("SKB_OpenAPI_IMS.dll")]
+public static extern int IMS_Cnfr_Add(string strCallee);
+
+나)
+
+Parameters
+NAME
+
+strCallee
+
+TYPE
+
+Description
+
+String
+
+참여자 전화번호 리스트
+여러 개일 경우 구분자 ‘|’ 사용
+
+다)
+
+Return code
+ERR NAME
+
+VALUE
+
+Description
+
+SUCCESS
+
+0x0000
+
+성공
+
+API_FC_ETC_FAIL
+
+0x0800
+
+기타 오류
+
+API_FC_NOT_IN_SERVICE
+
+0x8005
+
+서비스 미진행중
+
+API_FC_HOST_NOT_CONNECTED
+
+0x8014
+
+호스트 연결되어있지 않음
+
+API_FC_INVALID_DN
+
+0x8018
+
+잘못된 사용자 전화번호
+
+API_FC_USER_NOT_LOGIN
+
+0x800B
+
+사용자 로그인되어있이 않음
+
+API_FC_NOT_ALLOWED_SERVICE
+
+0x8075
+
+부가서비스 가입 상태가 아님
+
+라)
+
+Event
+EVENT NAME
+
+EVT_PTPNT_ADD
+
+마)
+
+VALUE
+0x0309
+
+Description
+참여자 전화 참여
+
+Sample Code
+
+private void btnCnfr_Add_Click(object sender, System.EventArgs e)
+{
+int nResult;
+nResult = IMS_Cnfr_Add(txtCnfr_TelNum.Text);
+if (nResult != (int)ERRCODE.SUCCESS) Log (">>>> [CNFR] 참여자 추가 요청 실패 : Cause[" +
+ERR.StrFCause(nResult) + "]");
+}
+
+2.10.5
+
+IMS_Cnfr_Del() – 참여자 강퇴
+
+진행중인 회의통화에서 특정 참여자를 강퇴시킨다.
+가)
+
+Function prototype 선언
+
+무단전제/복제 금지(SK broadband Proprietary)
+
+페이지
+45/94
+
+문서명
+
+최종 수정일
+2014-10-16
+
+CS OpenAPI 사용 설명서
+
+버전
+1.1
+
+페이지
+46/94
+
+[DllImport("SKB_OpenAPI_IMS.dll")]
+public static extern int IMS_Cnfr_Del(string strCallee);
+
+나)
+
+Parameters
+NAME
+
+strCallee
+
+다)
+
+TYPE
+String
+
+Description
+참여자 전화번호
+
+Return code
+ERR NAME
+
+VALUE
+
+Description
+
+SUCCESS
+
+0x0000
+
+성공
+
+API_FC_ETC_FAIL
+
+0x0800
+
+기타 오류
+
+API_FC_NOT_IN_SERVICE
+
+0x8005
+
+서비스 미진행중
+
+API_FC_HOST_NOT_CONNECTED
+
+0x8014
+
+호스트 연결되어있지 않음
+
+API_FC_INVALID_DN
+
+0x8018
+
+잘못된 사용자 전화번호
+
+API_FC_USER_NOT_LOGIN
+
+0x800B
+
+사용자 로그인되어있이 않음
+
+API_FC_NOT_ALLOWED_SERVICE
+
+0x8075
+
+부가서비스 가입 상태가 아님
+
+라)
+
+Event
+EVENT NAME
+
+EVT_PTPNT_EXPEL
+
+마)
+
+VALUE
+0x030B
+
+Description
+참여자 강퇴
+
+Sample Code
+
+private void btnCnfr_Del_Click(object sender, System.EventArgs e)
+{
+int nResult;
+nResult = IMS_Cnfr_Del(txtCnfr_TelNum.Text);
+if (nResult != (int)ERRCODE.SUCCESS) Log (">>>> [CNFR] 참여자 강퇴 요청 실패 : Cause[" +
+ERR.StrFCause(nResult) + "]");
+}
+
+2.10.6
+
+이벤트 처리 Sample Code
+
+public void Proc(int nSvc, int nEvtType, int nResult, string strDn1, string strDn2, string
+strExtInfo)
+{
+switch (nSvc)
+{
+case (int)SVCCODE.IMS_SVC_CONFERENCE: EvtProc_Conference(nEvtType, nResult, strDn1,
+strDn2, strExtInfo); break;
+}
+}
+
+무단전제/복제 금지(SK broadband Proprietary)
+
+문서명
+CS OpenAPI 사용 설명서
+
+최종 수정일
+2014-10-16
+
+버전
+1.1
+
+페이지
+47/94
+
+private void EvtProc_Conference(int nEvtType, int nResult, string strDn1, string strDn2, string
+strExtInfo)
+{
+switch (nEvtType)
+{
+case (int)EVTTYPE.EVT_NORMAL:
+MAIN.Log (">>>> [CNFR] Cause[" + nResult + "-" + ERR.StrFCause(nResult) + "]");
+break;
+case (int)EVTTYPE.EVT_CALL_STATUS:
+MAIN.Log ("**** [CNFR] 서비스 상태. 전화번호[" + strDn1 + "] 상태[" + strExtInfo +
+"]");
+break;
+case (int)EVTTYPE.EVT_START_SERVICE:
+if (nResult == (int)ERRCODE.SUCCESS)
+{
+MAIN.Log ("**** [CNFR] 서비스 시작 성공 [" + strDn1 + "->" + strDn2 + "]");
+}
+else
+{
+MAIN.Log (">>>> [CNFR] 서비스 시작 실패. [" + strDn1 + "->" + strDn2 + "] Cause["
++ nResult + "-" + ERR.StrFCause(nResult) + "] 추가정보[" + strExtInfo + "]");
+}
+break;
+case (int)EVTTYPE.EVT_STOP_SERVICE:
+MAIN.Log ("**** [CNFR] 서비스 종료. 종료원인[" + nResult + "-" +
+ERR.StrFCause(nResult) + "]" + " 추가정보[" + strExtInfo + "]");
+break;
+case (int)EVTTYPE.EVT_PTPNT_ADD:
+MAIN.Log ("**** [CNFR] 참여자 회의 참여. 전화번호[" + strDn1 + "] 결과" + nResult
++ "-" + ERR.StrFCause(nResult) + "]"); break;
+case (int)EVTTYPE.EVT_PTPNT_DEL:
+MAIN.Log ("**** [CNFR] 참여자 회의 퇴장. 전화번호[" + strDn1 + "] 추가정보[" +
+strExtInfo + "]"); break;
+case (int)EVTTYPE.EVT_PTPNT_EXPEL:
+MAIN.Log ("**** [CNFR] 참여자 강퇴. 전화번호[" + strDn1 + "] 추가정보[" + strExtInfo
++ "]");
+break;
+default:
+MAIN.Log (">>>> [CNFR] 잘못된 이벤트 수신. EvtType[" + nEvtType + "-" +
+StrEvtType(nEvtType) + "]");
+break;
+}
+}
+
+무단전제/복제 금지(SK broadband Proprietary)
+
+문서명
+
+최종 수정일
+2014-10-16
+
+CS OpenAPI 사용 설명서
+
+2.11
+
+버전
+1.1
+
+페이지
+48/94
+
+ClickCall 서비스
+
+다음은 클릭콜 서비스에 필요한 Method 를 나열한 것이다.
+No.
+
+수행 기능
+
+Method
+
+비고
+
+1
+
+IMS_ClickCall_Start()
+
+클릭콜 서비스 시작
+
+2
+
+IMS_ ClickCall _Stop()
+
+클릭콜 서비스 종료
+
+3
+
+IMS_ ClickCall _CallStatus()
+
+클릭콜 서비스 호상태 조회
+
+4
+
+IMS_ ClickCall_StartRecord()
+
+녹음 시작
+
+부분녹취
+
+5
+
+IMS_ ClickCall_StopRecord()
+
+녹음 종료
+
+부분녹취
+
+다음은 ClickCall 서비스에 대한 CS OpenAPI 서버와의 연동 FLOW 를 나타낸다.
+
+2.11.1
+
+IMS_ClickCall_Start() – ClickCall 시작
+
+클릭콜 서비스를 시작한다. 녹취 서비스를 사용하기 위해서는 청약과정에서 별도의 서비스
+에 가입해야 한다.
+가)
+
+Function prototype 선언
+
+무단전제/복제 금지(SK broadband Proprietary)
+
+문서명
+
+최종 수정일
+2014-10-16
+
+CS OpenAPI 사용 설명서
+
+버전
+1.1
+
+[DllImport("SKB_OpenAPI_IMS.dll")]
+public static extern int IMS_ClickCall_Start(string strDestDn, int nRecordF, int nEventF, int
+nAutoAnswerF);
+
+나)
+
+Parameters
+NAME
+
+TYPE
+
+Description
+
+strDestDn
+
+String
+
+상대방 전화번호
+
+nRecordF
+
+int
+
+녹취 옵션
+0 : 녹취 안함
+1: 전수 녹취(서비스 시작 시
+녹음)
+2:부분녹취(요청에 의한 녹음
+시작)
+
+nEventF
+
+int
+
+이벤트 수신 여부
+0: 미수신
+1: 수신
+
+nAutoAnswerF
+
+Long
+
+발신자 자동 응답 여부
+0: 자동 응답함
+1: 자동 응답 안함
+
+다)
+
+Return code
+ERR NAME
+
+VALUE
+
+Description
+
+SUCCESS
+
+0x0000
+
+성공
+
+API_FC_ETC_FAIL
+
+0x0800
+
+기타 오류
+
+API_FC_IN_SERVICE
+
+0x0804
+
+이미 서비스 진행중
+
+API_FC_HOST_NOT_CONNECTED
+
+0x0814
+
+호스트 연결되어있지 않음
+
+API_FC_INVALID_DN
+
+0x0818
+
+잘못된 사용자 전화번호
+
+API_FC_USER_NOT_LOGIN
+
+0x080B
+
+사용자 로그인되어있지 않음
+
+API_FC_NOT_ALLOWED_SERVICE
+
+0x8075
+
+부가서비스 가입 상태가 아님
+
+라)
+
+Event
+EVENT NAME
+
+VALUE
+
+Description
+
+EVT_NORMAL
+
+0x0001
+
+일반 이벤트
+
+EVT_START_SERVICE
+
+0x0302
+
+서비스 시작
+
+EVT_ANSWER
+
+0x0305
+
+착신자 전화 응답
+
+마)
+
+Sample Code
+
+무단전제/복제 금지(SK broadband Proprietary)
+
+페이지
+49/94
+
+문서명
+
+최종 수정일
+2014-10-16
+
+CS OpenAPI 사용 설명서
+
+버전
+1.1
+
+페이지
+50/94
+
+private void btnClickCall_Start_Click(object sender, System.EventArgs e)
+{
+int
+nResult;
+int
+nRecordF;
+int
+nEventF;
+int nAutoAnswerF;
+if
+(rdoClickCall_False.Checked == true) nRecordF = 0;
+else if (rdoClickCall_True.Checked == true) nRecordF = 1;
+else nRecordF = 2;
+if (chkClickCall_EventF.Checked == true) nEventF = 1;
+else nEventF = 0;
+if (chkClickCall_AutoAnswerF.Checked == true) nAutoAnswerF = 1;
+else nAutoAnswerF = 0;
+nResult = IMS_ClickCall_Start(txtClickCall_TelNum.Text, nRecordF, nEventF,
+nAutoAnswerF);
+if (nResult != (int)ERRCODE.SUCCESS) Log(">>>> [ClickCall] 시작 요청 실패 : Cause[" +
+ERR.StrFCause(nResult) + "]");
+}
+
+2.11.2
+
+IMS_ClickCall_Stop() – ClickCall 종료
+
+클릭콜 서비스를 종료한다. 종료 시 발신자/착신자의 전화를 모두 종료한다.
+Function prototype 선언
+
+가)
+
+[DllImport("SKB_OpenAPI_IMS.dll")]
+public static extern int IMS_ClickCall_Stop();
+
+Parameters
+
+나)
+
+다)
+
+없음
+Return code
+ERR NAME
+
+VALUE
+
+Description
+
+SUCCESS
+
+0x0000
+
+성공
+
+API_FC_ETC_FAIL
+
+0x8000
+
+기타 오류
+
+API_FC_NOT_IN_SERVICE
+
+0x8005
+
+서비스 미진행중
+
+API_FC_HOST_NOT_CONNECTED
+
+0x8014
+
+호스트 연결되어있지 않음
+
+API_FC_INVALID_DN
+
+0x8018
+
+잘못된 사용자 전화번호
+
+API_FC_USER_NOT_LOGIN
+
+0x800B
+
+사용자 로그인되어있지 않음
+
+API_FC_NOT_ALLOWED_SERVICE
+
+0x8075
+
+부가서비스 가입 상태가 아님
+
+라)
+
+Event
+
+무단전제/복제 금지(SK broadband Proprietary)
+
+문서명
+
+최종 수정일
+2014-10-16
+
+CS OpenAPI 사용 설명서
+EVENT NAME
+EVT_STOP_SERVICE
+
+VALUE
+0x0303
+
+버전
+1.1
+
+Description
+서비스 종료
+
+Sample Code
+
+마)
+
+private void btnClickCall_Stop_Click(object sender, System.EventArgs e)
+{
+int nResult;
+nResult = IMS_ClickCall_Stop();
+if (nResult != 0) Log(">>>> [ClickCall] 종료 요청 실패 : Cause[" + nResult + "-" +
+ERR.StrFCause(nResult) + "]");
+}
+
+2.11.3
+
+IMS_ClickCall_CallStatus() – ClickCall 호 상태 조회
+
+클릭콜 서비스 중 호상태를 조회한다.
+Function prototype 선언
+
+가)
+
+[DllImport("SKB_OpenAPI_IMS.dll")]
+public static extern int IMS_ClickCall_CallStatus();
+
+Parameters
+
+나)
+
+다)
+
+없음
+Return code
+ERR NAME
+
+VALUE
+
+Description
+
+SUCCESS
+
+0x0000
+
+성공
+
+API_FC_ETC_FAIL
+
+0x8000
+
+기타 오류
+
+API_FC_NOT_IN_SERVICE
+
+0x8005
+
+서비스 미진행중
+
+API_FC_HOST_NOT_CONNECTED
+
+0x8014
+
+호스트 연결되어있지 않음
+
+API_FC_INVALID_DN
+
+0x8018
+
+잘못된 사용자 전화번호
+
+API_FC_USER_NOT_LOGIN
+
+0x800B
+
+사용자 로그인되어있지 않음
+
+API_FC_NOT_ALLOWED_SERVICE
+
+0x8075
+
+부가서비스 가입 상태가 아님
+
+라)
+
+Event
+EVENT NAME
+
+EVT_CALL_STATUS
+
+마)
+
+VALUE
+0x0301
+
+Description
+호 상태 조회
+
+호 상태 결과 값
+구분
+
+무단전제/복제 금지(SK broadband Proprietary)
+
+Description
+
+페이지
+51/94
+
+문서명
+
+최종 수정일
+2014-10-16
+
+CS OpenAPI 사용 설명서
+Init
+
+초기 상태
+
+RingingToCalling
+
+1 차 착신 호 연결 중
+
+RingingToCalled
+
+2 차 착신 호 연결 중
+
+Recording
+
+녹취 중
+
+Connected
+
+통화 중 상태 또는 부분 녹취 종료 상태
+
+Release
+
+호 종료 상태
+
+버전
+1.1
+
+페이지
+52/94
+
+Sample Code
+
+바)
+
+private void btnClickCall_Status_Click(object sender, System.EventArgs e)
+{
+int nResult;
+nResult = IMS_ClickCall_CallStatus();
+if (nResult != 0) Log(">>>> [ClickCall] 호상태 조회 요청 실패 : Cause[" + nResult + "-" +
+ERR.StrFCause(nResult) + "]");
+}
+
+2.11.4
+
+IMS_ClickCall_StartRecord() – 녹음 시작
+
+클릭콜 서비스 중 녹취 옵션에 부분녹취를 선택했을 경우 통화 내역 녹음을 요청한다.
+Function prototype 선언
+
+가)
+
+[DllImport("SKB_OpenAPI_IMS.dll")]
+public static extern int IMS_ClickCall_StartRecord();
+
+Parameters
+
+나)
+
+다)
+
+없음
+Return code
+ERR NAME
+
+VALUE
+
+Description
+
+SUCCESS
+
+0x0000
+
+성공
+
+API_FC_ETC_FAIL
+
+0x0800
+
+기타 오류
+
+API_FC_IN_SERVICE
+
+0x0804
+
+이미 서비스 진행중
+
+API_FC_HOST_NOT_CONNECTED
+
+0x0814
+
+호스트 연결되어있지 않음
+
+API_FC_INVALID_DN
+
+0x0818
+
+잘못된 사용자 전화번호
+
+API_FC_USER_NOT_LOGIN
+
+0x080B
+
+사용자 로그인되어있지 않음
+
+API_FC_NOT_ALLOWED_SERVICE
+
+0x8075
+
+부가서비스 가입 상태가 아님
+
+라)
+
+Event
+EVENT NAME
+
+무단전제/복제 금지(SK broadband Proprietary)
+
+VALUE
+
+Description
+
+문서명
+
+최종 수정일
+2014-10-16
+
+CS OpenAPI 사용 설명서
+EVT_START_RECORD
+
+0x0307
+
+버전
+1.1
+
+녹음 시작
+
+Sample Code
+
+마)
+
+private void btnClickCall_StartRec_Click(object sender, System.EventArgs e)
+{
+int nResult;
+nResult = IMS_ClickCall_StartRecord();
+if (nResult != 0) Log(">>>> [ClickCall] 녹음 시작 요청 실패 : Cause[" + nResult + "-" +
+ERR.StrFCause(nResult) + "]");
+}
+
+2.11.5
+
+IMS_ClickCall_StopRecord() – 녹음 종료
+
+클릭콜 서비스의 녹음을 종료한다.
+Function prototype 선언
+
+가)
+
+[DllImport("SKB_OpenAPI_IMS.dll")]
+public static extern int IMS_ClickCall_StopRecord();
+
+Parameters
+
+나)
+
+다)
+
+없음
+Return code
+ERR NAME
+
+VALUE
+
+Description
+
+SUCCESS
+
+0x0000
+
+성공
+
+API_FC_ETC_FAIL
+
+0x0800
+
+기타 오류
+
+API_FC_IN_SERVICE
+
+0x0804
+
+이미 서비스 진행중
+
+API_FC_HOST_NOT_CONNECTED
+
+0x0814
+
+호스트 연결되어있지 않음
+
+API_FC_INVALID_DN
+
+0x0818
+
+잘못된 사용자 전화번호
+
+API_FC_USER_NOT_LOGIN
+
+0x080B
+
+사용자 로그인되어있지 않음
+
+API_FC_NOT_ALLOWED_SERVICE
+
+0x8075
+
+부가서비스 가입 상태가 아님
+
+라)
+
+Event
+EVENT NAME
+
+EVT_STOP_RECORD
+
+마)
+
+VALUE
+0x0308
+
+Description
+녹음 종료
+
+Sample Code
+
+private void btnClickCall_StopRec_Click(object sender, System.EventArgs e)
+{
+int nResult;
+
+무단전제/복제 금지(SK broadband Proprietary)
+
+페이지
+53/94
+
+문서명
+CS OpenAPI 사용 설명서
+
+최종 수정일
+2014-10-16
+
+버전
+1.1
+
+페이지
+54/94
+
+nResult = IMS_ClickCall_StopRecord();
+if (nResult != 0) Log(">>>> [ClickCall] 녹음 종료 요청 실패 : Cause[" + nResult + "-" +
+ERR.StrFCause(nResult) + "]");
+}
+
+2.11.6
+
+이벤트 처리 Sample Code
+
+public void Proc(int nSvc, int nEvtType, int nResult, string strDn1, string strDn2, string
+strExtInfo)
+{
+switch (nSvc)
+{
+case (int)SVCCODE.IMS_SVC_CLICK_CALL: EvtProc_ClickCall(nEvtType, nResult, strDn1,
+strDn2, strExtInfo); break;
+}
+}
+private void EvtProc_ClickCall(int nEvtType, int nResult, string strDn1, string strDn2, string
+strExtInfo)
+{
+switch (nEvtType)
+{
+case (int)EVTTYPE.EVT_NORMAL:
+MAIN.Log ("==== [ClickCall] Cause[" + nResult + "-" + ERR.StrFCause(nResult) + "]");
+break;
+case (int)EVTTYPE.EVT_CALL_STATUS:
+MAIN.Log ("**** [ClickCall] 서비스 상태 : " + strExtInfo);
+break;
+case (int)EVTTYPE.EVT_START_SERVICE:
+if (nResult == (int)ERRCODE.SUCCESS)
+{
+MAIN.Log ("**** [ClickCall] 서비스 시작 성공 [" + strDn1 + "->" + strDn2 + "]");
+}
+else
+{
+MAIN.Log (">>>> [ClickCall] 서비스 시작 실패. Cause[" + nResult + "-" +
+ERR.StrFCause(nResult) + "] 추가정보[" + strExtInfo + "]");
+}
+break;
+case (int)EVTTYPE.EVT_STOP_SERVICE:
+MAIN.Log ("**** [ClickCall] 서비스 종료 Cause[" + nResult + "-" +
+ERR.StrFCause(nResult) + "] 추가정보[" + strExtInfo + "]");
+break;
+case (int)EVTTYPE.EVT_START_RECORD:
+if (nResult == (int)ERRCODE.SUCCESS)
+{
+MAIN.Log ("**** [ClickCall] 녹음 시작 성공");
+}
+else
+
+무단전제/복제 금지(SK broadband Proprietary)
+
+문서명
+
+최종 수정일
+2014-10-16
+
+CS OpenAPI 사용 설명서
+
+버전
+1.1
+
+페이지
+55/94
+
+{
+MAIN.Log (">>>> [ClickCall] 녹음 시작 실패. Cause[" + nResult + "-" +
+ERR.StrFCause(nResult) + "] 추가정보[" + strExtInfo + "]");
+}
+break;
+case (int)EVTTYPE. EVT_STOP_RECORD:
+if (nResult == (int)ERRCODE.SUCCESS)
+{
+MAIN.Log ("**** [ClickCall] 녹음 종료");
+}
+else
+{
+MAIN.Log (">>>> [ClickCall] 녹음 종료 실패. Cause[" + nResult + "-" +
+ERR.StrFCause(nResult) + "] 추가정보[" + strExtInfo + "]");
+}
+break;
+case (int)EVTTYPE. EVT_ANSWER:
+MAIN.Log ("**** [clickCall] <" + strDn1 + ">번이 전화를 받았습니다.");
+break;
+default:
+MAIN.Log (">>>> [ClickCall] 잘못된 이벤트 수신. EvtType[" + nEvtType + "-" +
+StrEvtType(nEvtType) + "]");
+break;
+}
+}
+
+2.12
+
+SMS 전송 서비스
+
+다음은 SMS 전송 서비스에 필요한 Method 를 나열한 것이다.
+No.
+1
+
+수행 기능
+
+Method
+IMS_SendSms()
+
+비고
+
+SMS 전송 요청
+
+다음은 SMS 전송 서비스에 대한 CS OpenAPI 서버와의 연동 FLOW 를 나타낸다.
+
+2.12.1
+
+IMS_SendSms() – SMS 전송 요청
+
+입력한 착신 번호에 SMS 를 전송한다. 한번헤 전송할 수 있는 SMS 의 최대 길이는 80byte
+
+무단전제/복제 금지(SK broadband Proprietary)
+
+문서명
+
+최종 수정일
+2014-10-16
+
+CS OpenAPI 사용 설명서
+
+버전
+1.1
+
+페이지
+56/94
+
+를 초과할 수 없다.
+가)
+
+Function prototype 선언
+
+[DllImport("SKB_OpenAPI_IMS.dll")]
+public static extern int IMS_SendSms(string strCallee, string strMessage);
+
+나)
+
+Parameters
+NAME
+
+strCallee
+
+TYPE
+String
+
+Description
+착신자의 전화번호
+여러 개일 경우 구분자 ‘|’ 사용
+
+strMessage
+
+다)
+
+String
+
+메시지 내용
+
+Return code
+ERR NAME
+
+VALUE
+
+Description
+
+SUCCESS
+
+0x0000
+
+성공
+
+API_FC_ETC_FAIL
+
+0x0800
+
+기타 오류
+
+API_FC_IN_SERVICE
+
+0x0804
+
+이미 서비스 진행중
+
+API_FC_HOST_NOT_CONNECTED
+
+0x0814
+
+호스트 연결되어있지 않음
+
+API_FC_INVALID_DN
+
+0x0818
+
+잘못된 사용자 전화번호
+
+API_FC_INVALID_MSG
+
+0x8003
+
+메시지 형식 오류
+
+API_FC_OVER_LENGTH
+
+0x8074
+
+메시지 길이 초과
+
+API_FC_USER_NOT_LOGIN
+
+0x080B
+
+사용자 로그인되어있지 않음
+
+API_FC_NOT_ALLOWED_SERVICE
+
+0x8075
+
+부가서비스 가입 상태가 아님
+
+라)
+
+Event
+EVENT NAME
+
+EVT_NORMAL
+
+마)
+
+VALUE
+0x0001
+
+Description
+서비스 일반
+
+Sample Code
+
+private void btnSmsMT_Send_Click(object sender, System.EventArgs e)
+{
+int nResult;
+nResult = IMS_SendSms(txtSmsMT_Callback.Text, txtSmsMT_TelNum.Text,
+txtSmsMT_Message.Text);
+if (nResult != (int)ERRCODE.SUCCESS) Log (">>>> [SMS_MT] SMS 전송 실패 : Cause[" + nResult
++ "-" + ERR.StrFCause(nResult) + "]");
+}
+
+무단전제/복제 금지(SK broadband Proprietary)
+
+문서명
+
+최종 수정일
+2014-10-16
+
+CS OpenAPI 사용 설명서
+
+2.12.2
+
+버전
+1.1
+
+페이지
+57/94
+
+이벤트 처리 Sample Code
+
+public void Proc(int nSvc, int nEvtType, int nResult, string strDn1, string strDn2, string
+strExtInfo)
+{
+switch (nSvc)
+{
+case (int)SVCCODE.IMS_SVC_SEND_SMS:
+EvtProc_SendSms(nResult, strExtInfo); break;
+}
+}
+private void EvtProc_SendSms(int nResult, string strExtInfo)
+{
+if (nResult == (int)ERRCODE.SUCCESS)
+{
+MAIN.Log ("**** [SMS_MT] SMS 전송 성공");
+}
+else
+{
+MAIN.Log (">>>> [SMS_MT] SMS 전송 실패 : Cause[" + nResult + "-" + ERR.StrFCause(nResult)
++ "] 추가정보[" + strExtInfo + "]");
+}
+}
+
+2.13
+
+SMS 수신 서비스
+
+가입자가 로그인한 상태에서 단말에 SMS 를 수신하면 동시에 Application 에서도 수신된다.
+다음은 SMS 수신 서비스에 대한 CS OpenAPI 서버와의 연동 FLOW 를 나타낸다.
+
+가)
+
+Event
+EVENT NAME
+
+EVT_NORMAL
+
+2.13.1
+
+VALUE
+0x0001
+
+Description
+서비스 일반
+
+이벤트 처리 Sample Code
+
+public void Proc(int nSvc, int nEvtType, int nResult, string strDn1, string strDn2, string
+strExtInfo)
+{
+switch (nSvc)
+{
+
+무단전제/복제 금지(SK broadband Proprietary)
+
+문서명
+
+최종 수정일
+2014-10-16
+
+CS OpenAPI 사용 설명서
+case (int)SVCCODE.IMS_SVC_RECV_SMS:
+
+버전
+1.1
+
+페이지
+58/94
+
+EvtProc_RecvSms(strDn1, strDn2, strExtInfo);
+
+break;
+}
+}
+private void EvtProc_RecvSms(string strCaller, string strCallee, string strMessage)
+{
+MAIN.Log ("==== [SMS_RECV] SMS 수신 <" + strCaller + "->" + strCallee + "> 메시지[" +
+strMessage + "]");
+}
+
+2.14
+
+TTS 설문 조사 서비스
+
+다음은 TTS 설문조사 서비스에 필요한 Method 를 나열한 것이다.
+No.
+1
+
+수행 기능
+
+Method
+
+비고
+
+TTS 설문조사 요청
+
+IMS_TtsRs()
+
+다음은 TTS 설문조사 서비스에 대한 CS OpenAPI 서버와의 연동 FLOW 를 나타낸다.
+
+2.14.1
+
+IMS_TtsRs() – TTS 설문조사 요청
+
+하나 또는 다수의 착신번호에 전화를 시도하고 착신자가 응답하면 TTS 로 입력한 설문 내
+용을 PLAY 하고 사용자가 선택한 답변 내용을 이벤트로 수신한다.
+가)
+
+Function prototype 선언
+
+[DllImport("SKB_OpenAPI_IMS.dll")]
+public static extern int IMS_TtsRs(string strUserName, string strCallee, string strDtmf, int
+nEventF, string strMessage);
+
+나)
+
+Parameters
+NAME
+
+무단전제/복제 금지(SK broadband Proprietary)
+
+TYPE
+
+Description
+
+문서명
+
+최종 수정일
+2014-10-16
+
+CS OpenAPI 사용 설명서
+
+버전
+1.1
+
+strCaller
+
+String
+
+착신자에게 안내될 발신자 이름
+
+strCallee
+
+String
+
+착신자의 전화번호
+여러 개일 경우 구분자 ‘|’ 사용
+
+nEventF
+
+Int
+
+이벤트 수신 여부
+0: 미수신
+1: 수신
+
+strMessage
+
+다)
+
+String
+
+메시지 내용
+
+Return code
+ERR NAME
+
+VALUE
+
+Description
+
+SUCCESS
+
+0x0000
+
+성공
+
+API_FC_ETC_FAIL
+
+0x0800
+
+기타 오류
+
+API_FC_IN_SERVICE
+
+0x0804
+
+이미 서비스 진행중
+
+API_FC_HOST_NOT_CONNECTED
+
+0x0814
+
+호스트 연결되어있지 않음
+
+API_FC_INVALID_DN
+
+0x0818
+
+잘못된 사용자 전화번호
+
+API_FC_INVALID_MSG
+
+0x8003
+
+메시지 형식 오류
+
+API_FC_OVER_LENGTH
+
+0x8074
+
+메시지 길이 초과
+
+API_FC_USER_NOT_LOGIN
+
+0x080B
+
+사용자 로그인되어있지 않음
+
+API_FC_NOT_ALLOWED_SERVICE
+
+0x8075
+
+부가서비스 가입 상태가 아님
+
+라)
+
+Event
+EVENT NAME
+
+VALUE
+
+Description
+
+EVT_NORMAL
+
+0x0001
+
+서비스 일반
+
+EVT_START_SERVICE
+
+0x0302
+
+서비스 시작
+
+EVT_STOP_SERVICE
+
+0x0303
+
+서비스 종료
+
+EVT_ANSWER
+
+0x0305
+
+착신자별 설문 결과
+
+마)
+
+Sample Code
+
+private void btnTtsRs_Send_Click(object sender, System.EventArgs e)
+{
+int nResult;
+int nEventF;
+if (chkTtsRs_EventF.Checked == true) nEventF = 1;
+else nEventF = 0;
+nResult = IMS_TtsRs(txtTtsRs_UserName.Text, txtTtsRs_TelNum.Text, txtTtsRs_Dtmf.Text,
+nEventF, txtTtsRs_Message.Text);
+if (nResult != (int)ERRCODE.SUCCESS) Log (">>>> [TTS_RS] 설문조사 전송 실패 : Cause[" +
+nResult + "-" + ERR.StrFCause(nResult) + "]");
+
+무단전제/복제 금지(SK broadband Proprietary)
+
+페이지
+59/94
+
+문서명
+CS OpenAPI 사용 설명서
+
+최종 수정일
+2014-10-16
+
+버전
+1.1
+
+페이지
+60/94
+
+}
+
+2.14.2
+
+이벤트 처리 Sample Code
+
+public void Proc(int nSvc, int nEvtType, int nResult, string strDn1, string strDn2, string
+strExtInfo)
+{
+switch (nSvc)
+{
+case (int)SVCCODE.IMS_SVC_TTS_RS:
+EvtProc_TtsRs(nEvtType, nResult, strDn1,
+strExtInfo); break;
+}
+}
+private void EvtProc_TtsRs(int nEvtType, int nResult, string strSrcDn, string strExtInfo)
+{
+switch (nEvtType)
+{
+case (int)EVTTYPE.EVT_NORMAL:
+MAIN.Log (">>>> [TTS_RS] Cause[" + nResult + "-" + ERR.StrFCause(nResult) + "]");
+break;
+case (int)EVTTYPE.EVT_START_SERVICE:
+if (nResult == (int)ERRCODE.SUCCESS )
+{
+MAIN.Log ("**** [TTS_RS] 서비스 시작 성공");
+}
+else
+{
+MAIN.Log (">>>> [TTS_RS] 서비스 시작 실패. Cause[" + nResult + "-" +
+ERR.StrFCause(nResult) + "] 추가정보[" + strExtInfo + "]");
+}
+break;
+case (int)EVTTYPE.EVT_STOP_SERVICE:
+MAIN.Log ("**** [TTS_RS] 서비스 종료. 종료원인[" + nResult + "-" +
+ERR.StrFCause(nResult) + "] 추가정보[" + strExtInfo + "]");
+break;
+case (int)EVTTYPE.EVT_ANSWER:
+if (nResult == (int)ERRCODE.SUCCESS)
+{
+MAIN.Log ("**** [TTS_RS] 응답 결과 성공. Dn[" + strSrcDn + "] DTMF[" + strExtInfo
++ "]");
+}
+else
+{
+MAIN.Log ("**** [TTS_RS] 응답 결과 실패. Dn[" + strSrcDn + "] 오류원인[" +
+nResult + "-" + ERR.StrFCause(nResult) + "] 추가정보[" + strExtInfo + "]");
+}
+break;
+default:
+MAIN.Log (">>>> [TTS_RS] 잘못된 이벤트 수신. EvtType[" + nEvtType + "-" +
+StrEvtType(nEvtType) + "]");
+
+무단전제/복제 금지(SK broadband Proprietary)
+
+문서명
+
+최종 수정일
+2014-10-16
+
+CS OpenAPI 사용 설명서
+
+버전
+1.1
+
+페이지
+61/94
+
+break;
+}
+}
+
+2.15
+
+TTS 메시지 서비스
+
+다음은 TTS 메시지 서비스에 필요한 Method 를 나열한 것이다.
+No.
+1
+
+수행 기능
+
+Method
+
+비고
+
+TTS 메시지 전송 요청
+
+IMS_TtsMsg()
+
+다음은 TTS 메시지 서비스에 대한 CS OpenAPI 서버와의 연동 FLOW 를 나타낸다.
+
+IMS_TtsMsg() – TTS 메시지 전송 요청
+
+2.15.1
+
+하나 또는 다수의 착신번호에 전화를 시도하고 착신자가 응답하면 TTS 로 입력한 메시지
+내용을 PLAY 하고 청취 결과를 이벤트로 수신한다.
+가)
+
+Function prototype 선언
+
+[DllImport("SKB_OpenAPI_IMS.dll")]
+public static extern int IMS_TtsMsg(string strUserName, string strCallee, int nEventF, string
+strMessage);
+
+나)
+
+Parameters
+NAME
+
+TYPE
+
+Description
+
+strCaller
+
+String
+
+착신자에게 안내될 발신자 이름
+
+strCallee
+
+String
+
+착신자의 전화번호
+여러 개일 경우 구분자 ‘|’ 사용
+
+nEventF
+
+int
+
+이벤트 수신 여부
+0: 미수신
+
+무단전제/복제 금지(SK broadband Proprietary)
+
+문서명
+
+최종 수정일
+2014-10-16
+
+CS OpenAPI 사용 설명서
+
+버전
+1.1
+
+페이지
+62/94
+
+1: 수신
+strMessage
+
+다)
+
+String
+
+메시지 내용
+
+Return code
+ERR NAME
+
+VALUE
+
+Description
+
+SUCCESS
+
+0x0000
+
+성공
+
+API_FC_ETC_FAIL
+
+0x0800
+
+기타 오류
+
+API_FC_IN_SERVICE
+
+0x0804
+
+이미 서비스 진행중
+
+API_FC_HOST_NOT_CONNECTED
+
+0x0814
+
+호스트 연결되어있지 않음
+
+API_FC_INVALID_DN
+
+0x0818
+
+잘못된 사용자 전화번호
+
+API_FC_INVALID_MSG
+
+0x8003
+
+메시지 형식 오류
+
+API_FC_OVER_LENGTH
+
+0x8074
+
+메시지 길이 초과
+
+API_FC_USER_NOT_LOGIN
+
+0x080B
+
+사용자 로그인되어있지 않음
+
+API_FC_NOT_ALLOWED_SERVICE
+
+0x8075
+
+부가서비스 가입 상태가 아님
+
+라)
+
+Event
+EVENT NAME
+
+VALUE
+
+Description
+
+EVT_NORMAL
+
+0x0001
+
+서비스 일반
+
+EVT_START_SERVICE
+
+0x0302
+
+서비스 시작
+
+EVT_STOP_SERVICE
+
+0x0303
+
+서비스 종료
+
+EVT_ANSWER
+
+0x0305
+
+착신자별 설문 결과
+
+마)
+
+Sample Code
+
+private void btnTtsMsg_Send_Click(object sender, System.EventArgs e)
+{
+int
+nResult;
+int
+nEventF;
+if (chkTtsMsg_EventF.Checked == true) nEventF = 1;
+else nEventF = 0;
+nResult = IMS_TtsMsg(txtTtsMsg_UserName.Text, txtTtsMsg_TelNum.Text, nEventF,
+txtTtsMsg_Message.Text);
+if (nResult != (int)ERRCODE.SUCCESS) Log (">>>> [TTS_MSG] TTS 메시지 전송 실패 : Cause["
++ nResult + "-" + ERR.StrFCause(nResult) + "]");
+}
+
+2.15.2
+
+이벤트 처리 Sample Code
+
+public void Proc(int nSvc, int nEvtType, int nResult, string strDn1, string strDn2, string
+strExtInfo)
+
+무단전제/복제 금지(SK broadband Proprietary)
+
+문서명
+CS OpenAPI 사용 설명서
+
+최종 수정일
+2014-10-16
+
+버전
+1.1
+
+페이지
+63/94
+
+{
+switch (nSvc)
+{
+case (int)SVCCODE.IMS_SVC_TTS_MSG:
+strExtInfo); break;
+}
+}
+
+EvtProc_TtsMsg(nEvtType, nResult, strDn1,
+
+private void EvtProc_TtsMsg(int nEvtType, int nResult, string strSrcDn, string strExtInfo)
+{
+switch (nEvtType)
+{
+case (int)EVTTYPE.EVT_NORMAL:
+MAIN.Log (">>>> [TTS_MSG] Cause[" + nResult + "-" + ERR.StrFCause(nResult) + "]");
+break;
+case (int)EVTTYPE.EVT_START_SERVICE:
+if (nResult == (int)ERRCODE.SUCCESS)
+{
+MAIN.Log ("**** [TTS_MSG] 서비스 시작 성공");
+}
+else
+{
+MAIN.Log (">>>> [TTS_MSG] 서비스 시작 실패. Cause[" + nResult + "-" +
+ERR.StrFCause(nResult) + "] 추가정보[" + strExtInfo + "]");
+}
+break;
+case (int)EVTTYPE.EVT_STOP_SERVICE:
+MAIN.Log ("**** [TTS_MSG] 서비스 종료. 종료원인[" + nResult + "-" +
+ERR.StrFCause(nResult) + "] 추가정보[" + strExtInfo + "]");
+break;
+case (int)EVTTYPE.EVT_ANSWER:
+if (nResult == (int)ERRCODE.SUCCESS)
+{
+MAIN.Log ("**** [TTS_MSG] 응답 결과 성공. Dn[" + strSrcDn + "] DTMF[" +
+strExtInfo + "]");
+}
+else
+{
+MAIN.Log ("**** [TTS_MSG] 응답 결과 실패. Dn[" + strSrcDn + "] 오류원인[" +
+nResult + "-" + ERR.StrFCause(nResult) + "] 추가정보[" + strExtInfo + "]");
+}
+break;
+default:
+MAIN.Log (">>>> [TTS_RS] 잘못된 이벤트 수신. EvtType[" + nEvtType + "-" +
+StrEvtType(nEvtType) + "]");
+break;
+}
+}
+
+2.16
+
+TTS 인증 서비스
+
+무단전제/복제 금지(SK broadband Proprietary)
+
+문서명
+
+최종 수정일
+2014-10-16
+
+CS OpenAPI 사용 설명서
+
+버전
+1.1
+
+페이지
+64/94
+
+다음은 TTS 인증 서비스에 필요한 Method 를 나열한 것이다.
+No.
+1
+
+Method
+IMS_TtsAuth()
+
+수행 기능
+
+비고
+
+TTS 인증 메시지 전송 요청
+
+다음은 TTS 인증 서비스에 대한 CS OpenAPI 서버와의 연동 FLOW 를 나타낸다.
+
+2.16.1
+
+IMS_TtsAuth() – TTS 인증 메시지 전송 요청
+
+입력한 하나의 착신번호에 전화를 시도하고 착신자가 수신하면 입력한 인증 번호를 TTS 로
+PLAY 한다.
+가)
+
+Function prototype 선언
+
+[DllImport("SKB_OpenAPI_IMS.dll")]
+public static extern int IMS_TtsAuth(string strCallee, string strAuthNo);
+
+나)
+
+Parameters
+NAME
+
+strCallee
+
+TYPE
+String
+
+Description
+착신자의 전화번호
+여러 개일 경우 구분자 ‘|’ 사용
+
+strAuthNo
+
+다)
+
+String
+
+TTS 로 Play 할 인증번호
+
+VALUE
+
+Description
+
+Return code
+ERR NAME
+
+SUCCESS
+
+0x0000
+
+성공
+
+API_FC_ETC_FAIL
+
+0x0800
+
+기타 오류
+
+API_FC_IN_SERVICE
+
+0x0804
+
+이미 서비스 진행중
+
+API_FC_HOST_NOT_CONNECTED
+
+0x0814
+
+호스트 연결되어있지 않음
+
+API_FC_INVALID_DN
+
+0x0818
+
+잘못된 사용자 전화번호
+
+API_FC_INVALID_MSG
+
+0x8003
+
+메시지 형식 오류
+
+API_FC_OVER_LENGTH
+
+0x8074
+
+메시지 길이 초과
+
+무단전제/복제 금지(SK broadband Proprietary)
+
+문서명
+
+최종 수정일
+2014-10-16
+
+CS OpenAPI 사용 설명서
+
+버전
+1.1
+
+API_FC_USER_NOT_LOGIN
+
+0x080B
+
+사용자 로그인되어있지 않음
+
+API_FC_NOT_ALLOWED_SERVICE
+
+0x8075
+
+부가서비스 가입 상태가 아님
+
+라)
+
+65/94
+
+Event
+EVENT NAME
+
+VALUE
+
+Description
+
+EVT_NORMAL
+
+0x0001
+
+서비스 일반
+
+EVT_START_SERVICE
+
+0x0302
+
+서비스 시작
+
+EVT_STOP_SERVICE
+
+0x0303
+
+서비스 종료
+
+마)
+
+페이지
+
+Sample Code
+
+private void btnTtsAuth_Send_Click(object sender, System.EventArgs e)
+{
+int nResult;
+nResult = IMS_TtsAuth(txtTtsAuth_TelNum.Text, txtTtsAuth_No.Text);
+if (nResult != (int)ERRCODE.SUCCESS) Log (">>>> [TTS_AUTH] SMS 전송 실패 : Cause[" + nResult
++ "-" + ERR.StrFCause(nResult) + "]");
+}
+
+2.16.2
+
+이벤트 처리 Sample Code
+
+public void Proc(int nSvc, int nEvtType, int nResult, string strDn1, string strDn2, string
+strExtInfo)
+{
+switch (nSvc)
+{
+case (int)SVCCODE.IMS_SVC_TTS_AUTH:
+EvtProc_TtsAuth(nEvtType, nResult, strDn1,
+strExtInfo); break;
+}
+}
+private void EvtProc_TtsAuth (int nEvtType, int nResult, string strSrcDn, string strExtInfo)
+{
+switch (nEvtType)
+{
+case (int)EVTTYPE.EVT_NORMAL:
+MAIN.Log (">>>> [TTS_AUTH] Cause[" + nResult + "-" + ERR.StrFCause(nResult) + "]");
+break;
+case (int)EVTTYPE.EVT_START_SERVICE:
+if (nResult == (int)ERRCODE.SUCCESS)
+{
+MAIN.Log ("**** [TTS_AUTH] 서비스 시작 성공");
+}
+else
+{
+MAIN.Log (">>>> [TTS_AUTH] 서비스 시작 실패. Cause[" + nResult + "-" +
+ERR.StrFCause(nResult) + "] 추가정보[" + strExtInfo + "]");
+}
+break;
+
+무단전제/복제 금지(SK broadband Proprietary)
+
+문서명
+
+최종 수정일
+2014-10-16
+
+CS OpenAPI 사용 설명서
+
+버전
+1.1
+
+case (int)EVTTYPE. EVT_STOP_SERVICE:
+MAIN.Log ("**** [TTS_AUTH] 서비스 종료. 종료원인[" + nResult + "-" +
+ERR.StrFCause(nResult) + "] 추가정보[" + strExtInfo + "]");
+break;
+default:
+MAIN.Log (">>>> [TTS_RS] 잘못된 이벤트 수신. EvtType[" + nEvtType + "-" +
+StrEvtType(nEvtType) + "]");
+break;
+}
+}
+
+2.17
+
+착신전환 설정 서비스
+
+다음은 착신전환 설정에 필요한 Method 를 나열한 것이다.
+No.
+
+Method
+
+수행 기능
+
+1
+
+IMS_CallForward_Get()
+
+착신전환 설정상태 조회
+
+2
+
+IMS_CallForward_Reg()
+
+착신전환 설정 등록
+
+3
+
+IMS_CallForward_Rel()
+
+착신전환 설정 해제
+
+비고
+
+다음은 착신전환 설정 서비스에 대한 CS OpenAPI 서버와의 연동 FLOW 를 나타낸다.
+
+2.17.1
+
+IMS_CallForward_Get() –착신전환 설정 상태 조회
+
+사용자의 기본 전화번호에 현재 설정되어있는 착신전환 상태를 조회한다.
+가)
+
+Function prototype 선언
+
+무단전제/복제 금지(SK broadband Proprietary)
+
+페이지
+66/94
+
+문서명
+
+최종 수정일
+2014-10-16
+
+CS OpenAPI 사용 설명서
+
+버전
+1.1
+
+[DllImport("SKB_OpenAPI_IMS.dll")]
+public static extern int IMS_CallForward_Get();
+
+Parameters
+
+나)
+
+다)
+
+없음
+Return code
+ERR NAME
+
+VALUE
+
+Description
+
+SUCCESS
+
+0x0000
+
+성공
+
+API_FC_ETC_FAIL
+
+0x0800
+
+기타 오류
+
+API_FC_HOST_NOT_CONNECTED
+
+0x0814
+
+호스트 연결되어있지 않음
+
+API_FC_USER_NOT_LOGIN
+
+0x080B
+
+사용자 로그인되어있지 않음
+
+API_FC_NOT_ALLOWED_SERVICE
+
+0x8075
+
+부가서비스 가입 상태가 아님
+
+라)
+
+Event
+EVENT NAME
+
+EVT_NORMAL
+
+마)
+
+VALUE
+0x0001
+
+Description
+서비스 일반
+
+Sample Code
+
+private void btnCF_Query_Click(object sender, System.EventArgs e)
+{
+int nResult;
+nResult = IMS_CallForward_Get();
+if (nResult != (int)ERRCODE.SUCCESS) Log (">>>> [CALL_FWD] 착신전환 설정조회 요청 실패 :
+Cause[" + nResult + "-" + ERR.StrFCause(nResult) + "]");
+}
+
+2.17.2
+
+IMS_CallForward_Reg() –착신전환 설정 등록
+
+사용자의 기본 전화번호에 착신전환 설정을 요청한다.
+가)
+
+Function prototype 선언
+
+[DllImport("SKB_OpenAPI_IMS.dll")]
+public static extern int IMS_CallForward_Reg(string strCfType, string strCfDn);
+
+나)
+
+Parameters
+NAME
+
+strCfType
+
+무단전제/복제 금지(SK broadband Proprietary)
+
+TYPE
+String
+
+Description
+착신전환 유형
+
+페이지
+67/94
+
+문서명
+
+최종 수정일
+2014-10-16
+
+CS OpenAPI 사용 설명서
+
+버전
+1.1
+
+‘ccf’: 조건부
+착신전환(통화중,부재중)
+‘ucf’: 무조건 착신전환
+strCfDn
+
+다)
+
+String
+
+착신전환될 전화번호
+
+Return code
+ERR NAME
+
+VALUE
+
+Description
+
+SUCCESS
+
+0x0000
+
+성공
+
+API_FC_ETC_FAIL
+
+0x0800
+
+기타 오류
+
+API_FC_HOST_NOT_CONNECTED
+
+0x0814
+
+호스트 연결되어있지 않음
+
+API_FC_INVALID_DN
+
+0x0818
+
+잘못된 사용자 전화번호
+
+API_FC_INVALID_MSG
+
+0x8003
+
+메시지 형식 오류
+
+API_FC_USER_NOT_LOGIN
+
+0x080B
+
+사용자 로그인되어있지 않음
+
+API_FC_NOT_ALLOWED_SERVICE
+
+0x8075
+
+부가서비스 가입 상태가 아님
+
+라)
+
+Event
+EVENT NAME
+
+EVT_NORMAL
+
+마)
+
+VALUE
+0x0001
+
+Description
+서비스 일반
+
+Sample Code
+
+private void btnCF_Set_Click(object sender, System.EventArgs e)
+{
+int
+nResult;
+string strCfType;
+if (cboCF_Type.SelectedIndex ==0)
+else strCfType = "ucf";
+
+strCfType = "ccf";
+
+nResult = IMS_CallForward_Reg(strCfType, txtCF_TelNum.Text);
+if (nResult != (int)ERRCODE.SUCCESS) Log (">>>> [CALL_FWD] 착신전환 설정 요청 실패 :
+Cause[" + nResult + "-" + ERR.StrFCause(nResult) + "]");
+}
+
+2.17.3
+
+IMS_CallForward_Rel() –착신전환 설정 해제
+
+사용자의 기본 전화번호에 설정되어있는 착신전환을 해제한다.
+가)
+
+Function prototype 선언
+
+[DllImport("SKB_OpenAPI_IMS.dll")]
+public static extern int IMS_CallForward_Rel(string strCfType);
+
+나)
+
+Parameters
+
+무단전제/복제 금지(SK broadband Proprietary)
+
+페이지
+68/94
+
+문서명
+
+최종 수정일
+2014-10-16
+
+CS OpenAPI 사용 설명서
+NAME
+strCfType
+
+TYPE
+String
+
+버전
+1.1
+
+Description
+착신전환 유형
+‘ccf’: 조건부
+착신전환(통화중,부재중)
+‘ucf’: 무조건 착신전환
+
+다)
+
+Return code
+ERR NAME
+
+VALUE
+
+Description
+
+SUCCESS
+
+0x0000
+
+성공
+
+API_FC_ETC_FAIL
+
+0x0800
+
+기타 오류
+
+API_FC_HOST_NOT_CONNECTED
+
+0x0814
+
+호스트 연결되어있지 않음
+
+API_FC_INVALID_MSG
+
+0x8003
+
+메시지 형식 오류
+
+API_FC_USER_NOT_LOGIN
+
+0x080B
+
+사용자 로그인되어있지 않음
+
+API_FC_NOT_ALLOWED_SERVICE
+
+0x8075
+
+부가서비스 가입 상태가 아님
+
+라)
+
+Event
+EVENT NAME
+
+EVT_NORMAL
+
+마)
+
+VALUE
+0x0001
+
+Description
+서비스 일반
+
+Sample Code
+
+private void btnCF_Unset_Click(object sender, System.EventArgs e)
+{
+int
+nResult;
+string strCfType;
+if (cboCF_Type.SelectedIndex ==0)
+else strCfType = "ucf";
+
+strCfType = "ccf";
+
+nResult = IMS_CallForward_Rel(strCfType);
+if (nResult != (int)ERRCODE.SUCCESS) Log (">>>> [CALL_FWD] 착신전환 해제 요청 실패 :
+Cause[" + nResult + "-" + ERR.StrFCause(nResult) + "]");
+}
+
+2.17.4
+
+이벤트 처리 Sample Code
+
+public void Proc(int nSvc, int nEvtType, int nResult, string strDn1, string strDn2, string
+strExtInfo)
+{
+switch (nSvc)
+{
+case (int)SVCCODE.IMS_SVC_CALL_FWD:
+EvtProc_CallForward(nResult, strDn1, strDn2,
+strExtInfo); break;
+
+무단전제/복제 금지(SK broadband Proprietary)
+
+페이지
+69/94
+
+문서명
+
+최종 수정일
+2014-10-16
+
+CS OpenAPI 사용 설명서
+
+버전
+1.1
+
+페이지
+70/94
+
+}
+}
+private void EvtProc_CallForward(int nResult, string strSrcDn1, string strSrcDn2, string
+strExtInfo)
+{
+MAIN.Log ("**** [CALL_FWD] 착신전환 설정 결과 Cause[" + nResult + "-" +
+ERR.StrFCause(nResult) + "] Dn[" + strSrcDn2 + "] Info[" + strExtInfo + "]");
+}
+
+2.18
+
+착신 녹취 서비스
+
+다음은 착신 녹취 서비스에 필요한 Method 를 나열한 것이다.
+수행 기능
+
+No.
+
+Method
+
+1
+
+IMS_TermRec_Start()
+
+녹음 시작
+
+2
+
+IMS_TermRec_Stop()
+
+녹음 종료
+
+3
+
+IMS_TermRec_CallStatus()
+
+호 상태 조회
+
+4
+
+IMS_TermRec_StopService()
+
+서비스 종료
+
+비고
+
+통화 종료
+
+다음은 착신녹취 서비스에 대한 CS OpenAPI 서버와의 연동 FLOW 를 나타낸다.
+
+2.18.1
+
+IMS_TermRec_Start() –착신 녹취 서비스 녹음 시작
+
+착신 녹취 서비스의 녹음을 시작한다. 착신녹취가 가능할 경우,
+
+OpenAPI 서버에서는
+
+READY 이벤트를 클라이언트에 전송하게 되며, 가입자는 READY 이벤트를 수신한 경우에만
+
+무단전제/복제 금지(SK broadband Proprietary)
+
+문서명
+
+최종 수정일
+2014-10-16
+
+CS OpenAPI 사용 설명서
+
+버전
+1.1
+
+페이지
+71/94
+
+착신녹취를 요청할 수 있다.
+Function prototype 선언
+
+가)
+
+[DllImport("SKB_OpenAPI_IMS.dll")]
+public static extern int IMS_TermRec_Start();
+
+Parameters
+
+나)
+
+다)
+
+없음
+Return code
+ERR NAME
+
+VALUE
+
+Description
+
+SUCCESS
+
+0x0000
+
+성공
+
+API_FC_ETC_FAIL
+
+0x0800
+
+기타 오류
+
+API_FC_IN_SERVICE
+
+0x0804
+
+이미 서비스 진행중
+
+API_FC_HOST_NOT_CONNECTED
+
+0x0814
+
+호스트 연결되어있지 않음
+
+API_FC_NOT_READY
+
+0x800D
+
+서비스 준비 상태가 아님
+
+API_FC_USER_NOT_LOGIN
+
+0x080B
+
+사용자 로그인되어있지 않음
+
+API_FC_NOT_ALLOWED_SERVICE
+
+0x8075
+
+부가서비스 가입 상태가 아님
+
+라)
+
+Event
+EVENT NAME
+
+EVT_NORMAL
+
+마)
+
+VALUE
+0x0001
+
+Description
+서비스 일반
+
+Sample Code
+
+private void btnTermRec_StartRec_Click(object sender, System.EventArgs e)
+{
+int nResult;
+nResult = IMS_TermRec_Start();
+if (nResult != (int)ERRCODE.SUCCESS) Log (">>>> [TERM_REC] 녹취 시작 요청 실패 : Cause[" +
+nResult + "-" + ERR.StrFCause(nResult) + "]");
+}
+
+2.18.2
+
+IMS_TermRec_Stop() –착신 녹취 서비스 녹음 종료
+
+녹음중인 착신녹취 서비스의 녹음을 종료한다. 이때 통화중인 호는 계속 유지된다.
+가)
+
+Function prototype 선언
+
+[DllImport("SKB_OpenAPI_IMS.dll")]
+
+무단전제/복제 금지(SK broadband Proprietary)
+
+문서명
+
+최종 수정일
+2014-10-16
+
+CS OpenAPI 사용 설명서
+
+버전
+1.1
+
+페이지
+72/94
+
+public static extern int IMS_TermRec_Stop();
+
+Parameters
+
+나)
+
+-
+
+없음
+Return code
+
+다)
+
+ERR NAME
+
+VALUE
+
+Description
+
+SUCCESS
+
+0x0000
+
+성공
+
+API_FC_ETC_FAIL
+
+0x0800
+
+기타 오류
+
+API_FC_HOST_NOT_CONNECTED
+
+0x0814
+
+호스트 연결되어있지 않음
+
+API_FC_NOT_READY
+
+0x800D
+
+서비스 준비 상태가 아님
+
+API_FC_USER_NOT_LOGIN
+
+0x080B
+
+사용자 로그인되어있지 않음
+
+API_FC_NOT_ALLOWED_SERVICE
+
+0x8075
+
+부가서비스 가입 상태가 아님
+
+Event
+
+라)
+
+EVENT NAME
+
+VALUE
+
+Description
+
+EVT_NORMAL
+
+0x0001
+
+서비스 일반
+
+EVT_STOP_RECORD
+
+0x0308
+
+녹음 종료
+
+Sample Code
+
+마)
+
+private void btnTermRec_StopRec_Click(object sender, System.EventArgs e)
+{
+int nResult;
+nResult = IMS_TermRec_Stop();
+if (nResult != (int)ERRCODE.SUCCESS) Log (">>>> [TERM_REC] 녹취 종료 요청 실패 : Cause[" +
+nResult + "-" + ERR.StrFCause(nResult) + "]");
+}
+
+2.18.3
+
+IMS_TermRec_CallStatus() –착신 녹취 호상태 조회
+
+서비스 중인 착신녹취의 호 상태를 조회한다.
+Function prototype 선언
+
+가)
+
+[DllImport("SKB_OpenAPI_IMS.dll")]
+public static extern int IMS_TermRec_CallStatus();
+
+Parameters
+
+나)
+
+-
+
+없음
+
+무단전제/복제 금지(SK broadband Proprietary)
+
+문서명
+
+최종 수정일
+2014-10-16
+
+CS OpenAPI 사용 설명서
+
+다)
+
+버전
+1.1
+
+Return code
+ERR NAME
+
+VALUE
+
+Description
+
+SUCCESS
+
+0x0000
+
+성공
+
+API_FC_ETC_FAIL
+
+0x0800
+
+기타 오류
+
+API_FC_NOT_IN_SERVICE
+
+0x0804
+
+서미스 미진행중
+
+API_FC_HOST_NOT_CONNECTED
+
+0x0814
+
+호스트 연결되어있지 않음
+
+API_FC_NOT_READY
+
+0x800D
+
+서비스 준비 상태가 아님
+
+API_FC_USER_NOT_LOGIN
+
+0x080B
+
+사용자 로그인되어있지 않음
+
+API_FC_NOT_ALLOWED_SERVICE
+
+0x8075
+
+부가서비스 가입 상태가 아님
+
+라)
+
+Event
+EVENT NAME
+
+VALUE
+
+EVT_CALL_STATUS
+
+마)
+
+0x0301
+
+Description
+서비스 정보 조회
+
+호 상태 결과 값
+구분
+
+Description
+
+Init
+
+초기 상태
+
+Ready
+
+통화 연결 후 녹취 전 상태
+
+Recording
+
+녹취 중 상태
+
+Release
+
+호 종료 중 상태
+
+바)
+
+Sample Code
+
+private void btnTermRec_Status_Click(object sender, System.EventArgs e)
+{
+int nResult;
+nResult = IMS_TermRec_CallStatus();
+if (nResult != (int)ERRCODE.SUCCESS) Log (">>>> [TERM_REC] 서비스 상태조회 요청 실패 :
+Cause[" + nResult + "-" + ERR.StrFCause(nResult) + "]");
+}
+
+2.18.4
+
+IMS_TermRec_StopService() –착신녹취 서비스 종료
+
+착신녹취 서비스를 종료한다. 이때
+가)
+
+통화중이던 전화 연결도 동시에 종료된다.
+
+Function prototype 선언
+
+[DllImport("SKB_OpenAPI_IMS.dll")]
+public static extern int IMS_TermRec_StopService();
+
+무단전제/복제 금지(SK broadband Proprietary)
+
+페이지
+73/94
+
+문서명
+
+최종 수정일
+2014-10-16
+
+CS OpenAPI 사용 설명서
+
+나)
+
+-
+
+버전
+1.1
+
+페이지
+74/94
+
+Parameters
+
+없음
+다)
+
+Return code
+ERR NAME
+
+VALUE
+
+Description
+
+SUCCESS
+
+0x0000
+
+성공
+
+API_FC_ETC_FAIL
+
+0x0800
+
+기타 오류
+
+API_FC_NOT_IN_SERVICE
+
+0x0804
+
+서미스 미진행중
+
+API_FC_HOST_NOT_CONNECTED
+
+0x0814
+
+호스트 연결되어있지 않음
+
+API_FC_NOT_READY
+
+0x800D
+
+서비스 준비 상태가 아님
+
+API_FC_USER_NOT_LOGIN
+
+0x080B
+
+사용자 로그인되어있지 않음
+
+API_FC_NOT_ALLOWED_SERVICE
+
+0x8075
+
+부가서비스 가입 상태가 아님
+
+라)
+
+Event
+EVENT NAME
+
+EVT_STOP_SERVICE
+
+마)
+
+VALUE
+0x0303
+
+Description
+서비스 종료
+
+Sample Code
+
+private void btnTermRec_Stop_Click(object sender, System.EventArgs e)
+{
+int nResult;
+nResult = IMS_TermRec_StopService();
+if (nResult != (int)ERRCODE.SUCCESS) Log (">>>> [TERM_REC] 서비스 종료 요청 실패 : Cause["
++ nResult + "-" + ERR.StrFCause(nResult) + "]");
+}
+
+2.18.5
+
+이벤트 처리 Sample Code
+
+public void Proc(int nSvc, int nEvtType, int nResult, string strDn1, string strDn2, string
+strExtInfo)
+{
+switch (nSvc)
+{
+case (int)SVCCODE.IMS_SVC_TERM_REC:
+EvtProc_TermRec(nEvtType, nResult, strDn1,
+strDn2, strExtInfo); break;
+}
+}
+private void EvtProc_TermRec(int nEvtType, int nResult, string strSrcDn, string strDestDn, string
+strExtInfo)
+{
+switch (nEvtType)
+{
+
+무단전제/복제 금지(SK broadband Proprietary)
+
+문서명
+CS OpenAPI 사용 설명서
+
+최종 수정일
+2014-10-16
+
+버전
+1.1
+
+페이지
+75/94
+
+case (int)EVTTYPE.EVT_NORMAL:
+MAIN.Log (">>>> [TTS_REC] Cause[" + nResult + "-" + ERR.StrFCause(nResult) + "]");
+break;
+case (int)EVTTYPE.EVT_CALL_STATUS:
+MAIN.Log ("**** [TERM_REC] 서비스 상태 : " + strExtInfo);
+break;
+case (int)EVTTYPE.EVT_READY_SERVICE:
+MAIN.Log ("**** [TERM_REC] 착신녹취 준비");
+break;
+case (int)EVTTYPE.EVT_START_SERVICE:
+if (nResult == (int)ERRCODE.SUCCESS)
+{
+MAIN.Log ("**** [TERM_REC] 서비스 시작 성공 [" + strSrcDn + "->" + strDestDn +
+"]");
+}
+else
+{
+MAIN.Log (">>>> [TERM_REC] 서비스 시작 실패. [" + strSrcDn + "->" + strDestDn
++ "] Cause[" + nResult + "-" + ERR.StrFCause(nResult) + "] 추가정보[" + strExtInfo + "]");
+}
+break;
+case (int)EVTTYPE.EVT_STOP_SERVICE:
+MAIN.Log ("**** [TERM_REC] 서비스 종료. 종료원인[" + nResult + "-" +
+ERR.StrFCause(nResult) + "]" + " 추가정보[" + strExtInfo + "]");
+break;
+case (int)EVTTYPE.EVT_START_RECORD:
+if (nResult == (int)ERRCODE.SUCCESS)
+{
+MAIN.Log ("**** [TERM_REC] 녹음 시작. 파일명[" + strExtInfo + "]");
+}
+else
+{
+MAIN.Log ("**** [TERM_REC] 녹음 실패");
+}
+case (int)EVTTYPE.EVT_STOP_RECORD:
+MAIN.Log ("**** [TERM_REC] 녹음 종료. 파일명[" + strExtInfo + "]");
+break;
+default:
+MAIN.Log (">>>> [TERM_REC] 잘못된 이벤트 수신. EvtType[" + nEvtType + "-" +
+StrEvtType(nEvtType) + "]");
+break;
+}
+}
+
+2.19
+
+CID 수신 서비스
+
+사용자가 로그인한 상태에서 단말로 전화가 걸려오면 전화 수신 내역을 Application 에 통보
+
+무단전제/복제 금지(SK broadband Proprietary)
+
+문서명
+
+최종 수정일
+2014-10-16
+
+CS OpenAPI 사용 설명서
+
+버전
+1.1
+
+페이지
+76/94
+
+한다.
+다음은 CID 수신 서비스에 대한 CS OpenAPI 서버와의 연동 FLOW 를 나타낸다.
+
+가)
+
+Event
+EVENT NAME
+
+EVT_NORMAL
+
+2.19.1
+
+VALUE
+0x0001
+
+Description
+서비스 일반
+
+이벤트 처리 Sample Code
+
+public void Proc(int nSvc, int nEvtType, int nResult, string strDn1, string strDn2, string
+strExtInfo)
+{
+switch (nSvc)
+{
+case (int)SVCCODE.IMS_SVC_CID:
+EvtProc_CIDN(strDn1, strDn2); break;
+}
+}
+private void EvtProc_CIDN(string strDn1, string strDn2)
+{
+MAIN.Log ("==== [CIDN] 전화 수신 <" + strDn1 + "->" + strDn2 + ">");
+}
+
+2.20
+
+부재중 알림 서비스
+
+사용자가 로그인한 상태에서 단말로 호가 착신되었으나 통화가 연결되지 않은 경우 전화
+수신 내역을 Application 에 통보한다.
+다음은 부재중 알림 서비스에 대한 CS OpenAPI 서버와의 연동 FLOW 를 나타낸다.
+
+나)
+
+Event
+EVENT NAME
+
+EVT_NORMAL
+
+무단전제/복제 금지(SK broadband Proprietary)
+
+VALUE
+0x0001
+
+Description
+서비스 일반
+
+문서명
+
+최종 수정일
+2014-10-16
+
+CS OpenAPI 사용 설명서
+
+2.20.1
+
+버전
+1.1
+
+페이지
+77/94
+
+이벤트 처리 Sample Code
+
+public void Proc(int nSvc, int nEvtType, int nResult, string strDn1, string strDn2, string
+strExtInfo)
+{
+switch (nSvc)
+{
+case (int)SVCCODE.IMS_SVC_ABS_NOTI: EvtProc_AbsNoti(strDn1, strDn2, strExtInfo);
+break;
+}
+}
+private void EvtProc_AbsNoti(string strCaller, string strCallee, string strCalledTime)
+{
+MAIN.Log ("==== [ABS_NOTI] 부재중 전화 수신 <" + strCaller + "->" + strCallee + "> 수
+신시간[" + strCalledTime + "]");
+}
+
+2.21
+
+발신통화시작 통보 서비스
+
+사용자가 로그인한 상태에서 단말로 발신 통화를 시작한 경우, 이를 Application 에 통보한
+다.
+다음은 발신통화시작 통보 서비스에 대한 CS OpenAPI 서버와의 연동 FLOW 를 나타낸다.
+
+가)
+
+Event
+EVENT NAME
+
+EVT_NORMAL
+
+2.21.1
+
+VALUE
+0x0001
+
+Description
+서비스 일반
+
+이벤트 처리 Sample Code
+
+public void Proc(int nSvc, int nEvtType, int nResult, string strDn1, string strDn2, string
+strExtInfo)
+{
+switch (nSvc)
+{
+case (int)SVCCODE.IMS_SVC_ORIGCAL_START_NOTI: EvtProc_OrigcallStartNoti(strDn1,
+strDn2, strExtInfo); break;
+
+무단전제/복제 금지(SK broadband Proprietary)
+
+문서명
+
+최종 수정일
+2014-10-16
+
+CS OpenAPI 사용 설명서
+
+버전
+1.1
+
+페이지
+78/94
+
+}
+}
+private void EvtProc_OrigcallStartNoti(string strCaller, string strCallee, string strExtInfo)
+{
+MAIN.Log ("==== [ORIGCALL_START_NOTI] 발신통화시작 통보 수신 <" + strCaller + "->" +
+strCallee + "> 호 통화시간[" + strExtInfo + "]");
+}
+
+2.22
+
+발신통화종료 통보 서비스
+
+사용자가 로그인한 상태에서 단말로 발신 통화를 종료한 경우, 이를 Application 에 통보한
+다.
+다음은 발신통화종료 통보 서비스에 대한 CS OpenAPI 서버와의 연동 FLOW 를 나타낸다.
+
+가)
+
+Event
+EVENT NAME
+
+EVT_NORMAL
+
+2.22.1
+
+VALUE
+0x0001
+
+Description
+서비스 일반
+
+이벤트 처리 Sample Code
+
+public void Proc(int nSvc, int nEvtType, int nResult, string strDn1, string strDn2, string
+strExtInfo)
+{
+switch (nSvc)
+{
+case (int)SVCCODE.IMS_SVC_ORIGCAL_END_NOTI: EvtProc_OrigcallEndNoti(strDn1, strDn2,
+strExtInfo); break;
+}
+}
+private void EvtProc_OrigcallEndNoti(string strCaller, string strCallee, string strExtInfo)
+{
+MAIN.Log ("==== [ORIGCALL_END_NOTI] 발신통화종료 통보 수신 <" + strCaller + "->" +
+strCallee + "> 호 종료시간[" + strExtInfo + "]");
+}
+
+2.23
+
+착신통화시작 통보 서비스
+
+사용자가 로그인한 상태에서 단말로 착신 통화를 시작한 경우, 이를 Application 에 통보한
+다.
+
+무단전제/복제 금지(SK broadband Proprietary)
+
+문서명
+
+최종 수정일
+2014-10-16
+
+CS OpenAPI 사용 설명서
+
+버전
+1.1
+
+페이지
+79/94
+
+다음은 착신통화시작 통보 서비스에 대한 CS OpenAPI 서버와의 연동 FLOW 를 나타낸다.
+
+가)
+
+Event
+EVENT NAME
+
+EVT_NORMAL
+
+2.23.1
+
+VALUE
+0x0001
+
+Description
+서비스 일반
+
+이벤트 처리 Sample Code
+
+public void Proc(int nSvc, int nEvtType, int nResult, string strDn1, string strDn2, string
+strExtInfo)
+{
+switch (nSvc)
+{
+case (int)SVCCODE.IMS_SVC_TERMCAL_START_NOTI: EvtProc_TermcallStartNoti(strDn1,
+strDn2, strExtInfo); break;
+}
+}
+private void EvtProc_TermcallStartNoti(string strCaller, string strCallee, string strExtInfo)
+{
+MAIN.Log ("==== [TERMCALL_START_NOTI] 착신통화시작 통보 수신 <" + strCaller + "->" +
+strCallee + "> 호 통화시간[" + strExtInfo + "]");
+}
+
+2.24
+
+착신통화종료 통보 서비스
+
+사용자가 로그인한 상태에서 단말로 착신 통화를 종료한 경우, 이를 Application 에 통보한
+다.
+다음은 착신통화종료 통보 서비스에 대한 CS OpenAPI 서버와의 연동 FLOW 를 나타낸다.
+
+가)
+
+Event
+EVENT NAME
+
+무단전제/복제 금지(SK broadband Proprietary)
+
+VALUE
+
+Description
+
+문서명
+
+최종 수정일
+2014-10-16
+
+CS OpenAPI 사용 설명서
+EVT_NORMAL
+
+2.24.1
+
+0x0001
+
+버전
+1.1
+
+서비스 일반
+
+이벤트 처리 Sample Code
+
+public void Proc(int nSvc, int nEvtType, int nResult, string strDn1, string strDn2, string
+strExtInfo)
+{
+switch (nSvc)
+{
+case (int)SVCCODE.IMS_SVC_TERMCAL_END_NOTI: EvtProc_TermcallEndNoti(strDn1, strDn2,
+strExtInfo); break;
+}
+}
+private void EvtProc_TermcallEndNoti(string strCaller, string strCallee, string strExtInfo)
+{
+MAIN.Log ("==== [TERMCALL_END_NOTI] 착신통화종료 통보 수신 <" + strCaller + "->" +
+strCallee + "> 호 종료시간[" + strExtInfo + "]");
+}
+
+2.25
+
+돌려주기 서비스
+
+다음은 돌려주기 서비스에 필요한 Method 를 나열한 것이다.
+No.
+1
+
+Method
+IMS_CallTransfer_Start()
+
+수행 기능
+
+비고
+
+돌려주기 시작
+
+다음은 돌려주기 서비스에 대한 CS OpenAPI 서버와의 연동 FLOW 를 나타낸다.
+
+2.25.1
+
+IMS_CallTransfer_Start() –돌려주기 서비스
+
+돌려주기 서비스를 요청한다. 돌려주기 서비스가 가능할 경우,
+
+무단전제/복제 금지(SK broadband Proprietary)
+
+OpenAPI 서버에서는
+
+페이지
+80/94
+
+문서명
+
+최종 수정일
+2014-10-16
+
+CS OpenAPI 사용 설명서
+
+버전
+1.1
+
+페이지
+81/94
+
+READY 이벤트를 클라이언트에 전송하게 되며, 가입자는 READY 이벤트를 수신한 경우에만
+돌려주기를 요청할 수 있다. 돌려주기 서비스 요청 후에 서비스 시작이 성공하면, 돌려주기
+이벤트를 받을 수 있는데 돌려주기 이벤트는 돌려주기 요청 결과와 돌려주기 세션 변경으
+로 구분된다. 돌려주기 세션 변경이란 통화중인 전화를 대기시키고 다른 전화를 받을 수
+있는 단말에서, 현재의 통화를 READY 이벤트를 수신한 대기 전화로 변경하는 경우를 말한
+다.
+가)
+
+Function prototype 선언
+
+[DllImport("SKB_OpenAPI_IMS.dll")]
+public static extern int IMS_CallTransfer_Start(string strDn, int nDisplayType);
+
+나)
+
+Parameters
+NAME
+
+TYPE
+
+Description
+
+strdDn
+
+String
+
+돌려주기 대상 번호
+
+nDisplayType
+
+Long
+
+돌려주기 대상 전화에 표시한 번호
+구분(원번호/발번번호)
+0 : 원번호
+1 : 발번번호
+
+다)
+
+Return code
+ERR NAME
+
+VALUE
+
+Description
+
+SUCCESS
+
+0x0000
+
+성공
+
+API_FC_ETC_FAIL
+
+0x0800
+
+기타 오류
+
+API_FC_IN_SERVICE
+
+0x0804
+
+이미 서비스 진행중
+
+API_FC_HOST_NOT_CONNECTED
+
+0x0814
+
+호스트 연결되어있지 않음
+
+API_FC_INVALID_DN
+
+0x8018
+
+잘못된 사용자 전화번호
+
+API_FC_NOT_READY
+
+0x800D
+
+서비스 준비 상태가 아님
+
+API_FC_USER_NOT_LOGIN
+
+0x080B
+
+사용자 로그인되어있지 않음
+
+API_FC_NOT_ALLOWED_SERVICE
+
+0x8075
+
+부가서비스 가입 상태가 아님
+
+라)
+
+Event
+EVENT NAME
+
+VALUE
+
+Description
+
+EVT_NORMAL
+
+0x0001
+
+서비스 일반
+
+EVT_REQUEST_SERVICE
+
+0x030C
+
+서비스 시작 요청 개시
+
+EVT_START_SERVICE
+
+0x0302
+
+서비스 시작
+
+EVT_ANSWER
+
+0x0306
+
+돌려주기 세션 변경
+
+무단전제/복제 금지(SK broadband Proprietary)
+
+문서명
+CS OpenAPI 사용 설명서
+마)
+
+최종 수정일
+2014-10-16
+
+버전
+1.1
+
+페이지
+82/94
+
+Sample Code
+
+private void btnCallTf_Query_Click(object sender, System.EventArgs e)
+{
+int
+nResult;
+int nDisplayType;
+if
+(rdoCallTransfer_False.Checked == true) nDisplayType = 0;
+else if (rdoCallTransfer_True.Checked == true) nDisplayType = 1;
+else nDisplayType = 0;
+nResult = IMS_CallTransfer_Start(txtCallTf_TelNum.Text, nDisplayType);
+if (nResult != (int)ERRCODE.SUCCESS) Log (">>>> 돌려주기 요청 실패 : Cause[" + nResult
++ "-" + ERR.StrFCause(nResult) + "]");
+}
+
+2.25.2
+
+이벤트 처리 Sample Code
+
+void Proc(int nSvc, int nEvtType, int nResult, string strDn1, string strDn2, string strExtInfo)
+{
+switch (nSvc)
+{
+case (int)SVCCODE.IMS_SVC_CALL_TRANSFER: EvtProc_CallTranser(nEvtType, nResult,
+strDn1, strDn2, strExtInfo); break;
+}
+}
+private void EvtProc_CallTransfer(int nEvtType, int nResult, string strCaller, string strCallee,
+string strExtInfo)
+{
+switch (nEvtType)
+{
+case (int)EVTTYPE.EVT_NORMAL:
+MAIN.Log (">>>> [CALL_TRANSFER] Cause[" + nResult + "-" + ERR.StrFCause(nResult) + "]");
+break;
+case (int)EVTTYPE.EVT_REQUEST_SERVICE:
+if (nResult == (int)ERRCODE.SUCCESS)
+{
+MAIN.Log ("**** [CALL_TRANSFER] 돌려주기 요청에 대한 개시 성공");
+}
+else
+{
+MAIN.Log ("**** [CALL_TRANSFER] 돌려주기 요청에 대한 개시 실패");
+}
+break;
+case (int)EVTTYPE.EVT_START_SERVICE:
+if (nResult == (int)ERRCODE.SUCCESS)
+{
+MAIN.Log ("**** [CALL_TRANSFER] 돌려주기 성공 <" + strCaller + "->" + strCallee + ">");
+}
+else
+{
+MAIN.Log ("**** [CALL_TRANSFER] 돌려주기 실패 <" + strCaller + "->" + strCallee + ">");
+}
+break;
+
+무단전제/복제 금지(SK broadband Proprietary)
+
+문서명
+
+최종 수정일
+2014-10-16
+
+CS OpenAPI 사용 설명서
+
+버전
+1.1
+
+페이지
+83/94
+
+case (int)EVTTYPE.EVT_STOP_SERVICE:
+if (nResult == (int)ERRCODE.SUCCESS)
+{
+MAIN.Log ("**** [CALL_TRANSFER] 돌려주기 종료 <" + strCaller + "->" + strCallee +
+">");
+}
+else if (nResult == (int)ERRCODE.API_FC_FAIL)
+{
+MAIN.Log ("**** [CALL_TRANSFER] 돌려주기 종료 <" + strCaller + "->" + strCallee + ">
+Cause[" + nResult + "-" + ERR.StrFCause(nResult) + "]");
+}
+else
+{
+MAIN.Log ("**** [CALL_TRANSFER] 돌려주기 종료 <" + strCaller + "->" + strCallee + ">
+Cause[" + nResult + "-" + ERR.StrFCause(nResult) + "] 추가정보[" + strExtInfo + "]");
+}
+break;
+case (int)EVTTYPE.EVT_READY_SERVICE:
+MAIN.Log ("**** [CALL_TRANSFER] 돌려주기 준비");
+break;
+case (int)EVTTYPE.EVT_ANSWER:
+MAIN.Log ("**** [CALL_TRANSFER] 돌려주기 세션 변경[" + strCaller + "]");
+break;
+default:
+MAIN.Log (">>>> [CALL_TRANSFER] 잘못된 이벤트 수신. EvtType[" + nEvtType + "-" +
+StrEvtType(nEvtType) + "]");
+break;
+}
+}
+
+2.26
+
+당겨받기 서비스
+
+다음은 당겨받기 서비스에 필요한 Method 를 나열한 것이다.
+No.
+1
+
+Method
+IMS_CallPickup_Start()
+
+수행 기능
+
+비고
+
+당겨받기 시작
+
+다음은 당겨받기 서비스에 대한 CS OpenAPI 서버와의 연동 FLOW 를 나타낸다.
+
+무단전제/복제 금지(SK broadband Proprietary)
+
+문서명
+
+최종 수정일
+2014-10-16
+
+CS OpenAPI 사용 설명서
+
+버전
+1.1
+
+IMS_CallPickup_Start() –당겨받기 서비스
+
+2.26.1
+
+당겨받기 서비스를 요청한다.
+가)
+
+Function prototype 선언
+
+[DllImport("SKB_OpenAPI_IMS.dll")]
+public static extern int IMS_CallPickup_Start(int nAutoAnswerF, int nDisplayType);
+
+나)
+
+Parameters
+NAME
+
+nAutoAnswerF
+
+TYPE
+
+Description
+
+Long
+
+발신자 자동 응답 여부
+0: 자동 응답함
+1: 자동 응답 안함
+
+nDisplayType
+
+Long
+
+당겨받기 대상 전화에 표시한 번호
+구분(원번호/발번번호)
+0 : 원번호
+1 : 발번번호
+
+다)
+
+Return code
+ERR NAME
+
+VALUE
+
+Description
+
+SUCCESS
+
+0x0000
+
+성공
+
+API_FC_ETC_FAIL
+
+0x0800
+
+기타 오류
+
+API_FC_IN_SERVICE
+
+0x0804
+
+이미 서비스 진행중
+
+API_FC_HOST_NOT_CONNECTED
+
+0x0814
+
+호스트 연결되어있지 않음
+
+API_FC_USER_NOT_LOGIN
+
+0x080B
+
+사용자 로그인되어있지 않음
+
+API_FC_NOT_ALLOWED_SERVICE
+
+0x8075
+
+부가서비스 가입 상태가 아님
+
+무단전제/복제 금지(SK broadband Proprietary)
+
+페이지
+84/94
+
+문서명
+
+최종 수정일
+2014-10-16
+
+CS OpenAPI 사용 설명서
+라)
+
+페이지
+85/94
+
+Event
+EVENT NAME
+
+VALUE
+
+Description
+
+EVT_NORMAL
+
+0x0001
+
+서비스 일반
+
+EVT_START_SERVICE
+
+0x0302
+
+서비스 시작
+
+마)
+
+버전
+1.1
+
+Sample Code
+
+private void btnCallPickup_Query_Click(object sender, System.EventArgs e)
+{
+int
+nAutoAnswerF;
+int nDisplayType;
+if
+(rdoCallPickup_False.Checked == true) nDisplayType = 0;
+else if (rdoCallPickup_True.Checked == true) nDisplayType = 1;
+else nDisplayType = 0;
+if (chkCallPickup_AutoAnswerF.Checked == true) nAutoAnswerF = 1;
+else nAutoAnswerF = 0;
+int
+nResult;
+nResult = IMS_CallPickup_Start(nAutoAnswerF, nDisplayType);
+if (nResult != (int)ERRCODE.SUCCESS) Log (">>>> 당겨받기 요청 실패 : Cause[" + nResult
++ "-" + ERR.StrFCause(nResult) + "]");
+}
+
+2.26.2
+
+이벤트 처리 Sample Code
+
+Proc(int nSvc, int nEvtType, int nResult, string strDn1, string strDn2, string strExtInfo)
+{
+switch (nSvc)
+{
+case (int)SVCCODE.IMS_SVC_CALL_PICKUP: EvtProc_CallPickup(nEvtType, nResult,
+strExtInfo); break;
+}
+}
+private void EvtProc_CallPickup(int nEvtType, int nResult, string strCaller, string strCallee,
+string strExtInfo)
+{
+switch (nEvtType)
+{
+case (int)EVTTYPE.EVT_NORMAL:
+MAIN.Log (">>>> [CALL_PICKUP] Cause[" + nResult + "-" + ERR.StrFCause(nResult) + "]");
+break;
+case (int)EVTTYPE.EVT_STOP_SERVICE:
+MAIN.Log ("**** [CALL_PICKUP] 서비스 종료. 종료원인[" + nResult + "-" +
+ERR.StrFCause(nResult) + "]" + " 추가정보[" + strExtInfo + "]");
+break;
+default:
+MAIN.Log (">>>> [CALL_PICKUP] 잘못된 이벤트 수신. EvtType[" + nEvtType + "-" +
+
+무단전제/복제 금지(SK broadband Proprietary)
+
+문서명
+
+최종 수정일
+2014-10-16
+
+CS OpenAPI 사용 설명서
+
+버전
+1.1
+
+페이지
+86/94
+
+StrEvtType(nEvtType) + "]");
+break;
+}
+}
+
+2.27
+
+MMS 전송 서비스
+
+다음은 MMS 전송 서비스에 필요한 Method 를 나열한 것이다.
+No.
+1
+
+수행 기능
+
+Method
+IMS_SendMms()
+
+비고
+
+MMS 전송 요청
+
+다음은 SMS 전송 서비스에 대한 CS OpenAPI 서버와의 연동 FLOW 를 나타낸다.
+
+IMS_SendMms() – MMS 전송 요청
+
+2.27.1
+
+입력한 착신 번호에 MMS 를 전송한다. MMS 는 문자만 전송 가능하며, 한번에 전송할 수 있
+는 MMS 의 최대 길이는 2000byte 를 초과할 수 없다.
+바)
+
+Function prototype 선언
+
+[DllImport("SKB_OpenAPI_IMS.dll")]
+public static extern int IMS_SendMms(string strCallee, string strMessage);
+
+사)
+
+Parameters
+NAME
+
+strCallee
+
+TYPE
+String
+
+Description
+착신자의 전화번호
+여러 개일 경우 구분자 ‘|’ 사용
+
+strMessage
+
+아)
+
+String
+
+메시지 내용
+
+Return code
+ERR NAME
+
+VALUE
+
+Description
+
+SUCCESS
+
+0x0000
+
+성공
+
+API_FC_ETC_FAIL
+
+0x0800
+
+기타 오류
+
+무단전제/복제 금지(SK broadband Proprietary)
+
+문서명
+
+최종 수정일
+2014-10-16
+
+CS OpenAPI 사용 설명서
+
+버전
+1.1
+
+API_FC_IN_SERVICE
+
+0x0804
+
+이미 서비스 진행중
+
+API_FC_HOST_NOT_CONNECTED
+
+0x0814
+
+호스트 연결되어있지 않음
+
+API_FC_INVALID_DN
+
+0x0818
+
+잘못된 사용자 전화번호
+
+API_FC_INVALID_MSG
+
+0x8003
+
+메시지 형식 오류
+
+API_FC_OVER_LENGTH
+
+0x8074
+
+메시지 길이 초과
+
+API_FC_USER_NOT_LOGIN
+
+0x080B
+
+사용자 로그인되어있지 않음
+
+API_FC_NOT_ALLOWED_SERVICE
+
+0x8075
+
+부가서비스 가입 상태가 아님
+
+자)
+
+87/94
+
+Event
+EVENT NAME
+
+EVT_NORMAL
+
+차)
+
+페이지
+
+VALUE
+0x0001
+
+Description
+서비스 일반
+
+Sample Code
+
+Public Sub Run_EvtProcess(lnService As Long, lnEvtType As Long, lnResult As Long, strDn1 As
+String, strDn2 As String, strExtInfo As String)
+Select Case lnService
+Case IMS_SVC_SEND_MMS:
+End Select
+End Sub
+
+EvtProc_SendMms lnResult, strExtInfo
+
+Private Sub EvtProc_SendMms(lnResult As Long, strExtInfo As String)
+If lnResult = SUCCESS Then
+Log "**** [MMS_MT] MMS 전송 성공 : 추가정보[" & ParseNullString(strExtInfo) & "]"
+Else
+Log ">>>> [MMS_MT] MMS 전송 실패 : Cause[" & lnResult & "-" & StrFCause(lnResult) & "]
+추가정보[" & ParseNullString(strExtInfo) & "]"
+End If
+End Sub
+
+2.27.2
+
+이벤트 처리 Sample Code
+
+Proc(int nSvc, int nEvtType, int nResult, string strDn1, string strDn2, string strExtInfo)
+{
+switch (nSvc)
+{
+case (int)SVCCODE.IMS_SVC_SEND_MMS: EvtProc_SendMms(nResult, strExtInfo); break;
+}
+}
+private void EvtProc_SendMms(int nResult, string strExtInfo)
+{
+if (nResult == (int)ERRCODE.SUCCESS)
+{
+MAIN.Log ("**** [MMS_MT] MMS 전송 성공 : 추가정보[" + strExtInfo + "]");
+}
+else
+
+무단전제/복제 금지(SK broadband Proprietary)
+
+문서명
+
+최종 수정일
+2014-10-16
+
+CS OpenAPI 사용 설명서
+
+버전
+1.1
+
+페이지
+88/94
+
+{
+MAIN.Log (">>>> [MMS_MT] MMS 전송 실패 : Cause[" + nResult + "-" + ERR.StrFCause(nResult)
++ "] 추가정보[" + strExtInfo + "]");
+}
+}
+
+2.28
+
+MMS 수신 서비스
+
+가입자가 로그인한 상태에서 단말에 MMS 를 수신하면 동시에 Application 에서도 MMS 다운
+로드 경로가 수신된다.
+다음은 MMS 수신 서비스에 대한 CS OpenAPI 서버와의 연동 FLOW 를 나타낸다.
+
+카)
+
+Event
+EVENT NAME
+
+EVT_NORMAL
+
+2.28.1
+
+VALUE
+0x0001
+
+Description
+서비스 일반
+
+이벤트 처리 Sample Code
+
+Proc(int nSvc, int nEvtType, int nResult, string strDn1, string strDn2, string strExtInfo)
+{
+switch (nSvc)
+{
+case (int)SVCCODE.IMS_SVC_RECV_MMS: EvtProc_RecvMms(strDn1, strDn2, strExtInfo);
+break;
+}
+}
+private void EvtProc_RecvMms(string strCaller, string strCallee, string strMessage)
+{
+MAIN.Log ("==== [MMS_RECV] MMS 수신 <" + strCaller + "->" + strCallee + "> 다운로드 경
+로[" + strMessage + "]");
+}
+
+2.29
+
+통화중 알림 서비스
+
+사용자가 로그인한 상태에서 통화중인 단말에 전화가 걸려오면, 전화 수신 내역을
+Application 에 통보한다.
+
+무단전제/복제 금지(SK broadband Proprietary)
+
+문서명
+
+최종 수정일
+2014-10-16
+
+CS OpenAPI 사용 설명서
+
+버전
+1.1
+
+페이지
+89/94
+
+다음은 통화중 알림 서비스에 대한 CS OpenAPI 서버와의 연동 FLOW 를 나타낸다.
+
+타)
+
+Event
+EVENT NAME
+
+EVT_NORMAL
+
+2.29.1
+
+VALUE
+0x0001
+
+Description
+서비스 일반
+
+이벤트 처리 Sample Code
+
+Proc(int nSvc, int nEvtType, int nResult, string strDn1, string strDn2, string strExtInfo)
+{
+switch (nSvc)
+{
+case (int)SVCCODE.IMS_SVC_CALLBUSYNOTI: EvtProc_CallBusyNoti (strDn1, strDn2,
+strExtInfo); break;
+}
+}
+private void EvtProc_CallBusyNoti(string strCaller, string strCallee, string strStatus)
+{
+MAIN.Log ("==== [CALL_BUSY_NOTI] 통화중 알림 <" + strCaller + "->" + strCallee + "> 호
+상태[" + strStatus + "]");
+}
+
+2.30
+
+당겨받기 알림 서비스
+
+사용자가 로그인한 상태에서 해당 호를 다른 가입자가 당겨받았을 경우, 당겨받기를 수행
+했다는 정보를 Application 에 통보한다.
+다음은 당겨받기 알림 서비스에 대한 CS OpenAPI 서버와의 연동 FLOW 를 나타낸다.
+
+파)
+
+Event
+EVENT NAME
+
+무단전제/복제 금지(SK broadband Proprietary)
+
+VALUE
+
+Description
+
+문서명
+
+최종 수정일
+2014-10-16
+
+CS OpenAPI 사용 설명서
+EVT_NORMAL
+
+2.30.1
+
+0x0001
+
+버전
+1.1
+
+페이지
+90/94
+
+서비스 일반
+
+이벤트 처리 Sample Code
+
+Proc(int nSvc, int nEvtType, int nResult, string strDn1, string strDn2, string strExtInfo)
+{
+switch (nSvc)
+{
+case (int)SVCCODE.IMS_SVC_CPUNOTI: EvtProc_CpuNoti (strDn1, strDn2);
+break;
+}
+}
+private void EvtProc_CpuNoti(string strCaller, string strCallee)
+{
+MAIN.Log ("==== [CPU_NOTI] 당겨받기 알림 <" + strCaller + "->" + strCallee + ">");
+}
+
+2.31
+
+돌려주기 알림 서비스
+
+사용자가 로그인한 상태이고 돌려주기호를 수신한 경우, 돌려주기호임을 Application 에 통보
+한다.
+다음은 돌려주기 알림 서비스에 대한 CS OpenAPI 서버와의 연동 FLOW 를 나타낸다.
+
+하)
+
+Event
+EVENT NAME
+
+EVT_NORMAL
+
+2.31.1
+
+VALUE
+0x0001
+
+Description
+서비스 일반
+
+이벤트 처리 Sample Code
+
+Proc(int nSvc, int nEvtType, int nResult, string strDn1, string strDn2, string strExtInfo)
+{
+switch (nSvc)
+{
+case (int)SVCCODE.IMS_SVC_CTRNOTI: EvtProc_CtrNoti (strDn2, strDn1);
+break;
+}
+}
+
+무단전제/복제 금지(SK broadband Proprietary)
+
+문서명
+CS OpenAPI 사용 설명서
+
+최종 수정일
+2014-10-16
+
+버전
+1.1
+
+private void EvtProc_CtrNoti(string strCaller, string strCallee)
+{
+MAIN.Log ("==== [CTR_NOTI] 돌려주기 알림 <" + strCaller + "->" + strCallee + ">");
+}
+
+무단전제/복제 금지(SK broadband Proprietary)
+
+페이지
+91/94
+
+문서명
+
+최종 수정일
+2014-10-16
+
+CS OpenAPI 사용 설명서
+
+3.
+
+코드 정의
+
+3.1
+
+이벤트 코드
+
+Seq
+
+NAME
+
+Value
+
+버전
+1.1
+
+Description
+
+1
+
+EVT_TIMEOUT
+
+0x0000
+
+시간 초과
+
+2
+
+EVT_NORMAL
+
+0x0001
+
+일반 이벤트
+
+3
+
+EVT_SYS_FAULT
+
+0x0002
+
+시스템 오류
+
+4
+
+EVT_CONNECTING
+
+0x0100
+
+호스트 연결중
+
+5
+
+EVT_CONNECTED
+
+0x0101
+
+호스트 연결 됨
+
+6
+
+EVT_DISCONNECTED
+
+0x0102
+
+호스트와 연결 종료
+
+7
+
+EVT_CONNECTION_FAIL
+
+0x0103
+
+호스트와 연결 실패
+
+8
+
+EVT_LOGIN
+
+0x0104
+
+사용자 로그인
+
+9
+
+EVT_LOGOUT
+
+0x0105
+
+사용자 로그 아웃
+
+10
+
+EVT_SET_REST
+
+0x0106
+
+사용자 상태변경. 업무중/부재중
+
+11
+
+EVT_SUBS_DN_QRY
+
+0x0107
+
+가입자 전화번호 조회
+
+12
+
+EVT_MON_DN_QRY
+
+0x0108
+
+모니터링 전화번호 조회
+
+13
+
+EVT_MON_DN_ADD
+
+0x0109
+
+모니터링 전화번호 등록
+
+14
+
+EVT_MON_DN_DEL
+
+0x010A
+
+모니터링 전화번호 삭제
+
+15
+
+EVT_AUTH_SMS
+
+0x0200
+
+등록을 위한 인증 SMS 전송
+
+16
+
+EVT_AUTH_TTS
+
+0x0201
+
+등록을 위한 인증 TTS 전송
+
+17
+
+EVT_CREATE_USER
+
+0x0210
+
+사용자 등록
+
+18
+
+EVT_CHG_PASSWD
+
+0x0211
+
+로그인 비밀번호 변경
+
+19
+
+EVT_GET_SVCINFO
+
+0x0212
+
+로그인시 가용서비스 조회
+
+20
+
+EVT_SERVICE_INFO
+
+0x0300
+
+서비스 정보 조회
+
+21
+
+EVT_CALL_STATUS
+
+0x0301
+
+서비스 중 호 상태 조회
+
+22
+
+EVT_START_SERVICE
+
+0x0302
+
+서비스 시작
+
+23
+
+EVT_STOP_SERVICE
+
+0x0303
+
+서비스 종료
+
+24
+
+EVT_READY_SERVICE
+
+0x0304
+
+서비스 준비
+
+25
+
+EVT_ANSWER
+
+0x0305
+
+착신자 전화 응답
+
+26
+
+EVT_INIT_RECORD
+
+0x0306
+
+착신녹취 준비
+
+27
+
+EVT_START_RECORD
+
+0x0307
+
+녹음 시작
+
+28
+
+EVT_STOP_RECORD
+
+0x0308
+
+녹음 종료
+
+29
+
+EVT_PTPNT_ADD
+
+0x0309
+
+참여자 전화 참여
+
+30
+
+EVT_PTPNT_DEL
+
+0x030A
+
+참여자 전화 종료
+
+30
+
+EVT_PTPNT_EXPEL
+
+0x030B
+
+참여자 강퇴
+
+31
+
+EVT_REQUEST_SERVICE
+
+0x030C
+
+서비스 요청 개시
+
+무단전제/복제 금지(SK broadband Proprietary)
+
+페이지
+92/94
+
+문서명
+
+최종 수정일
+2014-10-16
+
+CS OpenAPI 사용 설명서
+
+3.2
+
+버전
+1.1
+
+오류 코드
+
+Seq
+
+NAME
+
+Value
+
+Description
+
+1
+
+API_FC_ETC_FAIL
+
+0x8000
+
+기타 오류
+
+2
+
+API_FC_INIT_FAIL
+
+0x8001
+
+API 초기화 실패
+
+3
+
+API_FC_HB_TIMEOUT
+
+0x8002
+
+호스트와 Heartbeat Timeout
+
+4
+
+API_FC_INVALID_MSG
+
+0x8003
+
+메시지 형식 오류
+
+5
+
+API_FC_IN_SERVICE
+
+0x8004
+
+이미 서비스 진행중
+
+6
+
+API_FC_NOT_IN_SERVICE
+
+0x8005
+
+서비스 미진행중
+
+7
+
+API_FC_INVALID_SERVICE_STS
+
+0x8006
+
+잘못된 서비스 상태
+
+8
+
+API_FC_ALREADY_LOGIN
+
+0x8007
+
+중복 로그인
+
+9
+
+API_FC_USER_ALREADY_ADDED
+
+0x8008
+
+ID 가 이미 등록되어 있음
+
+10
+
+API_FC_USER_NOT_ADDED
+
+0x8009
+
+ID 가 등록되어 있지 않음.
+
+11
+
+API_FC_MAX_USER_EXCEEDED
+
+0x800A
+
+최대 사용자 수 초과
+
+12
+
+API_FC_USER_NOT_LOGIN
+
+0x800B
+
+사용자 로그인되어있이 않음
+
+13
+
+API_FC_PARTIAL_FAIL
+
+0x800C
+
+서비스 부분 실패
+
+14
+
+API_FC_FAIL
+
+0x800D
+
+실패
+
+14
+
+API_FC_DISP_CONNECT_FAIL
+
+0x8010
+
+DISP 연결 실패
+
+15
+
+API_FC_HOST_CONNECT_FAIL
+
+0x8011
+
+Host 연결 실패
+
+16
+
+API_FC_MAX_CONN_EXCEEDED
+
+0x8012
+
+최대 동시 접속 수 초과
+
+17
+
+API_FC_ALREADY_INIT
+
+0x8013
+
+이미 Init 됨
+
+18
+
+API_FC_HOST_NOT_CONNECTED
+
+0x8014
+
+호스트 연결되어있지 않음
+
+19
+
+API_FC_SEND_FAIL
+
+0x8015
+
+메시지 전송 실패
+
+20
+
+API_FC_INVALID_RECV_DATA
+
+0x8016
+
+잘못된 데이터 수신
+
+21
+
+API_FC_INVALID_ID
+
+0x8017
+
+잘못된 사용자 ID
+
+22
+
+API_FC_INVALID_DN
+
+0x8018
+
+잘못된 사용자 전화번호
+
+23
+
+API_FC_INVALID_PASSWD
+
+0x8019
+
+비밀번호 오류
+
+24
+
+API_FC_INVALID_COMMAND_TYP
+
+0x801A
+
+잘못된 명령어 요청
+
+E
+25
+
+API_FC_INVALID_APPKEY
+
+0x801B
+
+잘못된 APP-Key
+
+26
+
+API_FC_INVALID_AUTHNO
+
+0x801C
+
+인증번호 오류
+
+27
+
+API_FC_BUSY
+
+0x801D
+
+통화중
+
+28
+
+API_FC_NO_ANSWER
+
+0x801E
+
+착신자 무응답
+
+29
+
+API_FC_NOT_REACHABLE
+
+0x801F
+
+호처리 실패
+
+30
+
+API_FC_ABANDON
+
+0x8020
+
+착신자 호포기
+
+31
+
+API_FC_NOT_RECORDING
+
+0x8021
+
+녹음중이 아님
+
+32
+
+API_FC_ALREADY_RECORDING
+
+0x8022
+
+이미 녹음중
+
+33
+
+API_FC_RECORDING_STOPED
+
+0x8023
+
+녹음 중지됨
+
+무단전제/복제 금지(SK broadband Proprietary)
+
+페이지
+93/94
+
+문서명
+
+최종 수정일
+2014-10-16
+
+CS OpenAPI 사용 설명서
+34
+
+API_FC_NOT_AVAILABLE_RECOR
+
+버전
+1.1
+
+0x8024
+
+녹음할 수 없는 서비스
+
+0x8025
+
+사용할 수 없는 서비스
+
+페이지
+94/94
+
+DING
+35
+
+API_FC_NOT_AVAILABLE_SERVIC
+E
+
+36
+
+API_FC_UNALLOC
+
+0x8026
+
+착신자 결번
+
+37
+
+API_FC_RECORD_FAIL
+
+0x8027
+
+녹음 실패
+
+38
+
+API_FC_RECORD_TIME_EXPIRED
+
+0x8028
+
+최대 녹음시간 만료
+
+39
+
+API_FC_INVALID_PASSWD_LENGT
+
+0x8029
+
+비밀번호 길이 오류
+
+0x802A
+
+비밀번호 문자 오류
+
+0x802B
+
+비밀번호 유효기간 만료
+
+0x802C
+
+비밀번호 재사용기간 오류
+
+H
+40
+
+API_FC_INVALID_PASSWD_CHAR
+ACTOR
+
+41
+
+API_FC_INVALID_PASSWD_EXPIRE
+D
+
+42
+
+API_FC_INVALID_PASSWD_REUSE
+_TERM
+
+43
+
+API_FC_TEMPORARY_INABILITY
+
+0x802D
+
+시스템 내부 로직 오류
+
+44
+
+API_FC_LOG_FAIL
+
+0x8070
+
+API 로그파일 생성 실패
+
+45
+
+API_FC_MAX_REG_USER_EXCEED
+
+0x8071
+
+동일한 전화번호에 등록할 수 있는
+USER ID 수 초과
+
+46
+
+API_FC_MAX_REF_DN_EXCEED
+
+0x8072
+
+최대 등록 가능한 모니터링
+전화번호 수 초과
+
+47
+
+API_FC_LIMIT_EXCEED
+
+0x8073
+
+유효한 데이터 수 초과
+
+48
+
+API_FC_OVER_LENGTH
+
+0x8074
+
+메지시 길이 초과
+
+49
+
+API_FC_NOT_ALLOWED_SERVICE
+
+0x8075
+
+부가서비스 가입상태가 아님
+
+무단전제/복제 금지(SK broadband Proprietary)
+
+

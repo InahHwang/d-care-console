@@ -1,0 +1,249 @@
+import React, { useState } from 'react';
+import { Phone, ChevronRight, Search, Bell, MoreVertical, PhoneCall, Plus, User, Settings, Home, Users, BarChart3, Sparkles, Flame, Thermometer, Snowflake, ChevronLeft, ChevronDown, AlertTriangle } from 'lucide-react';
+
+export default function PatientManagementSimple() {
+  const [selectedStatus, setSelectedStatus] = useState('all');
+  const [searchQuery, setSearchQuery] = useState('');
+
+  // 상태 정의
+  const statuses = [
+    { id: 'all', label: '전체', count: 156 },
+    { id: 'consulting', label: '전화상담', count: 23, color: 'blue' },
+    { id: 'reserved', label: '내원예약', count: 15, color: 'purple' },
+    { id: 'visited', label: '내원완료', count: 12, color: 'amber' },
+    { id: 'treatment', label: '치료중', count: 34, color: 'emerald' },
+    { id: 'completed', label: '치료완료', count: 45, color: 'green' },
+    { id: 'followup', label: '사후관리', count: 27, color: 'slate' },
+  ];
+
+  const patients = [
+    { id: 1, name: '김미영', phone: '010-9876-5432', status: 'consulting', interest: '임플란트', temperature: 'hot', source: '외주DB', lastContact: '오늘', daysInStatus: 0, nextAction: '콜백 1/17 10:00' },
+    { id: 2, name: '이정훈', phone: '010-1234-5678', status: 'consulting', interest: '교정', temperature: 'warm', source: '네이버', lastContact: '오늘', daysInStatus: 0, nextAction: '2주 내 결정' },
+    { id: 3, name: '박서연', phone: '010-5555-1234', status: 'reserved', interest: '미백', temperature: 'warm', source: '홈페이지', lastContact: '어제', daysInStatus: 1, nextAction: '1/18 14:00 내원' },
+    { id: 4, name: '최민수', phone: '010-7777-8888', status: 'consulting', interest: '임플란트', temperature: 'warm', source: '소개', lastContact: '1/13', daysInStatus: 2, nextAction: '콜백 1/16 14:00' },
+    { id: 5, name: '정유진', phone: '010-2222-3333', status: 'visited', interest: '충치치료', temperature: 'hot', source: '네이버', lastContact: '1/14', daysInStatus: 1, nextAction: '치료 동의 대기' },
+    { id: 6, name: '강동원', phone: '010-4444-5555', status: 'treatment', interest: '임플란트', temperature: 'warm', source: '홈페이지', lastContact: '1/10', daysInStatus: 5, nextAction: '2차 수술 1/25' },
+    { id: 7, name: '윤서아', phone: '010-6666-7777', status: 'treatment', interest: '교정', temperature: 'warm', source: '외주DB', lastContact: '1/12', daysInStatus: 30, nextAction: '정기 조정 2/1' },
+    { id: 8, name: '임재현', phone: '010-8888-9999', status: 'completed', interest: '스케일링', temperature: 'cold', source: '소개', lastContact: '1/5', daysInStatus: 10, nextAction: '6개월 후 리콜' },
+    { id: 9, name: '한소희', phone: '010-1111-2222', status: 'followup', interest: '임플란트', temperature: 'warm', source: '소개', lastContact: '12/20', daysInStatus: 26, nextAction: '소개 환자 관리' },
+    { id: 10, name: '송중기', phone: '010-3333-4444', status: 'consulting', interest: '임플란트', temperature: 'cold', source: '외주DB', lastContact: '1/10', daysInStatus: 5, nextAction: '재연락 필요' },
+  ];
+
+  const getStatusStyle = (statusId) => {
+    switch(statusId) {
+      case 'consulting': return 'bg-blue-100 text-blue-700';
+      case 'reserved': return 'bg-purple-100 text-purple-700';
+      case 'visited': return 'bg-amber-100 text-amber-700';
+      case 'treatment': return 'bg-emerald-100 text-emerald-700';
+      case 'completed': return 'bg-green-100 text-green-700';
+      case 'followup': return 'bg-slate-100 text-slate-700';
+      default: return 'bg-gray-100 text-gray-700';
+    }
+  };
+
+  const getStatusLabel = (statusId) => {
+    return statuses.find(s => s.id === statusId)?.label || statusId;
+  };
+
+  const getTemperatureIcon = (temp) => {
+    switch(temp) {
+      case 'hot': return <Flame size={14} className="text-red-500" />;
+      case 'warm': return <Thermometer size={14} className="text-amber-500" />;
+      case 'cold': return <Snowflake size={14} className="text-blue-400" />;
+      default: return null;
+    }
+  };
+
+  const filteredPatients = patients.filter(p => {
+    if (selectedStatus !== 'all' && p.status !== selectedStatus) return false;
+    if (searchQuery && !p.name.includes(searchQuery) && !p.phone.includes(searchQuery)) return false;
+    return true;
+  });
+
+  return (
+    <div className="min-h-screen bg-gray-100 flex">
+      
+      {/* 사이드바 */}
+      <div className="w-64 bg-white border-r flex flex-col">
+        <div className="p-5 border-b">
+          <h1 className="text-xl font-bold text-blue-600">CatchAll</h1>
+          <p className="text-xs text-gray-400 mt-1">치과 상담 관리</p>
+        </div>
+        
+        <nav className="flex-1 p-3">
+          <div className="space-y-1">
+            <button className="w-full flex items-center gap-3 px-4 py-3 text-gray-600 hover:bg-gray-50 rounded-xl">
+              <Home size={20} />
+              <span>대시보드</span>
+            </button>
+            <button className="w-full flex items-center gap-3 px-4 py-3 text-gray-600 hover:bg-gray-50 rounded-xl">
+              <Phone size={20} />
+              <span>통화 기록</span>
+            </button>
+            <button className="w-full flex items-center gap-3 px-4 py-3 bg-blue-50 text-blue-600 rounded-xl font-medium">
+              <Users size={20} />
+              <span>환자 관리</span>
+            </button>
+            <button className="w-full flex items-center gap-3 px-4 py-3 text-gray-600 hover:bg-gray-50 rounded-xl">
+              <Bell size={20} />
+              <span>콜백 일정</span>
+            </button>
+            <button className="w-full flex items-center gap-3 px-4 py-3 text-gray-600 hover:bg-gray-50 rounded-xl">
+              <BarChart3 size={20} />
+              <span>리포트</span>
+            </button>
+          </div>
+        </nav>
+
+        <div className="p-3 border-t">
+          <div className="flex items-center gap-3 px-3 py-2">
+            <div className="w-9 h-9 bg-gray-200 rounded-full flex items-center justify-center">
+              <User size={18} className="text-gray-500" />
+            </div>
+            <div className="flex-1 min-w-0">
+              <div className="text-sm font-medium text-gray-900 truncate">김상담</div>
+              <div className="text-xs text-gray-400">상담사</div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      {/* 메인 컨텐츠 */}
+      <div className="flex-1 flex flex-col">
+        
+        {/* 헤더 */}
+        <div className="bg-white border-b px-6 py-4">
+          <div className="flex items-center justify-between">
+            <div>
+              <h2 className="text-xl font-bold text-gray-900">환자 관리</h2>
+              <p className="text-sm text-gray-500 mt-1">총 {patients.length}명</p>
+            </div>
+            <button className="px-4 py-2 bg-blue-500 hover:bg-blue-600 text-white rounded-lg font-medium flex items-center gap-2">
+              <Plus size={18} />
+              환자 등록
+            </button>
+          </div>
+        </div>
+
+        {/* 상태 필터 */}
+        <div className="bg-white border-b px-6 py-3">
+          <div className="flex items-center justify-between">
+            <div className="flex items-center gap-2">
+              {statuses.map(status => (
+                <button
+                  key={status.id}
+                  onClick={() => setSelectedStatus(status.id)}
+                  className={`px-4 py-2 rounded-full text-sm font-medium transition-all ${
+                    selectedStatus === status.id
+                      ? status.id === 'all' 
+                        ? 'bg-gray-900 text-white' 
+                        : getStatusStyle(status.id)
+                      : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
+                  }`}
+                >
+                  {status.label}
+                  <span className={`ml-1.5 ${
+                    selectedStatus === status.id 
+                      ? status.id === 'all' ? 'text-gray-400' : '' 
+                      : 'text-gray-400'
+                  }`}>
+                    {status.count}
+                  </span>
+                </button>
+              ))}
+            </div>
+
+            <div className="relative">
+              <Search size={18} className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" />
+              <input
+                type="text"
+                placeholder="이름, 전화번호 검색"
+                value={searchQuery}
+                onChange={(e) => setSearchQuery(e.target.value)}
+                className="pl-10 pr-4 py-2 border border-gray-200 rounded-lg w-64 focus:outline-none focus:ring-2 focus:ring-blue-500"
+              />
+            </div>
+          </div>
+        </div>
+
+        {/* 환자 목록 테이블 */}
+        <div className="flex-1 overflow-auto p-6">
+          <div className="bg-white rounded-2xl shadow-sm overflow-hidden">
+            {/* 테이블 헤더 */}
+            <div className="grid grid-cols-12 gap-4 px-5 py-3 bg-gray-50 border-b text-sm font-medium text-gray-500">
+              <div className="col-span-2">환자명</div>
+              <div className="col-span-2">전화번호</div>
+              <div className="col-span-1">관심시술</div>
+              <div className="col-span-2">상태</div>
+              <div className="col-span-1">관심도</div>
+              <div className="col-span-1">체류</div>
+              <div className="col-span-2">다음 액션</div>
+              <div className="col-span-1"></div>
+            </div>
+
+            {/* 테이블 바디 */}
+            <div className="divide-y">
+              {filteredPatients.map((patient) => (
+                <div key={patient.id} className="grid grid-cols-12 gap-4 px-5 py-3 hover:bg-gray-50 cursor-pointer items-center">
+                  <div className="col-span-2">
+                    <div className="font-medium text-gray-900">{patient.name}</div>
+                    <div className="text-xs text-gray-400">{patient.source}</div>
+                  </div>
+                  <div className="col-span-2 text-gray-600">{patient.phone}</div>
+                  <div className="col-span-1">
+                    <span className="px-2 py-1 bg-blue-50 text-blue-700 rounded text-xs">
+                      {patient.interest}
+                    </span>
+                  </div>
+                  <div className="col-span-2">
+                    <span className={`px-2 py-1 rounded-full text-xs font-medium ${getStatusStyle(patient.status)}`}>
+                      {getStatusLabel(patient.status)}
+                    </span>
+                  </div>
+                  <div className="col-span-1">
+                    {getTemperatureIcon(patient.temperature)}
+                  </div>
+                  <div className="col-span-1 text-sm text-gray-500">
+                    {patient.daysInStatus}일
+                  </div>
+                  <div className="col-span-2 text-sm text-gray-600 truncate">
+                    {patient.nextAction}
+                  </div>
+                  <div className="col-span-1 flex justify-end gap-1">
+                    <button className="p-1.5 hover:bg-gray-100 rounded text-gray-400 hover:text-emerald-500">
+                      <PhoneCall size={16} />
+                    </button>
+                    <button className="p-1.5 hover:bg-gray-100 rounded text-gray-400 hover:text-blue-500">
+                      <ChevronRight size={16} />
+                    </button>
+                  </div>
+                </div>
+              ))}
+            </div>
+
+            {filteredPatients.length === 0 && (
+              <div className="py-16 text-center text-gray-400">
+                검색 결과가 없습니다
+              </div>
+            )}
+          </div>
+
+          {/* 페이지네이션 */}
+          <div className="flex items-center justify-between mt-4 px-2">
+            <p className="text-sm text-gray-500">{filteredPatients.length}명</p>
+            <div className="flex items-center gap-1">
+              <button className="px-3 py-1.5 border border-gray-200 rounded-lg hover:bg-gray-50 text-sm text-gray-600">
+                <ChevronLeft size={16} />
+              </button>
+              <button className="px-3 py-1.5 bg-blue-500 text-white rounded-lg text-sm">1</button>
+              <button className="px-3 py-1.5 border border-gray-200 rounded-lg hover:bg-gray-50 text-sm text-gray-600">2</button>
+              <button className="px-3 py-1.5 border border-gray-200 rounded-lg hover:bg-gray-50 text-sm text-gray-600">
+                <ChevronRight size={16} />
+              </button>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+}

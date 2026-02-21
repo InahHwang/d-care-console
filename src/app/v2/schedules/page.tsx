@@ -20,9 +20,12 @@ import {
   MessageSquare,
   X,
   Check,
+  Target,
 } from 'lucide-react';
+import { EventSchedulePanel } from '@/components/v2/schedules/EventSchedulePanel';
 import { TemperatureIcon } from '@/components/v2/common/TemperatureIcon';
-import type { Temperature, CallbackType, CallbackStatus } from '@/types/v2';
+import type { Temperature, CallbackType, CallbackStatus, PatientStatus } from '@/types/v2';
+import { PATIENT_STATUS_CONFIG } from '@/types/v2';
 
 // ============= Types =============
 interface CallbackItem {
@@ -95,11 +98,16 @@ const TIMING_OPTIONS = [
 function SchedulesContent() {
   const router = useRouter();
   const searchParams = useSearchParams();
-  const tabParam = searchParams.get('tab') as 'callback' | 'recall' | null;
+  const tabParam = searchParams.get('tab') as 'callback' | 'recall' | 'event' | null;
+  const dateParam = searchParams.get('date');
 
   // Main state
-  const [activeTab, setActiveTab] = useState<'callback' | 'recall'>(tabParam || 'callback');
-  const [selectedDate, setSelectedDate] = useState<string>(new Date().toISOString().split('T')[0]);
+  const [activeTab, setActiveTab] = useState<'callback' | 'recall' | 'event'>(tabParam || 'callback');
+  const [selectedDate, setSelectedDate] = useState<string>(() => {
+    if (dateParam && /^\d{4}-\d{2}-\d{2}$/.test(dateParam)) return dateParam;
+    const now = new Date();
+    return `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-${String(now.getDate()).padStart(2, '0')}`;
+  });
   const [statusFilter, setStatusFilter] = useState<CallbackStatus | 'all'>('all');
   const [searchQuery, setSearchQuery] = useState('');
 
@@ -116,6 +124,9 @@ function SchedulesContent() {
   const [recallStats, setRecallStats] = useState({ pending: 0, sent: 0, booked: 0, noResponse: 0, callNeeded: 0 });
   const [showAddTreatmentModal, setShowAddTreatmentModal] = useState(false);
   const [editingSchedule, setEditingSchedule] = useState<{ settingId: string; schedule?: RecallSchedule } | null>(null);
+
+  // Event state (이벤트 타겟 통계)
+  const [eventStats, setEventStats] = useState({ total: 0, overdue: 0, today: 0 });
 
   // ============= Callbacks API =============
   const fetchCallbacks = useCallback(async () => {
@@ -177,7 +188,50 @@ function SchedulesContent() {
     }
   }, []);
 
+  // ============= Event Targets Stats API =============
+  const fetchEventStats = useCallback(async () => {
+    try {
+      const response = await fetch('/api/v2/marketing-targets?limit=100');
+      const result = await response.json();
+
+      if (result.success) {
+        const patients = result.data.patients || [];
+        const today = new Date();
+        today.setHours(0, 0, 0, 0);
+
+        let overdueCount = 0;
+        let todayCount = 0;
+
+        patients.forEach((p: { marketingInfo?: { scheduledDate?: string } }) => {
+          const schedDate = p.marketingInfo?.scheduledDate;
+          if (schedDate) {
+            const targetDate = new Date(schedDate);
+            targetDate.setHours(0, 0, 0, 0);
+            if (targetDate < today) {
+              overdueCount++;
+            } else if (targetDate.getTime() === today.getTime()) {
+              todayCount++;
+            }
+          }
+        });
+
+        setEventStats({
+          total: patients.length,
+          overdue: overdueCount,
+          today: todayCount,
+        });
+      }
+    } catch (error) {
+      console.error('Failed to fetch event stats:', error);
+    }
+  }, []);
+
   // ============= Effects =============
+  // 페이지 로드 시 이벤트 통계 조회
+  useEffect(() => {
+    fetchEventStats();
+  }, [fetchEventStats]);
+
   useEffect(() => {
     if (activeTab === 'callback') {
       fetchCallbacks();
@@ -189,14 +243,16 @@ function SchedulesContent() {
       } else if (recallSubTab === 'call-needed') {
         fetchRecallMessages('call-needed');
       }
+    } else if (activeTab === 'event') {
+      fetchEventStats();
     }
-  }, [activeTab, recallSubTab, fetchCallbacks, fetchRecallMessages]);
+  }, [activeTab, recallSubTab, fetchCallbacks, fetchRecallMessages, fetchEventStats]);
 
   // ============= Handlers =============
   const handleDateChange = (days: number) => {
-    const date = new Date(selectedDate);
-    date.setDate(date.getDate() + days);
-    setSelectedDate(date.toISOString().split('T')[0]);
+    const [y, m, d] = selectedDate.split('-').map(Number);
+    const date = new Date(y, m - 1, d + days);
+    setSelectedDate(`${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}-${String(date.getDate()).padStart(2, '0')}`);
   };
 
   const handleCall = (phone: string) => {
@@ -393,6 +449,7 @@ function SchedulesContent() {
   const tabs = [
     { id: 'callback' as const, label: '콜백', icon: <Phone size={18} />, count: todayStats?.callback ?? 0 },
     { id: 'recall' as const, label: '리콜', icon: <RefreshCw size={18} />, count: recallStats.pending + recallStats.callNeeded },
+    { id: 'event' as const, label: '이벤트', icon: <Target size={18} />, count: eventStats.overdue + eventStats.today },
   ];
 
   const recallSubTabs = [
@@ -560,7 +617,12 @@ function SchedulesContent() {
                             <span className="font-medium text-gray-900 truncate">{callback.patientName}</span>
                             <TemperatureIcon temperature={callback.patientTemperature} size={14} />
                           </div>
-                          <div className="text-xs text-gray-500 mt-0.5">{callback.patientInterest}</div>
+                          <div className="text-xs text-gray-500 mt-0.5">
+                            {[
+                              PATIENT_STATUS_CONFIG[callback.patientStatus as PatientStatus]?.label || callback.patientStatus,
+                              callback.patientInterest
+                            ].filter(Boolean).join(' · ')}
+                          </div>
                         </div>
                       </div>
                     </button>
@@ -707,6 +769,11 @@ function SchedulesContent() {
         </div>
       )}
 
+      {/* 이벤트 탭: 이벤트 타겟 발송 일정 */}
+      {activeTab === 'event' && (
+        <EventSchedulePanel selectedDate={selectedDate} />
+      )}
+
       {/* 모달들 */}
       {showAddModal && (
         <AddCallbackModal
@@ -762,139 +829,110 @@ function CallbackDetailPanel({
     });
   };
 
+  const statusConfig = PATIENT_STATUS_CONFIG[callback.patientStatus as PatientStatus];
+  const statusLabel = statusConfig?.label || callback.patientStatus || '신규';
+  const interestLabel = callback.patientInterest;
+  const subtitle = [statusLabel, interestLabel].filter(Boolean).join(' · ');
+
   return (
     <div className="h-full flex flex-col">
       {/* 헤더 */}
-      <div className="p-6 border-b">
-        <div className="flex items-start justify-between mb-4">
+      <div className="p-5 border-b">
+        {/* 이름 + 부가 정보 */}
+        <div className="flex items-start justify-between mb-2">
           <div>
-            <div className="flex items-center gap-3 mb-2">
-              <h2 className="text-2xl font-bold text-gray-900">{callback.patientName}</h2>
-              <TemperatureIcon temperature={callback.patientTemperature} size={20} />
-              <span className={`px-2.5 py-1 rounded-full text-sm font-medium ${
-                callback.status === 'pending' ? 'bg-amber-100 text-amber-700' :
-                callback.status === 'completed' ? 'bg-emerald-100 text-emerald-700' :
-                'bg-red-100 text-red-700'
-              }`}>
-                {callback.status === 'pending' ? '대기' : callback.status === 'completed' ? '완료' : '미연결'}
-              </span>
+            <div className="flex items-center gap-2">
+              <h2 className="text-xl font-bold text-gray-900">{callback.patientName}</h2>
+              <TemperatureIcon temperature={callback.patientTemperature} size={18} />
             </div>
-            <p className="text-lg text-gray-600">{callback.patientPhone}</p>
+            <p className="text-sm text-gray-500 mt-0.5">{subtitle}</p>
           </div>
           <button
             onClick={() => onPatientClick(callback.patientId)}
-            className="text-sm text-blue-600 hover:text-blue-700 hover:underline"
+            className="text-xs text-blue-600 hover:text-blue-700 hover:underline flex-shrink-0 mt-1"
           >
             환자 상세 →
           </button>
         </div>
 
-        {/* 액션 버튼 */}
-        <div className="flex items-center gap-3">
+        {/* 전화번호 + 액션 버튼 한 줄 */}
+        <div className="flex items-center gap-3 mt-3">
+          <button
+            onClick={() => onCall(callback.patientPhone)}
+            className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-blue-600 text-white rounded-lg text-sm font-medium hover:bg-blue-700 transition-colors"
+          >
+            <Phone size={14} />
+            {callback.patientPhone}
+          </button>
           {callback.status === 'pending' && (
             <>
               <button
-                onClick={() => onCall(callback.patientPhone)}
-                className="flex-1 flex items-center justify-center gap-2 px-4 py-3 bg-blue-600 text-white rounded-xl font-medium hover:bg-blue-700 transition-colors"
-              >
-                <Phone size={20} />
-                전화하기
-              </button>
-              <button
                 onClick={() => onStatusChange(callback.id, 'completed')}
-                className="flex items-center justify-center gap-2 px-4 py-3 bg-emerald-600 text-white rounded-xl font-medium hover:bg-emerald-700 transition-colors"
+                className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-emerald-600 text-white rounded-lg text-sm font-medium hover:bg-emerald-700 transition-colors"
               >
-                <CheckCircle size={20} />
+                <CheckCircle size={14} />
                 완료
               </button>
               <button
                 onClick={() => onStatusChange(callback.id, 'missed')}
-                className="flex items-center justify-center gap-2 px-4 py-3 bg-gray-200 text-gray-700 rounded-xl font-medium hover:bg-gray-300 transition-colors"
+                className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-gray-100 text-gray-600 rounded-lg text-sm font-medium hover:bg-gray-200 transition-colors"
               >
-                <XCircle size={20} />
+                <XCircle size={14} />
                 미연결
               </button>
             </>
           )}
           {callback.status === 'missed' && (
-            <>
-              <button
-                onClick={() => onCall(callback.patientPhone)}
-                className="flex-1 flex items-center justify-center gap-2 px-4 py-3 bg-blue-600 text-white rounded-xl font-medium hover:bg-blue-700 transition-colors"
-              >
-                <Phone size={20} />
-                재시도
-              </button>
-              <button
-                onClick={() => onStatusChange(callback.id, 'pending')}
-                className="flex items-center justify-center gap-2 px-4 py-3 bg-amber-500 text-white rounded-xl font-medium hover:bg-amber-600 transition-colors"
-              >
-                <RefreshCw size={20} />
-                대기로 변경
-              </button>
-            </>
+            <button
+              onClick={() => onStatusChange(callback.id, 'pending')}
+              className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-amber-500 text-white rounded-lg text-sm font-medium hover:bg-amber-600 transition-colors"
+            >
+              <RefreshCw size={14} />
+              대기로
+            </button>
           )}
           {callback.status === 'completed' && (
-            <div className="flex-1 flex items-center justify-center gap-2 px-4 py-3 bg-emerald-50 text-emerald-700 rounded-xl">
-              <CheckCircle size={20} />
+            <span className="inline-flex items-center gap-1.5 text-sm text-emerald-600">
+              <CheckCircle size={14} />
               {callback.completedAt ? `${callback.completedAt.slice(0, 16).replace('T', ' ')} 완료` : '완료됨'}
-            </div>
+            </span>
           )}
         </div>
       </div>
 
-      {/* 상세 정보 */}
-      <div className="flex-1 p-6 overflow-y-auto">
-        <div className="space-y-6">
-          {/* 예약 정보 */}
-          <div>
-            <h3 className="text-sm font-medium text-gray-500 mb-3">콜백 정보</h3>
-            <div className="bg-gray-50 rounded-xl p-4 space-y-3">
-              <div className="flex items-center gap-3">
-                <Clock size={18} className="text-gray-400" />
-                <div>
-                  <div className="text-sm text-gray-500">예정 시간</div>
-                  <div className="font-medium text-gray-900">{formatDateTime(callback.scheduledAt)}</div>
-                </div>
-              </div>
-              <div className="flex items-center gap-3">
-                <Calendar size={18} className="text-gray-400" />
-                <div>
-                  <div className="text-sm text-gray-500">관심 분야</div>
-                  <div className="font-medium text-gray-900">{callback.patientInterest}</div>
-                </div>
-              </div>
-            </div>
-          </div>
-
-          {/* 메모 */}
-          {callback.note && (
-            <div>
-              <h3 className="text-sm font-medium text-gray-500 mb-3">메모</h3>
-              <div className="bg-amber-50 rounded-xl p-4">
-                <div className="flex items-start gap-3">
-                  <MessageSquare size={18} className="text-amber-600 mt-0.5" />
-                  <p className="text-gray-900">{callback.note}</p>
-                </div>
-              </div>
-            </div>
-          )}
-
-          {/* 환자 상태 */}
-          <div>
-            <h3 className="text-sm font-medium text-gray-500 mb-3">환자 상태</h3>
-            <div className="bg-gray-50 rounded-xl p-4">
-              <div className="flex items-center gap-2">
-                <span className="px-3 py-1.5 bg-blue-100 text-blue-700 rounded-lg text-sm font-medium">
-                  {callback.patientStatus || '신규'}
+      {/* 상세 정보 - key-value 리스트 */}
+      <div className="flex-1 p-5 overflow-y-auto">
+        <table className="w-full text-sm">
+          <tbody>
+            <tr>
+              <td className="text-gray-400 py-1.5 pr-4 align-top whitespace-nowrap w-20">예정 시간</td>
+              <td className="text-gray-900 py-1.5">{formatDateTime(callback.scheduledAt)}</td>
+            </tr>
+            <tr>
+              <td className="text-gray-400 py-1.5 pr-4 align-top whitespace-nowrap">콜백 상태</td>
+              <td className="py-1.5">
+                <span className={`inline-flex items-center gap-1 text-sm font-medium ${
+                  callback.status === 'pending' ? 'text-amber-600' :
+                  callback.status === 'completed' ? 'text-emerald-600' :
+                  'text-red-500'
+                }`}>
+                  <span className={`w-1.5 h-1.5 rounded-full ${
+                    callback.status === 'pending' ? 'bg-amber-500' :
+                    callback.status === 'completed' ? 'bg-emerald-500' :
+                    'bg-red-500'
+                  }`} />
+                  {callback.status === 'pending' ? '대기' : callback.status === 'completed' ? '완료' : '미연결'}
                 </span>
-                <span className="px-3 py-1.5 bg-purple-100 text-purple-700 rounded-lg text-sm font-medium">
-                  {callback.patientInterest}
-                </span>
-              </div>
-            </div>
-          </div>
-        </div>
+              </td>
+            </tr>
+            {callback.note && (
+              <tr>
+                <td className="text-gray-400 py-1.5 pr-4 align-top whitespace-nowrap">메모</td>
+                <td className="text-gray-900 py-1.5">{callback.note}</td>
+              </tr>
+            )}
+          </tbody>
+        </table>
       </div>
     </div>
   );
@@ -1149,24 +1187,18 @@ function PatientInfoModal({
           ) : patient ? (
             <div className="space-y-4">
               {/* 기본 정보 */}
-              <div className="flex items-center gap-3">
-                <div className="flex-1">
-                  <div className="flex items-center gap-2 mb-1">
-                    <span className="text-xl font-bold text-gray-900">{patient.name}</span>
-                    <TemperatureIcon temperature={patient.temperature} size={18} />
-                  </div>
-                  <p className="text-gray-500">{patient.phone}</p>
+              <div>
+                <div className="flex items-center gap-2 mb-1">
+                  <span className="text-xl font-bold text-gray-900">{patient.name}</span>
+                  <TemperatureIcon temperature={patient.temperature} size={18} />
                 </div>
-              </div>
-
-              {/* 상태 정보 */}
-              <div className="flex items-center gap-2">
-                <span className="px-3 py-1.5 bg-blue-100 text-blue-700 rounded-lg text-sm font-medium">
-                  {patient.status}
-                </span>
-                <span className="px-3 py-1.5 bg-purple-100 text-purple-700 rounded-lg text-sm font-medium">
-                  {patient.interest}
-                </span>
+                <p className="text-sm text-gray-500">
+                  {[
+                    PATIENT_STATUS_CONFIG[patient.status as PatientStatus]?.label || patient.status || '신규',
+                    patient.interest && patient.interest !== '-' ? patient.interest : null
+                  ].filter(Boolean).join(' · ')}
+                </p>
+                <p className="text-gray-500 mt-1">{patient.phone}</p>
               </div>
 
               {/* 메모 */}

@@ -26,10 +26,10 @@ async function verifyToken(request: NextRequest) {
   }
 }
 
-// 마스터 권한 확인
-function requireMasterRole(user: any) {
-  if (user.role !== 'master') {
-    throw new Error('마스터 관리자 권한이 필요합니다.');
+// 관리자 권한 확인 (admin 또는 레거시 master)
+function requireAdminRole(user: any) {
+  if (user.role !== 'master' && user.role !== 'admin') {
+    throw new Error('관리자 권한이 필요합니다.');
   }
 }
 
@@ -103,11 +103,11 @@ export async function PUT(
   try {
     const currentUser = await verifyToken(request);
     
-    // 본인 정보 수정이거나 마스터 권한인 경우에만 허용
+    // 본인 정보 수정이거나 관리자 권한인 경우에만 허용
     const isOwnProfile = currentUser.id === params.id;
-    const isMaster = currentUser.role === 'master';
+    const isAdmin = currentUser.role === 'master' || currentUser.role === 'admin';
     
-    if (!isOwnProfile && !isMaster) {
+    if (!isOwnProfile && !isAdmin) {
       return NextResponse.json(
         { success: false, message: '권한이 없습니다.' },
         { status: 403 }
@@ -137,10 +137,11 @@ export async function PUT(
       updateData.password = bcrypt.hashSync(password, 10);
     }
 
-    // 마스터만 role과 isActive 변경 가능
-    if (isMaster) {
+    // 관리자만 role과 isActive 변경 가능
+    if (isAdmin) {
       if (role !== undefined) {
-        if (!['master', 'staff'].includes(role)) {
+        // admin, manager, staff + 레거시 master 지원
+        if (!['admin', 'manager', 'staff', 'master'].includes(role)) {
           return NextResponse.json(
             { success: false, message: '유효하지 않은 역할입니다.' },
             { status: 400 }
@@ -229,7 +230,7 @@ export async function DELETE(
 ) {
   try {
     const currentUser = await verifyToken(request);
-    requireMasterRole(currentUser);
+    requireAdminRole(currentUser);
 
     // 자기 자신은 삭제할 수 없음
     if (currentUser.id === params.id) {

@@ -1,5 +1,11 @@
 // src/types/user.ts
 
+import { UserRole } from './invitation';
+
+// 역할 타입 (invitation.ts에서 가져옴)
+// 'admin' | 'manager' | 'staff'
+// master는 admin으로 호환 처리 (로그인 시 자동 변환)
+
 // 기존 authSlice의 User 인터페이스와 호환되도록 확장
 export interface User {
   id: string
@@ -7,13 +13,24 @@ export interface User {
   username: string  // 로그인용 사용자명 (기존 email과 동일하게 사용)
   email: string     // 기존 필드 유지
   name: string
-  role: 'master' | 'staff'  // 기존 string에서 구체적 타입으로
+  role: UserRole | 'master'  // master는 레거시, admin으로 취급
   isActive: boolean
   department?: string  // 부서 (선택적)
   createdAt: string
   updatedAt: string
   lastLogin?: string
   createdBy?: string   // 계정 생성자
+}
+
+// 역할 정규화 함수 (master -> admin)
+export function normalizeRole(role: string): UserRole {
+  if (role === 'master') return 'admin';
+  return role as UserRole;
+}
+
+// 관리자 권한 체크 (admin 또는 레거시 master)
+export function isAdminRole(role: string): boolean {
+  return role === 'admin' || role === 'master';
 }
 
 // 로그인 요청 데이터
@@ -28,7 +45,7 @@ export interface CreateUserRequest {
   email: string
   name: string
   password: string
-  role: 'master' | 'staff'
+  role: UserRole | 'master'  // 레거시 호환
   department?: string
 }
 
@@ -37,7 +54,7 @@ export interface UpdateUserRequest {
   username?: string
   email?: string
   name?: string
-  role?: 'master' | 'staff'
+  role?: UserRole | 'master'  // 레거시 호환
   department?: string
   isActive?: boolean
 }

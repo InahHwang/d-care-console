@@ -136,12 +136,13 @@ export async function GET(request: NextRequest, { params }: RouteParams) {
         consultations.push({
           id: manual._id.toString(),
           type: 'manual',
-          manualType: manual.type,
+          manualType: manual.type,  // 'visit', 'phone', 'other' 등
           date: manual.date,
           content: manual.content,
           summary: manual.content,
           consultantName: manual.consultantName,
-          source: 'manual',
+          source: manual.source || 'manual',  // 'consultation_result' 또는 'manual'
+          status: manual.status,  // 🆕 내원상담 결과 (agreed/disagreed/pending)
         });
       }
     }

@@ -1,0 +1,91 @@
+V1 → V2 데이터 마이그레이션 가이드
+=====================================
+
+## 데이터베이스 정보
+
+- 개발 DB: d-care-db-development (로컬 dev 서버 기본 연결, ~40명)
+- 프로덕션 DB: d-care-db (실제 운영 데이터, 500+명)
+
+마이그레이션 API 호출 시 `?production=true` 파라미터를 붙여야 프로덕션 DB에 접근됨
+
+
+## 마이그레이션 API
+
+1. 미리보기: GET /api/v2/migrate/full-sync?production=true
+2. 백업: PUT /api/v2/migrate/full-sync?production=true
+3. 실행: POST /api/v2/migrate/full-sync?production=true
+
+
+## 데이터 마이그레이션 규칙
+
+1. v1 상담관리에 있는 최초상담기록에 적힌 메모들을 v2의 상담이력에서 +수동입력 방식으로 전화상담 "상담 내용"란에 주관식으로 넣어주기
+
+2. v1 환자상세모달에 인입된 기본 정보 중 상담타입, 거주지역도 v2로 연동해서 옮겨주기
+
+3. v1 환자상세모달에 인입된 최초상담기록-상담날짜를 v2의 첫상담일 값에 넣어주기
+
+4. v1 환자상세모달 - 상담관리에 입력된 콜백이력들을 v2 상담현황의 콜백이력값에 넣어주기
+   (기존 마이그레이션 때 빈값으로 들어가있어서 데이터가 안보이는 상황이고 불렛포인트만 보였음..)
+
+5. v1에서 종결처리된 환자 (상담관리에서 종결된 경우 and 내원관리에서 종결된 경우 모두 포함) 의 경우
+   v1에 입력된 종결 사유를 v2의 종결사유에서 기타 선택 후 주관식 값으로 입력하기
+
+6. v1 환자상세모달에서 내원관리 탭에서 내원 후 상태가 치료 동의인 경우
+   치료동의정보에 "치료 시작 예정일" 정보가 들어가 있는데 이 값을 v2의 치료예약일 값으로 넣기
+
+7. v1에서 내원 후 첫 상담 내용을 v2 상담이력에서 +수동입력 넣기 해서
+   상담유형을 내원으로 선택, 상담내용에 내용 옮기기
+
+8. v1 내원관리 탭에서 내원 후 상태가 재콜백 필요인 경우 nextActionDate에 콜백날짜 넣기
+
+
+## 주의사항 (2026-01-24 추가)
+
+9. "치료시작" 상태(v2에서 treatment) 환자는 nextActionDate를 null로 설정해야 함
+   - V1의 치료시작일은 과거 날짜인데, 이걸 nextActionDate로 넣으면 "노쇼/지연"으로 잘못 분류됨
+   - 치료 중인 환자는 콜백/예약 관리 대상이 아니므로 nextActionDate 불필요
+   - 수정 API: POST /api/v2/migrate/fix-treatment-nextdate?production=true
+
+10. V1 상담 내용은 여러 필드에 분산되어 있음 (우선순위 순서):
+    - v1Patient.consultation.consultationNotes (상담관리에서 입력한 내용) ← 주로 여기에 있음!
+    - v1Patient.consultation.treatmentPlan (치료계획)
+    - v1Patient.callbackHistory[0].consultationRecord.consultationContent
+    - v1Patient.notes
+    - v1Patient.memo
+   - 수정 API: POST /api/v2/migrate/fix-missing-consult?production=true
+
+11. 기존 마이그레이션에서 짧은 내용(콜백 메모 등)이 상담내용으로 잘못 들어간 경우가 있음
+    - 예: "예약완료", "재예약 내원콜" 등 짧은 메모가 실제 상담내용 대신 저장됨
+    - V1에 더 긴 상담내용(consultation.consultationNotes)이 있으면 업데이트 필요
+    - 수정 API: POST /api/v2/migrate/fix-short-consult?production=true
+
+12. 콜백필요/부재중 상태 환자의 nextActionDate가 예약일로 잘못 들어간 경우
+    - 문제: V1에 reservationDate와 nextCallbackDate 둘 다 있을 때 예약일이 우선 적용됨
+    - 원인: 기존 로직이 status 상관없이 reservationDate를 먼저 사용함
+    - 수정: "콜백필요", "부재중" 상태면 nextCallbackDate 우선 사용하도록 변경
+    - 수정 API: POST /api/v2/migrate/fix-callback-nextdate?production=true
+
+
+## 마이그레이션 실행 순서
+
+1. 미리보기: curl "http://localhost:3001/api/v2/migrate/full-sync?production=true"
+2. 백업 (필수!): curl -X PUT "http://localhost:3001/api/v2/migrate/full-sync?production=true"
+3. 마이그레이션 실행: curl -X POST "http://localhost:3001/api/v2/migrate/full-sync?production=true"
+4. 치료중 환자 수정: curl -X POST "http://localhost:3001/api/v2/migrate/fix-treatment-nextdate?production=true"
+5. 누락 상담 추가: curl -X POST "http://localhost:3001/api/v2/migrate/fix-missing-consult?production=true"
+6. 짧은 상담 수정: curl -X POST "http://localhost:3001/api/v2/migrate/fix-short-consult?production=true"
+7. 콜백 환자 날짜 수정: curl -X POST "http://localhost:3001/api/v2/migrate/fix-callback-nextdate?production=true"
+
+
+## 마이그레이션 이력
+
+- 2026-01-24: 프로덕션 DB 전체 마이그레이션 실행
+  - V1 환자 553명 → V2 업데이트 553명
+  - 수동 상담이력 504개 생성
+  - 치료중 환자 217명 nextActionDate 수정
+  - 누락된 상담내용 49건 추가 (consultation.consultationNotes 필드 누락분)
+  - 짧은 상담내용 122건 수정 (콜백메모 → 실제 상담내용으로 교체)
+
+- 2026-01-25: 콜백필요/부재중 환자 nextActionDate 수정
+  - 콜백필요/부재중 상태인데 예약일이 nextActionDate로 들어간 환자 3명 수정
+  - 고경수, 한수경, 임성식 → nextActionDate를 콜백일로 변경

@@ -106,12 +106,8 @@ export default function LoginPage() {
           console.error('Failed to log login activity:', logError);
         }
         
-        // 권한별 리다이렉션
-        if (data.user.role === 'master') {
-          router.push('/admin');
-        } else {
-          router.push('/');
-        }
+        // V2 대시보드로 리다이렉트
+        router.push('/v2/dashboard');
       } else {
         // 로그인 실패
         dispatch(loginFailure(data.message || '로그인에 실패했습니다.'));

@@ -5,6 +5,9 @@ import { NextRequest, NextResponse } from 'next/server';
 import { connectToDatabase } from '@/utils/mongodb';
 import { ObjectId } from 'mongodb';
 
+// Vercel Function 타임아웃 설정 (STT는 오래 걸릴 수 있음)
+export const maxDuration = 120;
+
 interface TranscriptSegment {
   speaker: string;
   text: string;
@@ -36,38 +39,73 @@ async function downloadRecording(url: string): Promise<Buffer> {
   return Buffer.from(arrayBuffer);
 }
 
-// OpenAI Whisper API 호출
+// 지연 함수
+function sleep(ms: number): Promise<void> {
+  return new Promise(resolve => setTimeout(resolve, ms));
+}
+
+// OpenAI Whisper API 호출 (429 에러 시 재시도 로직 포함)
 async function transcribeWithWhisper(audioBuffer: Buffer): Promise<{ text: string; duration?: number }> {
   const apiKey = process.env.OPENAI_API_KEY;
   if (!apiKey) {
     throw new Error('OPENAI_API_KEY가 설정되지 않았습니다.');
   }
 
-  const formData = new FormData();
-  const audioBlob = new Blob([audioBuffer], { type: 'audio/wav' });
-  formData.append('file', audioBlob, 'recording.wav');
-  formData.append('model', 'whisper-1');
-  formData.append('language', 'ko');
-  formData.append('response_format', 'verbose_json');
+  const maxRetries = 5;
+  let lastError: Error | null = null;
 
-  const response = await fetch('https://api.openai.com/v1/audio/transcriptions', {
-    method: 'POST',
-    headers: {
-      'Authorization': `Bearer ${apiKey}`,
-    },
-    body: formData,
-  });
+  for (let attempt = 1; attempt <= maxRetries; attempt++) {
+    const formData = new FormData();
+    const audioBlob = new Blob([audioBuffer], { type: 'audio/wav' });
+    formData.append('file', audioBlob, 'recording.wav');
+    formData.append('model', 'whisper-1');
+    formData.append('language', 'ko');
+    formData.append('response_format', 'verbose_json');
 
-  if (!response.ok) {
+    const response = await fetch('https://api.openai.com/v1/audio/transcriptions', {
+      method: 'POST',
+      headers: {
+        'Authorization': `Bearer ${apiKey}`,
+      },
+      body: formData,
+    });
+
+    if (response.ok) {
+      const result = await response.json();
+      if (attempt > 1) {
+        console.log(`[STT v2] Whisper API 성공 (시도 ${attempt}/${maxRetries})`);
+      }
+      return {
+        text: result.text,
+        duration: result.duration,
+      };
+    }
+
+    // 429 Rate Limit 에러인 경우 재시도
+    if (response.status === 429) {
+      const retryAfter = response.headers.get('Retry-After');
+      const waitTime = retryAfter ? parseInt(retryAfter) * 1000 : Math.min(1000 * Math.pow(2, attempt), 30000);
+
+      console.log(`[STT v2] Rate Limit 초과 (429), ${waitTime/1000}초 후 재시도... (시도 ${attempt}/${maxRetries})`);
+
+      if (attempt < maxRetries) {
+        await sleep(waitTime);
+        continue;
+      }
+    }
+
+    // 다른 에러 또는 최대 재시도 횟수 초과
     const errorText = await response.text();
-    throw new Error(`Whisper API 오류: ${response.status} - ${errorText}`);
+    lastError = new Error(`Whisper API 오류: ${response.status} - ${errorText}`);
+
+    // 429 외의 에러는 재시도하지 않음
+    if (response.status !== 429) {
+      throw lastError;
+    }
   }
 
-  const result = await response.json();
-  return {
-    text: result.text,
-    duration: result.duration,
-  };
+  // 최대 재시도 횟수 초과
+  throw lastError || new Error('Whisper API 최대 재시도 횟수 초과');
 }
 
 export async function POST(request: NextRequest) {
@@ -183,6 +221,35 @@ export async function POST(request: NextRequest) {
     }
 
     console.log(`[STT v2] 오디오 버퍼 크기: ${audioBuffer.length} bytes`);
+
+    // ★ 환각 방지 필터: 짧은 녹취/무음 파일은 STT 건너뛰기
+    const MIN_AUDIO_BYTES = 50000;  // 50KB 미만이면 의미있는 음성 없음
+    const MIN_DURATION_SEC = 5;     // 5초 미만 통화는 건너뛰기
+    const callDuration = callLog.duration || 0;
+
+    if (audioBuffer.length < MIN_AUDIO_BYTES || callDuration < MIN_DURATION_SEC) {
+      const skipReason = audioBuffer.length < MIN_AUDIO_BYTES
+        ? `녹취 파일 너무 작음 (${audioBuffer.length} bytes < ${MIN_AUDIO_BYTES})`
+        : `통화시간 너무 짧음 (${callDuration}초 < ${MIN_DURATION_SEC}초)`;
+      console.log(`[STT v2] ⏭️ STT 건너뛰기: ${skipReason}`);
+
+      await db.collection('callLogs_v2').updateOne(
+        { _id: new ObjectId(callLogId) },
+        {
+          $set: {
+            aiStatus: 'skipped',
+            'aiAnalysis.skipReason': skipReason,
+            updatedAt: now,
+          },
+        }
+      );
+      return NextResponse.json({
+        success: true,
+        callLogId,
+        skipped: true,
+        reason: skipReason,
+      });
+    }
 
     // Whisper API 호출
     console.log('[STT v2] Whisper API 호출 중...');

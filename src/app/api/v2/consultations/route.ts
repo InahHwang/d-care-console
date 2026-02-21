@@ -96,6 +96,8 @@ export async function GET(request: NextRequest) {
           consultantName: c.consultantName,
           inquiry: c.inquiry,
           memo: c.memo,
+          closedReason: c.closedReason,
+          closedReasonCustom: c.closedReasonCustom,
           aiSummary: c.aiSummary,
           aiGenerated: c.aiGenerated,        // AI 자동 생성 여부
           callLogId: c.callLogId,            // 연결된 통화 기록 ID
@@ -128,7 +130,7 @@ export async function POST(request: NextRequest) {
     const {
       patientId,
       type,           // 'phone' | 'visit'
-      status,         // 'agreed' | 'disagreed' | 'pending'
+      status,         // 'agreed' | 'disagreed' | 'pending' | 'no_answer'
       treatment,
       originalAmount,
       discountRate,
@@ -140,6 +142,8 @@ export async function POST(request: NextRequest) {
       consultantName,
       inquiry,
       memo,
+      closedReason,
+      closedReasonCustom,
     } = body;
 
     // 필수 필드 검증
@@ -175,11 +179,13 @@ export async function POST(request: NextRequest) {
       disagreeReasons: status === 'disagreed' ? disagreeReasons : undefined,
       correctionPlan: status === 'disagreed' ? correctionPlan : undefined,
       appointmentDate: status === 'agreed' && appointmentDate ? new Date(appointmentDate) : undefined,
-      callbackDate: (status === 'disagreed' || status === 'pending') && callbackDate
+      callbackDate: (status === 'disagreed' || status === 'pending' || status === 'no_answer') && callbackDate
         ? new Date(callbackDate) : undefined,
       consultantName,
       inquiry: inquiry || undefined,
       memo: memo || undefined,
+      closedReason: status === 'closed' ? closedReason : undefined,
+      closedReasonCustom: status === 'closed' && closedReason === '기타' ? closedReasonCustom : undefined,
       createdAt: nowISO,
     };
 
@@ -209,8 +215,153 @@ export async function POST(request: NextRequest) {
       }
     }
 
-    // 미동의/보류 시: 콜백 설정
-    if ((status === 'disagreed' || status === 'pending') && callbackDate) {
+    // 종결 시: 환자 status를 'closed'로 변경 + statusHistory에 기록 + 여정 업데이트
+    if (status === 'closed') {
+      const currentPatient = await db.collection('patients_v2').findOne(
+        { _id: new ObjectId(patientId) }
+      );
+
+      patientUpdate.status = 'closed';
+      patientUpdate.statusChangedAt = nowISO;
+      patientUpdate.closedReason = closedReason || undefined;
+      patientUpdate.closedReasonDetail = closedReason === '기타' ? closedReasonCustom : undefined;
+      // 종결 시 다음 일정 초기화
+      patientUpdate.nextAction = null;
+      patientUpdate.nextActionDate = null;
+
+      // statusHistory에 종결 이력 추가 (기존 종결 버튼과 동일 구조)
+      const closedHistoryEntry = {
+        from: currentPatient?.status || 'consulting',
+        to: 'closed',
+        eventDate: nowISO,
+        changedAt: nowISO,
+        changedBy: consultantName,
+        reason: closedReason,
+        customReason: closedReason === '기타' ? closedReasonCustom : undefined,
+      };
+
+      await db.collection('patients_v2').updateOne(
+        { _id: new ObjectId(patientId) },
+        { $push: { statusHistory: closedHistoryEntry } as any }
+      );
+
+      // 활성 여정(Journey)의 상태도 함께 종결 처리 (종결 버튼과 동일하게)
+      if (currentPatient?.activeJourneyId) {
+        // 여정 status, closedAt, nextActionDate 업데이트
+        await db.collection('patients_v2').updateOne(
+          { _id: new ObjectId(patientId) },
+          { $set: {
+            'journeys.$[journey].status': 'closed',
+            'journeys.$[journey].closedAt': now,
+            'journeys.$[journey].nextActionDate': null,
+            'journeys.$[journey].updatedAt': now,
+          } },
+          { arrayFilters: [{ 'journey.id': currentPatient.activeJourneyId }] }
+        );
+
+        // 여정 statusHistory에도 종결 이력 push
+        await db.collection('patients_v2').updateOne(
+          { _id: new ObjectId(patientId) },
+          { $push: { 'journeys.$[journey].statusHistory': closedHistoryEntry } } as any,
+          { arrayFilters: [{ 'journey.id': currentPatient.activeJourneyId }] }
+        );
+
+        console.log(`[Consultations] 여정 종결 동기화: journeyId=${currentPatient.activeJourneyId}`);
+      }
+    }
+
+    // 🆕 내원상담인 경우: 상담이력(manualConsultations_v2)에 자동 등록
+    if (type === 'visit') {
+      // 결과 라벨 생성
+      const statusLabel = status === 'agreed' ? '동의'
+        : status === 'disagreed' ? '미동의'
+        : status === 'pending' ? '보류'
+        : status === 'closed' ? '종결'
+        : status;
+
+      // 상담 내용 생성 (미동의사유 + 콜백일자 + 상담내용)
+      const contentParts: string[] = [];
+
+      // 미동의 사유
+      if (status === 'disagreed' && disagreeReasons && disagreeReasons.length > 0) {
+        contentParts.push(`미동의 사유: ${disagreeReasons.join(', ')}`);
+      }
+
+      // 다음 콜백일자
+      if (callbackDate) {
+        const callbackDateObj = new Date(callbackDate);
+        const formattedDate = `${callbackDateObj.getMonth() + 1}/${callbackDateObj.getDate()}`;
+        contentParts.push(`다음 연락: ${formattedDate}`);
+      }
+
+      // 상담 내용 (기존 memo)
+      if (memo) {
+        contentParts.push(memo);
+      }
+
+      const consultationContent = contentParts.join('\n') || statusLabel;
+
+      // manualConsultations_v2에 저장
+      await db.collection('manualConsultations_v2').insertOne({
+        patientId,
+        type: 'visit',  // 내원상담
+        date: now,
+        content: consultationContent,
+        consultantName: consultantName || '미지정',
+        status,  // 결과 상태 저장 (동의/미동의/보류)
+        disagreeReasons: status === 'disagreed' ? disagreeReasons : undefined,
+        callbackDate: callbackDate ? new Date(callbackDate) : undefined,
+        source: 'consultation_result',  // 상담결과 입력에서 자동 생성됨
+        createdAt: now,
+        updatedAt: now,
+      });
+
+      console.log(`[내원상담] 상담이력 자동 등록: 환자ID=${patientId}, 결과=${statusLabel}`);
+    }
+
+    // 전화상담의 미동의/보류/부재중 시: 콜백 설정 및 콜백 이력 기록
+    // (내원상담은 콜백이력 불필요)
+    if (type === 'phone' && (status === 'disagreed' || status === 'pending' || status === 'no_answer') && callbackDate) {
+      const currentPatient = await db.collection('patients_v2').findOne(
+        { _id: new ObjectId(patientId) }
+      );
+
+      // 콜백 이력에 기록할 노트 생성
+      const callbackNote = status === 'no_answer'
+        ? '부재중 - 통화 연결 안 됨'
+        : status === 'disagreed'
+          ? `미동의: ${(disagreeReasons || []).join(', ') || '사유 미입력'}`
+          : '보류 - 재상담 필요';
+
+      // 메모가 있으면 추가
+      const fullNote = memo ? `${callbackNote}\n메모: ${memo}` : callbackNote;
+
+      // 콜백 이력 엔트리 생성 (상담 결과 입력 시 항상 기록)
+      const callbackHistoryEntry = {
+        scheduledAt: new Date(callbackDate),  // 다음 콜백 예정일
+        reason: status === 'no_answer' ? 'no_answer'
+              : status === 'disagreed' ? 'disagreed'
+              : 'postponed',
+        note: fullNote,
+        consultantName,  // 상담사 이름 추가
+        createdAt: now,
+      };
+
+      // 환자 레벨의 callbackHistory에 추가 (첫 상담이든 아니든 항상)
+      await db.collection('patients_v2').updateOne(
+        { _id: new ObjectId(patientId) },
+        { $push: { callbackHistory: callbackHistoryEntry } as any }
+      );
+
+      // 활성 여정의 callbackHistory에도 추가
+      if (currentPatient?.activeJourneyId) {
+        await db.collection('patients_v2').updateOne(
+          { _id: new ObjectId(patientId) },
+          { $push: { 'journeys.$[journey].callbackHistory': callbackHistoryEntry } as any },
+          { arrayFilters: [{ 'journey.id': currentPatient.activeJourneyId }] }
+        );
+      }
+
       patientUpdate.nextAction = '콜백';
       patientUpdate.nextActionDate = callbackDate;
 
@@ -220,9 +371,7 @@ export async function POST(request: NextRequest) {
         type: 'callback',
         scheduledAt: new Date(callbackDate),
         status: 'pending',
-        note: status === 'disagreed'
-          ? `미동의: ${(disagreeReasons || []).join(', ')}`
-          : '보류 - 재상담 필요',
+        note: fullNote,
         createdAt: nowISO,
       });
     }
@@ -284,23 +433,62 @@ export async function PATCH(request: NextRequest) {
         : 0;
     }
 
-    // 수정 추적: editedBy가 제공되면 수정 정보 기록
     const updateFields: Record<string, unknown> = {
       ...updateData,
       updatedAt: nowISO,
     };
-
-    // AI 자동생성 기록이 수정되면 editedAt/editedBy 기록
-    if (existing.aiGenerated && editedBy) {
-      updateFields.editedAt = nowISO;
-      updateFields.editedBy = editedBy;
-    }
 
     const result = await db.collection('consultations_v2').findOneAndUpdate(
       { _id: new ObjectId(id) },
       { $set: updateFields },
       { returnDocument: 'after' }
     );
+
+    // 환자 정보 업데이트 (상태 및 예정일 연동)
+    const patientId = existing.patientId;
+    if (patientId) {
+      const finalStatus = updateData.status ?? existing.status;
+      const patientUpdate: Record<string, unknown> = {
+        updatedAt: nowISO,
+      };
+
+      // 동의로 변경된 경우: 상태 변경 + 예약일 설정
+      if (finalStatus === 'agreed') {
+        const consultationType = existing.type;
+        const newPatientStatus = consultationType === 'phone' ? 'reserved' : 'treatmentBooked';
+        patientUpdate.status = newPatientStatus;
+        patientUpdate.statusChangedAt = nowISO;
+
+        const appointmentDate = updateData.appointmentDate ?? existing.appointmentDate;
+        if (appointmentDate) {
+          patientUpdate.nextAction = consultationType === 'phone' ? '내원예약' : '치료예약';
+          patientUpdate.nextActionDate = appointmentDate;
+        }
+
+        // 금액 정보 업데이트
+        const amount = updateData.originalAmount ?? existing.originalAmount;
+        if (amount > 0) {
+          patientUpdate.estimatedAmount = amount;
+        }
+      }
+
+      // 미동의/보류/부재중으로 변경된 경우: 콜백 설정
+      if (finalStatus === 'disagreed' || finalStatus === 'pending' || finalStatus === 'no_answer') {
+        const callbackDate = updateData.callbackDate ?? existing.callbackDate;
+        if (callbackDate) {
+          patientUpdate.nextAction = '콜백';
+          patientUpdate.nextActionDate = callbackDate;
+        }
+      }
+
+      // 환자 정보 업데이트 실행
+      if (Object.keys(patientUpdate).length > 1) { // updatedAt 외에 다른 필드가 있으면
+        await db.collection('patients_v2').updateOne(
+          { _id: new ObjectId(patientId) },
+          { $set: patientUpdate }
+        );
+      }
+    }
 
     return NextResponse.json({
       success: true,

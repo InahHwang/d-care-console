@@ -1,0 +1,678 @@
+// src/utils/monthlyReportV2Calculator.ts
+// V2 월별 리포트 통계 계산 유틸리티
+// patients_v2, consultations_v2, callLogs_v2 컬렉션 기반
+
+import type { Db } from 'mongodb';
+import type { PatientV2, ConsultationV2, CallLogV2, PatientStatus } from '@/types/v2';
+import type {
+  MonthlyStatsV2,
+  ChangeIndicator,
+  PatientSummaryV2,
+  RevenueAnalysisV2,
+  RegionStatV2,
+  ChannelStatV2,
+} from '@/app/v2/reports/components/MonthlyReport-Types';
+import {
+  PROGRESS_STAGE_CONFIG,
+  RESERVED_OR_ABOVE,
+  VISITED_OR_ABOVE,
+  TREATMENT_OR_ABOVE,
+} from '@/app/v2/reports/components/MonthlyReport-Types';
+
+// ============================================
+// 메인 통계 계산 함수
+// ============================================
+
+export async function calculateMonthlyStatsV2(
+  db: Db,
+  year: number,
+  month: number
+): Promise<MonthlyStatsV2> {
+  const startDate = new Date(year, month - 1, 1);
+  const endDate = new Date(year, month, 0, 23, 59, 59, 999);
+  const startDateStr = startDate.toISOString();
+  const endDateStr = endDate.toISOString();
+
+  // 이전 달 범위
+  const prevStartDate = new Date(year, month - 2, 1);
+  const prevEndDate = new Date(year, month - 1, 0, 23, 59, 59, 999);
+  const prevStartDateStr = prevStartDate.toISOString();
+  const prevEndDateStr = prevEndDate.toISOString();
+
+  // 병렬 쿼리 (현재 달 + 이전 달)
+  // Note: createdAt은 MongoDB에서 Date 객체로 저장되므로 Date 객체로 비교해야 함
+  // 일부 레거시 문서가 ISO string으로 저장되어 있을 수 있으므로 $or로 양쪽 모두 매칭
+  const dateOrQuery = (field: string, gte: Date, lte: Date, gteStr: string, lteStr: string) => ({
+    $or: [
+      { [field]: { $gte: gte, $lte: lte } },
+      { [field]: { $gte: gteStr, $lte: lteStr } },
+    ],
+  });
+
+  const [
+    patients, consultations, callLogs,
+    prevPatients, prevConsultations, prevCallLogs,
+  ] = await Promise.all([
+    // 현재 달
+    db.collection<PatientV2>('patients_v2').find(
+      dateOrQuery('createdAt', startDate, endDate, startDateStr, endDateStr)
+    ).toArray(),
+    db.collection<ConsultationV2>('consultations_v2').find(
+      dateOrQuery('date', startDate, endDate, startDateStr, endDateStr)
+    ).toArray(),
+    db.collection<CallLogV2>('callLogs_v2').find(
+      dateOrQuery('createdAt', startDate, endDate, startDateStr, endDateStr)
+    ).toArray(),
+    // 이전 달
+    db.collection<PatientV2>('patients_v2').find(
+      dateOrQuery('createdAt', prevStartDate, prevEndDate, prevStartDateStr, prevEndDateStr)
+    ).toArray(),
+    db.collection<ConsultationV2>('consultations_v2').find(
+      dateOrQuery('date', prevStartDate, prevEndDate, prevStartDateStr, prevEndDateStr)
+    ).toArray(),
+    db.collection<CallLogV2>('callLogs_v2').find(
+      dateOrQuery('createdAt', prevStartDate, prevEndDate, prevStartDateStr, prevEndDateStr)
+    ).toArray(),
+  ]);
+
+  // 현재 달 통계 계산
+  const currentStats = computeRawStats(patients, consultations, callLogs, year, month, endDate);
+  // 이전 달 통계 계산
+  const prevStats = computeRawStats(prevPatients, prevConsultations, prevCallLogs, prevStartDate.getFullYear(), prevStartDate.getMonth() + 1, prevEndDate);
+
+  // 전월 대비 변화 계산
+  const changes = calculateChanges(currentStats, prevStats);
+
+  // 환자별 상담 내용 요약
+  const patientSummaries = buildPatientSummaries(patients, consultations, callLogs);
+
+  // 매출 현황 분석
+  const revenueAnalysis = calculateRevenueAnalysis(patients, consultations);
+
+  // 일별 추이
+  const dailyTrends = buildDailyTrends(callLogs, consultations, year, month, endDate);
+
+  // 관심분야별 통계
+  const interestBreakdown = buildInterestBreakdown(consultations);
+
+  // 미동의 사유 분석
+  const disagreeReasons = buildDisagreeReasons(consultations);
+
+  return {
+    totalInquiries: currentStats.totalInquiries,
+    inquiryBreakdown: currentStats.inquiryBreakdown,
+    reservedPatients: currentStats.reservedPatients,
+    reservedRate: currentStats.reservedRate,
+    visitedPatients: currentStats.visitedPatients,
+    visitedRate: currentStats.visitedRate,
+    agreedRevenue: currentStats.agreedRevenue,
+    agreedPatients: currentStats.agreedPatients,
+    agreedRate: currentStats.agreedRate,
+    changes,
+    averageAge: currentStats.averageAge,
+    regionStats: currentStats.regionStats,
+    channelStats: currentStats.channelStats,
+    patientSummaries,
+    progressStats: currentStats.progressStats,
+    revenueAnalysis,
+    dailyTrends,
+    interestBreakdown,
+    disagreeReasons,
+  };
+}
+
+// ============================================
+// 내부: 원시 통계 계산
+// ============================================
+
+interface RawStats {
+  totalInquiries: number;
+  inquiryBreakdown: { inbound: number; outbound: number; returning: number };
+  reservedPatients: number;
+  reservedRate: number;
+  visitedPatients: number;
+  visitedRate: number;
+  agreedRevenue: number;
+  agreedPatients: number;
+  agreedRate: number;
+  averageAge: number;
+  regionStats: RegionStatV2[];
+  channelStats: ChannelStatV2[];
+  progressStats: Record<PatientStatus, number>;
+}
+
+function computeRawStats(
+  patients: PatientV2[],
+  consultations: ConsultationV2[],
+  callLogs: CallLogV2[],
+  _year: number,
+  _month: number,
+  _endDate: Date,
+): RawStats {
+  const totalInquiries = patients.length;
+
+  // 인바운드/아웃바운드/구신환 (callLogs 기반)
+  const newPatientCallLogs = callLogs.filter(
+    (c) => c.aiAnalysis?.classification === '신환' || c.aiAnalysis?.classification === '구신환'
+  );
+  const inbound = newPatientCallLogs.filter((c) => c.direction === 'inbound').length;
+  const outbound = newPatientCallLogs.filter((c) => c.direction === 'outbound').length;
+  const returning = callLogs.filter((c) => c.aiAnalysis?.classification === '구신환').length;
+
+  // 예약 환자 (reserved 이상 도달)
+  const reservedPatients = patients.filter((p) =>
+    RESERVED_OR_ABOVE.includes(p.status) || hasReachedStatus(p, RESERVED_OR_ABOVE)
+  ).length;
+  const reservedRate = totalInquiries > 0
+    ? Math.round((reservedPatients / totalInquiries) * 1000) / 10
+    : 0;
+
+  // 내원 환자 (visited 이상 도달)
+  const visitedPatients = patients.filter((p) =>
+    VISITED_OR_ABOVE.includes(p.status) || hasReachedStatus(p, VISITED_OR_ABOVE)
+  ).length;
+  const visitedRate = totalInquiries > 0
+    ? Math.round((visitedPatients / totalInquiries) * 1000) / 10
+    : 0;
+
+  // 결제/치료 환자
+  const agreedConsultations = consultations.filter((c) => c.status === 'agreed');
+  const agreedRevenue = agreedConsultations.reduce((sum, c) => sum + (c.finalAmount || 0), 0);
+  const agreedPatients = patients.filter((p) =>
+    TREATMENT_OR_ABOVE.includes(p.status)
+  ).length;
+  const agreedRate = totalInquiries > 0
+    ? Math.round((agreedPatients / totalInquiries) * 1000) / 10
+    : 0;
+
+  // 평균 연령
+  const patientsWithAge = patients.filter((p) => p.age && p.age > 0);
+  const averageAge = patientsWithAge.length > 0
+    ? Math.round((patientsWithAge.reduce((sum, p) => sum + (p.age || 0), 0) / patientsWithAge.length) * 10) / 10
+    : 0;
+
+  // 지역 통계
+  const regionStats = buildRegionStats(patients);
+
+  // 유입경로 통계
+  const channelStats = buildChannelStats(patients);
+
+  // 진행상황별 통계
+  const progressStats = buildProgressStats(patients);
+
+  return {
+    totalInquiries,
+    inquiryBreakdown: { inbound, outbound, returning },
+    reservedPatients,
+    reservedRate,
+    visitedPatients,
+    visitedRate,
+    agreedRevenue,
+    agreedPatients,
+    agreedRate,
+    averageAge,
+    regionStats,
+    channelStats,
+    progressStats,
+  };
+}
+
+// ============================================
+// statusHistory를 이용한 상태 도달 여부 확인
+// ============================================
+
+function hasReachedStatus(patient: PatientV2, targetStatuses: PatientStatus[]): boolean {
+  if (!patient.statusHistory || patient.statusHistory.length === 0) return false;
+  return patient.statusHistory.some((entry) => targetStatuses.includes(entry.to));
+}
+
+// ============================================
+// 전월 대비 변화 계산
+// ============================================
+
+function calculateChanges(
+  current: RawStats,
+  previous: RawStats
+): MonthlyStatsV2['changes'] {
+  return {
+    totalInquiries: calcChange(current.totalInquiries, previous.totalInquiries),
+    inbound: calcChange(current.inquiryBreakdown.inbound, previous.inquiryBreakdown.inbound),
+    outbound: calcChange(current.inquiryBreakdown.outbound, previous.inquiryBreakdown.outbound),
+    returning: calcChange(current.inquiryBreakdown.returning, previous.inquiryBreakdown.returning),
+    reservedPatients: calcChange(current.reservedPatients, previous.reservedPatients),
+    reservedRate: calcChange(current.reservedRate, previous.reservedRate),
+    visitedPatients: calcChange(current.visitedPatients, previous.visitedPatients),
+    visitedRate: calcChange(current.visitedRate, previous.visitedRate),
+    agreedRevenue: calcChange(current.agreedRevenue, previous.agreedRevenue),
+    agreedPatients: calcChange(current.agreedPatients, previous.agreedPatients),
+    agreedRate: calcChange(current.agreedRate, previous.agreedRate),
+  };
+}
+
+function calcChange(current: number, previous: number): ChangeIndicator {
+  const diff = current - previous;
+  return {
+    value: Math.round(Math.abs(diff) * 10) / 10,
+    type: diff >= 0 ? 'increase' : 'decrease',
+  };
+}
+
+// ============================================
+// 환자별 상담 내용 요약 빌드
+// ============================================
+
+export function buildPatientSummaries(
+  patients: PatientV2[],
+  consultations: ConsultationV2[],
+  callLogs: CallLogV2[],
+): PatientSummaryV2[] {
+  // patientId별 상담 그룹핑
+  const consultByPatient = new Map<string, ConsultationV2[]>();
+  for (const c of consultations) {
+    const pid = c.patientId;
+    if (!consultByPatient.has(pid)) consultByPatient.set(pid, []);
+    consultByPatient.get(pid)!.push(c);
+  }
+
+  // patientId별 통화 기록 그룹핑
+  const callsByPatient = new Map<string, CallLogV2[]>();
+  for (const cl of callLogs) {
+    const pid = cl.patientId;
+    if (pid) {
+      if (!callsByPatient.has(pid)) callsByPatient.set(pid, []);
+      callsByPatient.get(pid)!.push(cl);
+    }
+  }
+
+  return patients.map((patient) => {
+    const pid = patient._id?.toString() || '';
+    const patientConsults = consultByPatient.get(pid) || [];
+    const patientCalls = callsByPatient.get(pid) || [];
+
+    // 관심분야: journey > consultation > aiAnalysis
+    const activeJourney = patient.journeys?.find((j) => j.isActive);
+    const interest =
+      activeJourney?.treatmentType ||
+      patient.interest ||
+      patientConsults[0]?.treatment ||
+      patient.aiAnalysis?.interest ||
+      '기타';
+
+    // 상담 요약 빌드
+    const summaryParts: string[] = [];
+    const fullParts: string[] = [];
+
+    // 전화 상담 내용
+    const phoneConsults = patientConsults.filter((c) => c.type === 'phone');
+    const visitConsults = patientConsults.filter((c) => c.type === 'visit');
+
+    for (const pc of phoneConsults) {
+      if (pc.aiSummary) summaryParts.push(pc.aiSummary);
+      if (pc.memo) fullParts.push(`[전화상담 메모] ${pc.memo}`);
+      if (pc.aiSummary) fullParts.push(`[AI 요약] ${pc.aiSummary}`);
+    }
+
+    for (const vc of visitConsults) {
+      if (vc.aiSummary) summaryParts.push(vc.aiSummary);
+      if (vc.memo) fullParts.push(`[내원상담 메모] ${vc.memo}`);
+      if (vc.aiSummary) fullParts.push(`[AI 요약] ${vc.aiSummary}`);
+    }
+
+    // callLogs에서 AI 요약 보충 (상담 기록이 없는 경우)
+    if (summaryParts.length === 0) {
+      for (const cl of patientCalls) {
+        if (cl.aiAnalysis?.summary) {
+          summaryParts.push(cl.aiAnalysis.summary);
+          fullParts.push(`[통화 AI 분석] ${cl.aiAnalysis.summary}`);
+        }
+      }
+    }
+
+    // 견적 금액: journey > consultation > patient level
+    const estimatedAmount =
+      activeJourney?.estimatedAmount ||
+      patientConsults[0]?.originalAmount ||
+      patient.estimatedAmount ||
+      0;
+
+    const finalAmount =
+      activeJourney?.actualAmount ||
+      patientConsults.find((c) => c.status === 'agreed')?.finalAmount ||
+      patient.actualAmount ||
+      0;
+
+    // 최초 통화 방향 결정
+    const firstCall = patientCalls.sort((a, b) =>
+      new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime()
+    )[0];
+    let consultationType: PatientSummaryV2['consultationType'] = 'unknown';
+    if (firstCall) {
+      if (firstCall.aiAnalysis?.classification === '구신환') {
+        consultationType = 'returning';
+      } else {
+        consultationType = firstCall.direction === 'inbound' ? 'inbound' : 'outbound';
+      }
+    }
+
+    const statusLabel = PROGRESS_STAGE_CONFIG[patient.status]?.label || patient.status;
+
+    return {
+      patientId: pid,
+      name: patient.name,
+      phone: patient.phone,
+      age: patient.age,
+      gender: patient.gender,
+      interest,
+      status: patient.status,
+      statusLabel,
+      consultationSummary: summaryParts.join('\n') || '상담내용 없음',
+      fullConsultation: fullParts.join('\n\n') || '기록된 내용이 없습니다.',
+      estimatedAmount,
+      finalAmount,
+      hasPhoneConsultation: phoneConsults.length > 0,
+      hasVisitConsultation: visitConsults.length > 0,
+      consultationType,
+      createdAt: typeof patient.createdAt === 'string'
+        ? patient.createdAt
+        : patient.createdAt.toISOString(),
+    };
+  });
+}
+
+// ============================================
+// 매출 현황 분석
+// ============================================
+
+export function calculateRevenueAnalysis(
+  patients: PatientV2[],
+  consultations: ConsultationV2[]
+): RevenueAnalysisV2 {
+  const totalInquiries = patients.length;
+
+  // 달성: treatment 또는 completed 상태
+  const achievedPatients = patients.filter((p) => TREATMENT_OR_ABOVE.includes(p.status));
+  const achievedAmount = achievedPatients.reduce((sum, p) => {
+    const journey = p.journeys?.find((j) => j.isActive);
+    return sum + (journey?.actualAmount || p.actualAmount || journey?.estimatedAmount || p.estimatedAmount || 0);
+  }, 0);
+
+  // 잠재 - 상담진행중: consulting, reserved
+  const consultingOngoing = patients.filter((p) =>
+    p.status === 'consulting' || p.status === 'reserved'
+  );
+  const consultingOngoingAmount = getEstimatedSum(consultingOngoing);
+
+  // 잠재 - 내원관리중: visited, treatmentBooked
+  const visitManagement = patients.filter((p) =>
+    p.status === 'visited' || p.status === 'treatmentBooked'
+  );
+  const visitManagementAmount = getEstimatedSum(visitManagement);
+
+  // 손실: closed 상태
+  const closedPatients = patients.filter((p) => p.status === 'closed');
+
+  // closed 중 내원 이력 확인
+  const consultingLost = closedPatients.filter((p) => !hasReachedStatus(p, VISITED_OR_ABOVE));
+  const visitLost = closedPatients.filter((p) => hasReachedStatus(p, VISITED_OR_ABOVE));
+
+  const consultingLostAmount = getEstimatedSum(consultingLost);
+  const visitLostAmount = getEstimatedSum(visitLost);
+
+  const totalPotentialAmount = achievedAmount + consultingOngoingAmount + visitManagementAmount + consultingLostAmount + visitLostAmount;
+
+  const achievedPercentage = totalInquiries > 0
+    ? Math.round((achievedPatients.length / totalInquiries) * 100)
+    : 0;
+  const potentialPercentage = totalInquiries > 0
+    ? Math.round(((consultingOngoing.length + visitManagement.length) / totalInquiries) * 100)
+    : 0;
+  const lostPercentage = totalInquiries > 0
+    ? Math.round((closedPatients.length / totalInquiries) * 100)
+    : 0;
+
+  return {
+    achieved: {
+      patients: achievedPatients.length,
+      amount: achievedAmount,
+      percentage: achievedPercentage,
+    },
+    potential: {
+      consultingOngoing: { patients: consultingOngoing.length, amount: consultingOngoingAmount },
+      visitManagement: { patients: visitManagement.length, amount: visitManagementAmount },
+      totalPatients: consultingOngoing.length + visitManagement.length,
+      totalAmount: consultingOngoingAmount + visitManagementAmount,
+      percentage: potentialPercentage,
+    },
+    lost: {
+      consultingLost: { patients: consultingLost.length, amount: consultingLostAmount },
+      visitLost: { patients: visitLost.length, amount: visitLostAmount },
+      totalPatients: closedPatients.length,
+      totalAmount: consultingLostAmount + visitLostAmount,
+      percentage: lostPercentage,
+    },
+    summary: {
+      totalInquiries,
+      totalPotentialAmount,
+      achievementRate: totalPotentialAmount > 0
+        ? Math.round((achievedAmount / totalPotentialAmount) * 100)
+        : 0,
+      potentialGrowth: achievedAmount > 0
+        ? Math.round(((consultingOngoingAmount + visitManagementAmount) / achievedAmount) * 100)
+        : 0,
+    },
+  };
+}
+
+function getEstimatedSum(patients: PatientV2[]): number {
+  return patients.reduce((sum, p) => {
+    const journey = p.journeys?.find((j) => j.isActive);
+    return sum + (journey?.estimatedAmount || p.estimatedAmount || 0);
+  }, 0);
+}
+
+// ============================================
+// 지역 통계 (전화번호 기반 추정)
+// ============================================
+
+function buildRegionStats(patients: PatientV2[]): RegionStatV2[] {
+  const regionCounts: Record<string, number> = {};
+  const total = patients.length;
+
+  for (const p of patients) {
+    // 환자에 region 필드가 있으면 우선 사용
+    const region = p.region || estimateRegionFromPhone(p.phone);
+    regionCounts[region] = (regionCounts[region] || 0) + 1;
+  }
+
+  return Object.entries(regionCounts)
+    .map(([region, count]) => ({
+      region,
+      count,
+      percentage: total > 0 ? Math.round((count / total) * 1000) / 10 : 0,
+    }))
+    .sort((a, b) => b.count - a.count)
+    .slice(0, 5);
+}
+
+export function estimateRegionFromPhone(phoneNumber: string): string {
+  if (!phoneNumber) return '기타 지역';
+  const digits = phoneNumber.replace(/[^0-9]/g, '');
+
+  // 3자리 지역번호 먼저 체크
+  const area3 = digits.slice(0, 3);
+  const regionMap3: Record<string, string> = {
+    '031': '경기도',
+    '032': '인천광역시',
+    '033': '강원도',
+    '041': '충청남도',
+    '042': '대전광역시',
+    '043': '충청북도',
+    '044': '세종특별자치시',
+    '051': '부산광역시',
+    '052': '울산광역시',
+    '053': '대구광역시',
+    '054': '경상북도',
+    '055': '경상남도',
+    '061': '전라남도',
+    '062': '광주광역시',
+    '063': '전라북도',
+    '064': '제주특별자치도',
+  };
+  if (regionMap3[area3]) return regionMap3[area3];
+
+  // 2자리 지역번호
+  const area2 = digits.slice(0, 2);
+  if (area2 === '02') return '서울특별시';
+
+  // 010 등 휴대폰은 지역 불명
+  return '기타 지역';
+}
+
+// ============================================
+// 유입경로 통계
+// ============================================
+
+function buildChannelStats(patients: PatientV2[]): ChannelStatV2[] {
+  const channelCounts: Record<string, number> = {};
+  const total = patients.length;
+
+  for (const p of patients) {
+    const channel = p.source || '기타';
+    channelCounts[channel] = (channelCounts[channel] || 0) + 1;
+  }
+
+  return Object.entries(channelCounts)
+    .map(([channel, count]) => ({
+      channel,
+      count,
+      percentage: total > 0 ? Math.round((count / total) * 1000) / 10 : 0,
+    }))
+    .sort((a, b) => b.count - a.count);
+}
+
+// ============================================
+// 진행상황별 통계 (퍼널)
+// ============================================
+
+function buildProgressStats(patients: PatientV2[]): Record<PatientStatus, number> {
+  const stats: Record<PatientStatus, number> = {
+    consulting: 0,
+    reserved: 0,
+    visited: 0,
+    treatmentBooked: 0,
+    treatment: 0,
+    completed: 0,
+    followup: 0,
+    closed: 0,
+  };
+
+  for (const p of patients) {
+    if (stats[p.status] !== undefined) {
+      stats[p.status]++;
+    }
+  }
+
+  return stats;
+}
+
+// ============================================
+// 일별 추이
+// ============================================
+
+function buildDailyTrends(
+  callLogs: CallLogV2[],
+  consultations: ConsultationV2[],
+  year: number,
+  month: number,
+  endDate: Date,
+): MonthlyStatsV2['dailyTrends'] {
+  const yearMonth = `${year}-${month.toString().padStart(2, '0')}`;
+  const dailyMap = new Map<string, { calls: number; newPatients: number; agreed: number; revenue: number }>();
+
+  // 해당 월의 모든 날짜 초기화
+  for (let d = 1; d <= endDate.getDate(); d++) {
+    const dateStr = `${yearMonth}-${d.toString().padStart(2, '0')}`;
+    dailyMap.set(dateStr, { calls: 0, newPatients: 0, agreed: 0, revenue: 0 });
+  }
+
+  // 통화 집계
+  for (const call of callLogs) {
+    const createdAt = typeof call.createdAt === 'string' ? call.createdAt : call.createdAt.toISOString();
+    const dateStr = createdAt.split('T')[0];
+    const daily = dailyMap.get(dateStr);
+    if (daily) {
+      daily.calls++;
+      if (call.aiAnalysis?.classification === '신환' || call.aiAnalysis?.classification === '구신환') {
+        daily.newPatients++;
+      }
+    }
+  }
+
+  // 상담 집계
+  for (const consult of consultations) {
+    const dateStr = new Date(consult.date).toISOString().split('T')[0];
+    const daily = dailyMap.get(dateStr);
+    if (daily && consult.status === 'agreed') {
+      daily.agreed++;
+      daily.revenue += consult.finalAmount || 0;
+    }
+  }
+
+  return Array.from(dailyMap.entries())
+    .map(([date, data]) => ({ date, ...data }))
+    .sort((a, b) => a.date.localeCompare(b.date));
+}
+
+// ============================================
+// 관심분야별 통계
+// ============================================
+
+function buildInterestBreakdown(
+  consultations: ConsultationV2[]
+): MonthlyStatsV2['interestBreakdown'] {
+  const map = new Map<string, { count: number; agreed: number; revenue: number }>();
+
+  for (const c of consultations) {
+    const interest = c.treatment || '기타';
+    const existing = map.get(interest) || { count: 0, agreed: 0, revenue: 0 };
+    existing.count++;
+    if (c.status === 'agreed') {
+      existing.agreed++;
+      existing.revenue += c.finalAmount || 0;
+    }
+    map.set(interest, existing);
+  }
+
+  return Array.from(map.entries())
+    .map(([interest, data]) => ({ interest, ...data }))
+    .sort((a, b) => b.count - a.count);
+}
+
+// ============================================
+// 미동의 사유 분석
+// ============================================
+
+function buildDisagreeReasons(
+  consultations: ConsultationV2[]
+): MonthlyStatsV2['disagreeReasons'] {
+  const disagreed = consultations.filter((c) => c.status === 'disagreed');
+  const reasonCounts = new Map<string, number>();
+
+  for (const c of disagreed) {
+    if (c.disagreeReasons) {
+      for (const reason of c.disagreeReasons) {
+        reasonCounts.set(reason, (reasonCounts.get(reason) || 0) + 1);
+      }
+    }
+  }
+
+  const totalReasons = Array.from(reasonCounts.values()).reduce((a, b) => a + b, 0);
+
+  return Array.from(reasonCounts.entries())
+    .map(([reason, count]) => ({
+      reason,
+      count,
+      percentage: totalReasons > 0 ? Math.round((count / totalReasons) * 100) : 0,
+    }))
+    .sort((a, b) => b.count - a.count);
+}

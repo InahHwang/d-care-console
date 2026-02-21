@@ -40,6 +40,7 @@ export interface StatusHistoryEntry {
   changedAt: Date | string;  // 시스템 기록 시간
   changedBy?: string;        // 변경한 사용자 이름
   reason?: ClosedReason;     // 종결 사유 (to가 'closed'일 때만)
+  customReason?: string;     // 종결 사유가 '기타'일 때 주관식 내용
 }
 
 // 결제 상태 타입
@@ -50,12 +51,14 @@ export type PaymentStatus = 'none' | 'partial' | 'completed';
 // ============================================
 
 // 콜백 사유 타입
-export type CallbackReason = 'no_answer' | 'postponed' | 'considering';
+export type CallbackReason = 'noshow' | 'no_answer' | 'postponed' | 'reschedule' | 'disagreed';
 
 export const CALLBACK_REASON_LABELS: Record<CallbackReason, string> = {
-  no_answer: '미연결',
+  noshow: '노쇼',
+  no_answer: '부재중',
   postponed: '보류',
-  considering: '검토중',
+  reschedule: '일정변경',
+  disagreed: '미동의',
 };
 
 // 콜백 이력 엔트리
@@ -104,6 +107,37 @@ export const TREATMENT_TYPES = [
 
 export type TreatmentType = typeof TREATMENT_TYPES[number];
 
+// ============================================
+// 마케팅 타겟 관련 타입
+// ============================================
+
+export type MarketingTargetReason =
+  | 'price_hesitation'        // 가격 망설임
+  | 'treatment_consideration' // 치료 방법 고민
+  | 'scheduling_issue'        // 시간 조율 필요
+  | 'competitor_comparison'   // 경쟁업체 비교
+  | 'other';                  // 기타
+
+export const MARKETING_TARGET_REASON_OPTIONS: { value: MarketingTargetReason; label: string }[] = [
+  { value: 'price_hesitation', label: '가격 문의 후 망설임' },
+  { value: 'treatment_consideration', label: '치료 방법 고민 중' },
+  { value: 'scheduling_issue', label: '시간 조율 필요' },
+  { value: 'competitor_comparison', label: '경쟁업체 비교 중' },
+  { value: 'other', label: '기타' },
+];
+
+export interface MarketingInfo {
+  isTarget: boolean;
+  targetReason: MarketingTargetReason;
+  customReason?: string;           // reason이 'other'일 때
+  categories: string[];            // 이벤트 카테고리 (복수 선택)
+  scheduledDate?: string;          // 발송 예정일 (YYYY-MM-DD)
+  note?: string;                   // 메모
+  createdAt: string;               // 타겟 지정일
+  updatedAt: string;               // 마지막 수정일
+  createdBy?: string;              // 지정한 상담사
+}
+
 export interface PatientV2 {
   _id?: ObjectId | string;
   clinicId?: string;
@@ -145,6 +179,8 @@ export interface PatientV2 {
   // 여정(Journey) 관련 필드
   journeys?: Journey[];          // 환자의 모든 치료 여정
   activeJourneyId?: string;      // 현재 활성 여정 ID
+  // 마케팅 타겟 관련 필드
+  marketingInfo?: MarketingInfo; // 이벤트 타겟 정보
   createdAt: Date | string;
   updatedAt: Date | string;
 }
@@ -158,7 +194,7 @@ export interface PatientV2WithDaysInStatus extends PatientV2 {
 // ============================================
 
 export type CallDirection = 'inbound' | 'outbound';
-export type CallStatus = 'connected' | 'missed' | 'busy';
+export type CallStatus = 'ringing' | 'connected' | 'missed' | 'busy';
 export type AIStatus = 'pending' | 'processing' | 'completed' | 'failed';
 // 신환: 완전 신규 환자
 // 구신환: 기존환자 + 신규치료 (등록 대상)
@@ -198,6 +234,7 @@ export interface CallLogV2 {
   _id?: ObjectId | string;
   clinicId?: string;
   phone: string;
+  calledNumber?: string;  // 착신번호 (031/070 회선)
   patientId?: string;
   direction: CallDirection;
   status: CallStatus;
@@ -248,7 +285,7 @@ export interface ReferralV2 {
 // 상담 기록 관련 타입 (일별 리포트용)
 // ============================================
 
-export type ConsultationStatus = 'agreed' | 'disagreed' | 'pending';
+export type ConsultationStatus = 'agreed' | 'disagreed' | 'pending' | 'no_answer' | 'closed';
 export type ConsultationType = 'phone' | 'visit';  // 전화상담 / 내원상담
 
 export interface ConsultationV2 {
@@ -273,6 +310,8 @@ export interface ConsultationV2 {
   consultantName: string;
   inquiry?: string;
   memo?: string;
+  closedReason?: ClosedReason;           // 종결 사유 (status가 'closed'일 때)
+  closedReasonCustom?: string;           // 종결 사유가 '기타'일 때 주관식 내용
   aiSummary?: string;
   // AI 자동 생성 관련
   aiGenerated?: boolean;               // AI 자동 생성 여부

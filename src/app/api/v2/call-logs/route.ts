@@ -21,7 +21,7 @@ function normalizeClassification(classification: string | undefined): string {
 interface CallLogQuery {
   direction?: string;
   'aiAnalysis.classification'?: string | { $in: string[] };
-  startedAt?: { $gte?: Date; $lte?: Date };
+  startedAt?: { $gte?: Date; $lt?: Date; $lte?: Date };
   phone?: { $regex: string };
 }
 
@@ -61,19 +61,22 @@ export async function GET(request: NextRequest) {
       }
     }
 
-    // 날짜 필터
+    // 날짜 필터 (한국시간 KST 기준, UTC+9)
     if (date) {
-      const targetDate = new Date(date);
-      const nextDay = new Date(date);
+      // 한국시간 자정 기준으로 필터링
+      const targetDate = new Date(date + 'T00:00:00+09:00');
+      const nextDay = new Date(date + 'T00:00:00+09:00');
       nextDay.setDate(nextDay.getDate() + 1);
-      query.startedAt = { $gte: targetDate, $lte: nextDay };
+      query.startedAt = { $gte: targetDate, $lt: nextDay };
     } else if (startDate || endDate) {
       query.startedAt = {};
       if (startDate) {
-        query.startedAt.$gte = new Date(startDate);
+        // 한국시간 시작일 자정
+        query.startedAt.$gte = new Date(startDate + 'T00:00:00+09:00');
       }
       if (endDate) {
-        query.startedAt.$lte = new Date(endDate + 'T23:59:59.999Z');
+        // 한국시간 종료일 23:59:59
+        query.startedAt.$lte = new Date(endDate + 'T23:59:59.999+09:00');
       }
     }
 
@@ -182,7 +185,9 @@ export async function GET(request: NextRequest) {
           callerName: actualPatientName,
           patientId: validPatientId, // 삭제된 환자면 null 반환
           patientName: actualPatientName,
-          classification: normalizeClassification(log.aiAnalysis?.classification),
+          classification: validPatientId
+            ? '환자'
+            : normalizeClassification(log.aiAnalysis?.classification),
           interest: log.aiAnalysis?.interest || '',
           summary: log.aiAnalysis?.summary || '',
           temperature: log.aiAnalysis?.temperature || 'unknown',
