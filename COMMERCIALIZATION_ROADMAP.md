@@ -1,7 +1,7 @@
 # D-Care V2 사업화 기술 보완 로드맵
 
 > 작성일: 2026-02-15
-> 현재 상용화 준비도: 5/10
+> 현재 상용화 준비도: 7/10
 
 ---
 
@@ -83,14 +83,16 @@
 
 ### 2.1 테스트 코드 전무
 
-**현황**: 테스트 파일 0개. jest.config 없음. 회귀 테스트 불가능.
+**현황**: ~~테스트 파일 0개. jest.config 없음.~~ Jest 설정 완료, 핵심 테스트 30개 작성.
 
 **해결 방안**:
-- [ ] Jest + React Testing Library 설정
-- [ ] API 라우트 단위 테스트 (최소 핵심 CRUD)
-- [ ] 인증/권한 테스트
+- [x] Jest + ts-jest 설정 (jest.config.js, tsconfig.test.json)
+- [x] 인증 미들웨어 테스트 (verifyApiToken, unauthorizedResponse, isAdmin)
+- [x] 토큰 생성 테스트 (generateAccessToken, TokenPayload)
+- [x] 입력값 검증 테스트 (validateBody + Zod 스키마)
+- [x] CI에서 테스트 자동 실행 (GitHub Actions)
+- [ ] API 라우트 통합 테스트 (MongoDB mock 필요)
 - [ ] 멀티테넌시 데이터 격리 테스트
-- [ ] CI에서 테스트 자동 실행
 
 ---
 
@@ -148,8 +150,8 @@
 - skip/limit 페이지네이션 → 대량 데이터 성능 저하
 
 **해결 방안**:
-- [ ] API 응답 포맷 통일
-- [ ] OpenAPI(Swagger) 문서 자동 생성
+- [x] API 에러 응답 포맷 통일 (`{ success: false, error: '...' }`)
+- [x] OpenAPI 3.0 스펙 수동 작성 + Swagger UI 페이지 (`/v2/api-docs`)
 - [ ] cursor 기반 페이지네이션 전환 검토
 - [ ] V1 API 단계적 폐기 계획
 
@@ -157,11 +159,11 @@
 
 ### 3.2 CI/CD 파이프라인
 
-**현황**: Vercel 직접 배포만 사용. 자동화 테스트/배포 없음.
+**현황**: ~~Vercel 직접 배포만 사용. 자동화 테스트/배포 없음.~~ GitHub Actions CI 구성 완료.
 
 **해결 방안**:
-- [ ] GitHub Actions 워크플로우 구성 (lint → test → build → deploy)
-- [ ] PR 시 자동 테스트 실행
+- [x] GitHub Actions 워크플로우 구성 (lint → test → build)
+- [x] PR 시 자동 테스트 실행
 - [ ] 스테이징/프로덕션 환경 분리
 - [ ] docker-compose로 로컬 개발 환경 구성
 
@@ -224,10 +226,10 @@ Phase 4 - 확장 (약 1주)
 | 2 | Refresh Token | ✅ 완료 | 2026-02-22 |
 | 2 | DB 스키마 검증 | ✅ 완료 | 2026-02-22 |
 | 2 | API 응답 표준화 | ➡️ Phase 3 이동 | - |
-| 3 | 테스트 코드 | ⬜ 미착수 | - |
-| 3 | CI/CD | ⬜ 미착수 | - |
-| 3 | API 문서 | ⬜ 미착수 | - |
-| 3 | API 응답 표준화 | ⬜ 미착수 | - |
+| 3 | 테스트 코드 (30개) | ✅ 완료 | 2026-02-22 |
+| 3 | CI/CD (GitHub Actions) | ✅ 완료 | 2026-02-22 |
+| 3 | API 문서 (Swagger UI) | ✅ 완료 | 2026-02-22 |
+| 3 | API 에러 응답 표준화 | ✅ 완료 | 2026-02-22 |
 | 4 | Rate Limiting | ⬜ 미착수 | - |
 | 4 | 구조화된 로깅 | ⬜ 미착수 | - |
 | 4 | 캐싱 레이어 | ⬜ 미착수 | - |

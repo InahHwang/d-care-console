@@ -210,7 +210,7 @@ export async function GET(request: NextRequest) {
   } catch (error) {
     console.error('Error fetching call logs:', error);
     return NextResponse.json(
-      { error: 'Failed to fetch call logs' },
+      { success: false, error: 'Failed to fetch call logs' },
       { status: 500 }
     );
   }
@@ -445,7 +445,7 @@ export async function PATCH(request: NextRequest) {
     console.error('[CallLogs PATCH] 오류 발생:', error);
     console.error('[CallLogs PATCH] 오류 스택:', error instanceof Error ? error.stack : 'N/A');
     return NextResponse.json(
-      { error: 'Failed to update call log' },
+      { success: false, error: 'Failed to update call log' },
       { status: 500 }
     );
   }

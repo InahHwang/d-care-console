@@ -102,7 +102,7 @@ export async function GET(
   } catch (error) {
     console.error('Error fetching patient:', error);
     return NextResponse.json(
-      { error: 'Failed to fetch patient' },
+      { success: false, error: 'Failed to fetch patient' },
       { status: 500 }
     );
   }
@@ -487,7 +487,7 @@ export async function PATCH(
   } catch (error) {
     console.error('Error updating patient:', error);
     return NextResponse.json(
-      { error: 'Failed to update patient' },
+      { success: false, error: 'Failed to update patient' },
       { status: 500 }
     );
   }
@@ -534,7 +534,7 @@ export async function DELETE(
   } catch (error) {
     console.error('Error deleting patient:', error);
     return NextResponse.json(
-      { error: 'Failed to delete patient' },
+      { success: false, error: 'Failed to delete patient' },
       { status: 500 }
     );
   }

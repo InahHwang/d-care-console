@@ -1,0 +1,9 @@
+{
+  "extends": "./tsconfig.json",
+  "compilerOptions": {
+    "jsx": "react-jsx",
+    "types": ["jest"],
+    "isolatedModules": false
+  },
+  "include": ["__tests__/**/*.ts", "src/**/*.ts"]
+}
