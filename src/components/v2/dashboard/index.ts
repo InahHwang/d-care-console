@@ -7,3 +7,4 @@ export { RecentPatientsCard } from './RecentPatientsCard';
 export { CallClassificationCard } from './CallClassificationCard';
 export { RevenueCard } from './RevenueCard';
 export { TodayTasksCard, type TodayTasks } from './TodayTasksCard';
+export { ConversionFunnelCard } from './ConversionFunnelCard';
