@@ -11,8 +11,10 @@ import {
   revokeRefreshToken,
   TokenPayload,
 } from '@/lib/auth/tokens';
+import { createRouteLogger } from '@/lib/logger';
 
 export async function POST(request: NextRequest) {
+  const log = createRouteLogger('/api/auth/refresh', 'POST');
   try {
     const body = await request.json();
     const { refreshToken } = body;
@@ -80,7 +82,7 @@ export async function POST(request: NextRequest) {
       },
     });
   } catch (error) {
-    console.error('[Auth Refresh] Error:', error);
+    log.error('Token refresh failed', error);
     return NextResponse.json(
       { success: false, error: 'Token refresh failed' },
       { status: 500 }

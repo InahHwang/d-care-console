@@ -4,14 +4,34 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { connectToDatabase } from '@/utils/mongodb';
 import { verifyApiToken, unauthorizedResponse } from '@/utils/apiAuth';
+import { createRouteLogger } from '@/lib/logger';
+import { withCache } from '@/lib/cache';
 
 // GET: 대시보드 데이터 조회
 export async function GET(request: NextRequest) {
+  const log = createRouteLogger('/api/v2/dashboard', 'GET');
   try {
     const authUser = verifyApiToken(request);
     if (!authUser) return unauthorizedResponse();
     const clinicId = authUser.clinicId;
 
+    const dashboardData = await withCache(
+      `dashboard:${clinicId}`,
+      30_000, // 30초 TTL
+      () => fetchDashboardData(clinicId),
+    );
+
+    return NextResponse.json({ success: true, data: dashboardData });
+  } catch (error) {
+    log.error('Dashboard API error', error);
+    return NextResponse.json(
+      { success: false, error: 'Failed to fetch dashboard data' },
+      { status: 500 }
+    );
+  }
+}
+
+async function fetchDashboardData(clinicId: string) {
     const { db } = await connectToDatabase();
 
     const today = new Date();
@@ -408,9 +428,7 @@ export async function GET(request: NextRequest) {
       ? Math.round(((thisMonthActual - lastMonthActual) / lastMonthActual) * 100)
       : (thisMonthActual > 0 ? 100 : 0);
 
-    return NextResponse.json({
-      success: true,
-      data: {
+    return {
         // 오늘 통계
         today: {
           totalCalls,
@@ -483,13 +501,5 @@ export async function GET(request: NextRequest) {
           avgRevenue,       // 평균 객단가 (원)
           growthRate,       // 전월 대비 성장률 %
         },
-      },
-    });
-  } catch (error) {
-    console.error('Dashboard API error:', error);
-    return NextResponse.json(
-      { success: false, error: 'Failed to fetch dashboard data' },
-      { status: 500 }
-    );
-  }
+      };
 }

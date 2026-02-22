@@ -6,6 +6,7 @@ import { PatientStatus, Temperature, CallbackReason, CallbackHistoryEntry } from
 import { verifyApiToken, unauthorizedResponse } from '@/utils/apiAuth';
 import { validateBody } from '@/lib/validations/validate';
 import { updatePatientSchema } from '@/lib/validations/schemas';
+import { createRouteLogger } from '@/lib/logger';
 
 export const dynamic = 'force-dynamic';
 
@@ -13,6 +14,7 @@ export async function GET(
   request: NextRequest,
   { params }: { params: Promise<{ id: string }> }
 ) {
+  const log = createRouteLogger('/api/v2/patients/[id]', 'GET');
   try {
     const authUser = verifyApiToken(request);
     if (!authUser) return unauthorizedResponse();
@@ -88,19 +90,19 @@ export async function GET(
         journeys: patient.journeys || [],
         activeJourneyId: patient.activeJourneyId || null,
       },
-      callLogs: callLogs.map((log) => ({
-        id: log._id.toString(),
-        callTime: log.startedAt,
-        callType: log.direction,
-        duration: log.duration || 0,
-        summary: log.aiAnalysis?.summary || '',
-        classification: log.aiAnalysis?.classification || '',
-        callbackType: log.callbackType || null,
-        callbackId: log.callbackId || null,
+      callLogs: callLogs.map((cl) => ({
+        id: cl._id.toString(),
+        callTime: cl.startedAt,
+        callType: cl.direction,
+        duration: cl.duration || 0,
+        summary: cl.aiAnalysis?.summary || '',
+        classification: cl.aiAnalysis?.classification || '',
+        callbackType: cl.callbackType || null,
+        callbackId: cl.callbackId || null,
       })),
     });
   } catch (error) {
-    console.error('Error fetching patient:', error);
+    log.error('Failed to fetch patient', error);
     return NextResponse.json(
       { success: false, error: 'Failed to fetch patient' },
       { status: 500 }
@@ -124,6 +126,7 @@ export async function PATCH(
   request: NextRequest,
   { params }: { params: Promise<{ id: string }> }
 ) {
+  const log = createRouteLogger('/api/v2/patients/[id]', 'PATCH');
   try {
     const authUser = verifyApiToken(request);
     if (!authUser) return unauthorizedResponse();
@@ -485,7 +488,7 @@ export async function PATCH(
 
     return NextResponse.json({ success: true });
   } catch (error) {
-    console.error('Error updating patient:', error);
+    log.error('Failed to update patient', error);
     return NextResponse.json(
       { success: false, error: 'Failed to update patient' },
       { status: 500 }
@@ -497,6 +500,7 @@ export async function DELETE(
   request: NextRequest,
   { params }: { params: Promise<{ id: string }> }
 ) {
+  const log = createRouteLogger('/api/v2/patients/[id]', 'DELETE');
   try {
     const authUser = verifyApiToken(request);
     if (!authUser) return unauthorizedResponse();
@@ -532,7 +536,7 @@ export async function DELETE(
 
     return NextResponse.json({ success: true });
   } catch (error) {
-    console.error('Error deleting patient:', error);
+    log.error('Failed to delete patient', error);
     return NextResponse.json(
       { success: false, error: 'Failed to delete patient' },
       { status: 500 }

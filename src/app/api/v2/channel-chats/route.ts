@@ -5,6 +5,7 @@ import { ChannelType, ChatStatus } from '@/types/v2';
 import { verifyApiToken, unauthorizedResponse } from '@/utils/apiAuth';
 import { validateBody } from '@/lib/validations/validate';
 import { createChannelChatSchema } from '@/lib/validations/schemas';
+import { createRouteLogger } from '@/lib/logger';
 
 export const dynamic = 'force-dynamic';
 
@@ -16,6 +17,7 @@ interface ChatQuery {
 
 // GET: 대화방 목록 조회
 export async function GET(request: NextRequest) {
+  const log = createRouteLogger('/api/v2/channel-chats', 'GET');
   try {
     const authUser = verifyApiToken(request);
     if (!authUser) return unauthorizedResponse();
@@ -84,7 +86,7 @@ export async function GET(request: NextRequest) {
       unreadTotal: unreadTotal[0]?.total || 0,
     });
   } catch (error) {
-    console.error('채널 채팅 목록 조회 오류:', error);
+    log.error('채널 채팅 목록 조회 오류', error);
     return NextResponse.json(
       { success: false, error: '채팅 목록을 불러오는 중 오류가 발생했습니다.' },
       { status: 500 }
@@ -94,6 +96,7 @@ export async function GET(request: NextRequest) {
 
 // POST: 새 대화방 생성 (주로 웹훅에서 사용)
 export async function POST(request: NextRequest) {
+  const log = createRouteLogger('/api/v2/channel-chats', 'POST');
   try {
     const authUser = verifyApiToken(request);
     if (!authUser) return unauthorizedResponse();
@@ -161,7 +164,7 @@ export async function POST(request: NextRequest) {
       data: { ...newChat, _id: result.insertedId },
     });
   } catch (error) {
-    console.error('채널 대화방 생성 오류:', error);
+    log.error('채널 대화방 생성 오류', error);
     return NextResponse.json(
       { success: false, error: '대화방 생성 중 오류가 발생했습니다.' },
       { status: 500 }

@@ -8,6 +8,9 @@ import { ObjectId } from 'mongodb';
 import { validateBody } from '@/lib/validations/validate';
 import { loginSchema } from '@/lib/validations/schemas';
 import { generateAccessToken, generateRefreshToken, revokeRefreshToken, TokenPayload } from '@/lib/auth/tokens';
+import { createRouteLogger } from '@/lib/logger';
+import { checkRateLimit, RATE_LIMIT_PRESETS } from '@/lib/rateLimit';
+import { checkLoginAllowed, recordLoginAttempt } from '@/lib/loginProtection';
 
 // 환경 변수 타입 단언으로 TypeScript 오류 해결
 const JWT_SECRET = process.env.JWT_SECRET as string;
@@ -35,17 +38,51 @@ async function logActivity(userId: string, userName: string, userRole: string, i
       timestamp: new Date().toISOString()
     });
   } catch (error) {
-    console.warn('로그인 활동 로그 기록 실패:', error);
+    const log = createRouteLogger('/api/auth/login', 'POST');
+    log.warn('로그인 활동 로그 기록 실패', { error: String(error) });
     // 로그 기록 실패는 로그인에 영향주지 않음
   }
 }
 
 export async function POST(request: NextRequest) {
+  const log = createRouteLogger('/api/auth/login', 'POST');
   try {
+    // --- Rate Limiting ---
+    const xForwardedFor = request.headers.get('x-forwarded-for');
+    const clientIp = xForwardedFor
+      ? xForwardedFor.split(',')[0].trim()
+      : request.headers.get('x-real-ip') || 'unknown';
+
+    // 1) IP 기반 in-memory rate limit
+    const rateResult = checkRateLimit(`login:${clientIp}`, RATE_LIMIT_PRESETS.login);
+    if (!rateResult.allowed) {
+      log.warn('Rate limit 초과', { ip: clientIp, retryAfterMs: rateResult.retryAfterMs });
+      return NextResponse.json(
+        { success: false, message: '너무 많은 로그인 시도입니다. 잠시 후 다시 시도해주세요.' },
+        {
+          status: 429,
+          headers: { 'Retry-After': String(Math.ceil(rateResult.retryAfterMs / 1000)) },
+        },
+      );
+    }
+
     const body = await request.json();
     const validation = validateBody(loginSchema, body);
     if (!validation.success) return validation.response;
     const { email, password } = validation.data; // email 필드명 유지 (실제로는 username으로 사용)
+
+    // 2) DB 기반 로그인 잠금 확인
+    const lockCheck = await checkLoginAllowed(email);
+    if (!lockCheck.allowed) {
+      log.warn('계정 잠금 상태', { identifier: email, failureCount: lockCheck.failureCount });
+      return NextResponse.json(
+        { success: false, message: '로그인 시도가 너무 많습니다. 30분 후 다시 시도해주세요.' },
+        {
+          status: 429,
+          headers: { 'Retry-After': String(Math.ceil(lockCheck.retryAfterMs / 1000)) },
+        },
+      );
+    }
 
     let user = null;
 
@@ -65,13 +102,18 @@ export async function POST(request: NextRequest) {
         id: dbUser._id.toString()
       };
     }
-    
+
     if (!user) {
+      // 실패 기록
+      await recordLoginAttempt(email, false, clientIp);
       return NextResponse.json(
         { success: false, message: '아이디 또는 비밀번호가 올바르지 않습니다.' },
         { status: 401 }
       );
     }
+
+    // 로그인 성공 → 실패 기록 초기화
+    await recordLoginAttempt(email, true, clientIp);
     
     // JWT_SECRET이 없는 경우 오류 처리
     if (!JWT_SECRET) {
@@ -108,10 +150,7 @@ export async function POST(request: NextRequest) {
 
     // 클라이언트 정보 추출 (활동 로그용)
     const userAgent = request.headers.get('user-agent') || '';
-    const xForwardedFor = request.headers.get('x-forwarded-for');
-    const ipAddress = xForwardedFor 
-      ? xForwardedFor.split(',')[0].trim() 
-      : request.headers.get('x-real-ip') || 'unknown';
+    const ipAddress = clientIp;
 
     // 로그인 활동 로그 기록
     await logActivity(
@@ -130,7 +169,7 @@ export async function POST(request: NextRequest) {
         { $set: { lastLogin: new Date().toISOString() } }
       );
     } catch (error) {
-      console.warn('마지막 로그인 시간 업데이트 실패:', error);
+      log.warn('마지막 로그인 시간 업데이트 실패', { error: String(error) });
     }
     
     return NextResponse.json({
@@ -142,8 +181,7 @@ export async function POST(request: NextRequest) {
     });
     
   } catch (error: unknown) {
-    // 오류 타입 처리 개선
-    console.error('[Auth Login] Error:', error);
+    log.error('로그인 처리 중 오류 발생', error);
     return NextResponse.json(
       { success: false, message: '로그인 처리 중 오류가 발생했습니다.' },
       { status: 500 }
@@ -153,6 +191,7 @@ export async function POST(request: NextRequest) {
 
 // 로그아웃 처리 (토큰 무효화)
 export async function DELETE(request: NextRequest) {
+  const log = createRouteLogger('/api/auth/login', 'DELETE');
   try {
     // Refresh Token 폐기
     try {
@@ -198,7 +237,7 @@ export async function DELETE(request: NextRequest) {
         });
       }
     } catch (error) {
-      console.warn('로그아웃 활동 로그 기록 실패:', error);
+      log.warn('로그아웃 활동 로그 기록 실패', { error: String(error) });
     }
 
     return NextResponse.json({
@@ -206,7 +245,7 @@ export async function DELETE(request: NextRequest) {
       message: '로그아웃 성공'
     });
   } catch (error) {
-    console.error('Logout error:', error);
+    log.error('로그아웃 처리 중 오류 발생', error);
     return NextResponse.json(
       { message: '로그아웃 처리 중 오류가 발생했습니다.' },
       { status: 500 }

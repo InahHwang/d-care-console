@@ -5,10 +5,12 @@ import { NextRequest, NextResponse } from 'next/server';
 import { connectToDatabase } from '@/utils/mongodb';
 import { ObjectId } from 'mongodb';
 import { waitUntil } from '@vercel/functions';
+import { createRouteLogger } from '@/lib/logger';
 
 const CLINIC_ID = process.env.DEFAULT_CLINIC_ID || 'default';
 
 export async function GET(request: NextRequest) {
+  const log = createRouteLogger('/api/v2/call-analysis/status', 'GET');
   try {
     const { searchParams } = new URL(request.url);
     const since = searchParams.get('since'); // ISO timestamp
@@ -114,7 +116,7 @@ export async function GET(request: NextRequest) {
       },
     });
   } catch (error) {
-    console.error('[Status v2] 오류:', error);
+    log.error('GET 오류', error);
     return NextResponse.json(
       { success: false, error: 'Internal server error' },
       { status: 500 }
@@ -124,13 +126,12 @@ export async function GET(request: NextRequest) {
 
 // POST - 디버그: 수동으로 분석 파이프라인 트리거
 export async function POST(request: NextRequest) {
+  const log = createRouteLogger('/api/v2/call-analysis/status', 'POST');
   try {
     const body = await request.json();
     const { action, callLogId } = body;
 
-    console.log('='.repeat(50));
-    console.log('[Status v2 POST] 디버그 요청:', action, callLogId);
-    console.log('='.repeat(50));
+    log.info('디버그 요청', { action, callLogId });
 
     const { db } = await connectToDatabase();
 
@@ -215,7 +216,7 @@ export async function POST(request: NextRequest) {
 
     // 수동으로 분석 파이프라인 트리거
     if (action === 'trigger-analysis' && callLogId) {
-      console.log(`[Status v2] 수동 분석 트리거: ${callLogId}`);
+      log.info('수동 분석 트리거', { callLogId });
 
       // 통화기록 확인
       const callLog = await db.collection('callLogs_v2').findOne({
@@ -263,7 +264,7 @@ export async function POST(request: NextRequest) {
       waitUntil(
         (async () => {
           try {
-            console.log(`[Status v2] STT 시작: ${callLogId}`);
+            log.info('STT 시작', { callLogId });
             const sttResponse = await fetch(`${baseUrl}/api/v2/call-analysis/transcribe`, {
               method: 'POST',
               headers: { 'Content-Type': 'application/json' },
@@ -271,13 +272,13 @@ export async function POST(request: NextRequest) {
             });
 
             const sttResult = await sttResponse.json();
-            console.log(`[Status v2] STT 결과:`, sttResult);
+            log.debug('STT 결과', { callLogId, success: sttResult.success });
 
             if (!sttResult.success) {
               throw new Error(sttResult.error || 'STT failed');
             }
 
-            console.log(`[Status v2] AI 분석 시작: ${callLogId}`);
+            log.info('AI 분석 시작', { callLogId });
             const analyzeResponse = await fetch(`${baseUrl}/api/v2/call-analysis/analyze`, {
               method: 'POST',
               headers: { 'Content-Type': 'application/json' },
@@ -285,11 +286,11 @@ export async function POST(request: NextRequest) {
             });
 
             const analyzeResult = await analyzeResponse.json();
-            console.log(`[Status v2] AI 분석 결과:`, analyzeResult);
+            log.debug('AI 분석 결과', { callLogId, success: analyzeResult.success });
 
-            console.log(`[Status v2] 수동 분석 완료: ${callLogId}`);
+            log.info('수동 분석 완료', { callLogId });
           } catch (error) {
-            console.error(`[Status v2] 수동 분석 실패:`, error);
+            log.error('수동 분석 실패', error, { callLogId });
           }
         })()
       );
@@ -306,7 +307,7 @@ export async function POST(request: NextRequest) {
       { status: 400 }
     );
   } catch (error) {
-    console.error('[Status v2 POST] 오류:', error);
+    log.error('POST 오류', error);
     return NextResponse.json(
       { success: false, error: 'Internal server error' },
       { status: 500 }

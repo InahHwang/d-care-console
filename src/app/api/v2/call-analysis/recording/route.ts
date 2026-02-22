@@ -6,6 +6,8 @@ import { waitUntil } from '@vercel/functions';
 import { connectToDatabase } from '@/utils/mongodb';
 import { ObjectId } from 'mongodb';
 import type { AIAnalysis, Temperature, AIClassification, FollowUpType } from '@/types/v2';
+import { createRouteLogger } from '@/lib/logger';
+import { withRetry } from '@/lib/pipeline';
 
 const CLINIC_ID = process.env.DEFAULT_CLINIC_ID || 'default';
 
@@ -21,45 +23,55 @@ function formatPhone(phone: string): string {
   return phone;
 }
 
-// AI 분석 파이프라인 트리거
+// AI 분석 파이프라인 트리거 (retry 적용)
 async function triggerAnalysisPipeline(callLogId: string) {
+  const log = createRouteLogger('/api/v2/call-analysis/recording', 'pipeline');
   try {
     const baseUrl = process.env.NEXT_PUBLIC_BASE_URL || 'http://localhost:3000';
 
-    // 1. STT 변환
-    console.log(`[Analysis v2] STT 시작: ${callLogId}`);
-    const sttResponse = await fetch(`${baseUrl}/api/v2/call-analysis/transcribe`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ callLogId }),
-    });
+    // 1. STT 변환 (재시도 포함)
+    log.info('STT 시작', { callLogId });
+    await withRetry(
+      async () => {
+        const sttResponse = await fetch(`${baseUrl}/api/v2/call-analysis/transcribe`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ callLogId }),
+        });
+        if (!sttResponse.ok) {
+          throw new Error(`STT 실패: ${sttResponse.status}`);
+        }
+        const sttResult = await sttResponse.json();
+        if (!sttResult.success) {
+          throw new Error(sttResult.error || 'STT 실패');
+        }
+        return sttResult;
+      },
+      { name: 'STT', callLogId },
+    );
 
-    if (!sttResponse.ok) {
-      throw new Error(`STT 실패: ${sttResponse.status}`);
-    }
+    // 2. AI 분석 (재시도 포함)
+    log.info('AI 분석 시작', { callLogId });
+    await withRetry(
+      async () => {
+        const analyzeResponse = await fetch(`${baseUrl}/api/v2/call-analysis/analyze`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ callLogId }),
+        });
+        if (!analyzeResponse.ok) {
+          throw new Error(`AI 분석 실패: ${analyzeResponse.status}`);
+        }
+        return analyzeResponse.json();
+      },
+      { name: 'AI-Analysis', callLogId },
+    );
 
-    const sttResult = await sttResponse.json();
-    if (!sttResult.success) {
-      throw new Error(sttResult.error || 'STT 실패');
-    }
-
-    // 2. AI 분석
-    console.log(`[Analysis v2] AI 분석 시작: ${callLogId}`);
-    const analyzeResponse = await fetch(`${baseUrl}/api/v2/call-analysis/analyze`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ callLogId }),
-    });
-
-    if (!analyzeResponse.ok) {
-      throw new Error(`AI 분석 실패: ${analyzeResponse.status}`);
-    }
-
-    console.log(`[Analysis v2] 파이프라인 완료: ${callLogId}`);
+    log.info('파이프라인 완료', { callLogId });
   } catch (error) {
-    console.error(`[Analysis v2] 파이프라인 오류:`, error);
+    log.error('파이프라인 최종 실패', error, { callLogId });
 
-    // 실패 상태로 업데이트
+    // 실패 상태로 업데이트 (retryCount 포함)
     try {
       const { db } = await connectToDatabase();
       await db.collection('callLogs_v2').updateOne(
@@ -67,17 +79,20 @@ async function triggerAnalysisPipeline(callLogId: string) {
         {
           $set: {
             aiStatus: 'failed',
+            retryCount: 3,
+            failedAt: new Date().toISOString(),
             updatedAt: new Date().toISOString(),
           },
         }
       );
     } catch (dbError) {
-      console.error('[Analysis v2] DB 업데이트 오류:', dbError);
+      log.error('DB 업데이트 오류', dbError, { callLogId });
     }
   }
 }
 
 export async function POST(request: NextRequest) {
+  const log = createRouteLogger('/api/v2/call-analysis/recording', 'POST');
   try {
     const body = await request.json();
     const {
@@ -89,7 +104,7 @@ export async function POST(request: NextRequest) {
       timestamp,
     } = body;
 
-    console.log(`[Analysis v2] 녹취 수신: ${callerNumber}, ${duration}초`);
+    log.info('녹취 수신', { callerNumber, duration });
 
     if (!callerNumber || !recordingFileName) {
       return NextResponse.json(
@@ -115,7 +130,7 @@ export async function POST(request: NextRequest) {
     );
 
     if (!callLog) {
-      console.log('[Analysis v2] 매칭 통화기록 없음, 새로 생성');
+      log.info('매칭 통화기록 없음, 새로 생성', { phone: formattedPhone });
       // 통화기록이 없으면 생성
       const newCallLog = {
         clinicId: CLINIC_ID,
@@ -184,7 +199,7 @@ export async function POST(request: NextRequest) {
       message: 'Recording received, analysis queued',
     });
   } catch (error) {
-    console.error('[Analysis v2] recording 오류:', error);
+    log.error('recording 오류', error);
     return NextResponse.json(
       { success: false, error: 'Internal server error' },
       { status: 500 }
@@ -194,6 +209,7 @@ export async function POST(request: NextRequest) {
 
 // GET - 분석 상태 조회
 export async function GET(request: NextRequest) {
+  const log = createRouteLogger('/api/v2/call-analysis/recording', 'GET');
   try {
     const { searchParams } = new URL(request.url);
     const callLogId = searchParams.get('callLogId');
@@ -233,7 +249,7 @@ export async function GET(request: NextRequest) {
       },
     });
   } catch (error) {
-    console.error('[Analysis v2] GET 오류:', error);
+    log.error('GET 오류', error);
     return NextResponse.json(
       { success: false, error: 'Internal server error' },
       { status: 500 }

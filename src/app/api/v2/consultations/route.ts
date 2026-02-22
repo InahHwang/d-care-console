@@ -9,9 +9,11 @@ import type { ConsultationV2, ConsultationType, ConsultationStatus } from '@/typ
 import { verifyApiToken, unauthorizedResponse } from '@/utils/apiAuth';
 import { validateBody } from '@/lib/validations/validate';
 import { createConsultationSchema, updateConsultationSchema } from '@/lib/validations/schemas';
+import { createRouteLogger } from '@/lib/logger';
 
 // GET - 상담 이력 조회
 export async function GET(request: NextRequest) {
+  const log = createRouteLogger('/api/v2/consultations', 'GET');
   try {
     const authUser = verifyApiToken(request);
     if (!authUser) return unauthorizedResponse();
@@ -120,7 +122,7 @@ export async function GET(request: NextRequest) {
       },
     });
   } catch (error) {
-    console.error('[Consultations API] GET 오류:', error);
+    log.error('GET 오류', error);
     return NextResponse.json(
       { success: false, error: 'Internal server error' },
       { status: 500 }
@@ -130,6 +132,7 @@ export async function GET(request: NextRequest) {
 
 // POST - 상담 결과 생성
 export async function POST(request: NextRequest) {
+  const log = createRouteLogger('/api/v2/consultations', 'POST');
   try {
     const authUser = verifyApiToken(request);
     if (!authUser) return unauthorizedResponse();
@@ -247,7 +250,7 @@ export async function POST(request: NextRequest) {
       },
     });
   } catch (error) {
-    console.error('[Consultations API] POST 오류:', error);
+    log.error('POST 오류', error);
     return NextResponse.json(
       { success: false, error: 'Internal server error' },
       { status: 500 }
@@ -257,6 +260,7 @@ export async function POST(request: NextRequest) {
 
 // PATCH - 상담 결과 수정
 export async function PATCH(request: NextRequest) {
+  const log = createRouteLogger('/api/v2/consultations', 'PATCH');
   try {
     const authUser = verifyApiToken(request);
     if (!authUser) return unauthorizedResponse();
@@ -312,7 +316,7 @@ export async function PATCH(request: NextRequest) {
       data: result,
     });
   } catch (error) {
-    console.error('[Consultations API] PATCH 오류:', error);
+    log.error('PATCH 오류', error);
     return NextResponse.json(
       { success: false, error: 'Internal server error' },
       { status: 500 }
@@ -322,6 +326,7 @@ export async function PATCH(request: NextRequest) {
 
 // DELETE - 상담 기록 삭제
 export async function DELETE(request: NextRequest) {
+  const log = createRouteLogger('/api/v2/consultations', 'DELETE');
   try {
     const authUser = verifyApiToken(request);
     if (!authUser) return unauthorizedResponse();
@@ -355,7 +360,7 @@ export async function DELETE(request: NextRequest) {
       message: 'Consultation deleted',
     });
   } catch (error) {
-    console.error('[Consultations API] DELETE 오류:', error);
+    log.error('DELETE 오류', error);
     return NextResponse.json(
       { success: false, error: 'Internal server error' },
       { status: 500 }

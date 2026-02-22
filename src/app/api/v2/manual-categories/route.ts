@@ -8,6 +8,7 @@ import { ManualCategory, DEFAULT_MANUAL_CATEGORIES } from '@/types/v2/manual';
 import { verifyApiToken, unauthorizedResponse } from '@/utils/apiAuth';
 import { validateBody } from '@/lib/validations/validate';
 import { createManualCategorySchema, updateManualCategorySchema } from '@/lib/validations/schemas';
+import { withCache, cache } from '@/lib/cache';
 
 const COLLECTION = 'manual_categories_v2';
 
@@ -17,34 +18,41 @@ export async function GET(request: NextRequest) {
     const authUser = verifyApiToken(request);
     if (!authUser) return unauthorizedResponse();
 
-    const { db } = await connectToDatabase();
     const clinicId = authUser.clinicId;
 
-    let categories = await db
-      .collection<ManualCategory>(COLLECTION)
-      .find({ clinicId })
-      .sort({ order: 1 })
-      .toArray();
+    const categories = await withCache(
+      `categories:${clinicId}`,
+      10 * 60 * 1000, // 10분 TTL
+      async () => {
+        const { db } = await connectToDatabase();
 
-    // 카테고리가 없으면 기본 카테고리 생성
-    if (categories.length === 0) {
-      const now = new Date().toISOString();
-      const defaultCategories = DEFAULT_MANUAL_CATEGORIES.map((cat) => ({
-        clinicId,
-        name: cat.name,
-        order: cat.order,
-        isActive: true,
-        createdAt: now,
-        updatedAt: now,
-      }));
+        let cats = await db
+          .collection<ManualCategory>(COLLECTION)
+          .find({ clinicId })
+          .sort({ order: 1 })
+          .toArray();
 
-      await db.collection(COLLECTION).insertMany(defaultCategories);
-      categories = await db
-        .collection<ManualCategory>(COLLECTION)
-        .find({ clinicId })
-        .sort({ order: 1 })
-        .toArray();
-    }
+        if (cats.length === 0) {
+          const now = new Date().toISOString();
+          const defaultCategories = DEFAULT_MANUAL_CATEGORIES.map((cat) => ({
+            clinicId,
+            name: cat.name,
+            order: cat.order,
+            isActive: true,
+            createdAt: now,
+            updatedAt: now,
+          }));
+
+          await db.collection(COLLECTION).insertMany(defaultCategories);
+          cats = await db
+            .collection<ManualCategory>(COLLECTION)
+            .find({ clinicId })
+            .sort({ order: 1 })
+            .toArray();
+        }
+        return cats;
+      },
+    );
 
     return NextResponse.json({
       success: true,
@@ -89,6 +97,8 @@ export async function POST(request: NextRequest) {
     };
 
     const result = await db.collection(COLLECTION).insertOne(newCategory);
+
+    cache.invalidate(`categories:${clinicId}`);
 
     return NextResponse.json({
       success: true,
@@ -135,6 +145,8 @@ export async function PATCH(request: NextRequest) {
         { status: 404 }
       );
     }
+
+    cache.invalidate(`categories:${clinicId}`);
 
     return NextResponse.json({
       success: true,
@@ -190,6 +202,8 @@ export async function DELETE(request: NextRequest) {
         { status: 404 }
       );
     }
+
+    cache.invalidate(`categories:${clinicId}`);
 
     return NextResponse.json({
       success: true,

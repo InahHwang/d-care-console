@@ -213,6 +213,22 @@ async function createIndexesSafely(db: Db) {
       console.warn('Patients 인덱스 생성 중 오류:', patientIndexError);
     }
 
+    // LoginAttempts 컬렉션 인덱스 (Rate Limiting)
+    try {
+      await db.collection('loginAttempts').createIndex(
+        { createdAt: 1 },
+        { expireAfterSeconds: 3600 } // TTL: 1시간 후 자동 삭제
+      );
+      await db.collection('loginAttempts').createIndex(
+        { identifier: 1, createdAt: -1 }
+      );
+      await db.collection('loginAttempts').createIndex(
+        { identifier: 1, lockedUntil: 1 }
+      );
+    } catch (loginAttemptsIndexError) {
+      console.warn('LoginAttempts 인덱스 생성 중 오류:', loginAttemptsIndexError);
+    }
+
     // Reports 컬렉션 인덱스 (새로 추가)
     try {
       await db.collection('reports').createIndex({ month: 1, year: 1 }, { unique: true });

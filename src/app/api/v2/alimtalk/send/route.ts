@@ -7,6 +7,7 @@ import { connectToDatabase } from '@/utils/mongodb';
 import { verifyApiToken, unauthorizedResponse } from '@/utils/apiAuth';
 import { validateBody } from '@/lib/validations/validate';
 import { sendAlimtalkSchema } from '@/lib/validations/schemas';
+import { createRouteLogger } from '@/lib/logger';
 
 export interface AlimtalkRequest {
   phone: string;
@@ -23,6 +24,7 @@ export interface AlimtalkResponse {
 
 // POST - 알림톡 발송 (Mock)
 export async function POST(request: NextRequest) {
+  const log = createRouteLogger('/api/v2/alimtalk/send', 'POST');
   try {
     const authUser = verifyApiToken(request);
     if (!authUser) return unauthorizedResponse();
@@ -38,9 +40,10 @@ export async function POST(request: NextRequest) {
     const messageId = `mock_${Date.now()}_${Math.random().toString(36).substring(7)}`;
 
     // Mock 발송 로그
-    console.log('[알림톡 Mock API]', {
+    log.info('알림톡 Mock 발송', {
+      clinicId,
       phone,
-      message: message.substring(0, 50) + '...',
+      messagePreview: message.substring(0, 50) + '...',
       templateCode,
       messageId,
     });
@@ -72,7 +75,7 @@ export async function POST(request: NextRequest) {
       },
     });
   } catch (error) {
-    console.error('[Alimtalk API] 오류:', error);
+    log.error('POST 오류', error, { clinicId: 'unknown' });
     return NextResponse.json(
       { success: false, error: 'Internal server error' },
       { status: 500 }
@@ -82,6 +85,7 @@ export async function POST(request: NextRequest) {
 
 // GET - 발송 내역 조회
 export async function GET(request: NextRequest) {
+  const log = createRouteLogger('/api/v2/alimtalk/send', 'GET');
   try {
     const authUser = verifyApiToken(request);
     if (!authUser) return unauthorizedResponse();
@@ -116,7 +120,7 @@ export async function GET(request: NextRequest) {
       })),
     });
   } catch (error) {
-    console.error('[Alimtalk API] GET 오류:', error);
+    log.error('GET 오류', error);
     return NextResponse.json(
       { success: false, error: 'Internal server error' },
       { status: 500 }

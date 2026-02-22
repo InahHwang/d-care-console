@@ -5,6 +5,7 @@ import { ObjectId } from 'mongodb';
 import { verifyApiToken, unauthorizedResponse } from '@/utils/apiAuth';
 import { validateBody } from '@/lib/validations/validate';
 import { updateCallLogSchema } from '@/lib/validations/schemas';
+import { createRouteLogger } from '@/lib/logger';
 
 export const dynamic = 'force-dynamic';
 
@@ -29,6 +30,7 @@ interface CallLogQuery {
 }
 
 export async function GET(request: NextRequest) {
+  const log = createRouteLogger('/api/v2/call-logs', 'GET');
   try {
     const authUser = verifyApiToken(request);
     if (!authUser) return unauthorizedResponse();
@@ -208,7 +210,7 @@ export async function GET(request: NextRequest) {
       stats,
     });
   } catch (error) {
-    console.error('Error fetching call logs:', error);
+    log.error('Failed to fetch call logs', error);
     return NextResponse.json(
       { success: false, error: 'Failed to fetch call logs' },
       { status: 500 }
@@ -218,20 +220,21 @@ export async function GET(request: NextRequest) {
 
 // AI 분석 결과 수정 및 환자 연결
 export async function PATCH(request: NextRequest) {
+  const log = createRouteLogger('/api/v2/call-logs', 'PATCH');
   try {
     const authUser = verifyApiToken(request);
     if (!authUser) return unauthorizedResponse();
     const clinicId = authUser.clinicId;
 
     const body = await request.json();
-    console.log('[CallLogs PATCH] 요청 body:', JSON.stringify(body, null, 2));
+    log.info('요청 수신', { clinicId, body });
 
     const validation = validateBody(updateCallLogSchema, body);
     if (!validation.success) return validation.response;
     const { callLogId, classification, patientName, interest, temperature, summary, followUp, patientId, callbackType, callbackId } = validation.data;
 
     const { db } = await connectToDatabase();
-    console.log('[CallLogs PATCH] DB 연결 성공');
+    log.info('DB 연결 성공', { clinicId });
     const now = new Date().toISOString();
 
     // 먼저 현재 통화기록 조회 (aiAnalysis가 null인지 확인)
@@ -442,8 +445,7 @@ export async function PATCH(request: NextRequest) {
       },
     });
   } catch (error) {
-    console.error('[CallLogs PATCH] 오류 발생:', error);
-    console.error('[CallLogs PATCH] 오류 스택:', error instanceof Error ? error.stack : 'N/A');
+    log.error('Failed to update call log', error);
     return NextResponse.json(
       { success: false, error: 'Failed to update call log' },
       { status: 500 }

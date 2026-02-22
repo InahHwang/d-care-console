@@ -6,6 +6,7 @@ import { connectToDatabase } from '@/utils/mongodb';
 import { ObjectId } from 'mongodb';
 import Pusher from 'pusher';
 import type { AIAnalysis, AIConsultationResult, Temperature, AIClassification, FollowUpType, ConsultationStatus, ConsultationV2 } from '@/types/v2';
+import { createRouteLogger } from '@/lib/logger';
 
 const CLINIC_ID = process.env.DEFAULT_CLINIC_ID || 'default';
 
@@ -283,7 +284,8 @@ async function analyzeWithGPT(transcript: string): Promise<AIAnalysis> {
       consultationResult,
     };
   } catch (parseError) {
-    console.error('[Analyze v2] JSON 파싱 오류:', parseError);
+    const parseLog = createRouteLogger('/api/v2/call-analysis/analyze', 'analyzeWithGPT');
+    parseLog.error('JSON 파싱 오류', parseError);
 
     // 기본 결과
     return {
@@ -298,11 +300,12 @@ async function analyzeWithGPT(transcript: string): Promise<AIAnalysis> {
 }
 
 export async function POST(request: NextRequest) {
+  const log = createRouteLogger('/api/v2/call-analysis/analyze', 'POST');
   try {
     const body = await request.json();
     const { callLogId } = body;
 
-    console.log(`[Analyze v2] 분석 시작: ${callLogId}`);
+    log.info('분석 시작', { callLogId });
 
     if (!callLogId) {
       return NextResponse.json(
@@ -354,7 +357,7 @@ export async function POST(request: NextRequest) {
     if (callLog.phone) {
       const existingName = await getExistingNameForPhone(db, callLog.phone, callLogId);
       if (existingName) {
-        console.log(`[Analyze v2] 기존 이름 발견: "${existingName}" (현재 AI 인식: "${analysis.patientName}")`);
+        log.info('기존 이름 발견', { callLogId, existingName, aiRecognizedName: analysis.patientName });
         analysis.patientName = existingName;
       }
     }
@@ -372,8 +375,7 @@ export async function POST(request: NextRequest) {
       }
     );
 
-    console.log(`[Analyze v2] 분석 완료: ${callLogId}`);
-    console.log(`  분류: ${analysis.classification}, 온도: ${analysis.temperature}`);
+    log.info('분석 완료', { callLogId, classification: analysis.classification, temperature: analysis.temperature });
 
     // 환자 정보 업데이트 (있는 경우)
     if (callLog.patientId) {
@@ -400,7 +402,7 @@ export async function POST(request: NextRequest) {
         summary: analysis.summary,
       });
     } catch (pusherError) {
-      console.error('[Analyze v2] Pusher 오류:', pusherError);
+      log.error('Pusher 오류', pusherError, { callLogId });
     }
 
     return NextResponse.json({
@@ -409,7 +411,7 @@ export async function POST(request: NextRequest) {
       analysis,
     });
   } catch (error) {
-    console.error('[Analyze v2] 오류:', error);
+    log.error('분석 오류', error);
     return NextResponse.json(
       {
         success: false,
@@ -426,6 +428,7 @@ async function getExistingNameForPhone(
   phone: string,
   currentCallLogId: string
 ): Promise<string | null> {
+  const fnLog = createRouteLogger('/api/v2/call-analysis/analyze', 'getExistingName');
   try {
     // 같은 전화번호의 다른 통화 기록 조회 (현재 건 제외)
     const existingLogs = await db.collection('callLogs_v2')
@@ -444,23 +447,23 @@ async function getExistingNameForPhone(
 
     // 1순위: 수동 수정된 이름 찾기
     const manuallyEditedLog = existingLogs.find(
-      log => log.aiAnalysis?.manuallyEdited && log.aiAnalysis?.patientName
+      l => l.aiAnalysis?.manuallyEdited && l.aiAnalysis?.patientName
     );
     if (manuallyEditedLog?.aiAnalysis?.patientName) {
-      console.log(`[Analyze v2] 수동 수정된 이름 사용: ${manuallyEditedLog.aiAnalysis.patientName}`);
+      fnLog.debug('수동 수정된 이름 사용', { name: manuallyEditedLog.aiAnalysis.patientName, phone });
       return manuallyEditedLog.aiAnalysis.patientName;
     }
 
     // 2순위: 최초 인식된 이름
-    const firstLogWithName = existingLogs.find(log => log.aiAnalysis?.patientName);
+    const firstLogWithName = existingLogs.find(l => l.aiAnalysis?.patientName);
     if (firstLogWithName?.aiAnalysis?.patientName) {
-      console.log(`[Analyze v2] 최초 인식 이름 사용: ${firstLogWithName.aiAnalysis.patientName}`);
+      fnLog.debug('최초 인식 이름 사용', { name: firstLogWithName.aiAnalysis.patientName, phone });
       return firstLogWithName.aiAnalysis.patientName;
     }
 
     return null;
   } catch (error) {
-    console.error('[Analyze v2] 기존 이름 조회 오류:', error);
+    fnLog.error('기존 이름 조회 오류', error, { phone });
     return null;
   }
 }
@@ -471,6 +474,7 @@ async function updatePatientWithAnalysis(
   patientId: string,
   analysis: AIAnalysis
 ) {
+  const fnLog = createRouteLogger('/api/v2/call-analysis/analyze', 'updatePatient');
   try {
     // 기존 환자 정보 조회
     const existingPatient = await db.collection('patients_v2').findOne({
@@ -507,9 +511,9 @@ async function updatePatientWithAnalysis(
       { $set: updateData }
     );
 
-    console.log(`[Analyze v2] 환자 정보 업데이트: ${patientId}`);
+    fnLog.info('환자 정보 업데이트', { patientId });
   } catch (error) {
-    console.error('[Analyze v2] 환자 업데이트 오류:', error);
+    fnLog.error('환자 업데이트 오류', error, { patientId });
   }
 }
 
@@ -524,18 +528,19 @@ async function createAutoConsultation(
   }
 ): Promise<void> {
   const { patientId, callLogId, analysis, duration } = data;
+  const fnLog = createRouteLogger('/api/v2/call-analysis/analyze', 'autoConsultation');
 
   try {
     // 조건 체크: 통화 시간 30초 미만이면 스킵
     if (duration < 30) {
-      console.log(`[Analyze v2] 통화 시간 ${duration}초 - 자동 상담 결과 생성 스킵`);
+      fnLog.debug('통화 시간 부족 - 자동 상담 결과 생성 스킵', { callLogId, duration });
       return;
     }
 
     // 조건 체크: consultationResult 없거나 신뢰도 낮으면 스킵
     const consultationResult = analysis.consultationResult;
     if (!consultationResult || (consultationResult.confidence && consultationResult.confidence < 0.6)) {
-      console.log(`[Analyze v2] 신뢰도 낮음 - 자동 상담 결과 생성 스킵`);
+      fnLog.debug('신뢰도 낮음 - 자동 상담 결과 생성 스킵', { callLogId });
       return;
     }
 
@@ -546,7 +551,7 @@ async function createAutoConsultation(
     });
 
     if (existingConsultation) {
-      console.log(`[Analyze v2] 이미 상담 결과 존재 - 스킵 (callLogId: ${callLogId})`);
+      fnLog.debug('이미 상담 결과 존재 - 스킵', { callLogId });
       return;
     }
 
@@ -583,7 +588,7 @@ async function createAutoConsultation(
 
     await db.collection('consultations_v2').insertOne(newConsultation);
 
-    console.log(`[Analyze v2] 자동 상담 결과 생성: ${patientId}, 상태: ${status}`);
+    fnLog.info('자동 상담 결과 생성', { patientId, callLogId, status });
 
     // 동의인 경우 환자 상태 업데이트
     if (status === 'agreed') {
@@ -597,10 +602,10 @@ async function createAutoConsultation(
           },
         }
       );
-      console.log(`[Analyze v2] 환자 상태 변경: reserved (동의)`);
+      fnLog.info('환자 상태 변경: reserved (동의)', { patientId, callLogId });
     }
   } catch (error) {
-    console.error('[Analyze v2] 자동 상담 결과 생성 오류:', error);
+    fnLog.error('자동 상담 결과 생성 오류', error, { patientId, callLogId });
     // 오류가 발생해도 전체 프로세스는 중단하지 않음
   }
 }

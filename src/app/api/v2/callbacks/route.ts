@@ -9,8 +9,10 @@ import type { CallbackV2, CallbackType, CallbackStatus } from '@/types/v2';
 import { verifyApiToken, unauthorizedResponse } from '@/utils/apiAuth';
 import { validateBody } from '@/lib/validations/validate';
 import { createCallbackSchema, updateCallbackSchema } from '@/lib/validations/schemas';
+import { createRouteLogger } from '@/lib/logger';
 
 export async function GET(request: NextRequest) {
+  const log = createRouteLogger('/api/v2/callbacks', 'GET');
   try {
     const authUser = verifyApiToken(request);
     if (!authUser) return unauthorizedResponse();
@@ -209,7 +211,7 @@ export async function GET(request: NextRequest) {
       },
     });
   } catch (error) {
-    console.error('[Callbacks API] GET 오류:', error);
+    log.error('GET 오류', error);
     return NextResponse.json(
       { success: false, error: 'Internal server error' },
       { status: 500 }
@@ -219,6 +221,7 @@ export async function GET(request: NextRequest) {
 
 // POST - 콜백 생성
 export async function POST(request: NextRequest) {
+  const log = createRouteLogger('/api/v2/callbacks', 'POST');
   try {
     const authUser = verifyApiToken(request);
     if (!authUser) return unauthorizedResponse();
@@ -264,7 +267,7 @@ export async function POST(request: NextRequest) {
       },
     });
   } catch (error) {
-    console.error('[Callbacks API] POST 오류:', error);
+    log.error('POST 오류', error);
     return NextResponse.json(
       { success: false, error: 'Internal server error' },
       { status: 500 }
@@ -274,6 +277,7 @@ export async function POST(request: NextRequest) {
 
 // PATCH - 콜백 상태 업데이트
 export async function PATCH(request: NextRequest) {
+  const log = createRouteLogger('/api/v2/callbacks', 'PATCH');
   try {
     const authUser = verifyApiToken(request);
     if (!authUser) return unauthorizedResponse();
@@ -384,7 +388,7 @@ export async function PATCH(request: NextRequest) {
       { status: 404 }
     );
   } catch (error) {
-    console.error('[Callbacks API] PATCH 오류:', error);
+    log.error('PATCH 오류', error);
     return NextResponse.json(
       { success: false, error: 'Internal server error' },
       { status: 500 }
@@ -394,6 +398,7 @@ export async function PATCH(request: NextRequest) {
 
 // DELETE - 콜백 삭제
 export async function DELETE(request: NextRequest) {
+  const log = createRouteLogger('/api/v2/callbacks', 'DELETE');
   try {
     const authUser = verifyApiToken(request);
     if (!authUser) return unauthorizedResponse();
@@ -427,7 +432,7 @@ export async function DELETE(request: NextRequest) {
       message: 'Callback deleted',
     });
   } catch (error) {
-    console.error('[Callbacks API] DELETE 오류:', error);
+    log.error('DELETE 오류', error);
     return NextResponse.json(
       { success: false, error: 'Internal server error' },
       { status: 500 }

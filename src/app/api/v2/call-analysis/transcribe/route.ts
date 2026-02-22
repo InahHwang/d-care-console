@@ -4,6 +4,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { connectToDatabase } from '@/utils/mongodb';
 import { ObjectId } from 'mongodb';
+import { createRouteLogger } from '@/lib/logger';
 
 const CLINIC_ID = process.env.DEFAULT_CLINIC_ID || 'default';
 
@@ -27,8 +28,8 @@ async function getRecordingBase64(
 }
 
 // URL에서 녹음 파일 다운로드 (V1과 동일한 fallback)
-async function downloadRecording(url: string): Promise<Buffer> {
-  console.log(`[STT v2] 녹음파일 다운로드: ${url}`);
+async function downloadRecording(url: string, log: ReturnType<typeof createRouteLogger>): Promise<Buffer> {
+  log.debug('녹음파일 다운로드', { url });
 
   const response = await fetch(url);
   if (!response.ok) {
@@ -74,6 +75,7 @@ async function transcribeWithWhisper(audioBuffer: Buffer): Promise<{ text: strin
 }
 
 export async function POST(request: NextRequest) {
+  const log = createRouteLogger('/api/v2/call-analysis/transcribe', 'POST');
   let callLogIdForError: string | null = null;
 
   try {
@@ -81,12 +83,10 @@ export async function POST(request: NextRequest) {
     const { callLogId } = body;
     callLogIdForError = callLogId;
 
-    console.log('='.repeat(50));
-    console.log(`[STT v2] 변환 시작: ${callLogId}`);
-    console.log('='.repeat(50));
+    log.info('변환 시작', { callLogId });
 
     if (!callLogId) {
-      console.log('[STT v2] 오류: callLogId가 없음');
+      log.warn('callLogId가 없음');
       return NextResponse.json(
         { success: false, error: 'callLogId required' },
         { status: 400 }
@@ -95,7 +95,7 @@ export async function POST(request: NextRequest) {
 
     // ObjectId 유효성 검사
     if (!ObjectId.isValid(callLogId)) {
-      console.log(`[STT v2] 오류: 유효하지 않은 callLogId 형식: ${callLogId}`);
+      log.warn('유효하지 않은 callLogId 형식', { callLogId });
       return NextResponse.json(
         { success: false, error: 'Invalid callLogId format' },
         { status: 400 }
@@ -104,7 +104,7 @@ export async function POST(request: NextRequest) {
 
     const { db } = await connectToDatabase();
     const now = new Date().toISOString();
-    console.log('[STT v2] DB 연결 성공');
+    log.debug('DB 연결 성공', { callLogId });
 
     // 상태 업데이트: STT 처리 중
     await db.collection('callLogs_v2').updateOne(
@@ -116,7 +116,7 @@ export async function POST(request: NextRequest) {
         },
       }
     );
-    console.log('[STT v2] 상태 업데이트: processing');
+    log.debug('상태 업데이트: processing', { callLogId });
 
     // 통화기록에서 recordingUrl 확인
     const callLog = await db.collection('callLogs_v2').findOne({
@@ -125,7 +125,7 @@ export async function POST(request: NextRequest) {
     });
 
     if (!callLog) {
-      console.log('[STT v2] 통화기록을 찾을 수 없음');
+      log.warn('통화기록을 찾을 수 없음', { callLogId });
       return NextResponse.json(
         { success: false, error: 'Call log not found' },
         { status: 404 }
@@ -136,29 +136,29 @@ export async function POST(request: NextRequest) {
     let audioBuffer: Buffer | null = null;
 
     // 1. MongoDB에서 base64 데이터 확인
-    console.log(`[STT v2] 녹음 데이터 조회 중: callLogId=${callLogId}`);
+    log.debug('녹음 데이터 조회 중', { callLogId });
     const base64Data = await getRecordingBase64(db, callLogId);
 
     if (base64Data) {
-      console.log(`[STT v2] base64 데이터 사용: ${base64Data.length} chars`);
+      log.debug('base64 데이터 사용', { callLogId, base64Length: base64Data.length });
       audioBuffer = Buffer.from(base64Data, 'base64');
-      console.log(`[STT v2] base64 디코딩 완료: ${audioBuffer.length} bytes`);
+      log.debug('base64 디코딩 완료', { callLogId, bufferBytes: audioBuffer.length });
     }
 
     // 2. base64가 없으면 URL에서 다운로드 시도 (V1과 동일한 fallback)
     if (!audioBuffer && callLog.recordingUrl) {
-      console.log(`[STT v2] base64 없음, URL에서 다운로드 시도: ${callLog.recordingUrl}`);
+      log.debug('base64 없음, URL에서 다운로드 시도', { callLogId, recordingUrl: callLog.recordingUrl });
       try {
-        audioBuffer = await downloadRecording(callLog.recordingUrl);
-        console.log(`[STT v2] URL 다운로드 완료: ${audioBuffer.length} bytes`);
+        audioBuffer = await downloadRecording(callLog.recordingUrl, log);
+        log.debug('URL 다운로드 완료', { callLogId, bufferBytes: audioBuffer.length });
       } catch (dlError) {
-        console.error('[STT v2] URL 다운로드 실패:', dlError);
+        log.error('URL 다운로드 실패', dlError, { callLogId });
       }
     }
 
     // 3. 녹음 데이터가 없으면 실패
     if (!audioBuffer) {
-      console.log('[STT v2] 녹음 데이터 없음! base64도 없고 URL도 없거나 다운로드 실패');
+      log.warn('녹음 데이터 없음 (base64/URL 모두 없음)', { callLogId });
 
       // 디버깅: callRecordings_v2 컬렉션에서 모든 레코드 확인
       const allRecordings = await db.collection('callRecordings_v2')
@@ -166,9 +166,11 @@ export async function POST(request: NextRequest) {
         .sort({ createdAt: -1 })
         .limit(5)
         .toArray();
-      console.log(`[STT v2] 최근 녹음 레코드 ${allRecordings.length}개:`,
-        allRecordings.map(r => ({ callLogId: r.callLogId, hasData: !!r.recordingBase64 }))
-      );
+      log.debug('최근 녹음 레코드 조회', {
+        callLogId,
+        count: allRecordings.length,
+        records: allRecordings.map(r => ({ callLogId: r.callLogId, hasData: !!r.recordingBase64 })),
+      });
 
       await db.collection('callLogs_v2').updateOne(
         { _id: new ObjectId(callLogId) },
@@ -186,13 +188,13 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    console.log(`[STT v2] 오디오 버퍼 크기: ${audioBuffer.length} bytes`);
+    log.debug('오디오 버퍼 크기', { callLogId, bufferBytes: audioBuffer.length });
 
     // Whisper API 호출
-    console.log('[STT v2] Whisper API 호출 중...');
+    log.info('Whisper API 호출 중', { callLogId });
     const transcription = await transcribeWithWhisper(audioBuffer);
-    console.log(`[STT v2] Whisper 변환 완료: ${transcription.text.length} chars`);
-    console.log(`[STT v2] 변환 텍스트 일부: ${transcription.text.substring(0, 100)}...`);
+    log.info('Whisper 변환 완료', { callLogId, textLength: transcription.text.length });
+    log.debug('변환 텍스트 일부', { callLogId, preview: transcription.text.substring(0, 100) });
 
     // DB 업데이트 (aiAnalysis가 null이어도 처리 가능하도록)
     await db.collection('callLogs_v2').updateOne(
@@ -211,7 +213,7 @@ export async function POST(request: NextRequest) {
         }
       ]
     );
-    console.log('[STT v2] transcript 저장 완료');
+    log.info('transcript 저장 완료', { callLogId });
 
     return NextResponse.json({
       success: true,
@@ -220,8 +222,7 @@ export async function POST(request: NextRequest) {
       duration: transcription.duration,
     });
   } catch (error) {
-    console.error('[STT v2] 오류 발생:', error);
-    console.error('[STT v2] 오류 스택:', error instanceof Error ? error.stack : 'N/A');
+    log.error('STT 오류 발생', error, { callLogId: callLogIdForError });
 
     // 실패 상태 업데이트 (aiAnalysis가 null이어도 처리 가능하도록)
     if (callLogIdForError && ObjectId.isValid(callLogIdForError)) {
@@ -246,7 +247,7 @@ export async function POST(request: NextRequest) {
           ]
         );
       } catch (dbError) {
-        console.error('[STT v2] 실패 상태 업데이트 오류:', dbError);
+        log.error('실패 상태 업데이트 오류', dbError, { callLogId: callLogIdForError });
       }
     }
 

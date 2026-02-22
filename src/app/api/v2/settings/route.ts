@@ -6,6 +6,8 @@ import { connectToDatabase } from '@/utils/mongodb';
 import { verifyApiToken, unauthorizedResponse } from '@/utils/apiAuth';
 import { validateBody } from '@/lib/validations/validate';
 import { updateSettingsSchema } from '@/lib/validations/schemas';
+import { createRouteLogger } from '@/lib/logger';
+import { withCache, cache } from '@/lib/cache';
 
 interface Settings {
   clinicId: string;
@@ -58,35 +60,40 @@ const DEFAULT_SETTINGS: Omit<Settings, 'clinicId' | 'updatedAt'> = {
 };
 
 export async function GET(request: NextRequest) {
+  const log = createRouteLogger('/api/v2/settings', 'GET');
   try {
     const authUser = verifyApiToken(request);
     if (!authUser) return unauthorizedResponse();
 
-    const { db } = await connectToDatabase();
-
-    // 현재 설정 조회
     const clinicId = authUser.clinicId;
-    let settings: Settings | null = await db.collection<Settings>('settings_v2').findOne({ clinicId });
 
-    if (!settings) {
-      // 기본 설정 생성
-      const now = new Date().toISOString();
-      const defaultSettings: Settings = {
-        clinicId,
-        ...DEFAULT_SETTINGS,
-        updatedAt: now,
-      };
+    const settings = await withCache(
+      `settings:${clinicId}`,
+      5 * 60 * 1000, // 5분 TTL
+      async () => {
+        const { db } = await connectToDatabase();
+        let s: Settings | null = await db.collection<Settings>('settings_v2').findOne({ clinicId });
 
-      await db.collection('settings_v2').insertOne(defaultSettings);
-      settings = defaultSettings;
-    }
+        if (!s) {
+          const now = new Date().toISOString();
+          const defaultSettings: Settings = {
+            clinicId,
+            ...DEFAULT_SETTINGS,
+            updatedAt: now,
+          };
+          await db.collection('settings_v2').insertOne(defaultSettings);
+          s = defaultSettings;
+        }
+        return s;
+      },
+    );
 
     return NextResponse.json({
       success: true,
       data: settings,
     });
   } catch (error) {
-    console.error('[Settings API] GET 오류:', error);
+    log.error('GET 오류', error);
     return NextResponse.json(
       { success: false, error: 'Internal server error' },
       { status: 500 }
@@ -95,6 +102,7 @@ export async function GET(request: NextRequest) {
 }
 
 export async function PATCH(request: NextRequest) {
+  const log = createRouteLogger('/api/v2/settings', 'PATCH');
   try {
     const authUser = verifyApiToken(request);
     if (!authUser) return unauthorizedResponse();
@@ -127,12 +135,15 @@ export async function PATCH(request: NextRequest) {
       { returnDocument: 'after', upsert: true }
     );
 
+    // 캐시 무효화
+    cache.invalidate(`settings:${clinicId}`);
+
     return NextResponse.json({
       success: true,
       data: result,
     });
   } catch (error) {
-    console.error('[Settings API] PATCH 오류:', error);
+    log.error('PATCH 오류', error);
     return NextResponse.json(
       { success: false, error: 'Internal server error' },
       { status: 500 }

@@ -1,7 +1,7 @@
 # D-Care V2 사업화 기술 보완 로드맵
 
 > 작성일: 2026-02-15
-> 현재 상용화 준비도: 7/10
+> 현재 상용화 준비도: 8/10
 
 ---
 
@@ -74,7 +74,7 @@
 - [x] 개발/테스트/디버그 라우트 프로덕션 차단
 - [x] API 에러 응답에서 내부 정보 노출 제거
 - [x] zod 등으로 API 요청 body 스키마 검증 추가
-- [ ] Rate Limiting 미들웨어 적용 (특히 로그인 API)
+- [x] Rate Limiting 미들웨어 적용 (특히 로그인 API)
 - [ ] 토큰 저장을 httpOnly 쿠키로 전환 검토
 
 ---
@@ -105,10 +105,10 @@
 - 프로덕션 에러 알림 없음
 
 **해결 방안**:
-- [ ] Sentry 연동 (프론트엔드 + API)
-- [ ] API 에러 응답 포맷 표준화: `{ success: boolean, data?: any, error?: { code: string, message: string } }`
-- [ ] React Error Boundary 추가 (`src/app/v2/layout.tsx`)
-- [ ] 구조화된 로깅 라이브러리 도입 (pino 등)
+- [x] Sentry 연동 (프론트엔드 + API)
+- [x] API 에러 응답 포맷 표준화: `{ success: boolean, data?: any, error?: { code: string, message: string } }`
+- [x] React Error Boundary 추가 (`src/app/v2/layout.tsx`)
+- [x] 구조화된 로깅 (`src/lib/logger.ts` — JSON 구조, Sentry 연동, 15개 핵심 라우트 적용)
 
 ---
 
@@ -230,7 +230,7 @@ Phase 4 - 확장 (약 1주)
 | 3 | CI/CD (GitHub Actions) | ✅ 완료 | 2026-02-22 |
 | 3 | API 문서 (Swagger UI) | ✅ 완료 | 2026-02-22 |
 | 3 | API 에러 응답 표준화 | ✅ 완료 | 2026-02-22 |
-| 4 | Rate Limiting | ⬜ 미착수 | - |
-| 4 | 구조화된 로깅 | ⬜ 미착수 | - |
-| 4 | 캐싱 레이어 | ⬜ 미착수 | - |
-| 4 | 비동기 작업 큐 | ⬜ 미착수 | - |
+| 4 | Rate Limiting | ✅ 완료 | 2026-02-22 |
+| 4 | 구조화된 로깅 | ✅ 완료 | 2026-02-22 |
+| 4 | 캐싱 레이어 | ✅ 완료 | 2026-02-22 |
+| 4 | 파이프라인 안정화 (retry) | ✅ 완료 | 2026-02-22 |

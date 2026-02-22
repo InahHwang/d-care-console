@@ -6,6 +6,7 @@ import { PatientStatus, Temperature, Journey } from '@/types/v2';
 import { verifyApiToken, unauthorizedResponse } from '@/utils/apiAuth';
 import { validateBody } from '@/lib/validations/validate';
 import { createPatientSchema } from '@/lib/validations/schemas';
+import { createRouteLogger } from '@/lib/logger';
 
 export const dynamic = 'force-dynamic';
 
@@ -80,6 +81,7 @@ function getPeriodStartDate(period: string | null): Date | null {
 }
 
 export async function GET(request: NextRequest) {
+  const log = createRouteLogger('/api/v2/patients', 'GET');
   try {
     const authUser = verifyApiToken(request);
     if (!authUser) return unauthorizedResponse();
@@ -406,7 +408,7 @@ export async function GET(request: NextRequest) {
       urgentStats,
     });
   } catch (error) {
-    console.error('Error fetching patients:', error);
+    log.error('Failed to fetch patients', error);
     return NextResponse.json(
       { success: false, error: 'Failed to fetch patients' },
       { status: 500 }
@@ -415,6 +417,7 @@ export async function GET(request: NextRequest) {
 }
 
 export async function POST(request: NextRequest) {
+  const log = createRouteLogger('/api/v2/patients', 'POST');
   try {
     const authUser = verifyApiToken(request);
     if (!authUser) return unauthorizedResponse();
@@ -518,7 +521,7 @@ export async function POST(request: NextRequest) {
       patientId: patientId,
     });
   } catch (error) {
-    console.error('Error creating patient:', error);
+    log.error('Failed to create patient', error);
     return NextResponse.json(
       { success: false, error: 'Failed to create patient' },
       { status: 500 }
