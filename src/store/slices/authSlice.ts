@@ -39,7 +39,13 @@ const authSlice = createSlice({
       state.refreshToken = action.payload.refreshToken || null;
       state.error = null;
       state.isInitialized = true;
-      // 토큰은 httpOnly 쿠키로 서버가 관리 — localStorage 저장 불필요
+      // localStorage 폴백 (httpOnly 쿠키 전환 완료 시 제거 예정)
+      if (typeof window !== 'undefined') {
+        localStorage.setItem('token', action.payload.token);
+        if (action.payload.refreshToken) {
+          localStorage.setItem('refreshToken', action.payload.refreshToken);
+        }
+      }
     },
     loginFailure: (state, action: PayloadAction<string>) => {
       state.isLoading = false;
@@ -57,7 +63,10 @@ const authSlice = createSlice({
       state.error = null;
       state.isLoading = false;
       state.isInitialized = true;
-      // 쿠키 삭제는 서버의 DELETE /api/auth/login 에서 처리
+      if (typeof window !== 'undefined') {
+        localStorage.removeItem('token');
+        localStorage.removeItem('refreshToken');
+      }
     },
     restoreAuth: (state, action: PayloadAction<{ user: User; token: string; refreshToken?: string }>) => {
       state.isAuthenticated = true;

@@ -182,7 +182,12 @@ export async function POST(request: NextRequest) {
       message: '로그인 성공'
     });
 
-    return setAuthCookies(response, token, refreshToken);
+    try {
+      return setAuthCookies(response, token, refreshToken);
+    } catch (cookieError) {
+      log.warn('쿠키 설정 실패, JSON 응답만 반환', { error: String(cookieError) });
+      return response;
+    }
     
   } catch (error: unknown) {
     log.error('로그인 처리 중 오류 발생', error);

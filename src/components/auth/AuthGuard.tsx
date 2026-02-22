@@ -6,6 +6,7 @@ import { useEffect, useState } from 'react';
 import { useRouter, usePathname } from 'next/navigation';
 import { useAppDispatch, useAppSelector } from '@/hooks/reduxHooks';
 import { restoreAuth, logout, initializeAuth, initializeComplete } from '@/store/slices/authSlice';
+import jwt from 'jsonwebtoken';
 
 interface AuthGuardProps {
   children: React.ReactNode;
@@ -44,49 +45,98 @@ export default function AuthGuard({
           return;
         }
 
-        // /api/auth/me 호출 → 쿠키 기반 인증 확인 + 자동 갱신
-        const res = await fetch('/api/auth/me', {
-          credentials: 'include',
-        });
-
-        if (!res.ok) {
-          dispatch(initializeComplete());
-          router.push(fallbackPath);
-          return;
-        }
-
-        const data = await res.json();
-        if (!data.success || !data.user) {
-          dispatch(initializeComplete());
-          router.push(fallbackPath);
-          return;
-        }
-
-        const restoredUser = {
-          _id: data.user.id,
-          id: data.user.id,
-          email: data.user.email || '',
-          username: data.user.username || '',
-          name: data.user.name || 'Unknown User',
-          role: data.user.role || 'staff',
-          isActive: true,
-          createdAt: new Date().toISOString(),
-          updatedAt: new Date().toISOString(),
-          clinicId: data.user.clinicId || 'default',
-        };
-
-        // 권한 검사
-        const authResult = checkAuthorization(restoredUser);
-        if (!authResult.authorized) {
-          if (authResult.redirect) {
-            router.push(authResult.redirect);
+        // 1차: /api/auth/me (쿠키 기반)
+        let authenticated = false;
+        try {
+          const res = await fetch('/api/auth/me', { credentials: 'include' });
+          if (res.ok) {
+            const data = await res.json();
+            if (data.success && data.user) {
+              const restoredUser = {
+                _id: data.user.id, id: data.user.id,
+                email: data.user.email || '', username: data.user.username || '',
+                name: data.user.name || 'Unknown User', role: data.user.role || 'staff',
+                isActive: true, createdAt: new Date().toISOString(),
+                updatedAt: new Date().toISOString(), clinicId: data.user.clinicId || 'default',
+              };
+              const authResult = checkAuthorization(restoredUser);
+              if (!authResult.authorized) {
+                if (authResult.redirect) router.push(authResult.redirect);
+                dispatch(initializeComplete());
+                return;
+              }
+              dispatch(restoreAuth({ user: restoredUser, token: 'cookie-based' }));
+              authenticated = true;
+            }
           }
-          dispatch(initializeComplete());
-          return;
-        }
+        } catch { /* 쿠키 인증 실패 → localStorage 폴백 */ }
 
-        // Redux 상태 복원 (토큰은 쿠키에 있으므로 placeholder)
-        dispatch(restoreAuth({ user: restoredUser, token: 'cookie-based' }));
+        // 2차: localStorage 폴백 (쿠키 전환 완료 시 제거 예정)
+        if (!authenticated) {
+          let token = localStorage.getItem('token');
+          if (!token) {
+            dispatch(initializeComplete());
+            router.push(fallbackPath);
+            return;
+          }
+
+          let decoded = jwt.decode(token) as any;
+          if (!decoded) {
+            localStorage.removeItem('token');
+            dispatch(initializeComplete());
+            router.push(fallbackPath);
+            return;
+          }
+
+          // 토큰 만료 → refresh 시도
+          const currentTime = Date.now() / 1000;
+          if (decoded.exp < currentTime) {
+            const refreshToken = localStorage.getItem('refreshToken');
+            if (refreshToken) {
+              try {
+                const res = await fetch('/api/auth/refresh', {
+                  method: 'POST', headers: { 'Content-Type': 'application/json' },
+                  credentials: 'include',
+                  body: JSON.stringify({ refreshToken }),
+                });
+                const data = await res.json();
+                if (res.ok && data.success && data.token) {
+                  localStorage.setItem('token', data.token);
+                  if (data.refreshToken) localStorage.setItem('refreshToken', data.refreshToken);
+                  token = data.token;
+                  decoded = jwt.decode(token!) as any;
+                } else { throw new Error('Refresh failed'); }
+              } catch {
+                localStorage.removeItem('token');
+                localStorage.removeItem('refreshToken');
+                dispatch(initializeComplete());
+                router.push(fallbackPath);
+                return;
+              }
+            } else {
+              localStorage.removeItem('token');
+              dispatch(initializeComplete());
+              router.push(fallbackPath);
+              return;
+            }
+          }
+
+          const restoredUser = {
+            _id: decoded.id || 'unknown', id: decoded.id || 'unknown',
+            email: decoded.email || '', username: decoded.username || '',
+            name: decoded.name || 'Unknown User', role: decoded.role || 'staff',
+            isActive: true, createdAt: new Date().toISOString(),
+            updatedAt: new Date().toISOString(), clinicId: decoded.clinicId || 'default',
+          };
+          const authResult = checkAuthorization(restoredUser);
+          if (!authResult.authorized) {
+            if (authResult.redirect) router.push(authResult.redirect);
+            dispatch(initializeComplete());
+            return;
+          }
+          const storedRefreshToken = localStorage.getItem('refreshToken') || undefined;
+          dispatch(restoreAuth({ user: restoredUser, token: token!, refreshToken: storedRefreshToken }));
+        }
 
       } catch (error) {
         console.error('AuthGuard: 인증 초기화 오류:', error);

@@ -28,8 +28,14 @@ const api = axios.create({
 // 요청 인터셉터
 api.interceptors.request.use(
   (config) => {
-    // httpOnly 쿠키가 withCredentials로 자동 전송됨
-    // Authorization 헤더 주입 불필요 (서버에서 쿠키 폴백 지원)
+    // localStorage 토큰을 Authorization 헤더에 주입 (쿠키 전환 완료 시 제거 예정)
+    // httpOnly 쿠키도 withCredentials로 자동 전송됨 (듀얼 인증)
+    if (typeof window !== 'undefined') {
+      const token = localStorage.getItem('token');
+      if (token) {
+        config.headers.Authorization = `Bearer ${token}`;
+      }
+    }
 
     // 디버깅 로그 (개발 환경에서만)
     if (process.env.NODE_ENV === 'development') {
@@ -97,18 +103,36 @@ api.interceptors.response.use(
       isRefreshing = true;
 
       try {
-        // /api/auth/me 호출 → 쿠키 기반 자동 갱신
-        const { data } = await axios.get('/api/auth/me', { withCredentials: true });
+        // 1차: /api/auth/me 호출 → 쿠키 기반 자동 갱신
+        try {
+          const { data } = await axios.get('/api/auth/me', { withCredentials: true });
+          if (data.success) {
+            processQueue(null, 'refreshed');
+            return api(originalRequest);
+          }
+        } catch { /* 쿠키 갱신 실패 → localStorage 폴백 */ }
 
-        if (data.success) {
-          processQueue(null, 'refreshed');
-          return api(originalRequest); // 쿠키가 자동으로 갱신됨
-        } else {
-          throw new Error('Session refresh failed');
+        // 2차: localStorage refreshToken 폴백 (쿠키 전환 완료 시 제거 예정)
+        if (typeof window !== 'undefined') {
+          const refreshToken = localStorage.getItem('refreshToken');
+          if (refreshToken) {
+            const { data } = await axios.post('/api/auth/refresh', { refreshToken }, { withCredentials: true });
+            if (data.success && data.token) {
+              localStorage.setItem('token', data.token);
+              if (data.refreshToken) localStorage.setItem('refreshToken', data.refreshToken);
+              originalRequest.headers.Authorization = `Bearer ${data.token}`;
+              processQueue(null, data.token);
+              return api(originalRequest);
+            }
+          }
         }
+
+        throw new Error('Session refresh failed');
       } catch (refreshError) {
         processQueue(refreshError, null);
         if (typeof window !== 'undefined') {
+          localStorage.removeItem('token');
+          localStorage.removeItem('refreshToken');
           window.location.href = '/login';
         }
         return Promise.reject(refreshError);
