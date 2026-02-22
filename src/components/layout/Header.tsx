@@ -43,7 +43,7 @@ export default function Header() {
       if (user) {
         await logActivity(
           'logout',
-          'system', 
+          'system',
           user._id || '',
           user.name || '',
           {
@@ -58,9 +58,16 @@ export default function Header() {
     } catch (error) {
       console.error('Failed to log logout activity:', error);
     } finally {
-      // 로그아웃 처리
+      // 서버에 로그아웃 요청 (쿠키 삭제 + refreshToken 폐기)
+      try {
+        await fetch('/api/auth/login', {
+          method: 'DELETE',
+          credentials: 'include',
+        })
+      } catch {
+        // 서버 호출 실패해도 클라이언트 로그아웃 진행
+      }
       dispatch(logout())
-      localStorage.removeItem('token')
       router.push('/login')
     }
   }

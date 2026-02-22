@@ -6,6 +6,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { waitUntil } from '@vercel/functions';
 import { connectToDatabase, getCallLogsCollection } from '@/utils/mongodb';
 import { ObjectId } from 'mongodb';
+import { withDeprecation } from '@/lib/deprecation';
 
 // 통화 녹취 분석 상태
 export type AnalysisStatus = 'pending' | 'stt_processing' | 'stt_complete' | 'analyzing' | 'complete' | 'failed';
@@ -447,7 +448,7 @@ async function saveRecordingToV2(
 }
 
 // GET - 녹취 분석 목록 조회 또는 단일 조회
-export async function GET(request: NextRequest) {
+async function _GET(request: NextRequest) {
   try {
     const { searchParams } = new URL(request.url);
     const analysisId = searchParams.get('analysisId');
@@ -538,7 +539,7 @@ export async function GET(request: NextRequest) {
 }
 
 // POST - 녹취 완료 이벤트 수신 (CTI Bridge에서 호출)
-export async function POST(request: NextRequest) {
+async function _POST(request: NextRequest) {
   try {
     const body = await request.json();
     const {
@@ -717,7 +718,7 @@ export async function POST(request: NextRequest) {
 }
 
 // PATCH - pending 상태 레코드를 failed로 업데이트
-export async function PATCH(request: NextRequest) {
+async function _PATCH(request: NextRequest) {
   try {
     const body = await request.json();
     const { updatePendingToFailed, errorMessage } = body;
@@ -767,3 +768,8 @@ export async function PATCH(request: NextRequest) {
     );
   }
 }
+
+const deprecationOpts = { v1Route: '/api/call-analysis/recording', v2Route: '/api/v2/call-analysis/recording' };
+export const GET = withDeprecation(_GET, deprecationOpts);
+export const POST = withDeprecation(_POST, deprecationOpts);
+export const PATCH = withDeprecation(_PATCH, deprecationOpts);

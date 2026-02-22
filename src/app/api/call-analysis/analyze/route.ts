@@ -4,6 +4,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { connectToDatabase } from '@/utils/mongodb';
 import { ObjectId } from 'mongodb';
+import { withDeprecation } from '@/lib/deprecation';
 
 // AI 분석 결과 타입
 interface AnalysisResult {
@@ -137,7 +138,7 @@ async function analyzeWithOpenAI(transcript: string): Promise<AnalysisResult> {
 }
 
 // POST - AI 분석 요청
-export async function POST(request: NextRequest) {
+async function _POST(request: NextRequest) {
   try {
     const body = await request.json();
     const { analysisId } = body;
@@ -285,7 +286,7 @@ async function updatePatientWithAnalysis(
 }
 
 // GET - 특정 분석 결과 조회
-export async function GET(request: NextRequest) {
+async function _GET(request: NextRequest) {
   try {
     const { searchParams } = new URL(request.url);
     const analysisId = searchParams.get('analysisId');
@@ -328,3 +329,7 @@ export async function GET(request: NextRequest) {
     );
   }
 }
+
+const deprecationOpts = { v1Route: '/api/call-analysis/analyze', v2Route: '/api/v2/call-analysis/analyze' };
+export const GET = withDeprecation(_GET, deprecationOpts);
+export const POST = withDeprecation(_POST, deprecationOpts);

@@ -4,6 +4,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { connectToDatabase } from '@/utils/mongodb';
 import { ObjectId } from 'mongodb';
+import { withDeprecation } from '@/lib/deprecation';
 
 // 소개 상태 타입
 export type ReferralStatus = 'registered' | 'visited' | 'treating' | 'completed';
@@ -30,7 +31,7 @@ export interface Referral {
 }
 
 // GET - 소개 기록 조회
-export async function GET(request: NextRequest) {
+async function _GET(request: NextRequest) {
   try {
     const { searchParams } = new URL(request.url);
     const type = searchParams.get('type'); // 'list' | 'stats' | 'ranking' | 'detail'
@@ -177,7 +178,7 @@ export async function GET(request: NextRequest) {
 }
 
 // POST - 소개 기록 생성
-export async function POST(request: NextRequest) {
+async function _POST(request: NextRequest) {
   try {
     const body = await request.json();
     const {
@@ -252,7 +253,7 @@ export async function POST(request: NextRequest) {
 }
 
 // PUT - 소개 기록 수정
-export async function PUT(request: NextRequest) {
+async function _PUT(request: NextRequest) {
   try {
     const body = await request.json();
     const { id, action, ...updateData } = body;
@@ -355,7 +356,7 @@ export async function PUT(request: NextRequest) {
 }
 
 // DELETE - 소개 기록 삭제
-export async function DELETE(request: NextRequest) {
+async function _DELETE(request: NextRequest) {
   try {
     const { searchParams } = new URL(request.url);
     const id = searchParams.get('id');
@@ -393,3 +394,9 @@ export async function DELETE(request: NextRequest) {
     );
   }
 }
+
+const deprecationOpts = { v1Route: '/api/referrals', v2Route: '/api/v2/referrals' };
+export const GET = withDeprecation(_GET, deprecationOpts);
+export const POST = withDeprecation(_POST, deprecationOpts);
+export const PUT = withDeprecation(_PUT, deprecationOpts);
+export const DELETE = withDeprecation(_DELETE, deprecationOpts);

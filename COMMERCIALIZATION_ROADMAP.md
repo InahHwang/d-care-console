@@ -1,7 +1,7 @@
 # D-Care V2 사업화 기술 보완 로드맵
 
 > 작성일: 2026-02-15
-> 현재 상용화 준비도: 8/10
+> 현재 상용화 준비도: 9/10
 
 ---
 
@@ -75,7 +75,7 @@
 - [x] API 에러 응답에서 내부 정보 노출 제거
 - [x] zod 등으로 API 요청 body 스키마 검증 추가
 - [x] Rate Limiting 미들웨어 적용 (특히 로그인 API)
-- [ ] 토큰 저장을 httpOnly 쿠키로 전환 검토
+- [x] 토큰 저장을 httpOnly 쿠키로 전환 (XSS 방어)
 
 ---
 
@@ -83,7 +83,7 @@
 
 ### 2.1 테스트 코드 전무
 
-**현황**: ~~테스트 파일 0개. jest.config 없음.~~ Jest 설정 완료, 핵심 테스트 30개 작성.
+**현황**: ~~테스트 파일 0개. jest.config 없음.~~ Jest 설정 완료, 유닛+통합 테스트 55개 작성.
 
 **해결 방안**:
 - [x] Jest + ts-jest 설정 (jest.config.js, tsconfig.test.json)
@@ -91,8 +91,8 @@
 - [x] 토큰 생성 테스트 (generateAccessToken, TokenPayload)
 - [x] 입력값 검증 테스트 (validateBody + Zod 스키마)
 - [x] CI에서 테스트 자동 실행 (GitHub Actions)
-- [ ] API 라우트 통합 테스트 (MongoDB mock 필요)
-- [ ] 멀티테넌시 데이터 격리 테스트
+- [x] API 라우트 통합 테스트 (patients, settings, login — MongoDB mock)
+- [x] 멀티테넌시 데이터 격리 테스트 (clinicId 격리 검증)
 
 ---
 
@@ -132,8 +132,9 @@
 **현황**: JWT 만료 1일, Refresh Token 없음. 동시 로그인 제한 없음.
 
 **해결 방안**:
-- [ ] Access Token (15분) + Refresh Token (7일) 이중 구조
-- [ ] Refresh Token DB 저장 및 관리
+- [x] Access Token (15분) + Refresh Token (7일) 이중 구조
+- [x] Refresh Token DB 저장 및 관리
+- [x] httpOnly 쿠키 기반 토큰 저장 + 자동 갱신 (/api/auth/me)
 - [ ] 동시 세션 수 제한 옵션
 - [ ] 강제 로그아웃 기능 (관리자용)
 
@@ -153,7 +154,7 @@
 - [x] API 에러 응답 포맷 통일 (`{ success: false, error: '...' }`)
 - [x] OpenAPI 3.0 스펙 수동 작성 + Swagger UI 페이지 (`/v2/api-docs`)
 - [ ] cursor 기반 페이지네이션 전환 검토
-- [ ] V1 API 단계적 폐기 계획
+- [x] V1 API 폐기 마킹 (Deprecation 헤더 + 8개 라우트)
 
 ---
 
@@ -226,7 +227,7 @@ Phase 4 - 확장 (약 1주)
 | 2 | Refresh Token | ✅ 완료 | 2026-02-22 |
 | 2 | DB 스키마 검증 | ✅ 완료 | 2026-02-22 |
 | 2 | API 응답 표준화 | ➡️ Phase 3 이동 | - |
-| 3 | 테스트 코드 (30개) | ✅ 완료 | 2026-02-22 |
+| 3 | 테스트 코드 (55개) | ✅ 완료 | 2026-02-22 |
 | 3 | CI/CD (GitHub Actions) | ✅ 완료 | 2026-02-22 |
 | 3 | API 문서 (Swagger UI) | ✅ 완료 | 2026-02-22 |
 | 3 | API 에러 응답 표준화 | ✅ 완료 | 2026-02-22 |
@@ -234,3 +235,6 @@ Phase 4 - 확장 (약 1주)
 | 4 | 구조화된 로깅 | ✅ 완료 | 2026-02-22 |
 | 4 | 캐싱 레이어 | ✅ 완료 | 2026-02-22 |
 | 4 | 파이프라인 안정화 (retry) | ✅ 완료 | 2026-02-22 |
+| 5 | V1 API 폐기 마킹 | ✅ 완료 | 2026-02-22 |
+| 5 | API 통합 테스트 (55개) | ✅ 완료 | 2026-02-22 |
+| 5 | httpOnly 쿠키 토큰 저장 | ✅ 완료 | 2026-02-22 |

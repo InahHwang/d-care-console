@@ -6,7 +6,6 @@ import { useEffect, useState } from 'react';
 import { useRouter, usePathname } from 'next/navigation';
 import { useAppDispatch, useAppSelector } from '@/hooks/reduxHooks';
 import { restoreAuth, logout, initializeAuth, initializeComplete } from '@/store/slices/authSlice';
-import jwt from 'jsonwebtoken';
 
 interface AuthGuardProps {
   children: React.ReactNode;
@@ -32,13 +31,8 @@ export default function AuthGuard({
 
   useEffect(() => {
     const initializeAuthState = async () => {
-      console.log('🔥 AuthGuard: 인증 초기화 시작');
-      
       // 이미 초기화되었다면 건너뛰기
-      if (isInitialized) {
-        console.log('🔥 AuthGuard: 이미 초기화됨, 건너뛰기');
-        return;
-      }
+      if (isInitialized) return;
 
       // 초기화 시작
       dispatch(initializeAuth());
@@ -46,99 +40,44 @@ export default function AuthGuard({
       try {
         // 공개 경로인 경우
         if (publicPaths.includes(pathname)) {
-          console.log('🔥 AuthGuard: 공개 경로 접근');
           dispatch(initializeComplete());
           return;
         }
 
-        let token = localStorage.getItem('token');
-        
-        if (!token) {
-          console.log('🔥 AuthGuard: 토큰 없음, 로그인 페이지로 이동');
-          dispatch(initializeComplete());
-          router.push(fallbackPath);
-          return;
-        }
-
-        // 토큰 유효성 검사
-        let decoded = jwt.decode(token) as any;
-        
-        if (!decoded) {
-          console.log('🔥 AuthGuard: 토큰 디코딩 실패');
-          localStorage.removeItem('token');
-          dispatch(initializeComplete());
-          router.push(fallbackPath);
-          return;
-        }
-
-        // 토큰 만료 확인 → 만료 시 refresh 시도
-        const currentTime = Date.now() / 1000;
-        if (decoded.exp < currentTime) {
-          console.log('🔥 AuthGuard: Access Token 만료됨, Refresh 시도');
-          const refreshToken = localStorage.getItem('refreshToken');
-
-          if (refreshToken) {
-            try {
-              const res = await fetch('/api/auth/refresh', {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ refreshToken }),
-              });
-              const data = await res.json();
-
-              if (res.ok && data.success && data.token) {
-                localStorage.setItem('token', data.token);
-                if (data.refreshToken) {
-                  localStorage.setItem('refreshToken', data.refreshToken);
-                }
-                // 새 토큰으로 재시도 (재귀 방지를 위해 직접 디코딩)
-                token = data.token as string;
-                decoded = jwt.decode(token!) as any;
-                console.log('🔥 AuthGuard: Token Refresh 성공');
-              } else {
-                throw new Error('Refresh failed');
-              }
-            } catch {
-              console.log('🔥 AuthGuard: Refresh 실패, 로그인 페이지로 이동');
-              localStorage.removeItem('token');
-              localStorage.removeItem('refreshToken');
-              dispatch(initializeComplete());
-              router.push(fallbackPath);
-              return;
-            }
-          } else {
-            localStorage.removeItem('token');
-            dispatch(initializeComplete());
-            router.push(fallbackPath);
-            return;
-          }
-        }
-
-        // 🔥 사용자 정보 복원 - 더 안전한 방식
-        const restoredUser = {
-          _id: decoded._id || decoded.id || 'unknown',
-          id: decoded.id || decoded._id || 'unknown',
-          email: decoded.email || '',
-          username: decoded.username || decoded.email?.split('@')[0] || '',
-          name: decoded.name || decoded.username || decoded.email?.split('@')[0] || 'Unknown User',
-          role: decoded.role || 'staff',
-          isActive: decoded.isActive !== undefined ? decoded.isActive : true,
-          createdAt: decoded.createdAt || new Date().toISOString(),
-          updatedAt: decoded.updatedAt || new Date().toISOString(),
-          lastLogin: decoded.lastLogin,
-          clinicId: decoded.clinicId || 'default',
-        };
-
-        console.log('🔥 AuthGuard: 사용자 정보 복원:', {
-          userId: restoredUser._id,
-          userName: restoredUser.name,
-          userRole: restoredUser.role
+        // /api/auth/me 호출 → 쿠키 기반 인증 확인 + 자동 갱신
+        const res = await fetch('/api/auth/me', {
+          credentials: 'include',
         });
+
+        if (!res.ok) {
+          dispatch(initializeComplete());
+          router.push(fallbackPath);
+          return;
+        }
+
+        const data = await res.json();
+        if (!data.success || !data.user) {
+          dispatch(initializeComplete());
+          router.push(fallbackPath);
+          return;
+        }
+
+        const restoredUser = {
+          _id: data.user.id,
+          id: data.user.id,
+          email: data.user.email || '',
+          username: data.user.username || '',
+          name: data.user.name || 'Unknown User',
+          role: data.user.role || 'staff',
+          isActive: true,
+          createdAt: new Date().toISOString(),
+          updatedAt: new Date().toISOString(),
+          clinicId: data.user.clinicId || 'default',
+        };
 
         // 권한 검사
         const authResult = checkAuthorization(restoredUser);
         if (!authResult.authorized) {
-          console.log('🔥 AuthGuard: 권한 검사 실패:', authResult.redirect);
           if (authResult.redirect) {
             router.push(authResult.redirect);
           }
@@ -146,13 +85,11 @@ export default function AuthGuard({
           return;
         }
 
-        // Redux 상태 복원
-        const storedRefreshToken = localStorage.getItem('refreshToken') || undefined;
-        dispatch(restoreAuth({ user: restoredUser, token, refreshToken: storedRefreshToken }));
+        // Redux 상태 복원 (토큰은 쿠키에 있으므로 placeholder)
+        dispatch(restoreAuth({ user: restoredUser, token: 'cookie-based' }));
 
       } catch (error) {
-        console.error('🔥 AuthGuard: 인증 초기화 오류:', error);
-        localStorage.removeItem('token');
+        console.error('AuthGuard: 인증 초기화 오류:', error);
         dispatch(initializeComplete());
         router.push(fallbackPath);
       }

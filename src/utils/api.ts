@@ -20,6 +20,7 @@ const api = axios.create({
   headers: {
     'Content-Type': 'application/json',
   },
+  withCredentials: true, // httpOnly 쿠키 자동 전송
   // 타임아웃 설정 (Vercel 환경 고려)
   timeout: 30000, // 30초
 });
@@ -27,14 +28,9 @@ const api = axios.create({
 // 요청 인터셉터
 api.interceptors.request.use(
   (config) => {
-    // 인증 토큰 설정 (JWT 사용 시)
-    if (typeof window !== 'undefined') {
-      const token = localStorage.getItem('token');
-      if (token) {
-        config.headers.Authorization = `Bearer ${token}`;
-      }
-    }
-    
+    // httpOnly 쿠키가 withCredentials로 자동 전송됨
+    // Authorization 헤더 주입 불필요 (서버에서 쿠키 폴백 지원)
+
     // 디버깅 로그 (개발 환경에서만)
     if (process.env.NODE_ENV === 'development') {
       console.log('🔄 API 요청:', {
@@ -44,7 +40,7 @@ api.interceptors.request.use(
         fullURL: `${config.baseURL}${config.url}`
       });
     }
-    
+
     return config;
   },
   (error) => {
@@ -79,10 +75,10 @@ api.interceptors.response.use(
   async (error) => {
     const originalRequest = error.config;
 
-    // 401 에러 + 아직 재시도하지 않은 요청 → Refresh Token으로 갱신 시도
+    // 401 에러 + 아직 재시도하지 않은 요청 → /api/auth/me로 쿠키 기반 갱신
     if (error.response?.status === 401 && !originalRequest._retry) {
-      // refresh 엔드포인트 자체가 실패한 경우는 재시도하지 않음
-      if (originalRequest.url?.includes('/auth/refresh')) {
+      // auth 엔드포인트 자체가 실패한 경우는 재시도하지 않음
+      if (originalRequest.url?.includes('/auth/me') || originalRequest.url?.includes('/auth/refresh')) {
         return Promise.reject(error);
       }
 
@@ -90,8 +86,7 @@ api.interceptors.response.use(
         // 이미 갱신 중이면 큐에 추가하고 대기
         return new Promise<string>((resolve, reject) => {
           failedQueue.push({ resolve, reject });
-        }).then(token => {
-          originalRequest.headers.Authorization = `Bearer ${token}`;
+        }).then(() => {
           return api(originalRequest);
         }).catch(err => {
           return Promise.reject(err);
@@ -102,33 +97,18 @@ api.interceptors.response.use(
       isRefreshing = true;
 
       try {
-        const refreshToken = typeof window !== 'undefined'
-          ? localStorage.getItem('refreshToken')
-          : null;
+        // /api/auth/me 호출 → 쿠키 기반 자동 갱신
+        const { data } = await axios.get('/api/auth/me', { withCredentials: true });
 
-        if (!refreshToken) throw new Error('No refresh token');
-
-        const { data } = await axios.post('/api/auth/refresh', { refreshToken });
-
-        if (data.success && data.token) {
-          localStorage.setItem('token', data.token);
-          if (data.refreshToken) {
-            localStorage.setItem('refreshToken', data.refreshToken);
-          }
-
-          api.defaults.headers.common.Authorization = `Bearer ${data.token}`;
-          processQueue(null, data.token);
-
-          originalRequest.headers.Authorization = `Bearer ${data.token}`;
-          return api(originalRequest);
+        if (data.success) {
+          processQueue(null, 'refreshed');
+          return api(originalRequest); // 쿠키가 자동으로 갱신됨
         } else {
-          throw new Error('Refresh failed');
+          throw new Error('Session refresh failed');
         }
       } catch (refreshError) {
         processQueue(refreshError, null);
         if (typeof window !== 'undefined') {
-          localStorage.removeItem('token');
-          localStorage.removeItem('refreshToken');
           window.location.href = '/login';
         }
         return Promise.reject(refreshError);

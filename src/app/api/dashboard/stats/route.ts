@@ -3,8 +3,9 @@
 
 import { NextRequest, NextResponse } from 'next/server';
 import { connectToDatabase } from '@/utils/mongodb';
+import { withDeprecation } from '@/lib/deprecation';
 
-export async function GET(request: NextRequest) {
+async function _GET(request: NextRequest) {
   try {
     const { db } = await connectToDatabase();
 
@@ -248,3 +249,5 @@ export async function GET(request: NextRequest) {
     );
   }
 }
+
+export const GET = withDeprecation(_GET, { v1Route: '/api/dashboard/stats', v2Route: '/api/v2/dashboard' });

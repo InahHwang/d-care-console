@@ -11,13 +11,15 @@ import {
   revokeRefreshToken,
   TokenPayload,
 } from '@/lib/auth/tokens';
+import { getRefreshTokenFromCookies, setAuthCookies } from '@/lib/auth/cookies';
 import { createRouteLogger } from '@/lib/logger';
 
 export async function POST(request: NextRequest) {
   const log = createRouteLogger('/api/auth/refresh', 'POST');
   try {
-    const body = await request.json();
-    const { refreshToken } = body;
+    // body 또는 쿠키에서 refreshToken 읽기
+    const body = await request.json().catch(() => ({}));
+    const refreshToken = body.refreshToken || getRefreshTokenFromCookies(request);
 
     if (!refreshToken) {
       return NextResponse.json(
@@ -68,7 +70,7 @@ export async function POST(request: NextRequest) {
       user.clinicId || 'default'
     );
 
-    return NextResponse.json({
+    const response = NextResponse.json({
       success: true,
       token: newAccessToken,
       refreshToken: newRefreshToken,
@@ -81,6 +83,8 @@ export async function POST(request: NextRequest) {
         clinicId: user.clinicId || 'default',
       },
     });
+
+    return setAuthCookies(response, newAccessToken, newRefreshToken);
   } catch (error) {
     log.error('Token refresh failed', error);
     return NextResponse.json(

@@ -3,6 +3,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { connectToDatabase } from '@/utils/mongodb';
 import { ObjectId } from 'mongodb';
+import { withDeprecation } from '@/lib/deprecation';
 
 // Patient 인터페이스 정의 또는 import
 interface PatientFromDB {
@@ -66,7 +67,7 @@ function normalizePatientResponse(patient: any) {
   };
 }
 
-export async function GET(request: NextRequest) {
+async function _GET(request: NextRequest) {
   try {
     const { db } = await connectToDatabase();
     const { searchParams } = new URL(request.url);
@@ -190,7 +191,7 @@ export async function GET(request: NextRequest) {
   }
 }
 
-export async function POST(request: NextRequest) {
+async function _POST(request: NextRequest) {
   let data: any = null;
   
   try {
@@ -386,3 +387,7 @@ export async function POST(request: NextRequest) {
     }, { status: 500 });
   }
 }
+
+const deprecationOpts = { v1Route: '/api/patients', v2Route: '/api/v2/patients' };
+export const GET = withDeprecation(_GET, deprecationOpts);
+export const POST = withDeprecation(_POST, deprecationOpts);

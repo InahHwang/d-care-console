@@ -16,6 +16,9 @@ function createMockRequest(authHeader?: string) {
         return null;
       },
     },
+    cookies: {
+      get: () => undefined,
+    },
   } as any;
 }
 

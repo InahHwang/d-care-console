@@ -4,6 +4,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { getCallLogsCollection, connectToDatabase } from '@/utils/mongodb';
 import { ObjectId } from 'mongodb';
+import { withDeprecation } from '@/lib/deprecation';
 
 // 통화 상태 타입
 export type CallStatus = 'ringing' | 'answered' | 'missed' | 'ended';
@@ -77,7 +78,7 @@ async function findPatientByPhone(phoneNumber: string) {
 }
 
 // GET - 통화기록 목록 조회
-export async function GET(request: NextRequest) {
+async function _GET(request: NextRequest) {
   try {
     const { searchParams } = new URL(request.url);
     const page = parseInt(searchParams.get('page') || '1');
@@ -256,7 +257,7 @@ export async function GET(request: NextRequest) {
 }
 
 // POST - 통화기록 생성/업데이트
-export async function POST(request: NextRequest) {
+async function _POST(request: NextRequest) {
   try {
     const body = await request.json();
     const {
@@ -760,7 +761,7 @@ export async function POST(request: NextRequest) {
 }
 
 // PATCH - 통화기록 수정
-export async function PATCH(request: NextRequest) {
+async function _PATCH(request: NextRequest) {
   try {
     const body = await request.json();
     const { id, isMissed, duration, callStatus } = body;
@@ -815,3 +816,8 @@ export async function PATCH(request: NextRequest) {
     );
   }
 }
+
+const deprecationOpts = { v1Route: '/api/call-logs', v2Route: '/api/v2/call-logs' };
+export const GET = withDeprecation(_GET, deprecationOpts);
+export const POST = withDeprecation(_POST, deprecationOpts);
+export const PATCH = withDeprecation(_PATCH, deprecationOpts);

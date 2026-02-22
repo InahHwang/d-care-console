@@ -5,6 +5,7 @@
 import jwt from 'jsonwebtoken';
 import { NextResponse } from 'next/server';
 import type { NextRequest } from 'next/server';
+import { getAccessTokenFromCookies } from '@/lib/auth/cookies';
 
 const JWT_SECRET = process.env.JWT_SECRET as string;
 
@@ -20,20 +21,33 @@ export interface AuthUser {
 /**
  * JWT 토큰 검증 → 성공 시 사용자 정보 반환, 실패 시 null
  *
- * 사용법:
- *   const user = verifyApiToken(request);
- *   if (!user) return unauthorizedResponse();
+ * 인증 순서:
+ * 1. Authorization: Bearer 헤더 (CTIBridge C# 앱 호환)
+ * 2. access_token httpOnly 쿠키 (브라우저)
  */
 export function verifyApiToken(request: NextRequest): AuthUser | null {
+  // 1) Authorization 헤더 우선
   const authorization = request.headers.get('authorization');
-  if (!authorization?.startsWith('Bearer ')) return null;
-
-  try {
-    const token = authorization.split(' ')[1];
-    return jwt.verify(token, JWT_SECRET) as AuthUser;
-  } catch {
-    return null;
+  if (authorization?.startsWith('Bearer ')) {
+    try {
+      const token = authorization.split(' ')[1];
+      return jwt.verify(token, JWT_SECRET) as AuthUser;
+    } catch {
+      // 헤더 토큰 실패 → 쿠키로 폴백
+    }
   }
+
+  // 2) httpOnly 쿠키 폴백
+  const cookieToken = getAccessTokenFromCookies(request);
+  if (cookieToken) {
+    try {
+      return jwt.verify(cookieToken, JWT_SECRET) as AuthUser;
+    } catch {
+      return null;
+    }
+  }
+
+  return null;
 }
 
 /** 인증 실패 시 401 응답 */

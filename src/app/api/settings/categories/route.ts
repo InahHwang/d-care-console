@@ -3,6 +3,7 @@
 
 import { NextRequest, NextResponse } from 'next/server';
 import { connectToDatabase } from '@/utils/mongodb';
+import { withDeprecation } from '@/lib/deprecation';
 
 // 기본 카테고리 값들
 const DEFAULT_CATEGORIES = {
@@ -36,7 +37,7 @@ const DEFAULT_CATEGORIES = {
 };
 
 // GET: 카테고리 목록 조회
-export async function GET(request: NextRequest) {
+async function _GET(request: NextRequest) {
   try {
     const { db } = await connectToDatabase();
 
@@ -74,7 +75,7 @@ export async function GET(request: NextRequest) {
 }
 
 // PUT: 카테고리 업데이트
-export async function PUT(request: NextRequest) {
+async function _PUT(request: NextRequest) {
   try {
     const { db } = await connectToDatabase();
     const body = await request.json();
@@ -127,7 +128,7 @@ export async function PUT(request: NextRequest) {
 }
 
 // POST: 새 카테고리 항목 추가
-export async function POST(request: NextRequest) {
+async function _POST(request: NextRequest) {
   try {
     const { db } = await connectToDatabase();
     const body = await request.json();
@@ -185,7 +186,7 @@ export async function POST(request: NextRequest) {
 }
 
 // DELETE: 카테고리 항목 삭제 (기본 항목은 삭제 불가, 비활성화만 가능)
-export async function DELETE(request: NextRequest) {
+async function _DELETE(request: NextRequest) {
   try {
     const { db } = await connectToDatabase();
     const { searchParams } = new URL(request.url);
@@ -254,3 +255,9 @@ export async function DELETE(request: NextRequest) {
     );
   }
 }
+
+const deprecationOpts = { v1Route: '/api/settings/categories', v2Route: '/api/v2/settings' };
+export const GET = withDeprecation(_GET, deprecationOpts);
+export const PUT = withDeprecation(_PUT, deprecationOpts);
+export const POST = withDeprecation(_POST, deprecationOpts);
+export const DELETE = withDeprecation(_DELETE, deprecationOpts);

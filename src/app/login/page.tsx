@@ -68,8 +68,9 @@ export default function LoginPage() {
         headers: {
           'Content-Type': 'application/json',
         },
+        credentials: 'include', // httpOnly 쿠키 수신
         body: JSON.stringify({
-          email: formData.username,    // 🔥 username을 email 필드로 전송
+          email: formData.username,
           password: formData.password
         }),
       });
@@ -104,12 +105,8 @@ export default function LoginPage() {
           console.error('Failed to log login activity:', logError);
         }
         
-        // 권한별 리다이렉션
-        if (data.user.role === 'master') {
-          router.push('/admin');
-        } else {
-          router.push('/');
-        }
+        // V2 대시보드로 리다이렉션
+        router.push('/v2/dashboard');
       } else {
         // 로그인 실패
         dispatch(loginFailure(data.message || '로그인에 실패했습니다.'));

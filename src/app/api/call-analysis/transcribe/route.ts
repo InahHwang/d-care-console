@@ -4,6 +4,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { connectToDatabase } from '@/utils/mongodb';
 import { ObjectId } from 'mongodb';
+import { withDeprecation } from '@/lib/deprecation';
 
 // 화자분리된 세그먼트 타입
 interface TranscriptSegment {
@@ -161,7 +162,7 @@ async function transcribeWithOpenAI(audioBuffer: Buffer, fileName: string): Prom
 }
 
 // POST - STT 변환 요청
-export async function POST(request: NextRequest) {
+async function _POST(request: NextRequest) {
   try {
     const body = await request.json();
     const { analysisId, recordingUrl } = body;
@@ -343,7 +344,7 @@ export async function POST(request: NextRequest) {
 }
 
 // GET - 특정 분석의 STT 결과 조회
-export async function GET(request: NextRequest) {
+async function _GET(request: NextRequest) {
   try {
     const { searchParams } = new URL(request.url);
     const analysisId = searchParams.get('analysisId');
@@ -387,3 +388,7 @@ export async function GET(request: NextRequest) {
     );
   }
 }
+
+const deprecationOpts = { v1Route: '/api/call-analysis/transcribe', v2Route: '/api/v2/call-analysis/transcribe' };
+export const GET = withDeprecation(_GET, deprecationOpts);
+export const POST = withDeprecation(_POST, deprecationOpts);

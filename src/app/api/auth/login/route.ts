@@ -8,6 +8,7 @@ import { ObjectId } from 'mongodb';
 import { validateBody } from '@/lib/validations/validate';
 import { loginSchema } from '@/lib/validations/schemas';
 import { generateAccessToken, generateRefreshToken, revokeRefreshToken, TokenPayload } from '@/lib/auth/tokens';
+import { setAuthCookies, clearAuthCookies, getRefreshTokenFromCookies } from '@/lib/auth/cookies';
 import { createRouteLogger } from '@/lib/logger';
 import { checkRateLimit, RATE_LIMIT_PRESETS } from '@/lib/rateLimit';
 import { checkLoginAllowed, recordLoginAttempt } from '@/lib/loginProtection';
@@ -172,13 +173,16 @@ export async function POST(request: NextRequest) {
       log.warn('마지막 로그인 시간 업데이트 실패', { error: String(error) });
     }
     
-    return NextResponse.json({
+    // JSON body에 토큰 유지 (CTIBridge C# 앱 호환) + httpOnly 쿠키 설정
+    const response = NextResponse.json({
       success: true,
       token,
       refreshToken,
       user: userResponse,
       message: '로그인 성공'
     });
+
+    return setAuthCookies(response, token, refreshToken);
     
   } catch (error: unknown) {
     log.error('로그인 처리 중 오류 발생', error);
@@ -193,11 +197,12 @@ export async function POST(request: NextRequest) {
 export async function DELETE(request: NextRequest) {
   const log = createRouteLogger('/api/auth/login', 'DELETE');
   try {
-    // Refresh Token 폐기
+    // Refresh Token 폐기 (body 또는 쿠키에서 읽기)
     try {
       const body = await request.json().catch(() => ({}));
-      if (body.refreshToken) {
-        await revokeRefreshToken(body.refreshToken);
+      const refreshTokenValue = body.refreshToken || getRefreshTokenFromCookies(request);
+      if (refreshTokenValue) {
+        await revokeRefreshToken(refreshTokenValue);
       }
     } catch {
       // refreshToken 폐기 실패해도 로그아웃 진행
@@ -240,15 +245,17 @@ export async function DELETE(request: NextRequest) {
       log.warn('로그아웃 활동 로그 기록 실패', { error: String(error) });
     }
 
-    return NextResponse.json({
+    const response = NextResponse.json({
       success: true,
       message: '로그아웃 성공'
     });
+    return clearAuthCookies(response);
   } catch (error) {
     log.error('로그아웃 처리 중 오류 발생', error);
-    return NextResponse.json(
+    const response = NextResponse.json(
       { message: '로그아웃 처리 중 오류가 발생했습니다.' },
       { status: 500 }
     );
+    return clearAuthCookies(response);
   }
 }
