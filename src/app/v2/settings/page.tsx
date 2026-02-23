@@ -19,6 +19,7 @@ import {
 } from 'lucide-react';
 import ManualSettings from '@/components/v2/settings/ManualSettings';
 import RecallSettings from '@/components/v2/settings/RecallSettings';
+import { fetchWithAuth } from '@/utils/fetchWithAuth';
 
 interface SettingsData {
   clinicName: string;
@@ -59,7 +60,7 @@ export default function SettingsPage() {
 
   const fetchSettings = async () => {
     try {
-      const response = await fetch('/api/v2/settings');
+      const response = await fetchWithAuth('/api/v2/settings');
       const result = await response.json();
 
       if (result.success) {
@@ -77,7 +78,7 @@ export default function SettingsPage() {
 
     setSaving(true);
     try {
-      const response = await fetch('/api/v2/settings', {
+      const response = await fetchWithAuth('/api/v2/settings', {
         method: 'PATCH',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(settings),

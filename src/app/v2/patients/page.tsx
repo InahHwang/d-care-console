@@ -12,6 +12,7 @@ import { FunnelTabs, PatientFilterType } from '@/components/v2/patients/FunnelTa
 import { UrgentSummaryCards, UrgencyFilter, UrgentStats } from '@/components/v2/patients/UrgentSummaryCards';
 import { PeriodFilter, PeriodType, DateRange } from '@/components/v2/patients/PeriodFilter';
 import { PatientStatus, Temperature } from '@/types/v2';
+import { fetchWithAuth } from '@/utils/fetchWithAuth';
 
 type PaymentStatus = 'none' | 'partial' | 'completed';
 
@@ -113,7 +114,7 @@ function PatientsPageContent() {
         params.set('urgency', urgencyFilter);
       }
 
-      const response = await fetch(`/api/v2/patients?${params.toString()}`);
+      const response = await fetchWithAuth(`/api/v2/patients?${params.toString()}`);
       if (!response.ok) throw new Error('Failed to fetch');
 
       const data: PatientResponse = await response.json();

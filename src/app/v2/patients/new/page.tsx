@@ -8,6 +8,7 @@ import {
   UserPlus,
   Loader2,
 } from 'lucide-react';
+import { fetchWithAuth } from '@/utils/fetchWithAuth';
 
 interface CategoryItem {
   id: string;
@@ -143,7 +144,7 @@ export default function NewPatientPage() {
         };
       }
 
-      const response = await fetch('/api/v2/patients', {
+      const response = await fetchWithAuth('/api/v2/patients', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(patientData),

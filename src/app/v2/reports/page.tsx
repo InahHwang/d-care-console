@@ -14,6 +14,7 @@ import {
   DailyReportData,
   MonthlyReportData,
 } from './components';
+import { fetchWithAuth } from '@/utils/fetchWithAuth';
 
 function ReportsPageContent() {
   const searchParams = useSearchParams();
@@ -33,7 +34,7 @@ function ReportsPageContent() {
   const fetchDailyReport = useCallback(async () => {
     setLoading(true);
     try {
-      const response = await fetch(`/api/v2/reports/daily/${selectedDate}`);
+      const response = await fetchWithAuth(`/api/v2/reports/daily/${selectedDate}`);
       if (!response.ok) throw new Error('Failed to fetch');
       const result = await response.json();
       setDailyData(result.data);
@@ -47,7 +48,7 @@ function ReportsPageContent() {
   const fetchMonthlyReport = useCallback(async () => {
     setLoading(true);
     try {
-      const response = await fetch(`/api/v2/reports/monthly/${selectedYearMonth}`);
+      const response = await fetchWithAuth(`/api/v2/reports/monthly/${selectedYearMonth}`);
       if (!response.ok) throw new Error('Failed to fetch');
       const result = await response.json();
       setMonthlyData(result.data);

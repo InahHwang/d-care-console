@@ -17,6 +17,7 @@ import {
   Trash2,
 } from 'lucide-react';
 import type { PatientStatus } from '@/types/v2';
+import { fetchWithAuth } from '@/utils/fetchWithAuth';
 
 interface ReferralItem {
   id: string;
@@ -74,7 +75,7 @@ export default function ReferralsPage() {
       if (filterThanks === 'sent') params.set('thanksSent', 'true');
       if (filterThanks === 'pending') params.set('thanksSent', 'false');
 
-      const response = await fetch(`/api/v2/referrals?${params}`);
+      const response = await fetchWithAuth(`/api/v2/referrals?${params}`);
       const result = await response.json();
 
       if (result.success) {
@@ -95,7 +96,7 @@ export default function ReferralsPage() {
 
   const handleThanksToggle = async (id: string, currentValue: boolean) => {
     try {
-      const response = await fetch('/api/v2/referrals', {
+      const response = await fetchWithAuth('/api/v2/referrals', {
         method: 'PATCH',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ id, thanksSent: !currentValue }),
@@ -117,7 +118,7 @@ export default function ReferralsPage() {
     if (!confirmed) return;
 
     try {
-      const response = await fetch(`/api/v2/referrals?id=${id}`, {
+      const response = await fetchWithAuth(`/api/v2/referrals?id=${id}`, {
         method: 'DELETE',
       });
 
@@ -423,7 +424,7 @@ function AddReferralModal({
 
     try {
       // period=all로 전체 환자 검색 (기간 제한 없이)
-      const response = await fetch(`/api/v2/patients?search=${query}&limit=10&period=all`);
+      const response = await fetchWithAuth(`/api/v2/patients?search=${query}&limit=10&period=all`);
       const result = await response.json();
       // API는 { patients: [...], pagination: {...} } 형식으로 반환
       if (result.patients && result.patients.length > 0) {
@@ -469,7 +470,7 @@ function AddReferralModal({
     setSubmitting(true);
 
     try {
-      const response = await fetch('/api/v2/referrals', {
+      const response = await fetchWithAuth('/api/v2/referrals', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ referrerId, referredId }),

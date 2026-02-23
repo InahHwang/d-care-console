@@ -33,6 +33,7 @@ import {
 } from 'lucide-react';
 import { Pagination } from '@/components/v2/ui/Pagination';
 import { Temperature } from '@/types/v2';
+import { fetchWithAuth } from '@/utils/fetchWithAuth';
 
 interface CallLog {
   id: string;
@@ -255,7 +256,7 @@ function RegisterPatientModal({ call, onClose, onSuccess }: RegisterPatientModal
         };
       }
 
-      const patientRes = await fetch('/api/v2/patients', {
+      const patientRes = await fetchWithAuth('/api/v2/patients', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(patientData),
@@ -277,7 +278,7 @@ function RegisterPatientModal({ call, onClose, onSuccess }: RegisterPatientModal
       }
 
       // 2. 통화기록에 patientId 연결 + 분류를 '환자'로 변경
-      await fetch('/api/v2/call-logs', {
+      await fetchWithAuth('/api/v2/call-logs', {
         method: 'PATCH',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
@@ -532,7 +533,7 @@ function EditAnalysisModal({ call, onClose, onSave }: EditAnalysisModalProps) {
 
       console.log('[EditAnalysisModal] 요청 body:', requestBody);
 
-      const response = await fetch('/api/v2/call-logs', {
+      const response = await fetchWithAuth('/api/v2/call-logs', {
         method: 'PATCH',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(requestBody),
@@ -878,7 +879,7 @@ function CallLogsPageContent() {
         params.set('direction', directionFilter);
       }
 
-      const response = await fetch(`/api/v2/call-logs?${params.toString()}`);
+      const response = await fetchWithAuth(`/api/v2/call-logs?${params.toString()}`);
       if (!response.ok) throw new Error('Failed to fetch');
 
       const data: CallLogResponse = await response.json();
@@ -1014,7 +1015,7 @@ function CallLogsPageContent() {
 
     try {
       const recordingUrl = `/api/v2/call-logs/${selectedCall.id}/recording`;
-      const response = await fetch(recordingUrl);
+      const response = await fetchWithAuth(recordingUrl);
 
       if (!response.ok) {
         if (response.status === 404) {
@@ -1103,7 +1104,7 @@ function CallLogsPageContent() {
     }
 
     try {
-      const response = await fetch('/api/v2/call-logs', {
+      const response = await fetchWithAuth('/api/v2/call-logs', {
         method: 'PATCH',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({

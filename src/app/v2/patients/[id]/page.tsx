@@ -38,6 +38,7 @@ import { ConsultationHistory } from '@/components/v2/patients/ConsultationHistor
 import { ConsultationHistoryCard } from '@/components/v2/patients/ConsultationHistoryCard';
 import { useAppSelector } from '@/hooks/reduxHooks';
 import { ClipboardList } from 'lucide-react';
+import { fetchWithAuth } from '@/utils/fetchWithAuth';
 
 // 상태 진행 단계 정의 (7단계 퍼널)
 const statusSteps: Array<{ id: PatientStatus; label: string; color: string }> = [
@@ -239,7 +240,7 @@ export default function PatientDetailPage() {
 
   const fetchPatient = useCallback(async () => {
     try {
-      const response = await fetch(`/api/v2/patients/${patientId}`);
+      const response = await fetchWithAuth(`/api/v2/patients/${patientId}`);
       if (!response.ok) {
         if (response.status === 404) {
           setError('환자를 찾을 수 없습니다');
@@ -277,7 +278,7 @@ export default function PatientDetailPage() {
   const fetchConsultations = useCallback(async () => {
     setConsultationsLoading(true);
     try {
-      const response = await fetch(`/api/v2/consultations?patientId=${patientId}`);
+      const response = await fetchWithAuth(`/api/v2/consultations?patientId=${patientId}`);
       if (response.ok) {
         const data = await response.json();
         setConsultations(data.data?.consultations || []);
@@ -299,7 +300,7 @@ export default function PatientDetailPage() {
     try {
       // 수정 모드 (existingId가 있으면)
       if (existingId) {
-        const response = await fetch('/api/v2/consultations', {
+        const response = await fetchWithAuth('/api/v2/consultations', {
           method: 'PATCH',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({
@@ -314,7 +315,7 @@ export default function PatientDetailPage() {
         }
       } else {
         // 신규 생성 모드
-        const response = await fetch('/api/v2/consultations', {
+        const response = await fetchWithAuth('/api/v2/consultations', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({
@@ -397,7 +398,7 @@ export default function PatientDetailPage() {
     if (!patient) return;
 
     try {
-      const response = await fetch(`/api/v2/patients/${patientId}`, {
+      const response = await fetchWithAuth(`/api/v2/patients/${patientId}`, {
         method: 'PATCH',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
@@ -443,7 +444,7 @@ export default function PatientDetailPage() {
   const handleSave = async () => {
     setSaving(true);
     try {
-      const response = await fetch(`/api/v2/patients/${patientId}`, {
+      const response = await fetchWithAuth(`/api/v2/patients/${patientId}`, {
         method: 'PATCH',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
@@ -484,7 +485,7 @@ export default function PatientDetailPage() {
     if (!confirm('정말로 이 환자를 삭제하시겠습니까?')) return;
 
     try {
-      const response = await fetch(`/api/v2/patients/${patientId}`, {
+      const response = await fetchWithAuth(`/api/v2/patients/${patientId}`, {
         method: 'DELETE',
       });
 
@@ -504,7 +505,7 @@ export default function PatientDetailPage() {
       // 기타 선택 시 사용자 입력 사유 사용
       const finalReason = reason === '기타' && customReason ? `기타: ${customReason}` : reason;
 
-      const response = await fetch(`/api/v2/patients/${patientId}`, {
+      const response = await fetchWithAuth(`/api/v2/patients/${patientId}`, {
         method: 'PATCH',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
@@ -533,7 +534,7 @@ export default function PatientDetailPage() {
     const previousStatus = closedEntry?.from || 'consulting';
 
     try {
-      const response = await fetch(`/api/v2/patients/${patientId}`, {
+      const response = await fetchWithAuth(`/api/v2/patients/${patientId}`, {
         method: 'PATCH',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
@@ -556,7 +557,7 @@ export default function PatientDetailPage() {
     if (!patient) return;
 
     try {
-      const response = await fetch(`/api/v2/patients/${patientId}`, {
+      const response = await fetchWithAuth(`/api/v2/patients/${patientId}`, {
         method: 'PATCH',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
@@ -1690,7 +1691,7 @@ function InterestEditSection({ displayInterest, selectedJourney, patientId, jour
     try {
       if (selectedJourney) {
         // 여정의 treatmentType 업데이트
-        const response = await fetch(`/api/v2/patients/${patientId}/journeys/${journeyId}`, {
+        const response = await fetchWithAuth(`/api/v2/patients/${patientId}/journeys/${journeyId}`, {
           method: 'PATCH',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({ treatmentType: newValue }),
@@ -1698,7 +1699,7 @@ function InterestEditSection({ displayInterest, selectedJourney, patientId, jour
         if (!response.ok) throw new Error('여정 업데이트 실패');
       } else {
         // 환자의 interest 업데이트
-        const response = await fetch(`/api/v2/patients/${patientId}`, {
+        const response = await fetchWithAuth(`/api/v2/patients/${patientId}`, {
           method: 'PATCH',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({ interest: newValue }),
@@ -1827,7 +1828,7 @@ function NewJourneyModal({ onClose, patientName, patientId, onSuccess, changedBy
     setError(null);
 
     try {
-      const response = await fetch(`/api/v2/patients/${patientId}/journeys`, {
+      const response = await fetchWithAuth(`/api/v2/patients/${patientId}/journeys`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({

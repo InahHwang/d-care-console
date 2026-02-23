@@ -9,6 +9,7 @@ import {
   ConversionFunnelCard,
   TodayTasks,
 } from '@/components/v2/dashboard';
+import { fetchWithAuth } from '@/utils/fetchWithAuth';
 
 interface ConversionRates {
   newInquiries: {
@@ -62,11 +63,7 @@ export default function DashboardPage() {
 
   const fetchDashboardData = useCallback(async () => {
     try {
-      const token = typeof window !== 'undefined' ? localStorage.getItem('token') : null;
-      const response = await fetch('/api/v2/dashboard', {
-        credentials: 'include',
-        headers: token ? { Authorization: `Bearer ${token}` } : {},
-      });
+      const response = await fetchWithAuth('/api/v2/dashboard');
       if (!response.ok) {
         throw new Error('Failed to fetch dashboard data');
       }

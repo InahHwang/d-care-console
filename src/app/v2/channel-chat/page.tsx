@@ -10,6 +10,7 @@ import {
   ChannelChatNewPatientModal,
 } from '@/components/v2/channel-chat';
 import { useChannelChat } from '@/hooks/useChannelChat';
+import { fetchWithAuth } from '@/utils/fetchWithAuth';
 
 // ============================================
 // 채널 상담 페이지
@@ -134,7 +135,7 @@ export default function ChannelChatPage() {
       if (searchQuery) params.set('search', searchQuery);
       params.set('status', statusFilter);
 
-      const res = await fetch(`/api/v2/channel-chats?${params}`);
+      const res = await fetchWithAuth(`/api/v2/channel-chats?${params}`);
       const data = await res.json();
 
       if (data.success) {
@@ -155,14 +156,14 @@ export default function ChannelChatPage() {
       if (searchQuery) params.set('search', searchQuery);
 
       // 진행중 카운트
-      const activeRes = await fetch(`/api/v2/channel-chats?${params}&status=active&limit=1`);
+      const activeRes = await fetchWithAuth(`/api/v2/channel-chats?${params}&status=active&limit=1`);
       const activeData = await activeRes.json();
       if (activeData.success) {
         setActiveCount(activeData.total || 0);
       }
 
       // 종료됨 카운트
-      const closedRes = await fetch(`/api/v2/channel-chats?${params}&status=closed&limit=1`);
+      const closedRes = await fetchWithAuth(`/api/v2/channel-chats?${params}&status=closed&limit=1`);
       const closedData = await closedRes.json();
       if (closedData.success) {
         setClosedCount(closedData.total || 0);
@@ -177,8 +178,8 @@ export default function ChannelChatPage() {
     setIsLoadingMessages(true);
     try {
       const [chatRes, messagesRes] = await Promise.all([
-        fetch(`/api/v2/channel-chats/${chatId}`),
-        fetch(`/api/v2/channel-chats/${chatId}/messages`),
+        fetchWithAuth(`/api/v2/channel-chats/${chatId}`),
+        fetchWithAuth(`/api/v2/channel-chats/${chatId}/messages`),
       ]);
 
       const chatData = await chatRes.json();
@@ -195,7 +196,7 @@ export default function ChannelChatPage() {
 
       // 읽음 처리
       if (chatData.data?.unreadCount > 0) {
-        await fetch(`/api/v2/channel-chats/${chatId}`, {
+        await fetchWithAuth(`/api/v2/channel-chats/${chatId}`, {
           method: 'PATCH',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({ unreadCount: 0 }),
@@ -220,7 +221,7 @@ export default function ChannelChatPage() {
 
     setIsSending(true);
     try {
-      const res = await fetch(`/api/v2/channel-chats/${selectedChatId}/messages`, {
+      const res = await fetchWithAuth(`/api/v2/channel-chats/${selectedChatId}/messages`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ content }),
@@ -267,7 +268,7 @@ export default function ChannelChatPage() {
     if (!selectedChatId) return;
 
     try {
-      const res = await fetch(`/api/v2/channel-chats/${selectedChatId}`, {
+      const res = await fetchWithAuth(`/api/v2/channel-chats/${selectedChatId}`, {
         method: 'PATCH',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ patientId }),
@@ -287,7 +288,7 @@ export default function ChannelChatPage() {
   // 신규 환자 등록
   const handleRegisterPatient = async (patientData: NewPatientData) => {
     try {
-      const patientRes = await fetch('/api/v2/patients', {
+      const patientRes = await fetchWithAuth('/api/v2/patients', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
@@ -320,7 +321,7 @@ export default function ChannelChatPage() {
   // 대화방 삭제
   const handleDeleteChat = async (chatId: string) => {
     try {
-      const res = await fetch(`/api/v2/channel-chats/${chatId}`, {
+      const res = await fetchWithAuth(`/api/v2/channel-chats/${chatId}`, {
         method: 'DELETE',
       });
 
@@ -347,7 +348,7 @@ export default function ChannelChatPage() {
   // 상담 종료
   const handleCloseChat = async (chatId: string) => {
     try {
-      const res = await fetch(`/api/v2/channel-chats/${chatId}`, {
+      const res = await fetchWithAuth(`/api/v2/channel-chats/${chatId}`, {
         method: 'PATCH',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ status: 'closed' }),

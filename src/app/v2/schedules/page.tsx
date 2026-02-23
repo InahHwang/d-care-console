@@ -23,6 +23,7 @@ import {
 } from 'lucide-react';
 import { TemperatureIcon } from '@/components/v2/common/TemperatureIcon';
 import type { Temperature, CallbackType, CallbackStatus } from '@/types/v2';
+import { fetchWithAuth } from '@/utils/fetchWithAuth';
 
 // ============= Types =============
 interface CallbackItem {
@@ -125,7 +126,7 @@ function SchedulesContent() {
       params.set('date', selectedDate);
       if (statusFilter !== 'all') params.set('status', statusFilter);
 
-      const response = await fetch(`/api/v2/callbacks?${params}`);
+      const response = await fetchWithAuth(`/api/v2/callbacks?${params}`);
       const result = await response.json();
 
       if (result.success) {
@@ -149,7 +150,7 @@ function SchedulesContent() {
   // ============= Recall Settings API =============
   const fetchRecallSettings = useCallback(async () => {
     try {
-      const response = await fetch('/api/v2/recall-settings');
+      const response = await fetchWithAuth('/api/v2/recall-settings');
       const result = await response.json();
       if (result.success) {
         setRecallSettings(result.data);
@@ -165,7 +166,7 @@ function SchedulesContent() {
       const params = new URLSearchParams();
       if (status) params.set('status', status);
 
-      const response = await fetch(`/api/v2/recall-messages?${params}`);
+      const response = await fetchWithAuth(`/api/v2/recall-messages?${params}`);
       const result = await response.json();
 
       if (result.success) {
@@ -205,7 +206,7 @@ function SchedulesContent() {
 
   const handleCallbackStatusChange = async (id: string, status: CallbackStatus) => {
     try {
-      const response = await fetch('/api/v2/callbacks', {
+      const response = await fetchWithAuth('/api/v2/callbacks', {
         method: 'PATCH',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ id, status }),
@@ -220,7 +221,7 @@ function SchedulesContent() {
 
   const handleRecallSend = async (id: string) => {
     try {
-      const response = await fetch(`/api/v2/recall-messages/${id}/send`, {
+      const response = await fetchWithAuth(`/api/v2/recall-messages/${id}/send`, {
         method: 'POST',
       });
       if (response.ok) {
@@ -235,7 +236,7 @@ function SchedulesContent() {
   const handleRecallCancel = async (id: string) => {
     if (!confirm('이 리콜 일정을 제거하시겠습니까?')) return;
     try {
-      const response = await fetch(`/api/v2/recall-messages/${id}/cancel`, {
+      const response = await fetchWithAuth(`/api/v2/recall-messages/${id}/cancel`, {
         method: 'POST',
       });
       if (response.ok) {
@@ -248,7 +249,7 @@ function SchedulesContent() {
 
   const handleRecallComplete = async (id: string) => {
     try {
-      const response = await fetch(`/api/v2/recall-messages/${id}/complete`, {
+      const response = await fetchWithAuth(`/api/v2/recall-messages/${id}/complete`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ result: 'contacted' }),
@@ -263,7 +264,7 @@ function SchedulesContent() {
 
   const handleAddTreatment = async (treatment: string) => {
     try {
-      const response = await fetch('/api/v2/recall-settings', {
+      const response = await fetchWithAuth('/api/v2/recall-settings', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ treatment, schedules: [] }),
@@ -280,7 +281,7 @@ function SchedulesContent() {
   const handleDeleteTreatment = async (id: string) => {
     if (!confirm('이 치료 설정을 삭제하시겠습니까?')) return;
     try {
-      const response = await fetch(`/api/v2/recall-settings?id=${id}`, {
+      const response = await fetchWithAuth(`/api/v2/recall-settings?id=${id}`, {
         method: 'DELETE',
       });
       if (response.ok) {
@@ -303,7 +304,7 @@ function SchedulesContent() {
         newSchedules = setting.schedules.map(s => s.id === schedule.id ? schedule : s);
       }
 
-      const response = await fetch('/api/v2/recall-settings', {
+      const response = await fetchWithAuth('/api/v2/recall-settings', {
         method: 'PUT',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ id: settingId, schedules: newSchedules }),
@@ -325,7 +326,7 @@ function SchedulesContent() {
 
       const newSchedules = setting.schedules.filter(s => s.id !== scheduleId);
 
-      const response = await fetch('/api/v2/recall-settings', {
+      const response = await fetchWithAuth('/api/v2/recall-settings', {
         method: 'PUT',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ id: settingId, schedules: newSchedules }),
@@ -348,7 +349,7 @@ function SchedulesContent() {
         s.id === scheduleId ? { ...s, enabled } : s
       );
 
-      const response = await fetch('/api/v2/recall-settings', {
+      const response = await fetchWithAuth('/api/v2/recall-settings', {
         method: 'PUT',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ id: settingId, schedules: newSchedules }),
@@ -1108,7 +1109,7 @@ function PatientInfoModal({
   useEffect(() => {
     const fetchPatient = async () => {
       try {
-        const res = await fetch(`/api/v2/patients/${patientId}`);
+        const res = await fetchWithAuth(`/api/v2/patients/${patientId}`);
         const data = await res.json();
         if (data.success || data.patient) {
           const p = data.patient || data;
@@ -1231,7 +1232,7 @@ function AddCallbackModal({ onClose, onSuccess }: { onClose: () => void; onSucce
       }
       try {
         // period=all로 전체 환자 검색 (기간 제한 없이)
-        const response = await fetch(`/api/v2/patients?search=${searchQuery}&limit=10&period=all`);
+        const response = await fetchWithAuth(`/api/v2/patients?search=${searchQuery}&limit=10&period=all`);
         const result = await response.json();
         // API는 { patients: [...], pagination: {...} } 형식으로 반환
         if (result.patients && result.patients.length > 0) {
@@ -1258,7 +1259,7 @@ function AddCallbackModal({ onClose, onSuccess }: { onClose: () => void; onSucce
     }
     setSubmitting(true);
     try {
-      const response = await fetch('/api/v2/callbacks', {
+      const response = await fetchWithAuth('/api/v2/callbacks', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ patientId, type, scheduledAt: new Date(scheduledAt).toISOString(), note }),
