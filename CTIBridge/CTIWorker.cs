@@ -1775,7 +1775,7 @@ public class CTIWorker : BackgroundService
 
             _logger.LogInformation("✅ [ClickCall] 시작 성공 - 치과 전화기가 울립니다!");
             _logger.LogInformation("   → 환자({Called})에게 전화를 겁니다", calledDn);
-            // ★ OutgoingCall 이벤트는 IMS_SVC_ORIGCALL_START_NOTI 핸들러에서 전송 (중복 방지)
+            // ★ OutgoingCall 이벤트는 EVT_START_SERVICE(0x302) 핸들러에서 전송 (번호 확정 후)
         }
         else
         {
@@ -1871,6 +1871,34 @@ public class CTIWorker : BackgroundService
 
         // 이벤트 타입에 따른 처리
         string extLower = (evt.ExtInfo ?? "").ToLower();
+
+        // ★ EVT_START_SERVICE(0x302) - ClickCall 발신 서비스 시작 확인
+        // 이 시점에 Dn1=치과번호, Dn2=환자번호가 확정되므로 OutgoingCall 이벤트 전송
+        if (evt.EvtType == EVT_START_SERVICE)
+        {
+            // 치과번호 저장 (발신자 번호 확정)
+            if (!string.IsNullOrEmpty(evt.Dn1))
+            {
+                _clickCallCallerDn = evt.Dn1;
+                _logger.LogInformation("📞 [ClickCall] 발신번호 확정: {CallerDn}", evt.Dn1);
+            }
+
+            // OutgoingCall 이벤트 전송 → API에서 callLog 생성 (callLogId 반환)
+            string patientNumber = evt.Dn2 ?? _clickCallCalledDn;
+            string ourNumber = evt.Dn1 ?? _clickCallCallerDn;
+
+            if (!string.IsNullOrEmpty(patientNumber))
+            {
+                _logger.LogInformation("📞 [ClickCall] OutgoingCall 전송: {Our} → {Patient}", ourNumber, patientNumber);
+                _eventQueue.Enqueue(new CallEvent
+                {
+                    Type = CallEventType.OutgoingCall,
+                    CallerNumber = patientNumber, // 환자번호
+                    CalledNumber = ourNumber       // 치과번호
+                });
+            }
+            return;
+        }
 
         // ★ EVT_STOP_SERVICE(0x0303) 또는 서비스 종료 관련 이벤트 - ExtInfo에서 실제 종료 사유 판별
         if (evt.EvtType == EVT_STOP_SERVICE || evt.EvtType == 0x0303)
