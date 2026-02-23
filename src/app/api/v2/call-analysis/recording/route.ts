@@ -102,39 +102,73 @@ export async function POST(request: NextRequest) {
       recordingBase64,
       duration,
       timestamp,
+      callLogId,
     } = body;
 
-    log.info('녹취 수신', { callerNumber, duration });
+    log.info('녹취 수신', { callerNumber, calledNumber, duration, callLogId });
 
-    if (!callerNumber || !recordingFileName) {
+    if (!recordingFileName) {
       return NextResponse.json(
-        { success: false, error: 'callerNumber and recordingFileName required' },
+        { success: false, error: 'recordingFileName required' },
+        { status: 400 }
+      );
+    }
+
+    // callerNumber, calledNumber, callLogId 중 하나라도 있어야 함
+    if (!callerNumber && !calledNumber && !callLogId) {
+      return NextResponse.json(
+        { success: false, error: 'callerNumber, calledNumber, or callLogId required' },
         { status: 400 }
       );
     }
 
     const { db } = await connectToDatabase();
     const now = new Date().toISOString();
-    const formattedPhone = formatPhone(callerNumber);
+    // callerNumber 우선, 없으면 calledNumber 사용
+    const phone = callerNumber || calledNumber || '';
+    const formattedPhone = phone ? formatPhone(phone) : '';
 
-    // 최근 통화 기록 찾기
-    const tenMinutesAgo = new Date(Date.now() - 10 * 60 * 1000).toISOString();
+    // 1차: callLogId로 직접 검색
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    let callLog: any = null;
+    if (callLogId) {
+      try {
+        callLog = await db.collection('callLogs_v2').findOne({
+          _id: new ObjectId(callLogId),
+          clinicId: CLINIC_ID,
+        });
+        if (callLog) {
+          log.info('callLogId로 매칭 성공', { callLogId });
+        }
+      } catch {
+        log.warn('callLogId 형식 오류, 전화번호로 재검색', { callLogId });
+      }
+    }
 
-    const callLog = await db.collection('callLogs_v2').findOne(
-      {
-        clinicId: CLINIC_ID,
-        phone: formattedPhone,
-        createdAt: { $gte: tenMinutesAgo },
-      },
-      { sort: { createdAt: -1 } }
-    );
+    // 2차: 전화번호로 최근 통화 기록 찾기
+    if (!callLog && formattedPhone) {
+      const tenMinutesAgo = new Date(Date.now() - 10 * 60 * 1000).toISOString();
+      callLog = await db.collection('callLogs_v2').findOne(
+        {
+          clinicId: CLINIC_ID,
+          phone: formattedPhone,
+          createdAt: { $gte: tenMinutesAgo },
+        },
+        { sort: { createdAt: -1 } }
+      );
+      if (callLog) {
+        log.info('전화번호로 매칭 성공', { phone: formattedPhone });
+      }
+    }
 
     if (!callLog) {
-      log.info('매칭 통화기록 없음, 새로 생성', { phone: formattedPhone });
+      // 환자 전화번호 결정: callerNumber가 있으면 발신자(환자), 없으면 calledNumber 사용
+      const patientPhone = formattedPhone || formatPhone(calledNumber || callerNumber || '');
+      log.info('매칭 통화기록 없음, 새로 생성', { phone: patientPhone });
       // 통화기록이 없으면 생성
       const newCallLog = {
         clinicId: CLINIC_ID,
-        phone: formattedPhone,
+        phone: patientPhone,
         direction: 'inbound' as const,
         status: 'connected' as const,
         duration: duration || 0,
@@ -143,6 +177,7 @@ export async function POST(request: NextRequest) {
         endedAt: now,
         aiStatus: 'pending' as const,
         createdAt: now,
+        updatedAt: now,
       };
 
       const result = await db.collection('callLogs_v2').insertOne(newCallLog);

@@ -1181,6 +1181,13 @@ public class CTIWorker : BackgroundService
             // 전화기로 직접 발신하는 경우는 통화기록에 남기지 않음
             if (_isClickCallActive && !string.IsNullOrEmpty(patientNumber))
             {
+                // ★ 발신자(치과) 번호를 이벤트에서 확인하여 저장 (녹취 전송 시 사용)
+                if (!string.IsNullOrEmpty(ourNumber) && string.IsNullOrEmpty(_clickCallCallerDn))
+                {
+                    _clickCallCallerDn = ourNumber;
+                    _logger.LogInformation("📱 [ClickCall] 치과 번호 확인: {Our}", ourNumber);
+                }
+
                 _logger.LogInformation("📱 [ClickCall] 발신 시작: {Our} → {Patient}", ourNumber, patientNumber);
                 _eventQueue.Enqueue(new CallEvent
                 {
@@ -1929,7 +1936,14 @@ public class CTIWorker : BackgroundService
         // 발신자(치과) 응답
         if (extLower.Contains("caller") && extLower.Contains("answer"))
         {
-            _logger.LogInformation("📞 [ClickCall] 발신자(치과) 수화기 들음");
+            // ★ Dn1/Dn2에서 치과 번호 보강 (StartClickCall에서 비어있는 경우)
+            if (string.IsNullOrEmpty(_clickCallCallerDn))
+            {
+                if (!string.IsNullOrEmpty(evt.Dn1)) _clickCallCallerDn = evt.Dn1;
+                else if (!string.IsNullOrEmpty(evt.Dn2)) _clickCallCallerDn = evt.Dn2;
+            }
+
+            _logger.LogInformation("📞 [ClickCall] 발신자(치과) 수화기 들음 (치과번호: {CallerDn})", _clickCallCallerDn);
             _eventQueue.Enqueue(new CallEvent
             {
                 Type = CallEventType.CallLog,
