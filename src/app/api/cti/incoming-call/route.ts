@@ -109,6 +109,7 @@ async function createCallLogV2(
     recordingUrl: null,
     aiStatus: 'pending',  // AI 분석 대기
     aiAnalysis: null,     // 나중에 AI 분석 결과가 들어감
+    clinicId: 'default',  // 멀티테넌시 호환
     createdAt: now,
     updatedAt: now,
   };

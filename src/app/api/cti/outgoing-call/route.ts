@@ -103,6 +103,7 @@ async function createCallLogV2(
     aiStatus: 'pending',
     // 기존 환자면 이름 포함
     aiAnalysis: patientName ? { patientName } : null,
+    clinicId: 'default',  // 멀티테넌시 호환
     createdAt: now,
     updatedAt: now,
   };
