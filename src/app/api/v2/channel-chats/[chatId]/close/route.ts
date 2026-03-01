@@ -4,6 +4,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { ObjectId } from 'mongodb';
 import { connectToDatabase } from '@/utils/mongodb';
+import { getActiveTreatmentTypeLabels } from '@/utils/treatmentTypes';
 import OpenAI from 'openai';
 import Pusher from 'pusher';
 
@@ -28,11 +29,12 @@ interface RouteParams {
 }
 
 // AI 채팅 분석 프롬프트
-const CHAT_ANALYSIS_PROMPT = `당신은 치과 상담 분석 전문가입니다.
+function buildChatCloseAnalysisPrompt(treatmentLabels: string[]): string {
+  return `당신은 치과 상담 분석 전문가입니다.
 다음 채팅 대화 내용을 분석하여 JSON 형식으로 결과를 반환하세요.
 
 분석 항목:
-1. interest: 관심 치료 (임플란트, 교정, 충치치료, 스케일링 등)
+1. interest: 관심 치료 (${treatmentLabels.join(', ')} 중 선택)
 2. temperature: 관심도 (hot: 즉시 예약 의향, warm: 관심 있음, cold: 정보 수집 중)
 3. summary: 상담 요약 (1-2문장)
 4. followUp: 후속 조치 (콜백필요, 예약확정, 종결 중 하나)
@@ -48,6 +50,7 @@ const CHAT_ANALYSIS_PROMPT = `당신은 치과 상담 분석 전문가입니다.
   "concerns": ["string"],
   "confidence": number
 }`;
+}
 
 export async function POST(request: NextRequest, { params }: RouteParams) {
   try {
@@ -96,6 +99,9 @@ export async function POST(request: NextRequest, { params }: RouteParams) {
       })
       .join('\n');
 
+    // DB에서 치료 과목 목록 로드
+    const treatmentLabels = await getActiveTreatmentTypeLabels();
+
     // AI 분석 수행
     let aiAnalysis = null;
 
@@ -103,7 +109,7 @@ export async function POST(request: NextRequest, { params }: RouteParams) {
       const completion = await openai.chat.completions.create({
         model: 'gpt-4o-mini',
         messages: [
-          { role: 'system', content: CHAT_ANALYSIS_PROMPT },
+          { role: 'system', content: buildChatCloseAnalysisPrompt(treatmentLabels) },
           { role: 'user', content: `다음 채팅 대화를 분석해주세요:\n\n${chatContent}` },
         ],
         temperature: 0.3,

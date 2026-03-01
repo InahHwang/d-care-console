@@ -27,6 +27,9 @@ import {
   X,
   Link,
   Pencil,
+  MessageSquare,
+  Plus,
+  Clock,
 } from 'lucide-react';
 import ManualSettings from '@/components/v2/settings/ManualSettings';
 import RecallSettings from '@/components/v2/settings/RecallSettings';
@@ -56,6 +59,11 @@ interface SettingsData {
     monthlyRevenue: number;
     dailyCalls: number;
     conversionRate: number;
+  };
+  dailyReportSms?: {
+    enabled: boolean;
+    recipients: string[];
+    schedule: Record<string, { enabled: boolean; time: string }>;
   };
 }
 
@@ -1025,6 +1033,9 @@ export default function SettingsPage() {
         </div>
       </section>
 
+      {/* 일보고서 SMS 발송 설정 */}
+      <DailyReportSmsSection settings={settings} updateSettings={updateSettings} />
+
       {/* 저장 버튼 (하단 고정) */}
       <div className="sticky bottom-6 flex justify-end">
         <button
@@ -1052,5 +1063,216 @@ export default function SettingsPage() {
         </>
       )}
     </div>
+  );
+}
+
+// 일보고서 SMS 발송 설정 섹션
+const DAY_KEYS = ['mon', 'tue', 'wed', 'thu', 'fri', 'sat', 'sun'] as const;
+const DAY_LABELS: Record<string, string> = {
+  mon: '월요일', tue: '화요일', wed: '수요일', thu: '목요일',
+  fri: '금요일', sat: '토요일', sun: '일요일',
+};
+const WEEKDAY_TIME_OPTIONS = Array.from({ length: 6 }, (_, i) => `${18 + i}:00`); // 18~23시
+const WEEKEND_TIME_OPTIONS = Array.from({ length: 5 }, (_, i) => `${12 + i}:00`); // 12~16시
+const getTimeOptions = (day: string) =>
+  (day === 'sat' || day === 'sun') ? WEEKEND_TIME_OPTIONS : WEEKDAY_TIME_OPTIONS;
+const DEFAULT_SMS_SCHEDULE = Object.fromEntries(
+  DAY_KEYS.map((d) => [d, {
+    enabled: d !== 'sat' && d !== 'sun',
+    time: (d === 'sat' || d === 'sun') ? '14:00' : '21:00',
+  }])
+);
+
+function DailyReportSmsSection({
+  settings,
+  updateSettings,
+}: {
+  settings: SettingsData;
+  updateSettings: (path: string, value: unknown) => void;
+}) {
+  const sms = settings.dailyReportSms ?? {
+    enabled: false,
+    recipients: ['01076735218', '01030511241'],
+    schedule: DEFAULT_SMS_SCHEDULE,
+  };
+
+  // 최초 진입 시 dailyReportSms가 없으면 기본값 세팅
+  React.useEffect(() => {
+    if (!settings.dailyReportSms) {
+      updateSettings('dailyReportSms', sms);
+    }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  const [newPhone, setNewPhone] = useState('');
+
+  const schedule = { ...DEFAULT_SMS_SCHEDULE, ...sms.schedule };
+
+  const handleToggleDay = (day: string) => {
+    const updated = { ...schedule, [day]: { ...schedule[day], enabled: !schedule[day].enabled } };
+    updateSettings('dailyReportSms', { ...sms, schedule: updated });
+  };
+
+  const handleTimeChange = (day: string, time: string) => {
+    const updated = { ...schedule, [day]: { ...schedule[day], time } };
+    updateSettings('dailyReportSms', { ...sms, schedule: updated });
+  };
+
+  const [bulkWeekdayTime, setBulkWeekdayTime] = useState('21:00');
+  const [bulkWeekendTime, setBulkWeekendTime] = useState('14:00');
+
+  const handleApplyWeekdayTime = () => {
+    const weekdays = ['mon', 'tue', 'wed', 'thu', 'fri'];
+    const updated = { ...schedule };
+    weekdays.forEach((d) => { updated[d] = { ...updated[d], time: bulkWeekdayTime }; });
+    updateSettings('dailyReportSms', { ...sms, schedule: updated });
+  };
+
+  const handleApplyWeekendTime = () => {
+    const weekends = ['sat', 'sun'];
+    const updated = { ...schedule };
+    weekends.forEach((d) => { updated[d] = { ...updated[d], time: bulkWeekendTime }; });
+    updateSettings('dailyReportSms', { ...sms, schedule: updated });
+  };
+
+  const handleAddRecipient = () => {
+    const phone = newPhone.replace(/[^0-9]/g, '');
+    if (!phone || phone.length < 10) return;
+    if (sms.recipients.includes(phone)) return;
+    updateSettings('dailyReportSms', { ...sms, recipients: [...sms.recipients, phone] });
+    setNewPhone('');
+  };
+
+  const handleRemoveRecipient = (phone: string) => {
+    updateSettings('dailyReportSms', { ...sms, recipients: sms.recipients.filter((p) => p !== phone) });
+  };
+
+  return (
+    <section className="bg-white rounded-xl border border-gray-100 p-6">
+      <div className="flex items-center justify-between mb-4">
+        <div className="flex items-center gap-2 text-gray-700 font-medium">
+          <MessageSquare className="w-5 h-5" />
+          일보고서 SMS 발송
+        </div>
+        <label className="flex items-center gap-2 cursor-pointer">
+          <input
+            type="checkbox"
+            checked={sms.enabled}
+            onChange={(e) => updateSettings('dailyReportSms', { ...sms, enabled: e.target.checked })}
+            className="w-5 h-5 rounded border-gray-300 text-blue-600 focus:ring-blue-500"
+          />
+          <span className="text-sm text-gray-600">활성화</span>
+        </label>
+      </div>
+
+      {sms.enabled && (
+        <div className="space-y-5">
+          {/* 수신자 */}
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-2">수신자 번호</label>
+            <div className="flex flex-wrap gap-2 mb-2">
+              {sms.recipients.map((phone) => (
+                <span key={phone} className="inline-flex items-center gap-1 px-3 py-1 bg-gray-100 rounded-full text-sm">
+                  {phone.replace(/(\d{3})(\d{4})(\d{4})/, '$1-$2-$3')}
+                  <button onClick={() => handleRemoveRecipient(phone)} className="text-gray-400 hover:text-red-500">
+                    <X className="w-3.5 h-3.5" />
+                  </button>
+                </span>
+              ))}
+            </div>
+            <div className="flex gap-2 max-w-xs">
+              <input
+                type="text"
+                value={newPhone}
+                onChange={(e) => setNewPhone(e.target.value)}
+                placeholder="01012345678"
+                className="flex-1 border border-gray-200 rounded-lg px-3 py-1.5 text-sm"
+                onKeyDown={(e) => e.key === 'Enter' && handleAddRecipient()}
+              />
+              <button
+                onClick={handleAddRecipient}
+                className="px-3 py-1.5 bg-blue-500 text-white rounded-lg text-sm hover:bg-blue-600"
+              >
+                <Plus className="w-4 h-4" />
+              </button>
+            </div>
+          </div>
+
+          {/* 요일별 스케줄 */}
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-2">요일별 발송 시간</label>
+            <div className="flex flex-wrap gap-3 mb-2">
+              <div className="flex items-center gap-1.5 text-xs">
+                <span className="text-gray-500">평일 일괄:</span>
+                <select
+                  value={bulkWeekdayTime}
+                  onChange={(e) => setBulkWeekdayTime(e.target.value)}
+                  className="border border-gray-200 rounded px-2 py-1 text-xs"
+                >
+                  {WEEKDAY_TIME_OPTIONS.map((t) => (
+                    <option key={t} value={t}>{t}</option>
+                  ))}
+                </select>
+                <button onClick={handleApplyWeekdayTime} className="text-blue-500 hover:text-blue-700 font-medium">
+                  적용
+                </button>
+              </div>
+              <div className="flex items-center gap-1.5 text-xs">
+                <span className="text-gray-500">주말 일괄:</span>
+                <select
+                  value={bulkWeekendTime}
+                  onChange={(e) => setBulkWeekendTime(e.target.value)}
+                  className="border border-gray-200 rounded px-2 py-1 text-xs"
+                >
+                  {WEEKEND_TIME_OPTIONS.map((t) => (
+                    <option key={t} value={t}>{t}</option>
+                  ))}
+                </select>
+                <button onClick={handleApplyWeekendTime} className="text-blue-500 hover:text-blue-700 font-medium">
+                  적용
+                </button>
+              </div>
+            </div>
+            <div className="border border-gray-200 rounded-lg overflow-hidden">
+              {DAY_KEYS.map((day) => (
+                <div
+                  key={day}
+                  className={`flex items-center justify-between px-4 py-2.5 ${
+                    day !== 'sun' ? 'border-b border-gray-100' : ''
+                  } ${!schedule[day].enabled ? 'bg-gray-50 text-gray-400' : ''}`}
+                >
+                  <div className="flex items-center gap-3 min-w-[100px]">
+                    <input
+                      type="checkbox"
+                      checked={schedule[day].enabled}
+                      onChange={() => handleToggleDay(day)}
+                      className="w-4 h-4 rounded border-gray-300 text-blue-600 focus:ring-blue-500"
+                    />
+                    <span className={`text-sm font-medium ${
+                      (day === 'sat' || day === 'sun') ? 'text-red-500' : ''
+                    } ${!schedule[day].enabled ? 'text-gray-400' : ''}`}>
+                      {DAY_LABELS[day]}
+                    </span>
+                  </div>
+                  <select
+                    value={schedule[day].time}
+                    onChange={(e) => handleTimeChange(day, e.target.value)}
+                    disabled={!schedule[day].enabled}
+                    className="border border-gray-200 rounded-lg px-3 py-1.5 text-sm disabled:bg-gray-100 disabled:text-gray-400"
+                  >
+                    {getTimeOptions(day).map((t) => (
+                      <option key={t} value={t}>{t}</option>
+                    ))}
+                  </select>
+                </div>
+              ))}
+            </div>
+            <p className="mt-2 text-xs text-gray-500">
+              설정된 시간에 해당 날짜의 일보고서 요약이 SMS로 발송됩니다.
+            </p>
+          </div>
+        </div>
+      )}
+    </section>
   );
 }

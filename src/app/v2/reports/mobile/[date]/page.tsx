@@ -95,6 +95,8 @@ interface ConsultationEntry {
   content?: string;
   consultantName?: string;
   duration?: number;
+  direction?: 'inbound' | 'outbound';
+  source?: 'manual' | 'auto';
 }
 
 // 타입 정의
@@ -126,6 +128,9 @@ interface DailyReportPatient {
   inquiry?: string;
   consultantMemo?: string;
   consultationNumber?: number;
+  consultationType?: string;
+  direction?: 'inbound' | 'outbound';
+  source?: 'manual' | 'auto';
   consultations?: ConsultationEntry[];
 }
 
@@ -161,6 +166,8 @@ interface ExistingPatientCall {
   gender?: '남' | '여';
   age?: number;
   memo?: string;
+  direction?: 'inbound' | 'outbound';
+  source?: 'manual' | 'auto';
 }
 
 interface DailyReportData {
@@ -391,7 +398,23 @@ function MobileDailyReportPage() {
                   <span className="text-sm text-gray-500">({selectedPatient.gender}/{selectedPatient.age}세)</span>
                 )}
               </div>
-              <p className="text-sm text-gray-600 mt-0.5">{selectedPatient.treatment || '치료 미정'}</p>
+              <div className="flex items-center gap-1.5 mt-0.5">
+                <p className="text-sm text-gray-600">{selectedPatient.treatment || '치료 미정'}</p>
+                {selectedPatient.consultationType && (
+                  <span className={`px-1.5 py-0.5 rounded-full text-[11px] font-medium ${
+                    selectedPatient.consultationType === 'inbound'
+                      ? 'bg-blue-100 text-blue-700'
+                      : selectedPatient.consultationType === 'outbound'
+                        ? 'bg-purple-100 text-purple-700'
+                        : 'bg-teal-100 text-teal-700'
+                  }`}>
+                    {selectedPatient.consultationType === 'inbound' ? '인바운드'
+                      : selectedPatient.consultationType === 'outbound' ? '아웃바운드'
+                        : selectedPatient.consultationType === 'returning' ? '구신환'
+                          : selectedPatient.consultationType}
+                  </span>
+                )}
+              </div>
             </div>
           </div>
 
@@ -467,22 +490,42 @@ function MobileDailyReportPage() {
             <div className="space-y-3">
               {[...selectedPatient.consultations].reverse().map((entry, idx) => (
                 <div key={idx} className="bg-white rounded-xl p-4 shadow-sm">
-                  <div className="flex items-center justify-between mb-2">
-                    <div className="flex items-center gap-2">
-                      <span>{entry.type === 'visit' ? '🏥' : '📞'}</span>
-                      <span className="font-semibold text-gray-900 text-sm">
-                        {entry.type === 'visit' ? '내원 상담' : '전화 상담'}
-                      </span>
-                      <span className="text-xs text-gray-400">{entry.time}</span>
+                  <div className="mb-2">
+                    {/* 1행: 타입 + 태그 + 시간 */}
+                    <div className="flex items-center justify-between">
+                      <div className="flex items-center gap-1.5">
+                        <span className="text-sm">{entry.type === 'visit' ? '🏥' : entry.source === 'manual' ? '✏️' : '📞'}</span>
+                        <span className="font-semibold text-gray-900 text-sm whitespace-nowrap">
+                          {entry.type === 'visit' ? '내원' : '전화'}
+                        </span>
+                        {entry.source === 'manual' ? (
+                          <span className="px-1.5 py-0.5 rounded text-xs bg-amber-100 text-amber-700 font-medium">수동</span>
+                        ) : (
+                          <span className="px-1.5 py-0.5 rounded text-xs bg-green-100 text-green-700 font-medium">자동</span>
+                        )}
+                        {entry.direction && (
+                          <span className={`px-1.5 py-0.5 rounded text-xs font-medium ${
+                            entry.direction === 'inbound'
+                              ? 'bg-blue-100 text-blue-700'
+                              : 'bg-purple-100 text-purple-700'
+                          }`}>
+                            {entry.direction === 'inbound' ? '수신' : '발신'}
+                          </span>
+                        )}
+                      </div>
+                      <span className="text-xs text-gray-400 whitespace-nowrap ml-2">{entry.time}</span>
                     </div>
-                    <div className="flex items-center gap-2 text-xs text-gray-500">
-                      {entry.type !== 'visit' && entry.duration != null && entry.duration > 0 && (
-                        <span>{formatDuration(entry.duration)}</span>
-                      )}
-                      {entry.consultantName && (
-                        <span className="px-1.5 py-0.5 bg-gray-100 rounded">{entry.consultantName}</span>
-                      )}
-                    </div>
+                    {/* 2행: 통화시간 + 상담사 */}
+                    {(entry.duration != null && entry.duration > 0 || entry.consultantName) && (
+                      <div className="flex items-center gap-2 mt-1 text-xs text-gray-500">
+                        {entry.type !== 'visit' && entry.duration != null && entry.duration > 0 && (
+                          <span>통화 {formatDuration(entry.duration)}</span>
+                        )}
+                        {entry.consultantName && (
+                          <span className="px-1.5 py-0.5 bg-gray-100 rounded">{entry.consultantName}</span>
+                        )}
+                      </div>
+                    )}
                   </div>
                   {entry.content ? (
                     <ul className="space-y-1.5">
@@ -659,6 +702,20 @@ function MobileDailyReportPage() {
                 <span className="px-2 py-0.5 rounded-full text-xs font-medium bg-slate-500 text-white">
                   {statusLabel}
                 </span>
+                {selectedExistingCall.source === 'manual' ? (
+                  <span className="px-1.5 py-0.5 rounded text-xs bg-amber-100 text-amber-700 font-medium">수동</span>
+                ) : (
+                  <span className="px-1.5 py-0.5 rounded text-xs bg-green-100 text-green-700 font-medium">자동</span>
+                )}
+                {selectedExistingCall.direction && (
+                  <span className={`px-1.5 py-0.5 rounded text-xs font-medium ${
+                    selectedExistingCall.direction === 'inbound'
+                      ? 'bg-blue-100 text-blue-700'
+                      : 'bg-purple-100 text-purple-700'
+                  }`}>
+                    {selectedExistingCall.direction === 'inbound' ? '수신' : '발신'}
+                  </span>
+                )}
                 <h1 className="font-semibold text-gray-900">{selectedExistingCall.name}</h1>
                 {selectedExistingCall.gender && selectedExistingCall.age && (
                   <span className="text-sm text-gray-500">({selectedExistingCall.gender}/{selectedExistingCall.age}세)</span>
@@ -751,64 +808,42 @@ function MobileDailyReportPage() {
           <p className="text-xs text-gray-500">{data.date} ({data.dayOfWeek}) 신규 상담</p>
         </div>
 
-        {/* 요약 카드 */}
+        {/* 요약 카드 (압축) */}
         <div className="px-4 pb-3">
-          <div className="bg-gradient-to-r from-blue-500 to-blue-600 rounded-xl p-4 text-white">
-            <div className="flex justify-between items-center mb-3">
-              <span className="text-blue-100 text-sm">총 상담</span>
-              <span className="text-2xl font-bold">{data.summary.total}건</span>
+          <div className="bg-gradient-to-r from-blue-500 to-blue-600 rounded-xl px-4 py-3 text-white">
+            <div className="flex justify-between items-center">
+              <div className="flex items-baseline gap-1.5">
+                <span className="text-lg font-bold">{data.summary.total}건</span>
+                <span className="text-blue-200 text-xs">상담</span>
+              </div>
+              <div className="flex items-baseline gap-1">
+                <span className="text-lg font-bold">
+                  {data.summary.total > 0 ? Math.round((data.summary.agreed / data.summary.total) * 100) : 0}%
+                </span>
+                <span className="text-blue-200 text-xs">동의율</span>
+              </div>
             </div>
-            {(() => {
-              const items = [
-                { value: data.summary.agreed, label: '동의' },
-                { value: data.summary.disagreed, label: '미동의' },
-                { value: data.summary.pending, label: '보류' },
-              ];
-              if ((data.summary.noAnswer ?? 0) > 0) items.push({ value: data.summary.noAnswer!, label: '부재중' });
-              if ((data.summary.closed ?? 0) > 0) items.push({ value: data.summary.closed!, label: '종결' });
-              const cols = items.length <= 3 ? 'grid-cols-3' : items.length === 4 ? 'grid-cols-4' : 'grid-cols-5';
-              return (
-                <div className={`grid gap-2 text-center ${cols}`}>
-                  {items.map(item => (
-                    <div key={item.label} className="bg-white/20 rounded-lg py-2">
-                      <div className="text-lg font-bold">{item.value}</div>
-                      <div className="text-xs text-blue-100">{item.label}</div>
-                    </div>
-                  ))}
-                </div>
-              );
-            })()}
-
-            {/* 매출 정보 */}
-            <div className="mt-3 pt-3 border-t border-white/20">
+            <div className="mt-2 pt-2 border-t border-white/20 space-y-1 text-sm">
               <div className="flex justify-between items-center">
-                <span className="text-blue-100 text-sm font-medium">확정 매출</span>
-                <span className="text-xl font-bold">{data.summary.actualRevenue.toLocaleString()}만원</span>
+                <span className="text-blue-200">확정 매출 (동의 {data.summary.agreed}건)</span>
+                <span className="font-bold">{data.summary.actualRevenue.toLocaleString()}만원</span>
               </div>
-              <div className="text-right text-xs text-blue-200 mt-0.5">
-                동의 {data.summary.agreed}건 기준
-              </div>
-              <div className="mt-2 pt-2 border-t border-white/10 space-y-1 text-sm">
-                <div className="flex justify-between items-center">
-                  <span className="text-blue-200">정가 합계</span>
-                  <span className="text-blue-100">{data.summary.expectedRevenue.toLocaleString()}만원</span>
-                </div>
-                {data.summary.totalDiscount > 0 && (
-                  <div className="flex justify-between items-center">
-                    <span className="text-blue-200">할인</span>
-                    <span className="text-yellow-300">
-                      -{data.summary.totalDiscount.toLocaleString()}만원
-                      {data.summary.avgDiscountRate > 0 && ` (${data.summary.avgDiscountRate}%)`}
-                    </span>
-                  </div>
-                )}
-                <div className="flex justify-between items-center pt-1 border-t border-white/10">
-                  <span className="text-blue-100 font-medium">할인가 합계</span>
-                  <span className="text-white font-semibold">
-                    {(data.summary.expectedRevenue - data.summary.totalDiscount).toLocaleString()}만원
+              {data.summary.expectedRevenue > 0 && (
+                <div className="flex justify-between items-center text-xs">
+                  <span className="text-blue-200">
+                    정가 {data.summary.expectedRevenue.toLocaleString()}만
+                    {data.summary.totalDiscount > 0 && (
+                      <span className="text-yellow-300">
+                        {' '}→ 할인 -{data.summary.totalDiscount.toLocaleString()}만
+                        {data.summary.avgDiscountRate > 0 && `(${data.summary.avgDiscountRate}%)`}
+                      </span>
+                    )}
+                  </span>
+                  <span className="text-white font-medium">
+                    할인가 {(data.summary.expectedRevenue - data.summary.totalDiscount).toLocaleString()}만
                   </span>
                 </div>
-              </div>
+              )}
             </div>
           </div>
         </div>

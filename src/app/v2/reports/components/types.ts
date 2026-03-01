@@ -118,6 +118,8 @@ export interface ConsultationEntry {
   content?: string;
   consultantName?: string;
   duration?: number;
+  direction?: 'inbound' | 'outbound';  // 수신/발신 (전화만 해당)
+  source?: 'manual' | 'auto';          // 수동입력 여부
 }
 
 // 일별 리포트 환자 데이터
@@ -149,6 +151,9 @@ export interface DailyReportPatient {
   memo?: string;
   inquiry?: string;
   consultationNumber?: number;
+  consultationType?: string;              // 상담타입 (inbound/outbound/returning 등)
+  direction?: 'inbound' | 'outbound';    // 대표 통화 방향 (수신/발신)
+  source?: 'manual' | 'auto';            // 수동입력 여부
   consultations?: ConsultationEntry[];  // 해당 날짜의 모든 상담 기록 (시간순)
 }
 
@@ -187,6 +192,8 @@ export interface ExistingPatientCall {
   gender?: '남' | '여';
   age?: number;
   memo?: string;
+  direction?: 'inbound' | 'outbound';  // 수신/발신
+  source?: 'manual' | 'auto';          // 수동입력 여부
 }
 
 // 기존 환자 통화 요약

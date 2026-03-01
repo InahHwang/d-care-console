@@ -3,12 +3,13 @@
 
 import { NextRequest, NextResponse } from 'next/server';
 import { connectToDatabase } from '@/utils/mongodb';
+import { getActiveTreatmentTypeLabels } from '@/utils/treatmentTypes';
 import { ObjectId } from 'mongodb';
 
 export const dynamic = 'force-dynamic';
 
 // 채팅 분석용 프롬프트
-function buildChatAnalysisPrompt(messages: string): string {
+function buildChatAnalysisPrompt(messages: string, treatmentLabels: string[]): string {
   return `당신은 치과 채팅 상담 분석 전문가입니다. 아래 채팅 내용을 분석해주세요.
 
 ## 채팅 내용
@@ -18,7 +19,7 @@ ${messages}
 위 채팅 내용을 분석하여 다음 JSON 형식으로 응답해주세요. 반드시 유효한 JSON만 출력하세요.
 
 {
-  "interest": "관심 진료 (임플란트/교정/충치치료/스케일링/검진/미백/기타 중 선택)",
+  "interest": "관심 진료 (${treatmentLabels.join('/')} 중 선택)",
   "temperature": "온도 (hot/warm/cold 중 하나 - hot:예약확정/매우적극, warm:관심있음, cold:단순문의)",
   "summary": "핵심 내용 요약 (2~3줄, 각 줄은 \\n으로 구분)",
   "followUp": "후속조치 (콜백필요/예약확정/종결 중 하나)",
@@ -39,13 +40,13 @@ JSON만 출력하세요.`;
 }
 
 // OpenAI GPT-4o-mini 호출
-async function analyzeWithGPT(messages: string) {
+async function analyzeWithGPT(messages: string, treatmentLabels: string[]) {
   const apiKey = process.env.OPENAI_API_KEY;
   if (!apiKey) {
     throw new Error('OPENAI_API_KEY가 설정되지 않았습니다.');
   }
 
-  const prompt = buildChatAnalysisPrompt(messages);
+  const prompt = buildChatAnalysisPrompt(messages, treatmentLabels);
 
   const response = await fetch('https://api.openai.com/v1/chat/completions', {
     method: 'POST',
@@ -173,8 +174,11 @@ export async function POST(request: NextRequest) {
       })
       .join('\n');
 
+    // DB에서 치료 과목 목록 로드
+    const treatmentLabels = await getActiveTreatmentTypeLabels();
+
     // AI 분석 실행
-    const analysis = await analyzeWithGPT(messageText);
+    const analysis = await analyzeWithGPT(messageText, treatmentLabels);
 
     // 분석 결과 저장
     await db.collection('channelChats_v2').updateOne(

@@ -3,6 +3,7 @@
 
 import { NextRequest, NextResponse } from 'next/server';
 import { connectToDatabase } from '@/utils/mongodb';
+import { getActiveTreatmentTypeLabels } from '@/utils/treatmentTypes';
 import { ObjectId } from 'mongodb';
 import Pusher from 'pusher';
 import type { AIAnalysis, AIConsultationResult, Temperature, AIClassification, FollowUpType, ConsultationStatus } from '@/types/v2';
@@ -53,7 +54,7 @@ function inferConsultationResult(result: Record<string, unknown>): AIConsultatio
 }
 
 // v2 분석용 프롬프트
-function buildAnalysisPrompt(transcript: string): string {
+function buildAnalysisPrompt(transcript: string, treatmentLabels: string[]): string {
   return `당신은 치과 상담 전화 분석 전문가입니다. 아래 통화 내용을 분석해주세요.
 
 ## 통화 내용
@@ -96,7 +97,7 @@ ${transcript}
 - 추측 금지. 이름이 안 나오면 빈 문자열 ""
 
 ### interest (관심 진료)
-- 임플란트/교정/충치치료/스케일링/검진/통증/발치/보철/잇몸치료/기타 중 선택
+- ${treatmentLabels.join('/')} 중 선택
 - 통화 내용에 맞는 것으로 선택
 
 ### interestDetail (세부사항)
@@ -198,13 +199,13 @@ ${transcript}
 }
 
 // OpenAI GPT-4o-mini 호출 (빠른 응답)
-async function analyzeWithGPT(transcript: string): Promise<AIAnalysis> {
+async function analyzeWithGPT(transcript: string, treatmentLabels: string[]): Promise<AIAnalysis> {
   const apiKey = process.env.OPENAI_API_KEY;
   if (!apiKey) {
     throw new Error('OPENAI_API_KEY가 설정되지 않았습니다.');
   }
 
-  const prompt = buildAnalysisPrompt(transcript);
+  const prompt = buildAnalysisPrompt(transcript, treatmentLabels);
 
   const response = await fetch('https://api.openai.com/v1/chat/completions', {
     method: 'POST',
@@ -347,8 +348,11 @@ export async function POST(request: NextRequest) {
       }
     );
 
+    // DB에서 치료 과목 목록 로드
+    const treatmentLabels = await getActiveTreatmentTypeLabels();
+
     // AI 분석 실행
-    const analysis = await analyzeWithGPT(transcript);
+    const analysis = await analyzeWithGPT(transcript, treatmentLabels);
 
     // 같은 전화번호의 기존 이름 확인 (수동 수정 > 최초 인식 > 현재 AI 인식)
     if (callLog.phone) {

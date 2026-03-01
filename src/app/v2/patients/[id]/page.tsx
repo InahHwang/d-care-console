@@ -28,7 +28,8 @@ import {
 } from 'lucide-react';
 import { Card } from '@/components/v2/ui/Card';
 import { StatusBadge } from '@/components/v2/ui/Badge';
-import { PatientStatus, ClosedReason, CLOSED_REASON_OPTIONS, Journey, TREATMENT_TYPES, CallbackReason, CALLBACK_REASON_LABELS, CallbackHistoryEntry } from '@/types/v2';
+import { PatientStatus, ClosedReason, CLOSED_REASON_OPTIONS, Journey, CallbackReason, CALLBACK_REASON_LABELS, CallbackHistoryEntry } from '@/types/v2';
+import { useCategories } from '@/hooks/useCategories';
 import { StatusChangeModal, StatusChangeData } from '@/components/v2/patients/StatusChangeModal';
 import { CallDetailModal } from '@/components/v2/patients/CallDetailModal';
 import { ClosePatientModal } from '@/components/v2/patients/ClosePatientModal';
@@ -179,6 +180,10 @@ export default function PatientDetailPage() {
 
   // 현재 로그인한 사용자 정보
   const { user } = useAppSelector((state) => state.auth);
+
+  // DB 기반 치료 과목 목록
+  const { activeTreatmentTypes } = useCategories();
+  const treatmentTypeLabels = activeTreatmentTypes.map(t => t.label);
 
   const [patient, setPatient] = useState<PatientDetail | null>(null);
   const [callLogs, setCallLogs] = useState<CallLog[]>([]);
@@ -1056,7 +1061,7 @@ export default function PatientDetailPage() {
                           autoFocus
                         >
                           <option value="">선택...</option>
-                          {TREATMENT_TYPES.map((type) => (
+                          {treatmentTypeLabels.map((type) => (
                             <option key={type} value={type}>{type}</option>
                           ))}
                         </select>
@@ -1783,6 +1788,9 @@ interface InterestEditSectionProps {
 }
 
 function InterestEditSection({ displayInterest, selectedJourney, patientId, journeyId, onUpdate }: InterestEditSectionProps) {
+  const { activeTreatmentTypes } = useCategories();
+  const treatmentTypeLabels = activeTreatmentTypes.map(t => t.label);
+
   const [isEditing, setIsEditing] = useState(false);
   const [selectedType, setSelectedType] = useState('');
   const [customType, setCustomType] = useState('');
@@ -1791,8 +1799,8 @@ function InterestEditSection({ displayInterest, selectedJourney, patientId, jour
   // 편집 시작 시 현재 값으로 초기화
   const handleStartEdit = () => {
     const currentValue = displayInterest || '';
-    // TREATMENT_TYPES에 있는 값인지 확인
-    if ((TREATMENT_TYPES as readonly string[]).includes(currentValue)) {
+    // 치료 과목 목록에 있는 값인지 확인
+    if (treatmentTypeLabels.includes(currentValue)) {
       setSelectedType(currentValue);
       setCustomType('');
     } else if (currentValue) {
@@ -1854,7 +1862,7 @@ function InterestEditSection({ displayInterest, selectedJourney, patientId, jour
         <div className="space-y-3">
           {/* 치료 유형 선택 그리드 */}
           <div className="grid grid-cols-3 gap-2">
-            {TREATMENT_TYPES.map((type) => (
+            {treatmentTypeLabels.map((type) => (
               <button
                 key={type}
                 onClick={() => setSelectedType(type)}
@@ -1937,6 +1945,9 @@ interface NewJourneyModalProps {
 }
 
 function NewJourneyModal({ onClose, patientName, patientId, onSuccess, changedBy }: NewJourneyModalProps) {
+  const { activeTreatmentTypes } = useCategories();
+  const treatmentTypeLabels = activeTreatmentTypes.map(t => t.label);
+
   const [treatmentType, setTreatmentType] = useState('');
   const [customType, setCustomType] = useState('');
   const [isSubmitting, setIsSubmitting] = useState(false);
@@ -2014,7 +2025,7 @@ function NewJourneyModal({ onClose, patientName, patientId, onSuccess, changedBy
               치료 유형
             </label>
             <div className="grid grid-cols-2 gap-2">
-              {TREATMENT_TYPES.map((type) => (
+              {treatmentTypeLabels.map((type) => (
                 <button
                   key={type}
                   onClick={() => {

@@ -115,7 +115,7 @@ function PatientListItem({
     >
       {/* 1행: 상태뱃지 + 이름 + 성별/나이 + 회차 + 시간 */}
       <div className="flex items-start justify-between mb-2">
-        <div className="flex items-center gap-2">
+        <div className="flex items-center gap-2 flex-wrap">
           <span className={`px-2 py-0.5 rounded text-xs font-medium ${config.lightBadge}`}>
             {config.label}
           </span>
@@ -136,7 +136,7 @@ function PatientListItem({
             </span>
           )}
         </div>
-        <span className="text-xs text-gray-400">{patient.time}</span>
+        <span className="text-xs text-gray-400 flex-shrink-0">{patient.time}</span>
       </div>
 
       {/* 2행: 치료명 */}

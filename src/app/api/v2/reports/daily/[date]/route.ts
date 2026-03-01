@@ -37,8 +37,11 @@ interface DailyReportPatient {
   inquiry?: string;
   // 상담 회차 정보
   consultationNumber?: number;  // 1차, 2차, 3차...
+  consultationType?: string;    // 상담타입 (inbound/outbound/returning 등)
+  direction?: 'inbound' | 'outbound';  // 수신/발신
+  source?: 'manual' | 'auto';          // 수동입력 여부
   // 해당 날짜의 모든 상담 기록 (시간순)
-  consultations?: { type: 'phone' | 'visit' | 'other'; time: string; content?: string; consultantName?: string; duration?: number }[];
+  consultations?: { type: 'phone' | 'visit' | 'other'; time: string; content?: string; consultantName?: string; duration?: number; direction?: 'inbound' | 'outbound'; source?: 'manual' | 'auto' }[];
 }
 
 interface DailyReportSummary {
@@ -75,6 +78,8 @@ interface ExistingPatientCall {
   gender?: '남' | '여';
   age?: number;
   memo?: string;
+  direction?: 'inbound' | 'outbound';
+  source?: 'manual' | 'auto';
 }
 
 interface ExistingPatientCallSummary {
@@ -226,7 +231,7 @@ export async function GET(
     const existingPatientCalls: ExistingPatientCall[] = [];
 
     // 헬퍼: 신환 환자의 consultations 배열에 상담 기록 추가
-    const addConsultationEntry = (patientId: string, entry: { type: 'phone' | 'visit' | 'other'; time: string; content?: string; consultantName?: string; duration?: number }) => {
+    const addConsultationEntry = (patientId: string, entry: { type: 'phone' | 'visit' | 'other'; time: string; content?: string; consultantName?: string; duration?: number; direction?: 'inbound' | 'outbound'; source?: 'manual' | 'auto' }) => {
       const existing = reportPatientsMap.get(patientId);
       if (existing) {
         if (!existing.consultations) existing.consultations = [];
@@ -263,6 +268,8 @@ export async function GET(
           gender: patient!.gender,
           age: patient!.age,
           memo: consultation.memo || patient!.memo,
+          direction: callLog?.direction as 'inbound' | 'outbound' | undefined,
+          source: 'auto',
         });
       } else {
         // ★ 이미 같은 환자가 있으면 consultations 배열에만 추가
@@ -273,6 +280,8 @@ export async function GET(
             content: consultationContent,
             consultantName: consultation.consultantName,
             duration: callLog?.duration,
+            direction: callLog?.direction as 'inbound' | 'outbound' | undefined,
+            source: 'auto',
           });
         } else {
           const entry: DailyReportPatient = {
@@ -305,13 +314,18 @@ export async function GET(
             region: patient?.region,
             memo: consultation.memo,
             inquiry: consultation.inquiry,
+            consultationType: (patient as any)?.consultationType,
             consultationNumber: (prevCountMap.get(consultation.patientId) || 0) + 1,
+            direction: callLog?.direction as 'inbound' | 'outbound' | undefined,
+            source: 'auto',
             consultations: [{
               type: consultation.type || 'phone',
               time,
               content: consultationContent,
               consultantName: consultation.consultantName,
               duration: callLog?.duration,
+              direction: callLog?.direction as 'inbound' | 'outbound' | undefined,
+              source: 'auto',
             }],
           };
           reportPatientsMap.set(consultation.patientId, entry);
@@ -352,6 +366,8 @@ export async function GET(
             gender: patient.gender,
             age: patient.age,
             memo: patient.memo,
+            direction: call.direction as 'inbound' | 'outbound' | undefined,
+            source: 'auto',
           });
         } else if (reportPatientsMap.has(call.patientId)) {
           // ★ 이미 같은 환자가 있으면 consultations에 추가 (두 번째 통화 등)
@@ -362,6 +378,8 @@ export async function GET(
               content: call.aiAnalysis?.summary,
               consultantName: reportPatientsMap.get(call.patientId)?.consultantName,
               duration: call.duration,
+              direction: call.direction as 'inbound' | 'outbound' | undefined,
+              source: 'auto',
             });
           }
         } else {
@@ -408,12 +426,17 @@ export async function GET(
             age: patient.age,
             region: patient.region,
             memo: patient.memo,
+            consultationType: (patient as any)?.consultationType,
+            direction: call.direction as 'inbound' | 'outbound' | undefined,
+            source: 'auto',
             consultations: call.aiAnalysis?.summary ? [{
               type: 'phone' as const,
               time: callTime,
               content: call.aiAnalysis?.summary,
               consultantName: getConsultantName(),
               duration: call.duration,
+              direction: call.direction as 'inbound' | 'outbound' | undefined,
+              source: 'auto',
             }] : undefined,
           });
         }
@@ -445,6 +468,7 @@ export async function GET(
           gender: patient!.gender,
           age: patient!.age,
           memo: patient!.memo,
+          source: 'manual',
         });
       } else if (reportPatientsMap.has(manual.patientId)) {
         // ★ 이미 있는 신환 → consultations에 수동 상담 추가
@@ -453,6 +477,7 @@ export async function GET(
           time,
           content: manual.content,
           consultantName: manual.consultantName,
+          source: 'manual',
         });
       } else {
         // 수동 상담만 있는 신환
@@ -477,11 +502,14 @@ export async function GET(
           age: patient?.age,
           region: patient?.region,
           memo: patient?.memo,
+          consultationType: (patient as any)?.consultationType,
+          source: 'manual',
           consultations: [{
             type: manual.type === 'visit' ? 'visit' : manual.type === 'other' ? 'other' : 'phone',
             time,
             content: manual.content,
             consultantName: manual.consultantName,
+            source: 'manual',
           }],
         });
       }
@@ -515,7 +543,7 @@ export async function GET(
 
       // 환자별 타임라인 재구축
       reportPatientsMap.forEach((patient, patientId) => {
-        const timeline: { type: 'phone' | 'visit' | 'other'; time: string; content?: string; consultantName?: string; duration?: number }[] = [];
+        const timeline: { type: 'phone' | 'visit' | 'other'; time: string; content?: string; consultantName?: string; duration?: number; direction?: 'inbound' | 'outbound'; source?: 'manual' | 'auto' }[] = [];
         const seenContents = new Set<string>(); // 중복 내용 방지
 
         // callLog 기반 상담
@@ -542,6 +570,8 @@ export async function GET(
             content,
             consultantName: consultant !== '미확인' ? consultant : undefined,
             duration: call.duration,
+            direction: call.direction as 'inbound' | 'outbound' | undefined,
+            source: 'auto',
           });
         }
 
@@ -566,6 +596,7 @@ export async function GET(
             time: timeStr,
             content,
             consultantName: manual.consultantName,
+            source: 'manual',
           });
         }
 

@@ -1,5 +1,7 @@
 // src/app/api/cron/daily-report-sms/route.ts
-// 매일 저녁 7시에 일별 보고서 링크를 SMS로 발송하는 Cron API
+// 일별 보고서 SMS 발송 Cron API
+// 매시 정각 실행, DB 설정(settings_v2.dailyReportSms)의 요일별 시간에 맞춰 발송
+// 설정 없으면 기본 KST 19시에 발송 (하위호환)
 
 import { NextRequest, NextResponse } from 'next/server';
 import { connectToDatabase } from '@/utils/mongodb';
@@ -53,12 +55,27 @@ function getDayOfWeek(dateStr: string): string {
   return days[date.getDay()];
 }
 
+// 현재 한국 시간(KST) 시각 가져오기
+function getKSTHour(): number {
+  const now = new Date();
+  const koreaTime = new Date(now.getTime() + (9 * 60 * 60 * 1000));
+  return koreaTime.getUTCHours();
+}
+
+// 현재 한국 시간 요일 키 (mon, tue, ...) 가져오기
+function getKSTDayKey(): string {
+  const keys = ['sun', 'mon', 'tue', 'wed', 'thu', 'fri', 'sat'];
+  const now = new Date();
+  const koreaTime = new Date(now.getTime() + (9 * 60 * 60 * 1000));
+  return keys[koreaTime.getUTCDay()];
+}
+
 // 일별 보고서 요약 데이터 조회 (V2 reports API 호출 - SSoT)
 async function getDailyReportSummary(date: string) {
   try {
     const reportApiUrl = `${SITE_URL}/api/v2/reports/daily/${date}`;
     console.log('V2 리포트 API 호출:', reportApiUrl);
-    const reportRes = await fetch(reportApiUrl);
+    const reportRes = await fetch(reportApiUrl, { cache: 'no-store' });
     const reportJson = await reportRes.json();
 
     if (!reportJson.success) {
@@ -74,6 +91,7 @@ async function getDailyReportSummary(date: string) {
       pending: v2Summary.pending,
       noAnswer: v2Summary.noAnswer || 0,
       noConsultation: v2Summary.noConsultation || 0,
+      closed: v2Summary.closed || 0,
       actualRevenue: v2Summary.actualRevenue || 0,
       expectedRevenue: v2Summary.expectedRevenue || 0,
       totalDiscount: v2Summary.totalDiscount || 0,
@@ -155,15 +173,87 @@ export async function GET(request: NextRequest) {
     );
   }
 
-  // 수동 테스트용 전화번호 파라미터
+  // 수동 테스트용 파라미터
   const { searchParams } = new URL(request.url);
   const customPhone = searchParams.get('phone');
+  const forceParam = searchParams.get('force') === 'true';
+  const isManualTest = !!customPhone || forceParam;
 
   try {
+    const { db } = await connectToDatabase();
     const today = getTodayDate();
     const dayOfWeek = getDayOfWeek(today);
+    const kstHour = getKSTHour();
+    const dayKey = getKSTDayKey();
 
-    console.log(`오늘 날짜: ${today} (${dayOfWeek})`);
+    console.log(`오늘 날짜: ${today} (${dayOfWeek}), KST ${kstHour}시, 요일키: ${dayKey}`);
+
+    // DB에서 SMS 설정 조회
+    const settings = await db.collection('settings_v2').findOne({ clinicId: 'default' });
+    const smsSettings = settings?.dailyReportSms;
+
+    // 수신자 결정
+    let recipients: string[];
+    if (customPhone) {
+      recipients = [customPhone];
+    } else if (smsSettings?.recipients?.length > 0) {
+      recipients = smsSettings.recipients;
+    } else {
+      recipients = RECIPIENT_PHONES; // fallback: 하드코딩된 기본 번호
+    }
+
+    // 스케줄 확인 (수동 테스트가 아닌 경우에만)
+    if (!isManualTest) {
+      if (smsSettings?.enabled === true && smsSettings.schedule) {
+        // DB 설정 기반 스케줄 확인
+        const todaySchedule = smsSettings.schedule[dayKey];
+
+        if (!todaySchedule?.enabled) {
+          console.log(`${dayKey}(${dayOfWeek}) 요일 발송 비활성화. Skip.`);
+          return NextResponse.json({
+            success: true,
+            skipped: true,
+            reason: `${dayOfWeek}요일 발송 비활성화`,
+          });
+        }
+
+        const scheduledHour = parseInt(todaySchedule.time?.split(':')[0] || '19', 10);
+        if (kstHour !== scheduledHour) {
+          console.log(`현재 KST ${kstHour}시, 발송 예정: ${scheduledHour}시. Skip.`);
+          return NextResponse.json({
+            success: true,
+            skipped: true,
+            reason: `현재 ${kstHour}시, 발송 예정 ${scheduledHour}시`,
+          });
+        }
+      } else {
+        // 설정 없거나 비활성 → 기존 기본값 (KST 19시)
+        if (kstHour !== 19) {
+          console.log(`설정 없음/비활성, 기본값 KST 19시. 현재 ${kstHour}시. Skip.`);
+          return NextResponse.json({
+            success: true,
+            skipped: true,
+            reason: `기본 발송 시간(19시) 아님, 현재 ${kstHour}시`,
+          });
+        }
+      }
+
+      // 중복 발송 체크 (오늘 이미 성공적으로 발송했는지)
+      const alreadySent = await db.collection('cron_logs').findOne({
+        type: 'daily-report-sms',
+        date: today,
+        success: true,
+      });
+
+      if (alreadySent) {
+        console.log(`오늘(${today}) 이미 발송 완료됨. Skip.`);
+        return NextResponse.json({
+          success: true,
+          skipped: true,
+          reason: `오늘 이미 발송 완료`,
+        });
+      }
+    }
 
     // 보고서 요약 조회
     const summary = await getDailyReportSummary(today);
@@ -176,10 +266,10 @@ export async function GET(request: NextRequest) {
       });
     }
 
-    // 모바일 보고서 링크 (짧은 리다이렉트 URL 사용 - LMS 줄바꿈으로 URL 잘림 방지)
+    // 모바일 보고서 링크
     const reportUrl = `${SITE_URL}/r/${today}`;
 
-    // SMS 메시지 구성 (V2 reports API 데이터 기반 - 일보고서 페이지와 동일)
+    // SMS 메시지 구성
     const clinicName = process.env.CLINIC_NAME || 'D-Care';
     let message = `[${clinicName}] ${today}(${dayOfWeek}) 일별 보고서\n\n`;
     message += `총 상담: ${summary.total}건\n`;
@@ -192,6 +282,9 @@ export async function GET(request: NextRequest) {
     if (summary.noConsultation > 0) {
       message += `- 미입력: ${summary.noConsultation}건 ← 확인 필요\n`;
     }
+    if (summary.closed > 0) {
+      message += `- 종결: ${summary.closed}건\n`;
+    }
     if (summary.actualRevenue > 0) {
       message += `\n확정 매출: ${summary.actualRevenue.toLocaleString()}만원 (동의 ${summary.agreed}건)`;
     }
@@ -203,13 +296,10 @@ export async function GET(request: NextRequest) {
     }
     message += `\n\n상세 보기\n${reportUrl}`;
 
-    // 수신자 결정 (테스트용 파라미터 또는 기본 수신자 목록)
-    const recipients = customPhone ? [customPhone] : RECIPIENT_PHONES;
-
     console.log('발송 메시지:', message);
     console.log('수신자 목록:', recipients);
 
-    // SMS 발송 (모든 수신자에게)
+    // SMS 발송
     const results: { phone: string; success: boolean; result?: any; error?: string }[] = [];
 
     for (const phone of recipients) {
@@ -224,7 +314,6 @@ export async function GET(request: NextRequest) {
     }
 
     // 발송 기록 저장
-    const { db } = await connectToDatabase();
     await db.collection('cron_logs').insertOne({
       type: 'daily-report-sms',
       date: today,

@@ -47,8 +47,8 @@ export async function calculateMonthlyStatsV2(
   const prevEndDateStr = prevEndDate.toISOString();
 
   // 병렬 쿼리 (현재 달 + 이전 달)
-  // Note: createdAt은 MongoDB에서 Date 객체로 저장되므로 Date 객체로 비교해야 함
-  // 일부 레거시 문서가 ISO string으로 저장되어 있을 수 있으므로 $or로 양쪽 모두 매칭
+  // patients_v2.createdAt: Date 타입만 비교 (환자관리 메뉴/대시보드와 일치)
+  // consultations_v2.date, callLogs_v2.createdAt: Date/String 혼재 가능하므로 $or 사용
   const dateOrQuery = (field: string, gte: Date, lte: Date, gteStr: string, lteStr: string) => ({
     $or: [
       { [field]: { $gte: gte, $lte: lte } },
@@ -62,7 +62,7 @@ export async function calculateMonthlyStatsV2(
   ] = await Promise.all([
     // 현재 달
     db.collection<PatientV2>('patients_v2').find(
-      dateOrQuery('createdAt', startDate, endDate, startDateStr, endDateStr)
+      { createdAt: { $gte: startDate, $lte: endDate } }
     ).toArray(),
     db.collection<ConsultationV2>('consultations_v2').find(
       dateOrQuery('date', startDate, endDate, startDateStr, endDateStr)
@@ -72,7 +72,7 @@ export async function calculateMonthlyStatsV2(
     ).toArray(),
     // 이전 달
     db.collection<PatientV2>('patients_v2').find(
-      dateOrQuery('createdAt', prevStartDate, prevEndDate, prevStartDateStr, prevEndDateStr)
+      { createdAt: { $gte: prevStartDate, $lte: prevEndDate } }
     ).toArray(),
     db.collection<ConsultationV2>('consultations_v2').find(
       dateOrQuery('date', prevStartDate, prevEndDate, prevStartDateStr, prevEndDateStr)

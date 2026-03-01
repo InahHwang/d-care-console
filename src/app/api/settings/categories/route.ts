@@ -33,6 +33,17 @@ const DEFAULT_CATEGORIES = {
     { id: 'cavity', label: '충치치료', isDefault: true, isActive: true },
     { id: 'other', label: '기타', isDefault: true, isActive: true },
   ],
+  treatmentTypes: [
+    { id: 'implant', label: '임플란트', isDefault: true, isActive: true },
+    { id: 'orthodontics', label: '치아교정', isDefault: true, isActive: true },
+    { id: 'prosthetics', label: '보철치료', isDefault: true, isActive: true },
+    { id: 'gum', label: '잇몸치료', isDefault: true, isActive: true },
+    { id: 'cosmetic', label: '심미치료', isDefault: true, isActive: true },
+    { id: 'cavity', label: '충치치료', isDefault: true, isActive: true },
+    { id: 'scaling', label: '스케일링', isDefault: true, isActive: true },
+    { id: 'general', label: '일반진료', isDefault: true, isActive: true },
+    { id: 'other', label: '기타', isDefault: true, isActive: true },
+  ],
 };
 
 // GET: 카테고리 목록 조회
@@ -54,14 +65,30 @@ export async function GET(request: NextRequest) {
 
       await db.collection('settings').insertOne(newCategories);
       categories = newCategories;
+    } else {
+      // 기존 문서에 새로 추가된 카테고리 타입이 없으면 DB에 보충
+      const missingFields: Record<string, any> = {};
+      for (const [key, defaultValue] of Object.entries(DEFAULT_CATEGORIES)) {
+        if (!categories[key]) {
+          missingFields[key] = defaultValue;
+        }
+      }
+      if (Object.keys(missingFields).length > 0) {
+        await db.collection('settings').updateOne(
+          { type: 'categories' },
+          { $set: { ...missingFields, updatedAt: new Date().toISOString() } }
+        );
+        categories = { ...categories, ...missingFields };
+      }
     }
 
     return NextResponse.json({
       success: true,
       categories: {
-        consultationTypes: categories?.consultationTypes || DEFAULT_CATEGORIES.consultationTypes,
-        referralSources: categories?.referralSources || DEFAULT_CATEGORIES.referralSources,
-        interestedServices: categories?.interestedServices || DEFAULT_CATEGORIES.interestedServices,
+        consultationTypes: categories.consultationTypes,
+        referralSources: categories.referralSources,
+        interestedServices: categories.interestedServices,
+        treatmentTypes: categories.treatmentTypes,
       },
     });
   } catch (error) {
@@ -89,7 +116,7 @@ export async function PUT(request: NextRequest) {
     }
 
     // 유효한 카테고리 타입인지 확인
-    const validTypes = ['consultationTypes', 'referralSources', 'interestedServices'];
+    const validTypes = ['consultationTypes', 'referralSources', 'interestedServices', 'treatmentTypes'];
     if (!validTypes.includes(categoryType)) {
       return NextResponse.json(
         { success: false, error: '유효하지 않은 카테고리 타입입니다.' },
@@ -142,7 +169,7 @@ export async function POST(request: NextRequest) {
     }
 
     // 유효한 카테고리 타입인지 확인
-    const validTypes = ['consultationTypes', 'referralSources', 'interestedServices'];
+    const validTypes = ['consultationTypes', 'referralSources', 'interestedServices', 'treatmentTypes'];
     if (!validTypes.includes(categoryType)) {
       return NextResponse.json(
         { success: false, error: '유효하지 않은 카테고리 타입입니다.' },
@@ -218,15 +245,8 @@ export async function DELETE(request: NextRequest) {
       );
     }
 
-    const item = items[itemIndex];
-
-    // 기본 항목은 삭제 불가, 비활성화만
-    if (item.isDefault) {
-      items[itemIndex].isActive = false;
-    } else {
-      // 커스텀 항목은 완전 삭제
-      items.splice(itemIndex, 1);
-    }
+    // 완전 삭제
+    items.splice(itemIndex, 1);
 
     // 업데이트
     await db.collection('settings').updateOne(
@@ -239,12 +259,11 @@ export async function DELETE(request: NextRequest) {
       }
     );
 
-    console.log(`카테고리 항목 ${item.isDefault ? '비활성화' : '삭제'}: ${categoryType} - ${itemId}`);
+    console.log(`카테고리 항목 삭제: ${categoryType} - ${itemId}`);
 
     return NextResponse.json({
       success: true,
-      message: item.isDefault ? '기본 항목이 비활성화되었습니다.' : '항목이 삭제되었습니다.',
-      wasDefault: item.isDefault,
+      message: '항목이 삭제되었습니다.',
     });
   } catch (error) {
     console.error('카테고리 항목 삭제 오류:', error);

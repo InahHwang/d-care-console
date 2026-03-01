@@ -30,6 +30,11 @@ interface Settings {
     dailyCalls: number;
     conversionRate: number;
   };
+  dailyReportSms?: {
+    enabled: boolean;
+    recipients: string[];
+    schedule: Record<string, { enabled: boolean; time: string }>;
+  };
   updatedAt: string;
 }
 
@@ -110,6 +115,7 @@ export async function PATCH(request: NextRequest) {
     if (body.ai !== undefined) updateData.ai = body.ai;
     if (body.notifications !== undefined) updateData.notifications = body.notifications;
     if (body.targets !== undefined) updateData.targets = body.targets;
+    if (body.dailyReportSms !== undefined) updateData.dailyReportSms = body.dailyReportSms;
 
     const result = await db.collection<Settings>('settings_v2').findOneAndUpdate(
       { clinicId },

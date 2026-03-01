@@ -27,20 +27,23 @@ interface Categories {
   consultationTypes: CategoryItem[];
   referralSources: CategoryItem[];
   interestedServices: CategoryItem[];
+  treatmentTypes: CategoryItem[];
 }
 
-type CategoryType = 'consultationTypes' | 'referralSources' | 'interestedServices';
+type CategoryType = 'consultationTypes' | 'referralSources' | 'interestedServices' | 'treatmentTypes';
 
 const CATEGORY_LABELS: Record<CategoryType, string> = {
   consultationTypes: '상담 타입',
   referralSources: '유입 경로',
   interestedServices: '관심 분야',
+  treatmentTypes: '치료 과목',
 };
 
 const CATEGORY_DESCRIPTIONS: Record<CategoryType, string> = {
   consultationTypes: '환자 상담 유형을 분류합니다. (예: 인바운드, 아웃바운드, 구신환)',
   referralSources: '환자가 병원을 알게 된 경로입니다. (예: 네이버, 지인소개, 간판)',
   interestedServices: '환자가 관심있는 진료 분야입니다. (예: 임플란트, 틀니, 라미네이트)',
+  treatmentTypes: '진료 과목을 분류합니다. (예: 임플란트, 치아교정, 보철치료, 스케일링)',
 };
 
 export default function PatientCategorySettings() {
@@ -48,6 +51,7 @@ export default function PatientCategorySettings() {
     consultationTypes: [],
     referralSources: [],
     interestedServices: [],
+    treatmentTypes: [],
   });
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -201,13 +205,7 @@ export default function PatientCategorySettings() {
 
   // 항목 삭제
   const handleDeleteItem = async (itemId: string) => {
-    const item = categories[activeCategory].find((i) => i.id === itemId);
-
-    if (item?.isDefault) {
-      if (!confirm('기본 항목은 삭제할 수 없습니다. 비활성화하시겠습니까?')) return;
-    } else {
-      if (!confirm('이 항목을 삭제하시겠습니까?')) return;
-    }
+    if (!confirm('이 항목을 삭제하시겠습니까?')) return;
 
     setIsSaving(true);
     try {
@@ -219,21 +217,10 @@ export default function PatientCategorySettings() {
       const data = await response.json();
 
       if (data.success) {
-        if (data.wasDefault) {
-          // 기본 항목은 비활성화만
-          setCategories((prev) => ({
-            ...prev,
-            [activeCategory]: prev[activeCategory].map((item) =>
-              item.id === itemId ? { ...item, isActive: false } : item
-            ),
-          }));
-        } else {
-          // 커스텀 항목은 완전 삭제
-          setCategories((prev) => ({
-            ...prev,
-            [activeCategory]: prev[activeCategory].filter((item) => item.id !== itemId),
-          }));
-        }
+        setCategories((prev) => ({
+          ...prev,
+          [activeCategory]: prev[activeCategory].filter((item) => item.id !== itemId),
+        }));
       } else {
         alert(data.error || '항목 삭제에 실패했습니다.');
       }
@@ -482,7 +469,7 @@ export default function PatientCategorySettings() {
                       onClick={() => handleDeleteItem(item.id)}
                       disabled={isSaving}
                       className="p-1.5 text-red-500 hover:bg-red-50 rounded"
-                      title={item.isDefault ? '비활성화' : '삭제'}
+                      title="삭제"
                     >
                       <Icon icon={HiOutlineTrash} size={18} />
                     </button>
@@ -504,10 +491,9 @@ export default function PatientCategorySettings() {
       <div className="p-4 bg-blue-50 rounded-lg text-sm text-blue-700">
         <p className="font-medium mb-1">사용 안내</p>
         <ul className="list-disc list-inside space-y-1 text-blue-600">
-          <li><strong>기본 항목</strong>은 삭제할 수 없으며, 비활성화만 가능합니다.</li>
-          <li><strong>비활성화</strong>된 항목은 환자 등록 시 선택 목록에 표시되지 않습니다.</li>
-          <li>새로 추가한 <strong>사용자 항목</strong>은 완전히 삭제할 수 있습니다.</li>
-          <li>항목 이름을 클릭하면 수정할 수 있습니다.</li>
+          <li>항목을 자유롭게 <strong>추가, 수정, 삭제</strong>할 수 있습니다.</li>
+          <li>삭제된 항목은 환자 등록 시 선택 목록에서 사라집니다.</li>
+          <li>연필 아이콘을 클릭하면 항목 이름을 수정할 수 있습니다.</li>
         </ul>
       </div>
     </div>

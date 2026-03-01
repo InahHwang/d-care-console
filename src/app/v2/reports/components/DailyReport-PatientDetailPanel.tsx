@@ -68,7 +68,23 @@ export function DailyReportPatientDetailPanel({
                 </span>
               )}
             </div>
-            <p className="text-lg text-gray-700">{patient.treatment}</p>
+            <div className="flex items-center gap-2">
+              <p className="text-lg text-gray-700">{patient.treatment}</p>
+              {patient.consultationType && (
+                <span className={`px-2 py-0.5 rounded-full text-xs font-medium ${
+                  patient.consultationType === 'inbound'
+                    ? 'bg-blue-100 text-blue-700'
+                    : patient.consultationType === 'outbound'
+                      ? 'bg-purple-100 text-purple-700'
+                      : 'bg-teal-100 text-teal-700'
+                }`}>
+                  {patient.consultationType === 'inbound' ? '인바운드'
+                    : patient.consultationType === 'outbound' ? '아웃바운드'
+                      : patient.consultationType === 'returning' ? '구신환'
+                        : patient.consultationType}
+                </span>
+              )}
+            </div>
           </div>
           {/* 환자 상세보기 버튼 */}
           {patient.patientId && (
@@ -172,8 +188,22 @@ export function DailyReportPatientDetailPanel({
               <div key={idx} className="bg-white rounded-xl p-5 shadow-sm">
                 <div className="flex items-center justify-between mb-3">
                   <h3 className="font-semibold text-gray-900 flex items-center gap-2">
-                    <span>{entry.type === 'visit' ? '🏥' : '📞'}</span>
+                    <span>{entry.type === 'visit' ? '🏥' : entry.source === 'manual' ? '✏️' : '📞'}</span>
                     {entry.type === 'visit' ? '내원 상담' : '전화 상담'}
+                    {entry.source === 'manual' ? (
+                      <span className="px-1.5 py-0.5 rounded text-xs bg-amber-100 text-amber-700 font-medium">수동</span>
+                    ) : (
+                      <span className="px-1.5 py-0.5 rounded text-xs bg-green-100 text-green-700 font-medium">자동</span>
+                    )}
+                    {entry.direction && (
+                      <span className={`px-1.5 py-0.5 rounded text-xs font-medium ${
+                        entry.direction === 'inbound'
+                          ? 'bg-blue-100 text-blue-700'
+                          : 'bg-purple-100 text-purple-700'
+                      }`}>
+                        {entry.direction === 'inbound' ? '수신' : '발신'}
+                      </span>
+                    )}
                     <span className="text-xs text-gray-400 font-normal">{entry.time}</span>
                   </h3>
                   <div className="flex items-center gap-3 text-sm text-gray-500">

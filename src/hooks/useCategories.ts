@@ -14,6 +14,7 @@ export interface Categories {
   consultationTypes: CategoryItem[];
   referralSources: CategoryItem[];
   interestedServices: CategoryItem[];
+  treatmentTypes: CategoryItem[];
 }
 
 // 기본 카테고리 값들 (API 실패 시 폴백)
@@ -43,6 +44,17 @@ const DEFAULT_CATEGORIES: Categories = {
     { id: 'denture', label: '틀니', isDefault: true, isActive: true },
     { id: 'laminate', label: '라미네이트', isDefault: true, isActive: true },
     { id: 'cavity', label: '충치치료', isDefault: true, isActive: true },
+    { id: 'other', label: '기타', isDefault: true, isActive: true },
+  ],
+  treatmentTypes: [
+    { id: 'implant', label: '임플란트', isDefault: true, isActive: true },
+    { id: 'orthodontics', label: '치아교정', isDefault: true, isActive: true },
+    { id: 'prosthetics', label: '보철치료', isDefault: true, isActive: true },
+    { id: 'gum', label: '잇몸치료', isDefault: true, isActive: true },
+    { id: 'cosmetic', label: '심미치료', isDefault: true, isActive: true },
+    { id: 'cavity', label: '충치치료', isDefault: true, isActive: true },
+    { id: 'scaling', label: '스케일링', isDefault: true, isActive: true },
+    { id: 'general', label: '일반진료', isDefault: true, isActive: true },
     { id: 'other', label: '기타', isDefault: true, isActive: true },
   ],
 };
@@ -100,6 +112,7 @@ export function useCategories() {
     activeConsultationTypes: getActiveItems(query.data?.consultationTypes || DEFAULT_CATEGORIES.consultationTypes),
     activeReferralSources: getActiveItems(query.data?.referralSources || DEFAULT_CATEGORIES.referralSources),
     activeInterestedServices: getActiveItems(query.data?.interestedServices || DEFAULT_CATEGORIES.interestedServices),
+    activeTreatmentTypes: getActiveItems(query.data?.treatmentTypes || DEFAULT_CATEGORIES.treatmentTypes),
 
     // select 옵션 형식
     consultationTypeOptions: toSelectOptions(query.data?.consultationTypes || DEFAULT_CATEGORIES.consultationTypes),
@@ -108,6 +121,7 @@ export function useCategories() {
       ...toSelectOptions(query.data?.referralSources || DEFAULT_CATEGORIES.referralSources),
     ],
     interestedServiceOptions: toSelectOptions(query.data?.interestedServices || DEFAULT_CATEGORIES.interestedServices),
+    treatmentTypeOptions: toSelectOptions(query.data?.treatmentTypes || DEFAULT_CATEGORIES.treatmentTypes),
 
     // 유틸리티
     getActiveItems,

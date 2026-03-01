@@ -58,8 +58,8 @@ net stop "CTI Bridge Service"
 
 ## API 버전
 
-- **V1**: `/api/*` - 레거시 API
-- **V2**: `/api/v2/*` - 신규 API (patients_v2 컬렉션 사용)
+- **V1**: `/api/*` - 레거시 API (**더 이상 수정하지 않음. V1 코드는 건드리지 말 것**)
+- **V2**: `/api/v2/*` - 현재 운영 중인 API (patients_v2 컬렉션 사용). **모든 신규 작업은 V2에서만 진행**
 
 ## 환경 변수
 
