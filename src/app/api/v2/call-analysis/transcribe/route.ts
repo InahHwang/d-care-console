@@ -44,12 +44,56 @@ function sleep(ms: number): Promise<void> {
   return new Promise(resolve => setTimeout(resolve, ms));
 }
 
+// 통화 방향에 따른 화자분리 프롬프트 생성
+function buildDiarizePrompt(direction: string): string {
+  const directionHint = direction === 'outbound'
+    ? `이 통화는 **발신(아웃바운드)** 통화입니다.
+- 첫 번째 발화자는 반드시 "상담사"입니다 (전화를 건 쪽).
+- 상담사가 먼저 "여보세요" 또는 병원 소개를 합니다.`
+    : `이 통화는 **수신(인바운드)** 통화입니다.
+- 첫 번째 발화자는 반드시 "상담사"입니다 (전화를 받는 쪽).
+- 상담사가 먼저 "감사합니다, OO치과입니다" 등의 인사를 합니다.`;
+
+  return `당신은 치과 콜센터 통화 녹취록의 화자분리 전문가입니다.
+아래 녹취 텍스트를 "상담사"와 "환자" 두 화자로 분리하세요.
+
+## 통화 정보
+${directionHint}
+
+## 화자 구분 핵심 패턴
+
+### 상담사 (병원 직원)의 특징:
+- 병원 이름을 말함 ("OO치과", "저희 병원")
+- 치료 설명/안내 ("임플란트는~", "치료 과정이~")
+- 가격/비용 안내 ("이벤트 가격이~", "한 대당~")
+- 예약/방문 유도 ("한번 오셔서~", "상담 받아보시겠어요?")
+- 환자 정보 확인 ("성함이~", "거주하시는 곳이~", "OO님 맞으세요?")
+- 맞장구/경청 ("아 그러셨구나", "네 맞습니다", "아 그러세요")
+
+### 환자의 특징:
+- 본인 증상/상황 설명 ("이빨이~", "임플란트 박아놓고~", "틀니 쓰고 있는데~")
+- 비용 질문/반응 ("얼마예요?", "비용이 부담되서~")
+- 개인 정보 대답 ("방학동이요", "75세요", "의료급여~")
+- 치료 경험 언급 ("다른 병원에서~", "몇 년 전에~")
+
+## 규칙
+1. 각 발화를 "상담사: " 또는 "환자: "로 시작
+2. 각 발화는 줄바꿈으로 구분
+3. 원문 내용을 절대 수정/생략하지 말 것 — 화자 라벨만 추가
+4. 한 화자가 연속으로 긴 말을 할 수 있음 (무리하게 턴을 나누지 말 것)
+5. "네", "아" 같은 짧은 맞장구는 맥락상 누구의 것인지 판단
+6. 확신이 없으면 앞뒤 맥락(누가 질문했고 누가 대답하는지)으로 판단
+7. 화자분리된 결과만 출력하고, 설명이나 주석은 붙이지 말 것`;
+}
+
 // GPT를 사용한 화자분리 후처리
-async function diarizeWithGPT(plainText: string): Promise<string> {
+async function diarizeWithGPT(plainText: string, direction: string = 'unknown'): Promise<string> {
   const apiKey = process.env.OPENAI_API_KEY;
   if (!apiKey) return plainText; // API 키 없으면 원본 반환
 
   try {
+    const systemPrompt = buildDiarizePrompt(direction);
+
     const response = await fetch('https://api.openai.com/v1/chat/completions', {
       method: 'POST',
       headers: {
@@ -59,27 +103,11 @@ async function diarizeWithGPT(plainText: string): Promise<string> {
       body: JSON.stringify({
         model: 'gpt-4o-mini',
         messages: [
-          {
-            role: 'system',
-            content: `당신은 치과 콜센터 통화 녹취록을 화자분리하는 전문가입니다.
-주어진 텍스트를 "상담사"와 "환자" 두 화자로 분리하여 대화 형식으로 변환하세요.
-
-규칙:
-1. 각 발화를 "상담사: " 또는 "환자: "로 시작
-2. 각 발화는 줄바꿈(\\n)으로 구분
-3. 병원 직원의 말(인사, 안내, 설명, 질문)은 "상담사:"
-4. 내원자/문의자의 말(증상 설명, 질문, 응답)은 "환자:"
-5. 맥락상 화자가 바뀌는 지점을 정확히 파악
-6. 원문의 내용을 변경하지 말고, 화자 라벨만 추가
-7. 내용이 짧거나 화자 구분이 불가능하면 원문 그대로 반환`,
-          },
-          {
-            role: 'user',
-            content: plainText,
-          },
+          { role: 'system', content: systemPrompt },
+          { role: 'user', content: plainText },
         ],
         temperature: 0.1,
-        max_tokens: 2000,
+        max_tokens: 4000,
       }),
     });
 
@@ -320,8 +348,9 @@ export async function POST(request: NextRequest) {
     // 화자분리 후처리 (30자 이상일 때만 - 너무 짧으면 분리 불가)
     let finalTranscript = transcription.text;
     if (transcription.text.length >= 30) {
-      console.log('[STT v2] 화자분리 처리 중...');
-      finalTranscript = await diarizeWithGPT(transcription.text);
+      const direction = callLog.direction || callLog.callType || 'unknown';
+      console.log(`[STT v2] 화자분리 처리 중... (${direction})`);
+      finalTranscript = await diarizeWithGPT(transcription.text, direction);
     }
 
     // DB 업데이트 (aiAnalysis가 null이어도 처리 가능하도록)
