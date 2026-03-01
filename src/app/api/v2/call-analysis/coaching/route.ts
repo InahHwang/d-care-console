@@ -6,8 +6,8 @@ import { connectToDatabase } from '@/utils/mongodb';
 import { ObjectId } from 'mongodb';
 import type { AICoachingResult } from '@/types/v2';
 
-// Vercel Function 타임아웃 설정
-export const maxDuration = 60;
+// Vercel Function 타임아웃 설정 (gpt-5.2는 응답이 느릴 수 있음)
+export const maxDuration = 120;
 
 // 코칭 프롬프트 생성
 function buildCoachingPrompt(
@@ -123,10 +123,10 @@ async function analyzeCoachingWithGPT(
       'Content-Type': 'application/json',
     },
     body: JSON.stringify({
-      model: 'gpt-4o-mini',
+      model: 'gpt-5.2',
       messages: [
         {
-          role: 'system',
+          role: 'developer',
           content: '당신은 치과 콜센터 상담 코칭 전문가입니다. 요청받은 형식의 JSON만 출력합니다.',
         },
         {
@@ -134,8 +134,7 @@ async function analyzeCoachingWithGPT(
           content: prompt,
         },
       ],
-      temperature: 0.4,
-      max_tokens: 1500,
+      max_completion_tokens: 16000,
     }),
   });
 
@@ -168,7 +167,7 @@ async function analyzeCoachingWithGPT(
     missedOpportunities: result.missedOpportunities || [],
     nextCallStrategy: result.nextCallStrategy || '',
     generatedAt: new Date().toISOString(),
-    model: 'gpt-4o-mini',
+    model: 'gpt-5.2',
   };
 }
 
