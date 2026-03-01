@@ -155,6 +155,7 @@ export interface DailyReportPatient {
   direction?: 'inbound' | 'outbound';    // 대표 통화 방향 (수신/발신)
   source?: 'manual' | 'auto';            // 수동입력 여부
   consultations?: ConsultationEntry[];  // 해당 날짜의 모든 상담 기록 (시간순)
+  callLogId?: string;  // 대표 callLog ID (AI 코칭 연동용)
 }
 
 // 일별 리포트 요약

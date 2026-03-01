@@ -2,9 +2,9 @@
 // 일별 리포트 환자 상세 패널 컴포넌트
 'use client';
 
-import React from 'react';
+import React, { useState, useEffect } from 'react';
 import Link from 'next/link';
-import { ExternalLink } from 'lucide-react';
+import { ExternalLink, Sparkles, Loader2 } from 'lucide-react';
 import {
   DailyReportPatient,
   DISAGREE_REASON_CATEGORIES,
@@ -26,9 +26,51 @@ interface DailyReportPatientDetailPanelProps {
   patient: DailyReportPatient | null;
 }
 
+// AI 코칭 요약 데이터
+interface CoachingSummary {
+  overallScore: number;
+  overallComment: string;
+  nextCallStrategy: string;
+}
+
 export function DailyReportPatientDetailPanel({
   patient,
 }: DailyReportPatientDetailPanelProps) {
+  const [coachingSummary, setCoachingSummary] = useState<CoachingSummary | null>(null);
+  const [coachingLoading, setCoachingLoading] = useState(false);
+
+  // callLogId가 있고 미동의/보류/종결이면 코칭 캐시 조회
+  useEffect(() => {
+    setCoachingSummary(null);
+    if (!patient?.callLogId) return;
+    if (!['disagreed', 'pending', 'closed'].includes(patient.status)) return;
+
+    const fetchCoaching = async () => {
+      setCoachingLoading(true);
+      try {
+        const res = await fetch('/api/v2/call-analysis/coaching', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ callLogId: patient.callLogId }),
+        });
+        if (!res.ok) return;
+        const data = await res.json();
+        if (data.cached && data.coaching) {
+          setCoachingSummary({
+            overallScore: data.coaching.overallScore,
+            overallComment: data.coaching.overallComment,
+            nextCallStrategy: data.coaching.nextCallStrategy,
+          });
+        }
+      } catch {
+        // 코칭 로드 실패는 무시 (보조 기능)
+      } finally {
+        setCoachingLoading(false);
+      }
+    };
+    fetchCoaching();
+  }, [patient?.callLogId, patient?.status]);
+
   if (!patient) {
     return (
       <div className="h-full flex items-center justify-center bg-gray-50 text-gray-500">
@@ -310,6 +352,38 @@ export function DailyReportPatientDetailPanel({
               <p className="text-blue-800 leading-relaxed">{patient.correctionPlan}</p>
             </div>
           )}
+
+        {/* AI 코칭 요약 (캐시된 결과가 있을 때만 표시) */}
+        {coachingLoading && (
+          <div className="flex items-center gap-2 py-2 text-violet-500 text-sm">
+            <Loader2 size={14} className="animate-spin" />
+            AI 코칭 확인 중...
+          </div>
+        )}
+        {coachingSummary && (
+          <div className="bg-violet-50 rounded-xl p-5 border border-violet-200">
+            <h3 className="font-semibold text-violet-900 mb-3 flex items-center gap-2">
+              <Sparkles size={16} />
+              AI 상담 코칭
+              <span className={`ml-auto text-lg font-bold px-2 py-0.5 rounded ${
+                coachingSummary.overallScore >= 80 ? 'text-emerald-600 bg-emerald-100' :
+                coachingSummary.overallScore >= 60 ? 'text-amber-600 bg-amber-100' :
+                'text-rose-600 bg-rose-100'
+              }`}>
+                {coachingSummary.overallScore}점
+              </span>
+            </h3>
+            <p className="text-sm text-violet-800 leading-relaxed mb-3">
+              {coachingSummary.overallComment}
+            </p>
+            {coachingSummary.nextCallStrategy && (
+              <div className="bg-white rounded-lg p-3">
+                <p className="text-xs text-violet-600 font-medium mb-1">다음 콜백 전략</p>
+                <p className="text-sm text-gray-700">{coachingSummary.nextCallStrategy}</p>
+              </div>
+            )}
+          </div>
+        )}
 
         {/* 예약 정보 (동의 시) */}
         {patient.status === 'agreed' && patient.appointmentDate && (

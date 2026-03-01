@@ -230,6 +230,35 @@ export interface AIAnalysis {
   consultationResult?: AIConsultationResult;
 }
 
+// ============================================
+// AI 상담 코칭 관련 타입
+// ============================================
+
+export interface AICoachingStrength {
+  point: string;
+  quote?: string;
+  explanation: string;
+}
+
+export interface AICoachingImprovement {
+  point: string;
+  quote?: string;
+  currentApproach: string;
+  suggestedApproach: string;
+  reason: string;
+}
+
+export interface AICoachingResult {
+  overallScore: number;              // 0-100
+  overallComment: string;            // 전반적 평가 (2-3문장)
+  strengths: AICoachingStrength[];   // 잘한 포인트
+  improvements: AICoachingImprovement[]; // 개선 필요 포인트
+  missedOpportunities: string[];     // 놓친 기회
+  nextCallStrategy: string;          // 다음 콜백 전략
+  generatedAt: string;               // 생성 시각
+  model: string;                     // 사용된 모델
+}
+
 export interface CallLogV2 {
   _id?: ObjectId | string;
   clinicId?: string;
