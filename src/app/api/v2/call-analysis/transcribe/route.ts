@@ -44,6 +44,66 @@ function sleep(ms: number): Promise<void> {
   return new Promise(resolve => setTimeout(resolve, ms));
 }
 
+// GPT를 사용한 화자분리 후처리
+async function diarizeWithGPT(plainText: string): Promise<string> {
+  const apiKey = process.env.OPENAI_API_KEY;
+  if (!apiKey) return plainText; // API 키 없으면 원본 반환
+
+  try {
+    const response = await fetch('https://api.openai.com/v1/chat/completions', {
+      method: 'POST',
+      headers: {
+        'Authorization': `Bearer ${apiKey}`,
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({
+        model: 'gpt-4o-mini',
+        messages: [
+          {
+            role: 'system',
+            content: `당신은 치과 콜센터 통화 녹취록을 화자분리하는 전문가입니다.
+주어진 텍스트를 "상담사"와 "환자" 두 화자로 분리하여 대화 형식으로 변환하세요.
+
+규칙:
+1. 각 발화를 "상담사: " 또는 "환자: "로 시작
+2. 각 발화는 줄바꿈(\\n)으로 구분
+3. 병원 직원의 말(인사, 안내, 설명, 질문)은 "상담사:"
+4. 내원자/문의자의 말(증상 설명, 질문, 응답)은 "환자:"
+5. 맥락상 화자가 바뀌는 지점을 정확히 파악
+6. 원문의 내용을 변경하지 말고, 화자 라벨만 추가
+7. 내용이 짧거나 화자 구분이 불가능하면 원문 그대로 반환`,
+          },
+          {
+            role: 'user',
+            content: plainText,
+          },
+        ],
+        temperature: 0.1,
+        max_tokens: 2000,
+      }),
+    });
+
+    if (!response.ok) {
+      console.log(`[STT v2] 화자분리 GPT 오류: ${response.status}, 원본 반환`);
+      return plainText;
+    }
+
+    const data = await response.json();
+    const diarized = data.choices[0]?.message?.content?.trim();
+
+    if (!diarized || diarized.length < plainText.length * 0.3) {
+      console.log('[STT v2] 화자분리 결과 너무 짧음, 원본 반환');
+      return plainText;
+    }
+
+    console.log(`[STT v2] 화자분리 완료: ${plainText.length}자 → ${diarized.length}자`);
+    return diarized;
+  } catch (error) {
+    console.error('[STT v2] 화자분리 오류, 원본 반환:', error);
+    return plainText;
+  }
+}
+
 // OpenAI Whisper API 호출 (429 에러 시 재시도 로직 포함)
 async function transcribeWithWhisper(audioBuffer: Buffer): Promise<{ text: string; duration?: number }> {
   const apiKey = process.env.OPENAI_API_KEY;
@@ -257,6 +317,13 @@ export async function POST(request: NextRequest) {
     console.log(`[STT v2] Whisper 변환 완료: ${transcription.text.length} chars`);
     console.log(`[STT v2] 변환 텍스트 일부: ${transcription.text.substring(0, 100)}...`);
 
+    // 화자분리 후처리 (30자 이상일 때만 - 너무 짧으면 분리 불가)
+    let finalTranscript = transcription.text;
+    if (transcription.text.length >= 30) {
+      console.log('[STT v2] 화자분리 처리 중...');
+      finalTranscript = await diarizeWithGPT(transcription.text);
+    }
+
     // DB 업데이트 (aiAnalysis가 null이어도 처리 가능하도록)
     await db.collection('callLogs_v2').updateOne(
       { _id: new ObjectId(callLogId) },
@@ -266,7 +333,10 @@ export async function POST(request: NextRequest) {
             aiAnalysis: {
               $mergeObjects: [
                 { $ifNull: ['$aiAnalysis', {}] },
-                { transcript: transcription.text }
+                {
+                  transcript: finalTranscript,
+                  rawTranscript: transcription.text,
+                }
               ]
             },
             updatedAt: new Date().toISOString(),
@@ -274,12 +344,13 @@ export async function POST(request: NextRequest) {
         }
       ]
     );
-    console.log('[STT v2] transcript 저장 완료');
+    console.log('[STT v2] transcript 저장 완료 (화자분리 적용)');
 
     return NextResponse.json({
       success: true,
       callLogId,
-      transcript: transcription.text,
+      transcript: finalTranscript,
+      rawTranscript: transcription.text,
       duration: transcription.duration,
     });
   } catch (error) {

@@ -604,10 +604,35 @@ export function CallDetailModal({
                   {isAdmin && callDetail.aiAnalysis.transcript && (
                     <div className="border-t pt-4">
                       <h4 className="font-bold text-gray-900 mb-3">통화 전문</h4>
-                      <div className="bg-gray-50 rounded-lg p-4 max-h-64 overflow-y-auto">
-                        <p className="text-sm text-gray-700 whitespace-pre-wrap leading-relaxed">
-                          {callDetail.aiAnalysis.transcript}
-                        </p>
+                      <div className="bg-gray-50 rounded-lg p-4 max-h-80 overflow-y-auto space-y-1.5">
+                        {callDetail.aiAnalysis.transcript.split('\n').filter(line => line.trim()).map((line, idx) => {
+                          const trimmed = line.trim();
+                          const isConsultant = trimmed.startsWith('상담사:') || trimmed.startsWith('상담사 :');
+                          const isPatient = trimmed.startsWith('환자:') || trimmed.startsWith('환자 :');
+
+                          if (isConsultant) {
+                            const content = trimmed.replace(/^상담사\s*:\s*/, '');
+                            return (
+                              <div key={idx} className="flex items-start gap-2">
+                                <span className="shrink-0 px-1.5 py-0.5 bg-blue-100 text-blue-700 text-xs font-medium rounded mt-0.5">상담사</span>
+                                <span className="text-sm text-gray-800">{content}</span>
+                              </div>
+                            );
+                          }
+                          if (isPatient) {
+                            const content = trimmed.replace(/^환자\s*:\s*/, '');
+                            return (
+                              <div key={idx} className="flex items-start gap-2">
+                                <span className="shrink-0 px-1.5 py-0.5 bg-emerald-100 text-emerald-700 text-xs font-medium rounded mt-0.5">환자</span>
+                                <span className="text-sm text-gray-800">{content}</span>
+                              </div>
+                            );
+                          }
+                          // 화자분리가 안 된 줄은 기존 스타일로 표시
+                          return (
+                            <p key={idx} className="text-sm text-gray-700">{trimmed}</p>
+                          );
+                        })}
                       </div>
                     </div>
                   )}
