@@ -590,9 +590,10 @@ public class CTIWorker : BackgroundService
 
         // ★ ClickCall 녹취인 경우 callLogId 포함 (정확한 매칭을 위해)
         // 이벤트 객체에 저장된 CallLogId 우선 사용 (레이스컨디션 방지)
-        // fallback: 인스턴스 변수 (아직 리셋 안 된 경우)
+        // fallback: 인스턴스 변수 — 단, ClickCall이 실제로 활성 상태일 때만
+        // (비활성 상태에서 stale callLogId를 착신 녹취에 붙이는 버그 방지)
         string? callLogId = evt.CallLogId;
-        if (string.IsNullOrEmpty(callLogId) && (_isClickCallActive || !string.IsNullOrEmpty(_clickCallLogId)))
+        if (string.IsNullOrEmpty(callLogId) && _isClickCallActive && !string.IsNullOrEmpty(_clickCallLogId))
         {
             callLogId = _clickCallLogId;
         }
@@ -1138,10 +1139,43 @@ public class CTIWorker : BackgroundService
                 }
             }
         }
-        // ★ IMS_SVC_TERMCALL_START (Svc=11)와 IMS_SVC_TERMCALL_END (Svc=12)는
-        // 착신(수신) 통화 연결/종료 이벤트입니다. (TERM = Terminating call = 수신)
-        // 발신(Originating call)이 아니므로 여기서 별도 처리하지 않습니다.
-        // 수신 통화는 IMS_SVC_RING, IMS_SVC_CONNECTED, IMS_SVC_CALL_END 등에서 처리됩니다.
+        // ★ IMS_SVC_TERMCALL_END (Svc=12): 070→031 포워딩 통화의 종료 이벤트
+        // 일반 착신은 Svc=14(IMS_SVC_CALL_END)로 종료되지만,
+        // 070에서 031로 포워딩된 통화는 Svc=12로 종료됨 → 동일하게 "end" 처리 필요
+        else if (evt.Service == IMS_SVC_TERMCALL_END)
+        {
+            if (!string.IsNullOrEmpty(evt.Dn2))
+            {
+                // Svc=12: Dn1=0315672278(치과), Dn2=01090900556(환자) 형태
+                // Svc=14: Dn1=환자, Dn2=치과 형태 → 방향이 반대
+                string callerNum = evt.Dn2;  // 환자 번호
+                string calledNum = evt.Dn1;  // 치과 번호
+
+                bool isMatchingCall = !string.IsNullOrEmpty(_inboundCallerNumber) &&
+                    callerNum == _inboundCallerNumber;
+
+                if (isMatchingCall && _inboundCallStartSent)
+                {
+                    int inboundDuration = (int)(DateTime.Now - _inboundCallStartTime).TotalSeconds;
+                    _logger.LogInformation("📴 통화 종료 (end/forwarded): {Caller} ← {Called} ({Duration}초)", callerNum, calledNum, inboundDuration);
+                    _eventQueue.Enqueue(new CallEvent
+                    {
+                        Type = CallEventType.CallLog,
+                        EventType = "end",
+                        CallerNumber = callerNum,
+                        CalledNumber = calledNum,
+                        Duration = inboundDuration,
+                        ExtInfo = evt.ExtInfo
+                    });
+
+                    ResetInboundCallState();
+                }
+                else
+                {
+                    _logger.LogDebug("📴 [Svc=12] 무시 (매칭 안됨 또는 start 미전송): {Dn1} → {Dn2}", evt.Dn1, evt.Dn2);
+                }
+            }
+        }
         else if (evt.Service == IMS_SVC_CALL_END)
         {
             if (!string.IsNullOrEmpty(evt.Dn1))
