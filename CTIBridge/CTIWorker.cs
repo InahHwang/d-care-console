@@ -68,6 +68,8 @@ public class CTIWorker : BackgroundService
     private bool _isRecording = false;
     private string _currentCallerId = "";
     private string _currentCalledId = "";
+    private string _recordingCallerId = "";  // ★ 녹취 전용 (통화종료 리셋에 영향 안 받음)
+    private string _recordingCalledId = "";  // ★ 녹취 전용
     private DateTime _recordingStartTime;
 
     // ★ ClickCall 발신 상태
@@ -675,6 +677,14 @@ public class CTIWorker : BackgroundService
                     var evt = JsonSerializer.Deserialize<CallEvent>(json);
                     if (evt != null)
                     {
+                        // ★ 녹취 백업인데 callerNumber 없으면 복구 불가능 → 삭제
+                        if (evt.Type == CallEventType.Recording && string.IsNullOrEmpty(evt.CallerNumber))
+                        {
+                            File.Delete(file);
+                            _logger.LogWarning("[Backup] 복구 불가(callerNumber 없음) 삭제: {File}", Path.GetFileName(file));
+                            continue;
+                        }
+
                         evt.RetryCount++;
                         _eventQueue.Enqueue(evt);
                         File.Delete(file); // 큐에 넣었으니 삭제
@@ -1055,6 +1065,8 @@ public class CTIWorker : BackgroundService
                         _logger.LogInformation("🎙️ [Svc=9] EVT_READY_SERVICE 미수신 → 녹취 직접 시작 시도: {Caller} → {Called}", evt.Dn1, evt.Dn2);
                         _currentCallerId = evt.Dn1;
                         _currentCalledId = evt.Dn2;
+                        _recordingCallerId = evt.Dn1;  // ★ 녹취 전용
+                        _recordingCalledId = evt.Dn2;
                         int startResult = IMS_TermRec_Start();
                         if (startResult == SUCCESS)
                         {
@@ -1433,6 +1445,8 @@ public class CTIWorker : BackgroundService
                 _isRecordingReady = true;
                 _currentCallerId = evt.Dn1;
                 _currentCalledId = evt.Dn2;
+                _recordingCallerId = evt.Dn1;  // ★ 녹취 전용 (통화종료 리셋에 안전)
+                _recordingCalledId = evt.Dn2;
                 _logger.LogInformation("🎙️ 착신녹취 준비: {Caller} → {Called}", evt.Dn1, evt.Dn2);
 
                 int startResult = IMS_TermRec_Start();
@@ -1465,19 +1479,21 @@ public class CTIWorker : BackgroundService
                 _isRecordingReady = false;
                 int duration = (int)(DateTime.Now - _recordingStartTime).TotalSeconds;
 
-                _logger.LogInformation("⏹️ 녹취 완료! 통화시간: {Duration}초", duration);
+                _logger.LogInformation("⏹️ 녹취 완료! 통화시간: {Duration}초, Caller: {Caller}", duration, _recordingCallerId);
 
                 _eventQueue.Enqueue(new CallEvent
                 {
                     Type = CallEventType.Recording,
-                    CallerNumber = _currentCallerId,
-                    CalledNumber = _currentCalledId,
+                    CallerNumber = _recordingCallerId,   // ★ 녹취 전용 변수 (통화종료 리셋에 안전)
+                    CalledNumber = _recordingCalledId,
                     RecordingInfo = evt.ExtInfo,
                     Duration = duration
                 });
 
                 _currentCallerId = "";
                 _currentCalledId = "";
+                _recordingCallerId = "";
+                _recordingCalledId = "";
                 break;
 
             case EVT_STOP_SERVICE:
