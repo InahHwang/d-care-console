@@ -1180,12 +1180,10 @@ public class CTIWorker : BackgroundService
         {
             if (!string.IsNullOrEmpty(evt.Dn1))
             {
-                // ★ 동시착신 대응: 처리 중인 발신번호와 일치하고, 착신번호도 일치하는 경우에만 end 전송
-                // - start를 보냈으면: 해당 착신번호와 일치해야 함
-                // - start를 안 보냈으면 (부재중): ring을 보냈던 착신번호와 일치해야 함
+                // ★ 동시착신 대응: 처리 중인 발신번호와 일치하는 경우에만 end 전송
+                // 착신번호(Dn2)는 070→031 포워딩 시 달라질 수 있으므로 발신번호(Dn1)만 매칭
                 bool isMatchingCall = !string.IsNullOrEmpty(_inboundCallerNumber) &&
-                    evt.Dn1 == _inboundCallerNumber &&
-                    (string.IsNullOrEmpty(_inboundCalledNumber) || evt.Dn2 == _inboundCalledNumber);
+                    evt.Dn1 == _inboundCallerNumber;
 
                 if (isMatchingCall)
                 {
