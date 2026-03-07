@@ -60,7 +60,7 @@ export default function NewPatientPage() {
   // 카테고리 데이터
   const [consultationTypes, setConsultationTypes] = useState<CategoryItem[]>([]);
   const [referralSources, setReferralSources] = useState<CategoryItem[]>([]);
-  const [interestedServices, setInterestedServices] = useState<CategoryItem[]>([]);
+  const [treatmentTypes, setTreatmentTypes] = useState<CategoryItem[]>([]);
   const [loadingCategories, setLoadingCategories] = useState(true);
 
   // 카테고리 데이터 로드
@@ -72,10 +72,10 @@ export default function NewPatientPage() {
         if (data.success) {
           const activeTypes = (data.categories.consultationTypes || []).filter((item: CategoryItem) => item.isActive);
           const activeSources = (data.categories.referralSources || []).filter((item: CategoryItem) => item.isActive);
-          const activeServices = (data.categories.interestedServices || []).filter((item: CategoryItem) => item.isActive);
+          const activeTreatments = (data.categories.treatmentTypes || []).filter((item: CategoryItem) => item.isActive);
           setConsultationTypes(activeTypes);
           setReferralSources(activeSources);
-          setInterestedServices(activeServices);
+          setTreatmentTypes(activeTreatments);
           if (activeTypes.length > 0 && !consultationType) {
             setConsultationType(activeTypes[0].label);
           }
@@ -267,14 +267,14 @@ export default function NewPatientPage() {
               <div className="w-full px-4 py-3 border border-gray-200 rounded-lg bg-gray-50 text-gray-400">
                 로딩 중...
               </div>
-            ) : interestedServices.length > 0 ? (
+            ) : treatmentTypes.length > 0 ? (
               <select
                 value={interest}
                 onChange={(e) => setInterest(e.target.value)}
                 className="w-full px-4 py-3 border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
               >
                 <option value="">선택하세요</option>
-                {interestedServices.map((item) => (
+                {treatmentTypes.map((item) => (
                   <option key={item.id} value={item.label}>{item.label}</option>
                 ))}
               </select>

@@ -3,6 +3,7 @@
 import React, { useState, useEffect } from 'react';
 import { X, User, Phone, Thermometer } from 'lucide-react';
 import { Temperature } from '@/types/v2';
+import { useCategories } from '@/hooks/useCategories';
 
 interface NewPatientData {
   name: string;
@@ -20,18 +21,6 @@ interface ChannelChatNewPatientModalProps {
   initialName?: string;
 }
 
-const INTEREST_OPTIONS = [
-  '임플란트',
-  '교정',
-  '충치치료',
-  '스케일링',
-  '미백',
-  '보철',
-  '잇몸치료',
-  '사랑니',
-  '기타',
-];
-
 export function ChannelChatNewPatientModal({
   isOpen,
   onClose,
@@ -47,6 +36,8 @@ export function ChannelChatNewPatientModal({
     memo: '',
   });
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const { activeTreatmentTypes } = useCategories();
+  const interestOptions = activeTreatmentTypes.map(t => t.label);
 
   // 초기값 설정
   useEffect(() => {
@@ -140,7 +131,7 @@ export function ChannelChatNewPatientModal({
           <div>
             <label className="block text-sm font-medium text-gray-700 mb-1">관심 치료</label>
             <div className="flex flex-wrap gap-2">
-              {INTEREST_OPTIONS.map((option) => (
+              {interestOptions.map((option) => (
                 <button
                   key={option}
                   type="button"
