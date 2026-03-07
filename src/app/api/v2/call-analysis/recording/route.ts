@@ -6,6 +6,18 @@ import { NextRequest, NextResponse } from 'next/server';
 import { waitUntil } from '@vercel/functions';
 import { connectToDatabase } from '@/utils/mongodb';
 import { ObjectId } from 'mongodb';
+import { z } from 'zod';
+
+const recordingSchema = z.object({
+  callerNumber: z.string().min(1, 'callerNumber is required'),
+  calledNumber: z.string().optional(),
+  recordingFileName: z.string().min(1, 'recordingFileName is required'),
+  recordingUrl: z.string().optional(),
+  recordingBase64: z.string().optional(),
+  duration: z.number().optional(),
+  timestamp: z.string().optional(),
+  callLogId: z.string().optional(),
+});
 
 // Vercel Function 타임아웃 설정
 export const maxDuration = 60;
@@ -140,6 +152,15 @@ async function triggerAnalysisPipeline(callLogId: string) {
 export async function POST(request: NextRequest) {
   try {
     const body = await request.json();
+    const parsed = recordingSchema.safeParse(body);
+
+    if (!parsed.success) {
+      return NextResponse.json(
+        { success: false, error: parsed.error.errors[0].message },
+        { status: 400 }
+      );
+    }
+
     const {
       callerNumber,
       calledNumber,
@@ -148,8 +169,8 @@ export async function POST(request: NextRequest) {
       recordingBase64,
       duration,
       timestamp,
-      callLogId: directCallLogId, // CTIBridge에서 전달한 V2 callLogId
-    } = body;
+      callLogId: directCallLogId,
+    } = parsed.data;
 
     console.log('='.repeat(50));
     console.log('[Recording V2] 녹취 수신');
@@ -158,13 +179,6 @@ export async function POST(request: NextRequest) {
     console.log(`  base64: ${recordingBase64 ? `${recordingBase64.length} chars` : '없음'}`);
     console.log(`  callLogId: ${directCallLogId || '없음'}`);
     console.log('='.repeat(50));
-
-    if (!callerNumber || !recordingFileName) {
-      return NextResponse.json(
-        { success: false, error: 'callerNumber and recordingFileName required' },
-        { status: 400 }
-      );
-    }
 
     const { db } = await connectToDatabase();
     const now = new Date().toISOString();

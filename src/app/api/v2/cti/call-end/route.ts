@@ -5,6 +5,15 @@ import { NextRequest, NextResponse } from 'next/server';
 import { connectToDatabase } from '@/utils/mongodb';
 import { ObjectId } from 'mongodb';
 import Pusher from 'pusher';
+import { z } from 'zod';
+
+const callEndSchema = z.object({
+  callerNumber: z.string().min(1, 'callerNumber is required'),
+  calledNumber: z.string().optional(),
+  duration: z.number().optional(),
+  callStatus: z.string().optional(),
+  timestamp: z.string().optional(),
+});
 
 const pusher = new Pusher({
   appId: process.env.PUSHER_APP_ID!,
@@ -29,13 +38,16 @@ function formatPhone(phone: string): string {
 export async function POST(request: NextRequest) {
   try {
     const body = await request.json();
-    const {
-      callerNumber,
-      calledNumber,
-      duration,
-      callStatus, // 'connected' | 'missed' | 'busy'
-      timestamp,
-    } = body;
+    const parsed = callEndSchema.safeParse(body);
+
+    if (!parsed.success) {
+      return NextResponse.json(
+        { success: false, error: parsed.error.errors[0].message },
+        { status: 400 }
+      );
+    }
+
+    const { callerNumber, calledNumber, duration, callStatus, timestamp } = parsed.data;
 
     console.log(`[CTI v2] 통화 종료: ${callerNumber}, ${duration}초`);
 
@@ -120,7 +132,7 @@ export async function POST(request: NextRequest) {
         callLogId: callLog._id?.toString(),
         phone: formattedPhone,
         duration,
-        status: duration > 0 ? 'connected' : 'missed',
+        status: (duration ?? 0) > 0 ? 'connected' : 'missed',
         patientId: callLog.patientId,
       });
     } catch (pusherError) {

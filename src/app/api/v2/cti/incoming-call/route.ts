@@ -6,6 +6,13 @@ import { connectToDatabase } from '@/utils/mongodb';
 import { ObjectId } from 'mongodb';
 import Pusher from 'pusher';
 import type { PatientV2, CallLogV2, Temperature } from '@/types/v2';
+import { z } from 'zod';
+
+const incomingCallSchema = z.object({
+  callerNumber: z.string().min(1, 'callerNumber is required'),
+  calledNumber: z.string().optional(),
+  timestamp: z.string().optional(),
+});
 
 // Pusher 서버 인스턴스
 const pusher = new Pusher({
@@ -124,16 +131,18 @@ export async function POST(request: NextRequest) {
 
   try {
     const body = await request.json();
-    const { callerNumber, calledNumber, timestamp } = body;
+    const parsed = incomingCallSchema.safeParse(body);
 
-    console.log(`[CTI v2] 수신: ${callerNumber} → ${calledNumber}`);
-
-    if (!callerNumber) {
+    if (!parsed.success) {
       return NextResponse.json(
-        { success: false, error: 'callerNumber is required' },
+        { success: false, error: parsed.error.errors[0].message },
         { status: 400 }
       );
     }
+
+    const { callerNumber, calledNumber, timestamp } = parsed.data;
+
+    console.log(`[CTI v2] 수신: ${callerNumber} → ${calledNumber}`);
 
     const { db } = await connectToDatabase();
     const callTime = timestamp || new Date().toISOString();
@@ -151,7 +160,7 @@ export async function POST(request: NextRequest) {
     const callLog = await createCallLogV2(
       db,
       callerNumber,
-      calledNumber,
+      calledNumber || '',
       patient?._id?.toString(),
       callTime
     );

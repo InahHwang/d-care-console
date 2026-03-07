@@ -5,6 +5,13 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { connectToDatabase } from '@/utils/mongodb';
 import Pusher from 'pusher';
+import { z } from 'zod';
+
+const outgoingCallSchema = z.object({
+  phoneNumber: z.string().min(1, 'phoneNumber is required'),
+  callerNumber: z.string().optional(),
+  timestamp: z.string().optional(),
+});
 
 const pusher = new Pusher({
   appId: process.env.PUSHER_APP_ID!,
@@ -61,16 +68,18 @@ async function findPatientV2(
 export async function POST(request: NextRequest) {
   try {
     const body = await request.json();
-    const { phoneNumber, callerNumber, timestamp } = body;
+    const parsed = outgoingCallSchema.safeParse(body);
 
-    console.log(`[OutgoingCall V2] 발신: ${phoneNumber} (치과: ${callerNumber})`);
-
-    if (!phoneNumber) {
+    if (!parsed.success) {
       return NextResponse.json(
-        { success: false, error: 'phoneNumber is required' },
+        { success: false, error: parsed.error.errors[0].message },
         { status: 400 }
       );
     }
+
+    const { phoneNumber, callerNumber, timestamp } = parsed.data;
+
+    console.log(`[OutgoingCall V2] 발신: ${phoneNumber} (치과: ${callerNumber})`);
 
     const { db } = await connectToDatabase();
     const formattedPhone = formatPhone(phoneNumber);

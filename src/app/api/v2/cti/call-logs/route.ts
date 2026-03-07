@@ -6,6 +6,17 @@ import { NextRequest, NextResponse } from 'next/server';
 import { connectToDatabase } from '@/utils/mongodb';
 import { ObjectId } from 'mongodb';
 import Pusher from 'pusher';
+import { z } from 'zod';
+
+const callLogEventSchema = z.object({
+  eventType: z.string().min(1, 'eventType is required'),
+  callerNumber: z.string().min(1, 'callerNumber is required'),
+  calledNumber: z.string().optional(),
+  timestamp: z.string().optional(),
+  duration: z.number().optional(),
+  callLogId: z.string().nullable().optional(),
+  extInfo: z.string().optional(),
+});
 
 const pusher = new Pusher({
   appId: process.env.PUSHER_APP_ID!,
@@ -161,24 +172,27 @@ async function findCallLog(
 export async function POST(request: NextRequest) {
   try {
     const body = await request.json();
+    const parsed = callLogEventSchema.safeParse(body);
+
+    if (!parsed.success) {
+      return NextResponse.json(
+        { success: false, error: parsed.error.errors[0].message },
+        { status: 400 }
+      );
+    }
+
     const {
       eventType,
       callerNumber,
       calledNumber,
       timestamp,
       duration,
-      callLogId: directCallLogId,
+      callLogId,
       extInfo,
-    } = body;
+    } = parsed.data;
+    const directCallLogId = callLogId ?? null;
 
     console.log(`[CallLogs V2] ${eventType} 이벤트: caller=${callerNumber}, called=${calledNumber}, duration=${duration || 0}, callLogId=${directCallLogId || '없음'}`);
-
-    if (!callerNumber) {
-      return NextResponse.json(
-        { success: false, error: 'callerNumber is required' },
-        { status: 400 }
-      );
-    }
 
     // 제외 번호 체크
     const normalizedCaller = normalizePhone(callerNumber);

@@ -3,6 +3,25 @@ import { NextRequest, NextResponse } from 'next/server';
 import { connectToDatabase } from '@/utils/mongodb';
 import { ObjectId } from 'mongodb';
 import { PatientStatus, Temperature, Journey } from '@/types/v2';
+import { z } from 'zod';
+
+// POST 요청 Zod 스키마
+const createPatientSchema = z.object({
+  name: z.string().min(1, '이름은 필수입니다').max(50),
+  phone: z.string().min(1, '전화번호는 필수입니다').max(20),
+  consultationType: z.string().max(100).optional(),
+  interest: z.string().max(200).optional(),
+  source: z.string().max(100).optional(),
+  temperature: z.enum(['hot', 'warm', 'cold']).optional().default('warm'),
+  nextAction: z.string().max(500).optional(),
+  age: z.number().int().min(1).max(150).optional(),
+  region: z.object({
+    province: z.string().min(1),
+    city: z.string().optional(),
+  }).optional(),
+  firstConsultDate: z.string().optional(),
+  changedBy: z.string().max(50).optional(),
+});
 
 export const dynamic = 'force-dynamic';
 
@@ -482,16 +501,18 @@ export async function GET(request: NextRequest) {
 export async function POST(request: NextRequest) {
   try {
     const body = await request.json();
-    const { name, phone, consultationType, interest, source, temperature = 'warm', nextAction, age, region, firstConsultDate, changedBy } = body;
+    const parsed = createPatientSchema.safeParse(body);
 
-    console.log('[Patient POST] changedBy 받음:', changedBy, '| body.changedBy:', body.changedBy);
-
-    if (!name || !phone) {
+    if (!parsed.success) {
       return NextResponse.json(
-        { error: 'Name and phone are required' },
+        { error: parsed.error.errors[0].message },
         { status: 400 }
       );
     }
+
+    const { name, phone, consultationType, interest, source, temperature, nextAction, age, region, firstConsultDate, changedBy } = parsed.data;
+
+    console.log('[Patient POST] changedBy 받음:', changedBy, '| body.changedBy:', body.changedBy);
 
     const { db } = await connectToDatabase();
     const collection = db.collection('patients_v2');
