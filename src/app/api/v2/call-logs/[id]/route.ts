@@ -109,6 +109,7 @@ export async function GET(
         confidence: callLog.aiAnalysis.confidence,
         transcript: callLog.aiAnalysis.transcript || null, // 전사 텍스트 전문
       } : null,
+      aiCoaching: callLog.aiCoaching || undefined,
       createdAt: callLog.createdAt,
     });
   } catch (error) {
