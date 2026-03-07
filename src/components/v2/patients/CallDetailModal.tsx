@@ -2,7 +2,7 @@
 'use client';
 
 import React, { useState, useEffect, useRef, useCallback } from 'react';
-import { X, Phone, Clock, FileText, Play, Pause, Volume2, AlertCircle, Loader2, Square, Sparkles, ChevronDown, ChevronUp, Target, Lightbulb, RefreshCw } from 'lucide-react';
+import { X, Phone, Clock, FileText, Play, Pause, Volume2, AlertCircle, Loader2, Square, Sparkles, ChevronDown, ChevronUp, Target, Lightbulb, RefreshCw, Trash2 } from 'lucide-react';
 import { useAppSelector } from '@/hooks/reduxHooks';
 import type { AICoachingResult } from '@/types/v2';
 
@@ -85,6 +85,8 @@ export function CallDetailModal({
 
   // 관리자 권한 체크 (admin 또는 master만 녹취 재생 가능)
   const isAdmin = user?.role === 'admin' || user?.role === 'master';
+  // 매니저 이상 권한 체크 (AI 코칭 열람용)
+  const isManagerOrAbove = isAdmin || user?.role === 'manager';
 
   const [callDetail, setCallDetail] = useState<CallDetail | null>(null);
   const [loading, setLoading] = useState(true);
@@ -99,6 +101,7 @@ export function CallDetailModal({
   const [coachingLoading, setCoachingLoading] = useState(false);
   const [coachingError, setCoachingError] = useState<string | null>(null);
   const [strengthsExpanded, setStrengthsExpanded] = useState(false);
+  const [coachingPreview, setCoachingPreview] = useState<AICoachingResult | null>(null);
 
   useEffect(() => {
     if (!isOpen || !callLogId) return;
@@ -136,6 +139,7 @@ export function CallDetailModal({
       setAudioLoading(false);
       setAudioError(null);
       setCoaching(null);
+      setCoachingPreview(null);
       setCoachingError(null);
       setStrengthsExpanded(false);
     };
@@ -222,26 +226,69 @@ export function CallDetailModal({
     setCoachingLoading(true);
     setCoachingError(null);
     try {
+      // 재분석(force)이고 기존 결과가 있으면 미리보기 모드
+      const usePreview = force && coaching;
       const response = await fetch('/api/v2/call-analysis/coaching', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ callLogId, force }),
+        body: JSON.stringify({ callLogId, force, preview: usePreview }),
       });
       if (!response.ok) {
         const errData = await response.json().catch(() => ({}));
         throw new Error(errData.error || '코칭 분석에 실패했습니다');
       }
       const data = await response.json();
-      setCoaching(data.coaching);
+      if (usePreview) {
+        setCoachingPreview(data.coaching);
+      } else {
+        setCoaching(data.coaching);
+      }
     } catch (err) {
       setCoachingError(err instanceof Error ? err.message : '코칭 분석 오류');
     } finally {
       setCoachingLoading(false);
     }
+  }, [callLogId, coaching]);
+
+  // 미리보기 결과 적용
+  const handleApplyPreview = useCallback(async () => {
+    if (!callLogId || !coachingPreview) return;
+    try {
+      await fetch('/api/v2/call-analysis/coaching', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ callLogId, apply: true, coachingData: coachingPreview }),
+      });
+      setCoaching(coachingPreview);
+      setCoachingPreview(null);
+    } catch (err) {
+      console.error('코칭 적용 오류:', err);
+    }
+  }, [callLogId, coachingPreview]);
+
+  // 미리보기 취소 (기존 유지)
+  const handleCancelPreview = useCallback(() => {
+    setCoachingPreview(null);
+  }, []);
+
+  // 코칭 결과 삭제
+  const handleDeleteCoaching = useCallback(async () => {
+    if (!callLogId || !confirm('AI 상담 코칭 결과를 삭제하시겠습니까?')) return;
+    try {
+      const response = await fetch(`/api/v2/call-analysis/coaching?callLogId=${callLogId}`, {
+        method: 'DELETE',
+      });
+      if (response.ok) {
+        setCoaching(null);
+        setCoachingPreview(null);
+      }
+    } catch (err) {
+      console.error('코칭 삭제 오류:', err);
+    }
   }, [callLogId]);
 
-  // 코칭 표시 조건: transcript 존재 + 관리자
-  const canShowCoaching = isAdmin
+  // 코칭 표시 조건: transcript 존재 + 매니저 이상
+  const canShowCoaching = isManagerOrAbove
     && callDetail?.aiAnalysis?.transcript
     && callDetail.duration >= 10;
 
@@ -452,15 +499,24 @@ export function CallDetailModal({
                           <Sparkles size={18} className="text-violet-500" />
                           AI 상담 코칭
                         </h4>
-                        {coaching && (
-                          <button
-                            onClick={() => handleRequestCoaching(true)}
-                            disabled={coachingLoading}
-                            className="text-xs text-gray-400 hover:text-gray-600 flex items-center gap-1 transition-colors"
-                          >
-                            <RefreshCw size={12} className={coachingLoading ? 'animate-spin' : ''} />
-                            다시 분석
-                          </button>
+                        {coaching && !coachingPreview && (
+                          <div className="flex items-center gap-3">
+                            <button
+                              onClick={() => handleRequestCoaching(true)}
+                              disabled={coachingLoading}
+                              className="text-xs text-gray-400 hover:text-gray-600 flex items-center gap-1 transition-colors"
+                            >
+                              <RefreshCw size={12} className={coachingLoading ? 'animate-spin' : ''} />
+                              다시 분석
+                            </button>
+                            <button
+                              onClick={handleDeleteCoaching}
+                              className="text-xs text-gray-400 hover:text-rose-500 flex items-center gap-1 transition-colors"
+                            >
+                              <Trash2 size={12} />
+                              삭제
+                            </button>
+                          </div>
                         )}
                       </div>
 
@@ -494,6 +550,44 @@ export function CallDetailModal({
                           >
                             재시도
                           </button>
+                        </div>
+                      )}
+
+                      {/* 미리보기 비교 영역 */}
+                      {coachingPreview && !coachingLoading && (
+                        <div className="space-y-3">
+                          <div className="bg-violet-50 border border-violet-200 rounded-xl p-4">
+                            <div className="flex items-center justify-between mb-3">
+                              <span className="text-sm font-semibold text-violet-800">새 분석 결과 미리보기</span>
+                              <div className="flex items-center gap-2">
+                                <span className="text-xs text-gray-500">
+                                  기존 {coaching?.overallScore}점 → 새 {coachingPreview.overallScore}점
+                                </span>
+                              </div>
+                            </div>
+                            <div className="bg-white rounded-lg p-3 mb-3">
+                              <div className="flex items-center gap-3 mb-2">
+                                <div className={`text-xl font-bold px-2 py-0.5 rounded-lg ${getScoreColor(coachingPreview.overallScore)}`}>
+                                  {coachingPreview.overallScore}<span className="text-xs font-normal">/100</span>
+                                </div>
+                              </div>
+                              <p className="text-sm text-gray-700 leading-relaxed">{coachingPreview.overallComment}</p>
+                            </div>
+                            <div className="flex gap-2">
+                              <button
+                                onClick={handleApplyPreview}
+                                className="flex-1 py-2 bg-violet-600 text-white rounded-lg text-sm font-medium hover:bg-violet-700 transition-colors"
+                              >
+                                이 결과로 적용
+                              </button>
+                              <button
+                                onClick={handleCancelPreview}
+                                className="flex-1 py-2 bg-gray-100 text-gray-600 rounded-lg text-sm font-medium hover:bg-gray-200 transition-colors"
+                              >
+                                취소 (기존 유지)
+                              </button>
+                            </div>
+                          </div>
                         </div>
                       )}
 

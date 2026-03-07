@@ -2,7 +2,7 @@
 'use client';
 
 import React from 'react';
-import { PhoneCall, ChevronRight, Flame, Thermometer, Snowflake, PhoneIncoming, PhoneOutgoing, AlertTriangle, Layers } from 'lucide-react';
+import { PhoneCall, ChevronRight, Flame, Thermometer, Snowflake, PhoneIncoming, PhoneOutgoing, AlertTriangle, Layers, Sparkles } from 'lucide-react';
 import { PatientStatus, Temperature } from '@/types/v2';
 
 type CallDirection = 'inbound' | 'outbound';
@@ -49,6 +49,9 @@ interface Patient {
   // 여정(Journey) 관련 필드
   journeys?: JourneySummary[];
   activeJourneyId?: string;
+  // AI 코칭 관련 필드
+  lastCoachingScore?: number | null;
+  lastCoachingAt?: string | null;
 }
 
 interface PatientListProps {
@@ -370,6 +373,21 @@ export function PatientList({ patients, onPatientClick, onCallClick, loading, co
                 })() && (
                   <span className="flex items-center px-1 py-0.5 bg-orange-100 text-orange-600 rounded text-xs font-medium shrink-0">
                     <AlertTriangle size={10} />
+                  </span>
+                )}
+                {patient.lastCoachingScore != null && (
+                  <span
+                    className={`flex items-center gap-0.5 px-1 py-0.5 rounded text-xs font-medium shrink-0 ${
+                      patient.lastCoachingScore >= 80
+                        ? 'bg-emerald-100 text-emerald-700'
+                        : patient.lastCoachingScore >= 60
+                          ? 'bg-amber-100 text-amber-700'
+                          : 'bg-rose-100 text-rose-700'
+                    }`}
+                    title={`AI 코칭 점수: ${patient.lastCoachingScore}점`}
+                  >
+                    <Sparkles size={10} />
+                    {patient.lastCoachingScore}
                   </span>
                 )}
               </div>

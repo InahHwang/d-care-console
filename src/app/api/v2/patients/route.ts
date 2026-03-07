@@ -106,6 +106,7 @@ export async function GET(request: NextRequest) {
     const callbackDate = searchParams.get('callbackDate'); // 콜백 날짜 필터 (YYYY-MM-DD)
     const paymentStatusParam = searchParams.get('paymentStatus'); // 결제상태 필터
     const hasEstimate = searchParams.get('hasEstimate') === 'true'; // 견적 있는 환자만
+    const hasCoaching = searchParams.get('hasCoaching') === 'true'; // AI 코칭 완료 환자만
 
     const { db } = await connectToDatabase();
     const collection = db.collection('patients_v2');
@@ -136,6 +137,10 @@ export async function GET(request: NextRequest) {
 
     if (hasEstimate) {
       (query as any).estimatedAmount = { $gt: 0 };
+    }
+
+    if (hasCoaching) {
+      (query as any).lastCoachingAt = { $exists: true };
     }
 
     if (temperature) {
@@ -230,6 +235,9 @@ export async function GET(request: NextRequest) {
       'journeys.status': 1,
       'journeys.isActive': 1,
       activeJourneyId: 1,
+      // AI 코칭 관련 필드
+      lastCoachingScore: 1,
+      lastCoachingAt: 1,
     };
 
     // 병렬 쿼리
@@ -365,6 +373,9 @@ export async function GET(request: NextRequest) {
           isActive: j.isActive,
         })) || [],
         activeJourneyId: p.activeJourneyId || undefined,
+        // AI 코칭 관련 필드
+        lastCoachingScore: p.lastCoachingScore ?? null,
+        lastCoachingAt: p.lastCoachingAt ?? null,
       };
     });
 
@@ -424,6 +435,9 @@ export async function GET(request: NextRequest) {
             isActive: j.isActive,
           })) || [],
           activeJourneyId: p.activeJourneyId || undefined,
+          // AI 코칭 관련 필드
+          lastCoachingScore: p.lastCoachingScore ?? null,
+          lastCoachingAt: p.lastCoachingAt ?? null,
         };
       });
 

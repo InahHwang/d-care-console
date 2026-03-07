@@ -5,7 +5,7 @@ export const dynamic = 'force-dynamic';
 
 import React, { useState, useEffect, useCallback, Suspense, useRef } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
-import { Plus, Search } from 'lucide-react';
+import { Plus, Search, Sparkles } from 'lucide-react';
 import { Pagination } from '@/components/v2/ui/Pagination';
 import { PatientList } from '@/components/v2/patients';
 import { FunnelTabs, PatientFilterType } from '@/components/v2/patients/FunnelTabs';
@@ -94,6 +94,8 @@ function PatientsPageContent() {
   const [statusOverride, setStatusOverride] = useState(initialStatusOverride); // 대시보드 다중 상태
   const [paymentStatusFilter, setPaymentStatusFilter] = useState(initialPaymentStatus); // 결제상태 필터
   const [hasEstimateFilter, setHasEstimateFilter] = useState(initialHasEstimate); // 견적 있는 환자만
+  const initialHasCoaching = searchParams.get('hasCoaching') === 'true';
+  const [hasCoachingFilter, setHasCoachingFilter] = useState(initialHasCoaching); // AI 코칭 완료 환자만
   const [currentPage, setCurrentPage] = useState(initialPage);
   const searchTimeoutRef = useRef<NodeJS.Timeout | null>(null);
   const abortControllerRef = useRef<AbortController | null>(null);
@@ -161,6 +163,9 @@ function PatientsPageContent() {
       if (hasEstimateFilter) {
         params.set('hasEstimate', 'true');
       }
+      if (hasCoachingFilter) {
+        params.set('hasCoaching', 'true');
+      }
       if (searchQuery) {
         params.set('search', searchQuery);
       }
@@ -198,7 +203,7 @@ function PatientsPageContent() {
     } finally {
       setLoading(false);
     }
-  }, [currentPage, activeFilter, searchQuery, urgencyFilter, period, dateRange, statusOverride, paymentStatusFilter, hasEstimateFilter, callbackDate]);
+  }, [currentPage, activeFilter, searchQuery, urgencyFilter, period, dateRange, statusOverride, paymentStatusFilter, hasEstimateFilter, hasCoachingFilter, callbackDate]);
 
   useEffect(() => {
     fetchPatients();
@@ -225,6 +230,7 @@ function PatientsPageContent() {
     }
     if (paymentStatusFilter) params.set('paymentStatus', paymentStatusFilter);
     if (hasEstimateFilter) params.set('hasEstimate', 'true');
+    if (hasCoachingFilter) params.set('hasCoaching', 'true');
     if (currentPage > 1) params.set('page', currentPage.toString());
     if (searchQuery) params.set('search', searchQuery);
     if (urgencyFilter !== 'all') params.set('urgency', urgencyFilter);
@@ -238,7 +244,7 @@ function PatientsPageContent() {
 
     const newUrl = params.toString() ? `?${params.toString()}` : '/v2/patients';
     window.history.replaceState(null, '', newUrl);
-  }, [activeFilter, currentPage, searchQuery, urgencyFilter, period, dateRange, statusOverride, paymentStatusFilter, hasEstimateFilter]);
+  }, [activeFilter, currentPage, searchQuery, urgencyFilter, period, dateRange, statusOverride, paymentStatusFilter, hasEstimateFilter, hasCoachingFilter]);
 
   const handleFilterChange = (filter: PatientFilterType) => {
     setActiveFilter(filter);
@@ -354,15 +360,28 @@ function PatientsPageContent() {
             loading={loading && !filterStats}
           />
 
-          <div className="relative">
-            <Search size={18} className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" />
-            <input
-              type="text"
-              placeholder="이름, 전화번호 검색"
-              value={searchInput}
-              onChange={handleSearch}
-              className="pl-10 pr-4 py-2 border border-gray-200 rounded-lg w-64 focus:outline-none focus:ring-2 focus:ring-blue-500"
-            />
+          <div className="flex items-center gap-2">
+            <button
+              onClick={() => { setHasCoachingFilter(!hasCoachingFilter); setCurrentPage(1); }}
+              className={`flex items-center gap-1.5 px-3 py-2 rounded-lg text-sm font-medium border transition-colors ${
+                hasCoachingFilter
+                  ? 'bg-violet-50 border-violet-300 text-violet-700'
+                  : 'bg-white border-gray-200 text-gray-500 hover:bg-gray-50'
+              }`}
+            >
+              <Sparkles size={14} />
+              AI 코칭
+            </button>
+            <div className="relative">
+              <Search size={18} className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" />
+              <input
+                type="text"
+                placeholder="이름, 전화번호 검색"
+                value={searchInput}
+                onChange={handleSearch}
+                className="pl-10 pr-4 py-2 border border-gray-200 rounded-lg w-64 focus:outline-none focus:ring-2 focus:ring-blue-500"
+              />
+            </div>
           </div>
         </div>
       </div>
