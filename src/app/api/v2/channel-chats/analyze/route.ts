@@ -3,7 +3,7 @@
 
 import { NextRequest, NextResponse } from 'next/server';
 import { connectToDatabase } from '@/utils/mongodb';
-import { getActiveTreatmentTypeLabels } from '@/utils/treatmentTypes';
+
 import { ObjectId } from 'mongodb';
 
 export const dynamic = 'force-dynamic';
@@ -19,7 +19,7 @@ ${messages}
 위 채팅 내용을 분석하여 다음 JSON 형식으로 응답해주세요. 반드시 유효한 JSON만 출력하세요.
 
 {
-  "interest": "관심 진료 (${treatmentLabels.join('/')} 중 선택)",
+  "interest": "관심 진료 또는 문의 유형 (진료: ${treatmentLabels.join('/')} 중 선택, 진료 외: 예약변경/예약확인/비용문의/주차문의/서류발급/기타문의, 판단 불가: 빈 문자열)",
   "temperature": "온도 (hot/warm/cold 중 하나 - hot:예약확정/매우적극, warm:관심있음, cold:단순문의)",
   "summary": "핵심 내용 요약 (2~3줄, 각 줄은 \\n으로 구분)",
   "followUp": "후속조치 (콜백필요/예약확정/종결 중 하나)",
@@ -174,8 +174,11 @@ export async function POST(request: NextRequest) {
       })
       .join('\n');
 
-    // DB에서 치료 과목 목록 로드
-    const treatmentLabels = await getActiveTreatmentTypeLabels();
+    // AI 분류용 전체 진료과목 (사용자 설정과 무관하게 전체 통화 유형 파악)
+    const treatmentLabels = [
+      '임플란트', '치아교정', '보철치료', '잇몸치료',
+      '심미치료', '충치치료', '스케일링', '일반진료', '기타',
+    ];
 
     // AI 분석 실행
     const analysis = await analyzeWithGPT(messageText, treatmentLabels);

@@ -99,8 +99,11 @@ export async function POST(request: NextRequest, { params }: RouteParams) {
       })
       .join('\n');
 
-    // DB에서 치료 과목 목록 로드
-    const treatmentLabels = await getActiveTreatmentTypeLabels();
+    // AI 분류용 전체 진료과목
+    const treatmentLabels = [
+      '임플란트', '치아교정', '보철치료', '잇몸치료',
+      '심미치료', '충치치료', '스케일링', '일반진료', '기타',
+    ];
 
     // AI 분석 수행
     let aiAnalysis = null;
