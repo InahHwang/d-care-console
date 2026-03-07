@@ -215,8 +215,8 @@ async function generateMonthlyStatsWithFilteredAPI(month: number, year: number, 
     // 기존 손실 분석 계산 (호환성 유지)
     const lossAnalysis = calculateLossAnalysis(currentMonthPatients);
 
-    // 환자별 상담 내용 요약 생성
-    const patientConsultations = generatePatientConsultations(currentMonthPatients);
+    // 환자별 상담 내용 요약 생성 (V2 컬렉션 기반)
+    const patientConsultations = await generatePatientConsultationsV2(db, startDateStr, endDateStr);
 
     // 지역별/유입경로 통계
     const regionStats = calculateRegionStats(currentMonthPatients);
@@ -540,64 +540,158 @@ function calculateChannelStats(patients: any[]) {
     .sort((a, b) => b.count - a.count);
 }
 
-// 환자별 상담 내용 요약 생성
-function generatePatientConsultations(patients: any[]) {
-  return patients
-    .filter(p => p.consultation && (p.consultation.treatmentPlan || p.consultation.consultationNotes))
-    .map(p => {
-      const consultation = p.consultation;
-      
-      // 견적금액 계산 로직
-      let estimatedAmount = 0;
-      let visitAmount = 0;
-      let phoneAmount = consultation.estimatedAmount || 0;
-      
-      // 내원 후 상담 정보의 견적이 있는 경우 (우선순위 1)
-      if (p.postVisitConsultation?.estimateInfo) {
-        const estimate = p.postVisitConsultation.estimateInfo;
-        
-        if (estimate.discountPrice && estimate.discountPrice > 0) {
-          visitAmount = estimate.discountPrice;
-          estimatedAmount = estimate.discountPrice;
-        } else if (estimate.regularPrice && estimate.regularPrice > 0) {
-          visitAmount = estimate.regularPrice;
-          estimatedAmount = estimate.regularPrice;
+// 환자별 상담 내용 요약 생성 (V2 컬렉션 기반)
+async function generatePatientConsultationsV2(db: any, startDateStr: string, endDateStr: string) {
+  // V2 환자 조회 (createdAt 기반)
+  const startDate = new Date(startDateStr + 'T00:00:00.000Z');
+  const endDate = new Date(endDateStr + 'T23:59:59.999Z');
+
+  const [patients, consultations, manualConsultations] = await Promise.all([
+    db.collection('patients_v2').find({
+      createdAt: { $gte: startDate.toISOString(), $lte: endDate.toISOString() }
+    }).toArray(),
+    db.collection('consultations_v2').find({
+      $or: [
+        { date: { $gte: startDate, $lte: endDate } },
+        { date: { $gte: startDate.toISOString(), $lte: endDate.toISOString() } },
+      ]
+    }).toArray(),
+    db.collection('manualConsultations_v2').find({
+      $or: [
+        { date: { $gte: startDate, $lte: endDate } },
+        { date: { $gte: startDate.toISOString(), $lte: endDate.toISOString() } },
+      ]
+    }).toArray(),
+  ]);
+
+  // patientId별 상담 기록 그룹핑
+  const consultationsByPatient = new Map<string, any[]>();
+  for (const c of consultations) {
+    const pid = c.patientId?.toString();
+    if (!pid) continue;
+    if (!consultationsByPatient.has(pid)) consultationsByPatient.set(pid, []);
+    consultationsByPatient.get(pid)!.push(c);
+  }
+
+  const manualByPatient = new Map<string, any[]>();
+  for (const m of manualConsultations) {
+    const pid = m.patientId?.toString();
+    if (!pid) continue;
+    if (!manualByPatient.has(pid)) manualByPatient.set(pid, []);
+    manualByPatient.get(pid)!.push(m);
+  }
+
+  return patients.map((p: any) => {
+    const pid = p._id.toString();
+    const patientConsults = consultationsByPatient.get(pid) || [];
+    const patientManuals = manualByPatient.get(pid) || [];
+
+    // 전화상담 / 내원상담 분리
+    const phoneConsults = patientConsults.filter((c: any) => c.type === 'phone');
+    const visitConsults = patientConsults.filter((c: any) => c.type === 'visit');
+    const visitManuals = patientManuals.filter((m: any) => m.type === 'visit');
+
+    // 상담내용 통합 생성
+    const combinedContent: string[] = [];
+
+    // 전화상담 내용
+    if (phoneConsults.length > 0) {
+      const phoneLines = phoneConsults.map((c: any, i: number) => {
+        const parts: string[] = [];
+        if (c.treatment) parts.push(`치료: ${c.treatment}`);
+        if (c.memo) parts.push(c.memo);
+        if (c.status === 'disagreed' && c.disagreeReasons?.length) {
+          parts.push(`미동의: ${c.disagreeReasons.join(', ')}`);
         }
-      }
-      // 기존 상담 정보의 견적이 있는 경우 (우선순위 2)
-      else if (consultation.estimatedAmount) {
-        estimatedAmount = consultation.estimatedAmount;
-      }
-      
-      return {
-        _id: p._id,
-        name: p.name,
-        age: p.age,
-        estimatedAmount,
-        estimateAgreed: consultation.estimateAgreed || false,
-        discomfort: consultation.treatmentPlan ? 
-          consultation.treatmentPlan.substring(0, 50) + (consultation.treatmentPlan.length > 50 ? '...' : '') : '',
-        fullDiscomfort: consultation.treatmentPlan || '',
-        consultationSummary: consultation.consultationNotes ? 
-          consultation.consultationNotes.substring(0, 80) + (consultation.consultationNotes.length > 80 ? '...' : '') : '',
-        fullConsultation: consultation.consultationNotes || '',
-        
-        // 필수 필드들
-        consultationType: p.consultationType || 'inbound',
-        callInDate: p.callInDate,
-        status: p.status,
-        visitConfirmed: p.visitConfirmed,
-        postVisitStatus: p.postVisitStatus,
-        isCompleted: p.isCompleted,
-        interestedServices: p.interestedServices,
-        
-        // 추가 필드들
-        hasPhoneConsultation: !!(consultation.consultationNotes),
-        hasVisitConsultation: !!(p.postVisitConsultation),
-        phoneAmount,
-        visitAmount
-      };
-    });
+        const statusLabel = c.status === 'agreed' ? '동의' : c.status === 'disagreed' ? '미동의' : c.status === 'pending' ? '보류' : c.status;
+        return `[${phoneConsults.length > 1 ? `${i + 1}차 ` : ''}전화상담 - ${statusLabel}] ${parts.join(' / ') || statusLabel}`;
+      });
+      combinedContent.push(`📞 전화상담:\n${phoneLines.join('\n')}`);
+    }
+
+    // 내원상담 내용 (consultations_v2)
+    if (visitConsults.length > 0) {
+      const visitLines = visitConsults.map((c: any, i: number) => {
+        const parts: string[] = [];
+        if (c.treatment) parts.push(`치료: ${c.treatment}`);
+        if (c.memo) parts.push(c.memo);
+        if (c.status === 'disagreed' && c.disagreeReasons?.length) {
+          parts.push(`미동의: ${c.disagreeReasons.join(', ')}`);
+        }
+        const statusLabel = c.status === 'agreed' ? '동의' : c.status === 'disagreed' ? '미동의' : c.status === 'pending' ? '보류' : c.status;
+        return `[${visitConsults.length > 1 ? `${i + 1}차 ` : ''}내원상담 - ${statusLabel}] ${parts.join(' / ') || statusLabel}`;
+      });
+      combinedContent.push(`🏥 내원상담:\n${visitLines.join('\n')}`);
+    }
+    // 수동 입력 내원상담 (manualConsultations_v2) - consultations_v2에 없는 경우만
+    else if (visitManuals.length > 0) {
+      const manualLines = visitManuals.map((m: any) => {
+        const dateStr = new Date(m.date).toLocaleDateString('ko-KR', {
+          year: '2-digit', month: '2-digit', day: '2-digit'
+        }).replace(/\. /g, '.').replace(/\.$/, '');
+        return `[${dateStr}] ${m.content || ''}`;
+      });
+      combinedContent.push(`🏥 내원상담:\n${manualLines.join('\n')}`);
+    }
+
+    const fullCombinedContent = combinedContent.join('\n\n');
+    const summarizedContent = fullCombinedContent.length > 100
+      ? fullCombinedContent.substring(0, 100) + '...'
+      : fullCombinedContent;
+
+    // 견적금액: 내원상담 동의 > 전화상담 동의 > 내원 원래금액 > 전화 원래금액
+    const agreedVisit = visitConsults.find((c: any) => c.status === 'agreed');
+    const agreedPhone = phoneConsults.find((c: any) => c.status === 'agreed');
+    const latestVisit = visitConsults[0];
+    const latestPhone = phoneConsults[0];
+
+    const visitAmount = agreedVisit?.finalAmount || latestVisit?.originalAmount || 0;
+    const phoneAmount = agreedPhone?.finalAmount || latestPhone?.originalAmount || p.estimatedAmount || 0;
+    const estimatedAmount = visitAmount || phoneAmount;
+
+    // 진행상태 매핑
+    const hasAgreed = patientConsults.some((c: any) => c.status === 'agreed');
+
+    return {
+      _id: pid,
+      name: p.name,
+      age: p.age,
+      estimatedAmount,
+      estimateAgreed: hasAgreed,
+      discomfort: '',
+      consultationSummary: summarizedContent || '상담내용 없음',
+      fullDiscomfort: '',
+      fullConsultation: fullCombinedContent || '상담내용 없음',
+      callInDate: typeof p.createdAt === 'string' ? p.createdAt.split('T')[0] : new Date(p.createdAt).toISOString().split('T')[0],
+      status: p.status,
+      visitConfirmed: p.status === 'visited' || p.status === 'treatmentBooked' || p.status === 'treatment' || p.status === 'completed',
+      postVisitStatus: p.status === 'treatment' ? '치료시작' : p.status === 'treatmentBooked' ? '치료동의' : undefined,
+      isCompleted: p.status === 'completed' || p.status === 'closed',
+      interestedServices: p.interest ? [p.interest] : [],
+      consultationType: p.source === 'outbound' ? 'outbound' : p.aiAnalysis?.classification === '구신환' ? 'returning' : 'inbound',
+      hasPhoneConsultation: phoneConsults.length > 0,
+      hasVisitConsultation: visitConsults.length > 0 || visitManuals.length > 0,
+      phoneAmount,
+      visitAmount,
+      consultationStages: {
+        phone: {
+          hasContent: phoneConsults.length > 0,
+          discomfort: '',
+          notes: phoneConsults.map((c: any) => c.memo || '').filter(Boolean).join('\n'),
+          amount: phoneAmount,
+          agreed: phoneConsults.some((c: any) => c.status === 'agreed'),
+        },
+        visit: {
+          hasContent: visitConsults.length > 0 || visitManuals.length > 0,
+          firstVisitContent: visitConsults[0]?.memo || visitManuals[0]?.content || '',
+          amount: visitAmount,
+          status: p.status,
+        },
+      },
+      visitConsultation: undefined,
+      phoneConsultation: undefined,
+    };
+  }).sort((a: any, b: any) => new Date(b.callInDate || '').getTime() - new Date(a.callInDate || '').getTime());
 }
 
 // 기존 손실 분석 계산 함수 (호환성 유지)

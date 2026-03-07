@@ -515,6 +515,69 @@ export async function GET(
       }
     });
 
+    // 4번째 소스: 해당 날짜에 등록된 신환 중 상담/통화 기록이 없는 환자
+    // (환자 등록만 하고 상담 입력을 안 한 경우에도 신환으로 일보에 표시)
+    // ★ reportPatientsMap에 넣어야 타임라인 구축 + 후처리가 적용됨
+    const allProcessedPatientIds = new Set([
+      ...consultations.map((c) => c.patientId),
+      ...callLogs.filter((c) => c.patientId).map((c) => c.patientId!),
+      ...manualConsultations.filter((c) => c.patientId).map((c) => c.patientId as string),
+    ]);
+
+    const newPatientsToday = await db.collection<PatientV2>('patients_v2').find({
+      createdAt: {
+        $gte: new Date(startOfDay),
+        $lte: new Date(endOfDay),
+      },
+    }).toArray();
+
+    newPatientsToday.forEach((patient) => {
+      const pid = patient._id?.toString();
+      if (!pid || allProcessedPatientIds.has(pid)) return;
+      if (reportPatientsMap.has(pid)) return;
+
+      // patientMap에도 추가 (후처리에서 참조할 수 있도록)
+      patientMap.set(pid, patient);
+
+      const getConsultantName = () => {
+        if (patient.statusHistory?.[0]?.changedBy && patient.statusHistory[0].changedBy !== '시스템') {
+          return patient.statusHistory[0].changedBy;
+        }
+        if (patient.aiRegistered) return '자동등록';
+        return '미확인';
+      };
+
+      const time = new Date(patient.createdAt).toLocaleTimeString('ko-KR', {
+        hour: '2-digit',
+        minute: '2-digit',
+        timeZone: 'Asia/Seoul',
+      });
+
+      reportPatientsMap.set(pid, {
+        id: pid,
+        patientId: pid,
+        name: patient.name,
+        phone: patient.phone,
+        status: 'no_consultation',
+        type: 'phone',
+        treatment: patient.interest || '미정',
+        originalAmount: 0,
+        discountRate: 0,
+        discountAmount: 0,
+        finalAmount: 0,
+        disagreeReasons: [],
+        consultantName: getConsultantName(),
+        time,
+        duration: undefined,
+        aiSummary: undefined,
+        gender: patient.gender,
+        age: patient.age,
+        region: patient.region,
+        memo: patient.memo,
+        consultationType: (patient as any)?.consultationType,
+      });
+    });
+
     // ★ 신환 환자의 전체 상담 타임라인 구축 (첫 통화 ~ 오늘)
     const newPatientIds = Array.from(reportPatientsMap.keys());
     if (newPatientIds.length > 0) {
@@ -618,65 +681,6 @@ export async function GET(
 
     // ★ Map → 배열 변환
     const reportPatients = Array.from(reportPatientsMap.values());
-
-    // 4번째 소스: 해당 날짜에 등록된 신환 중 상담/통화 기록이 없는 환자
-    // (환자 등록만 하고 상담 입력을 안 한 경우에도 신환으로 일보에 표시)
-    const allProcessedPatientIds = new Set([
-      ...consultations.map((c) => c.patientId),
-      ...callLogs.filter((c) => c.patientId).map((c) => c.patientId!),
-      ...manualConsultations.filter((c) => c.patientId).map((c) => c.patientId as string),
-    ]);
-
-    const { ObjectId } = require('mongodb');
-    const newPatientsToday = await db.collection<PatientV2>('patients_v2').find({
-      createdAt: {
-        $gte: new Date(startOfDay),
-        $lte: new Date(endOfDay),
-      },
-    }).toArray();
-
-    newPatientsToday.forEach((patient) => {
-      const pid = patient._id?.toString();
-      if (!pid || allProcessedPatientIds.has(pid)) return;
-
-      // 담당 상담사 결정
-      const getConsultantName = () => {
-        if (patient.statusHistory?.[0]?.changedBy && patient.statusHistory[0].changedBy !== '시스템') {
-          return patient.statusHistory[0].changedBy;
-        }
-        if (patient.aiRegistered) return '자동등록';
-        return '미확인';
-      };
-
-      const time = new Date(patient.createdAt).toLocaleTimeString('ko-KR', {
-        hour: '2-digit',
-        minute: '2-digit',
-        timeZone: 'Asia/Seoul',
-      });
-
-      reportPatients.push({
-        id: pid,
-        patientId: pid,
-        name: patient.name,
-        phone: patient.phone,
-        status: 'no_consultation',
-        type: 'phone',
-        treatment: patient.interest || '미정',
-        originalAmount: 0,
-        discountRate: 0,
-        discountAmount: 0,
-        finalAmount: 0,
-        disagreeReasons: [],
-        consultantName: getConsultantName(),
-        time,
-        duration: undefined,
-        aiSummary: undefined,
-        gender: patient.gender,
-        age: patient.age,
-        region: patient.region,
-        memo: patient.memo,
-      });
-    });
 
     // ★ 후처리: 치료 시작 환자 자동 동의 + 금액 반영
     // 오늘 신규 등록 후 바로 치료 시작한 환자는 자동 '동의' 처리
