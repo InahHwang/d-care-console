@@ -3,7 +3,7 @@
 
 import { NextRequest, NextResponse } from 'next/server';
 import { connectToDatabase } from '@/utils/mongodb';
-import { getActiveTreatmentTypeLabels } from '@/utils/treatmentTypes';
+
 import { ObjectId } from 'mongodb';
 import Pusher from 'pusher';
 import type { AIAnalysis, AIConsultationResult, Temperature, AIClassification, FollowUpType, ConsultationStatus } from '@/types/v2';
@@ -96,9 +96,10 @@ ${transcript}
 - 통화에서 "성함이 어떻게 되세요?" → "홍길동입니다" 처럼 **직접 언급된 이름만**
 - 추측 금지. 이름이 안 나오면 빈 문자열 ""
 
-### interest (관심 진료)
-- ${treatmentLabels.join('/')} 중 선택
-- 통화 내용에 맞는 것으로 선택
+### interest (관심 진료 / 문의 유형)
+- 진료 관련 통화: ${treatmentLabels.join('/')} 중 선택
+- 진료 외 통화: 예약변경/예약확인/비용문의/주차문의/서류발급/기타문의 중 선택
+- 판단 불가 또는 진료 내용 없으면 빈 문자열 ""
 
 ### interestDetail (세부사항)
 - **반드시 통화에서 언급된 구체적 내용만 작성**
@@ -214,10 +215,10 @@ async function analyzeWithGPT(transcript: string, treatmentLabels: string[]): Pr
       'Content-Type': 'application/json',
     },
     body: JSON.stringify({
-      model: 'gpt-4o-mini', // 빠른 응답을 위해 mini 사용
+      model: 'gpt-5.2',
       messages: [
         {
-          role: 'system',
+          role: 'developer',
           content: '당신은 치과 상담 전화 분석 전문가입니다. 요청받은 형식의 JSON만 출력합니다.',
         },
         {
@@ -225,8 +226,7 @@ async function analyzeWithGPT(transcript: string, treatmentLabels: string[]): Pr
           content: prompt,
         },
       ],
-      temperature: 0.3,
-      max_tokens: 1000,
+      max_completion_tokens: 1000,
     }),
   });
 
@@ -348,8 +348,11 @@ export async function POST(request: NextRequest) {
       }
     );
 
-    // DB에서 치료 과목 목록 로드
-    const treatmentLabels = await getActiveTreatmentTypeLabels();
+    // AI 분류용 전체 진료과목 (사용자 설정과 무관하게 전체 통화 유형 파악)
+    const treatmentLabels = [
+      '임플란트', '치아교정', '보철치료', '잇몸치료',
+      '심미치료', '충치치료', '스케일링', '일반진료', '기타',
+    ];
 
     // AI 분석 실행
     const analysis = await analyzeWithGPT(transcript, treatmentLabels);

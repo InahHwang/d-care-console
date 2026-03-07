@@ -63,7 +63,7 @@ async function diarizeWithGPT(plainText: string, direction: string): Promise<str
       'Content-Type': 'application/json',
     },
     body: JSON.stringify({
-      model: 'gpt-5-mini',
+      model: 'gpt-5.2',
       messages: [
         { role: 'developer', content: prompt },
         { role: 'user', content: plainText },

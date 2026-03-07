@@ -9,6 +9,18 @@ import type { AICoachingResult } from '@/types/v2';
 // Vercel Function 타임아웃 설정 (gpt-5.2는 응답이 느릴 수 있음)
 export const maxDuration = 120;
 
+// 환자 상태 한글 매핑
+const PATIENT_STATUS_LABELS: Record<string, string> = {
+  consulting: '전화상담 중',
+  reserved: '내원예약 완료',
+  visited: '내원완료',
+  treatmentBooked: '치료예약 완료',
+  treatment: '치료 진행 중',
+  completed: '치료완료',
+  followup: '사후관리',
+  closed: '종결',
+};
+
 // 코칭 프롬프트 생성
 function buildCoachingPrompt(
   transcript: string,
@@ -17,8 +29,11 @@ function buildCoachingPrompt(
   disagreeReasons: string[] | undefined,
   summary: string,
   concerns: string[],
-  interest?: string
+  interest?: string,
+  patientStatus?: string
 ): string {
+  const statusLabel = patientStatus ? (PATIENT_STATUS_LABELS[patientStatus] || patientStatus) : '알 수 없음';
+
   return `당신은 치과 콜센터 상담 코칭 전문가입니다. 아래 통화 녹취를 분석하여 상담사에게 구체적인 개선 조언을 제공하세요.
 
 ## 통화 녹취
@@ -30,6 +45,10 @@ ${transcript}
 - 관심 치료: ${interest || '알 수 없음'}
 - AI 요약: ${summary}
 - 환자 우려사항: ${concerns.length ? concerns.join(', ') : '없음'}
+
+## 환자 현재 상태 (실제 결과)
+- 현재 퍼널 상태: ${statusLabel}
+※ 이 상태는 이 통화 이후 환자가 실제로 도달한 단계입니다. 예약/내원/치료까지 진행된 환자라면 상담이 효과적이었다는 뜻이므로 점수에 반드시 반영하세요.
 
 ## 분석 요청
 위 통화를 분석하여 다음 JSON 형식으로 응답해주세요.
@@ -68,8 +87,15 @@ ${transcript}
 4. **실행 가능한 조언**: 다음 콜백에서 바로 적용 가능해야 합니다.
 
 ### overallScore 기준
-- 90~100: 모범적 상담 (예약 확정, 환자 만족)
-- 70~89: 양호하나 개선 여지 있음
+**중요: 환자의 실제 전환 결과를 반드시 반영하세요.**
+- 환자가 내원예약 이상(reserved/visited/treatmentBooked/treatment/completed)까지 진행했으면 최소 75점 이상
+- 치료예약/치료 진행까지 갔으면 최소 80점 이상
+- 화법이 다소 아쉬워도 결과가 좋으면 높은 점수를 주되, 개선점은 별도로 제시
+
+점수 범위:
+- 90~100: 모범적 상담 (예약 확정 + 우수한 화법)
+- 80~89: 좋은 결과 (전환 성공, 개선 여지 약간 있음)
+- 70~79: 양호 (전환 성공했거나, 미전환이지만 적절한 상담)
 - 50~69: 주요 개선점 존재 (환자 이탈 위험)
 - 30~49: 상당한 개선 필요
 - 0~29: 기본 응대 미흡
@@ -104,7 +130,8 @@ async function analyzeCoachingWithGPT(
   disagreeReasons: string[] | undefined,
   summary: string,
   concerns: string[],
-  interest?: string
+  interest?: string,
+  patientStatus?: string
 ): Promise<AICoachingResult> {
   const apiKey = process.env.OPENAI_API_KEY;
   if (!apiKey) {
@@ -113,7 +140,7 @@ async function analyzeCoachingWithGPT(
 
   const prompt = buildCoachingPrompt(
     transcript, consultationStatus, statusReason,
-    disagreeReasons, summary, concerns, interest
+    disagreeReasons, summary, concerns, interest, patientStatus
   );
 
   const response = await fetch('https://api.openai.com/v1/chat/completions', {
@@ -174,9 +201,9 @@ async function analyzeCoachingWithGPT(
 export async function POST(request: NextRequest) {
   try {
     const body = await request.json();
-    const { callLogId, force } = body;
+    const { callLogId, force, preview, apply, coachingData } = body;
 
-    console.log(`[Coaching] 코칭 분석 요청: ${callLogId}, force: ${force}`);
+    console.log(`[Coaching] 코칭 분석 요청: ${callLogId}, force: ${force}, preview: ${preview}, apply: ${apply}`);
 
     if (!callLogId) {
       return NextResponse.json(
@@ -186,6 +213,29 @@ export async function POST(request: NextRequest) {
     }
 
     const { db } = await connectToDatabase();
+
+    // apply 모드: 미리보기 결과를 DB에 저장
+    if (apply && coachingData) {
+      const callLog = await db.collection('callLogs_v2').findOne(
+        { _id: new ObjectId(callLogId) },
+        { projection: { patientId: 1 } }
+      );
+
+      await db.collection('callLogs_v2').updateOne(
+        { _id: new ObjectId(callLogId) },
+        { $set: { aiCoaching: coachingData, updatedAt: new Date().toISOString() } }
+      );
+
+      if (callLog?.patientId && ObjectId.isValid(callLog.patientId)) {
+        await db.collection('patients_v2').updateOne(
+          { _id: new ObjectId(callLog.patientId) },
+          { $set: { lastCoachingScore: coachingData.overallScore, lastCoachingAt: coachingData.generatedAt } }
+        );
+      }
+
+      console.log(`[Coaching] 미리보기 결과 적용: ${callLogId}, score: ${coachingData.overallScore}`);
+      return NextResponse.json({ success: true, callLogId, coaching: coachingData, cached: false });
+    }
 
     // 통화 기록 조회
     const callLog = await db.collection('callLogs_v2').findOne({
@@ -219,6 +269,16 @@ export async function POST(request: NextRequest) {
       });
     }
 
+    // 환자 현재 상태 조회
+    let patientStatus: string | undefined;
+    if (callLog.patientId && ObjectId.isValid(callLog.patientId)) {
+      const patient = await db.collection('patients_v2').findOne(
+        { _id: new ObjectId(callLog.patientId) },
+        { projection: { status: 1 } }
+      );
+      patientStatus = patient?.status;
+    }
+
     // AI 코칭 분석 실행
     const aiAnalysis = callLog.aiAnalysis;
     const coaching = await analyzeCoachingWithGPT(
@@ -228,19 +288,55 @@ export async function POST(request: NextRequest) {
       aiAnalysis?.consultationResult?.disagreeReasons,
       aiAnalysis?.summary || '',
       aiAnalysis?.concerns || [],
-      aiAnalysis?.interest
+      aiAnalysis?.interest,
+      patientStatus
     );
 
-    // 결과 저장
+    // 결과 저장 (환자 상태 스냅샷 포함)
+    const coachingWithSnapshot = {
+      ...coaching,
+      patientStatusAtCoaching: patientStatus || null,
+    };
+
+    // preview 모드: DB 저장 없이 결과만 반환
+    if (preview) {
+      console.log(`[Coaching] 미리보기 반환: ${callLogId}, score: ${coaching.overallScore}`);
+      return NextResponse.json({
+        success: true,
+        callLogId,
+        coaching: coachingWithSnapshot,
+        cached: false,
+        preview: true,
+      });
+    }
+
     await db.collection('callLogs_v2').updateOne(
       { _id: new ObjectId(callLogId) },
       {
         $set: {
-          aiCoaching: coaching,
+          aiCoaching: coachingWithSnapshot,
           updatedAt: new Date().toISOString(),
         },
       }
     );
+
+    // 환자 정보에 코칭 결과 요약 저장 (테이블 표시/필터용)
+    if (callLog.patientId && ObjectId.isValid(callLog.patientId)) {
+      try {
+        await db.collection('patients_v2').updateOne(
+          { _id: new ObjectId(callLog.patientId) },
+          {
+            $set: {
+              lastCoachingScore: coaching.overallScore,
+              lastCoachingAt: coaching.generatedAt,
+            },
+          }
+        );
+        console.log(`[Coaching] 환자 코칭 정보 업데이트: ${callLog.patientId}`);
+      } catch (patientErr) {
+        console.error('[Coaching] 환자 업데이트 오류:', patientErr);
+      }
+    }
 
     console.log(`[Coaching] 코칭 분석 완료: ${callLogId}, score: ${coaching.overallScore}`);
 
@@ -257,6 +353,69 @@ export async function POST(request: NextRequest) {
         success: false,
         error: error instanceof Error ? error.message : 'Internal server error',
       },
+      { status: 500 }
+    );
+  }
+}
+
+// AI 코칭 결과 삭제
+export async function DELETE(request: NextRequest) {
+  try {
+    const { searchParams } = request.nextUrl;
+    const callLogId = searchParams.get('callLogId');
+
+    if (!callLogId) {
+      return NextResponse.json({ success: false, error: 'callLogId required' }, { status: 400 });
+    }
+
+    const { db } = await connectToDatabase();
+
+    const callLog = await db.collection('callLogs_v2').findOne(
+      { _id: new ObjectId(callLogId) },
+      { projection: { patientId: 1 } }
+    );
+
+    if (!callLog) {
+      return NextResponse.json({ success: false, error: 'Call log not found' }, { status: 404 });
+    }
+
+    // callLogs_v2에서 aiCoaching 제거
+    await db.collection('callLogs_v2').updateOne(
+      { _id: new ObjectId(callLogId) },
+      { $unset: { aiCoaching: '' }, $set: { updatedAt: new Date().toISOString() } }
+    );
+
+    // patients_v2에서 코칭 정보 제거 (해당 환자의 다른 코칭이 없는 경우)
+    if (callLog.patientId && ObjectId.isValid(callLog.patientId)) {
+      const otherCoaching = await db.collection('callLogs_v2').findOne({
+        patientId: callLog.patientId,
+        aiCoaching: { $exists: true },
+        _id: { $ne: new ObjectId(callLogId) },
+      });
+
+      if (!otherCoaching) {
+        await db.collection('patients_v2').updateOne(
+          { _id: new ObjectId(callLog.patientId) },
+          { $unset: { lastCoachingScore: '', lastCoachingAt: '' } }
+        );
+      } else {
+        // 다른 코칭이 있으면 그 중 최신 점수로 업데이트
+        await db.collection('patients_v2').updateOne(
+          { _id: new ObjectId(callLog.patientId) },
+          { $set: {
+            lastCoachingScore: otherCoaching.aiCoaching.overallScore,
+            lastCoachingAt: otherCoaching.aiCoaching.generatedAt,
+          }}
+        );
+      }
+    }
+
+    console.log(`[Coaching] 코칭 삭제: ${callLogId}`);
+    return NextResponse.json({ success: true });
+  } catch (error) {
+    console.error('[Coaching] 삭제 오류:', error);
+    return NextResponse.json(
+      { success: false, error: error instanceof Error ? error.message : 'Internal error' },
       { status: 500 }
     );
   }
