@@ -1,14 +1,41 @@
 // src/app/api/cron/send-recall-messages/route.ts
-// 리콜 알림톡 자동 발송 Cron Job
+// 리콜 SMS 자동 발송 Cron Job (CoolSMS 실제 발송)
 // Vercel Cron: 매일 오전 10시 실행
 
 import { NextRequest, NextResponse } from 'next/server';
 import { connectToDatabase } from '@/utils/mongodb';
-import { ObjectId } from 'mongodb';
 
-// Vercel Cron 설정을 위한 config
 export const dynamic = 'force-dynamic';
-export const maxDuration = 60; // 최대 60초
+export const maxDuration = 60;
+
+const isVercel = process.env.VERCEL === '1' || process.env.VERCEL_ENV !== undefined;
+
+// CoolSMS SDK 임포트
+let coolsmsService: any = null;
+try {
+  if (isVercel) {
+    const coolsmsModule = require('coolsms-node-sdk');
+    coolsmsService = coolsmsModule.default || coolsmsModule;
+  } else {
+    coolsmsService = require('coolsms-node-sdk').default;
+  }
+} catch (error: any) {
+  console.error('[Recall Cron] CoolSMS SDK 임포트 실패:', error.message);
+}
+
+const COOLSMS_CONFIG = {
+  API_KEY: process.env.COOLSMS_API_KEY || '',
+  API_SECRET: process.env.COOLSMS_API_SECRET || '',
+  SENDER_NUMBER: process.env.COOLSMS_SENDER_NUMBER || '',
+};
+
+function getByteLength(str: string): number {
+  let byteLength = 0;
+  for (let i = 0; i < str.length; i++) {
+    byteLength += str.charCodeAt(i) > 127 ? 2 : 1;
+  }
+  return byteLength;
+}
 
 export async function GET(request: NextRequest) {
   try {
@@ -16,7 +43,6 @@ export async function GET(request: NextRequest) {
     const authHeader = request.headers.get('authorization');
     const cronSecret = process.env.CRON_SECRET;
 
-    // 개발 환경이 아닐 때만 인증 체크
     if (process.env.NODE_ENV === 'production' && cronSecret) {
       if (authHeader !== `Bearer ${cronSecret}`) {
         return NextResponse.json(
@@ -26,14 +52,21 @@ export async function GET(request: NextRequest) {
       }
     }
 
+    // CoolSMS 설정 확인
+    if (!coolsmsService || !COOLSMS_CONFIG.API_KEY || !COOLSMS_CONFIG.API_SECRET || !COOLSMS_CONFIG.SENDER_NUMBER) {
+      console.error('[Recall Cron] CoolSMS 설정 누락');
+      return NextResponse.json(
+        { success: false, error: 'SMS 발송 설정이 올바르지 않습니다' },
+        { status: 500 }
+      );
+    }
+
     const { db } = await connectToDatabase();
     const now = new Date();
-    const startOfToday = new Date(now);
-    startOfToday.setHours(0, 0, 0, 0);
     const endOfToday = new Date(now);
     endOfToday.setHours(23, 59, 59, 999);
 
-    // 오늘 발송 예정인 pending 메시지 조회
+    // 오늘까지 발송 예정인 pending 메시지 조회
     const pendingMessages = await db.collection('recall_messages')
       .aggregate([
         {
@@ -57,24 +90,43 @@ export async function GET(request: NextRequest) {
       ])
       .toArray();
 
-    console.log(`[Cron] 발송 대기 메시지: ${pendingMessages.length}건`);
+    console.log(`[Recall Cron] 발송 대기 메시지: ${pendingMessages.length}건`);
+
+    if (pendingMessages.length === 0) {
+      return NextResponse.json({
+        success: true,
+        data: { totalPending: 0, sent: 0, failed: 0, executedAt: now.toISOString(), results: [] },
+      });
+    }
+
+    const messageService = new coolsmsService(COOLSMS_CONFIG.API_KEY, COOLSMS_CONFIG.API_SECRET);
 
     let sentCount = 0;
     let failedCount = 0;
-    const results: { id: string; status: string; phone?: string }[] = [];
+    const results: { id: string; status: string; phone?: string; error?: string }[] = [];
 
     for (const message of pendingMessages) {
       try {
         const patient = (message as any).patient;
         if (!patient?.phone) {
-          console.log(`[Cron] 환자 정보 없음: ${message._id}`);
+          console.log(`[Recall Cron] 환자 정보/전화번호 없음: ${message._id}`);
           failedCount++;
           results.push({ id: message._id.toString(), status: 'no_patient' });
           continue;
         }
 
-        // Mock 알림톡 발송
-        console.log(`[알림톡 Mock] 발송: ${patient.phone} - ${message.message}`);
+        const messageText = message.message;
+        const messageType = getByteLength(messageText) > 90 ? 'LMS' : 'SMS';
+
+        // CoolSMS 실제 발송
+        const sendResult = await messageService.sendOne({
+          to: patient.phone.replace(/-/g, ''),
+          from: COOLSMS_CONFIG.SENDER_NUMBER,
+          text: messageText,
+          type: messageType,
+        });
+
+        console.log(`[Recall Cron] 발송 성공: ${patient.name}(${patient.phone}) - ${messageType}`);
 
         // 발송 로그 기록
         await db.collection('alimtalk_logs').insertOne({
@@ -82,8 +134,10 @@ export async function GET(request: NextRequest) {
           recallMessageId: message._id.toString(),
           patientId: message.patientId,
           patientPhone: patient.phone,
-          message: message.message,
+          message: messageText,
+          messageType,
           status: 'sent',
+          coolsmsResult: sendResult,
           sentAt: now,
           createdAt: now.toISOString(),
         });
@@ -102,14 +156,14 @@ export async function GET(request: NextRequest) {
 
         sentCount++;
         results.push({ id: message._id.toString(), status: 'sent', phone: patient.phone });
-      } catch (error) {
-        console.error(`[Cron] 발송 실패: ${message._id}`, error);
+      } catch (error: any) {
+        console.error(`[Recall Cron] 발송 실패: ${message._id}`, error.message);
         failedCount++;
-        results.push({ id: message._id.toString(), status: 'error' });
+        results.push({ id: message._id.toString(), status: 'error', error: error.message });
       }
     }
 
-    console.log(`[Cron] 발송 완료: 성공 ${sentCount}건, 실패 ${failedCount}건`);
+    console.log(`[Recall Cron] 발송 완료: 성공 ${sentCount}건, 실패 ${failedCount}건`);
 
     return NextResponse.json({
       success: true,
@@ -122,7 +176,7 @@ export async function GET(request: NextRequest) {
       },
     });
   } catch (error) {
-    console.error('[Cron] send-recall-messages 오류:', error);
+    console.error('[Recall Cron] 오류:', error);
     return NextResponse.json(
       { success: false, error: 'Internal server error' },
       { status: 500 }

@@ -10,7 +10,7 @@ const createPatientSchema = z.object({
   name: z.string().min(1, '이름은 필수입니다').max(50),
   phone: z.string().min(1, '전화번호는 필수입니다').max(20),
   consultationType: z.string().max(100).optional(),
-  interest: z.string().max(200).optional(),
+  interest: z.string().min(1, '관심 시술은 필수입니다').max(200),
   source: z.string().max(100).optional(),
   temperature: z.enum(['hot', 'warm', 'cold']).optional().default('warm'),
   nextAction: z.string().max(500).optional(),
@@ -321,18 +321,23 @@ export async function GET(request: NextRequest) {
     // 체류일 및 긴급도 계산
     const now = new Date();
 
-    // 기간 필터가 적용된 환자들의 긴급 통계 계산 (종결/완료 환자 제외)
+    // 기간 필터가 적용된 환자들의 긴급 통계 계산 (종결 환자만 제외)
     const periodQuery: Record<string, unknown> = {
-      status: { $nin: ['closed', 'completed'] }
+      status: { $nin: ['closed'] }
     };
     const periodStartDate = getPeriodStartDate(period);
     if (periodStartDate) {
       periodQuery.createdAt = { $gte: periodStartDate };
     }
     const allPatientsForUrgent = await collection.find(periodQuery, { projection }).toArray();
-    let urgentStats = { noshow: 0, today: 0, overdue: 0 };
+    let urgentStats = { noshow: 0, today: 0, overdue: 0, aftercare: 0 };
 
     allPatientsForUrgent.forEach((p) => {
+      // 사후관리대상 카운트 (치료완료 + 사후관리)
+      if (p.status === 'completed' || p.status === 'followup') {
+        urgentStats.aftercare++;
+      }
+
       // 치료중 상태일 때는 treatmentStartDate 우선 사용
       let statusDate: Date;
       if (p.status === 'treatment' && p.treatmentStartDate) {
@@ -528,7 +533,7 @@ export async function POST(request: NextRequest) {
 
     const now = new Date();
     const journeyId = new ObjectId().toString();
-    const treatmentType = interest || '일반진료';
+    const treatmentType = interest;
 
     // 첫 상담일 결정: 1) 수동 입력 → 2) 통화기록 첫 통화일 → 3) 현재 시간
     let consultEventDate = now;

@@ -10,8 +10,8 @@ import { z } from 'zod';
 
 const incomingCallSchema = z.object({
   callerNumber: z.string().min(1, 'callerNumber is required'),
-  calledNumber: z.string().optional(),
-  timestamp: z.string().optional(),
+  calledNumber: z.string().nullish(),
+  timestamp: z.string().nullish(),
 });
 
 // Pusher 서버 인스턴스

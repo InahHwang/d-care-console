@@ -3,10 +3,16 @@
 
 import { NextRequest, NextResponse } from 'next/server';
 import { connectToDatabase } from '@/utils/mongodb';
+import { getActiveInterestedServiceLabels } from '@/utils/treatmentTypes';
 
 import { ObjectId } from 'mongodb';
 import Pusher from 'pusher';
 import type { AIAnalysis, AIConsultationResult, Temperature, AIClassification, FollowUpType, ConsultationStatus } from '@/types/v2';
+import { z } from 'zod';
+
+const analyzeSchema = z.object({
+  callLogId: z.string().min(1, 'callLogId is required'),
+});
 
 // Vercel Function 타임아웃 설정
 export const maxDuration = 60;
@@ -302,16 +308,18 @@ async function analyzeWithGPT(transcript: string, treatmentLabels: string[]): Pr
 export async function POST(request: NextRequest) {
   try {
     const body = await request.json();
-    const { callLogId } = body;
+    const parsed = analyzeSchema.safeParse(body);
 
-    console.log(`[Analyze v2] 분석 시작: ${callLogId}`);
-
-    if (!callLogId) {
+    if (!parsed.success) {
       return NextResponse.json(
-        { success: false, error: 'callLogId required' },
+        { success: false, error: parsed.error.errors[0].message },
         { status: 400 }
       );
     }
+
+    const { callLogId } = parsed.data;
+
+    console.log(`[Analyze v2] 분석 시작: ${callLogId}`);
 
     const { db } = await connectToDatabase();
     const now = new Date().toISOString();
@@ -348,11 +356,8 @@ export async function POST(request: NextRequest) {
       }
     );
 
-    // AI 분류용 전체 진료과목 (사용자 설정과 무관하게 전체 통화 유형 파악)
-    const treatmentLabels = [
-      '임플란트', '치아교정', '보철치료', '잇몸치료',
-      '심미치료', '충치치료', '스케일링', '일반진료', '기타',
-    ];
+    // 설정에서 활성화된 관심 분야 가져오기
+    const treatmentLabels = await getActiveInterestedServiceLabels();
 
     // AI 분석 실행
     const analysis = await analyzeWithGPT(transcript, treatmentLabels);

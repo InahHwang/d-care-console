@@ -43,6 +43,7 @@ const TIMING_OPTIONS = [
 export default function RecallSettings() {
   const [settings, setSettings] = useState<RecallSetting[]>([]);
   const [loading, setLoading] = useState(true);
+  const [treatmentTypes, setTreatmentTypes] = useState<string[]>([]);
 
   // 모달 상태
   const [showAddTreatmentModal, setShowAddTreatmentModal] = useState(false);
@@ -57,6 +58,22 @@ export default function RecallSettings() {
     timingDays: 7,
     message: '',
   });
+
+  // 치료 과목 목록 조회
+  const fetchTreatmentTypes = useCallback(async () => {
+    try {
+      const response = await fetch('/api/settings/categories');
+      const result = await response.json();
+      if (result.success && result.categories?.treatmentTypes) {
+        const activeLabels = result.categories.treatmentTypes
+          .filter((item: { isActive: boolean }) => item.isActive)
+          .map((item: { label: string }) => item.label);
+        setTreatmentTypes(activeLabels);
+      }
+    } catch (error) {
+      console.error('치료 과목 목록 조회 실패:', error);
+    }
+  }, []);
 
   // 설정 조회
   const fetchSettings = useCallback(async () => {
@@ -74,8 +91,9 @@ export default function RecallSettings() {
   }, []);
 
   useEffect(() => {
+    fetchTreatmentTypes();
     fetchSettings();
-  }, [fetchSettings]);
+  }, [fetchTreatmentTypes, fetchSettings]);
 
   // 치료 추가
   const handleAddTreatment = async () => {
@@ -389,15 +407,35 @@ export default function RecallSettings() {
 
             <div className="mb-4">
               <label className="block text-sm font-medium text-gray-700 mb-1">
-                치료 종류
+                치료 과목
               </label>
-              <input
-                type="text"
-                value={newTreatment}
-                onChange={(e) => setNewTreatment(e.target.value)}
-                placeholder="예: 임플란트, 스케일링, 교정"
-                className="w-full border border-gray-200 rounded-lg px-3 py-2"
-              />
+              {(() => {
+                const registeredTreatments = new Set(settings.map(s => s.treatment));
+                const availableTypes = treatmentTypes.filter(t => !registeredTreatments.has(t));
+
+                if (availableTypes.length === 0) {
+                  return (
+                    <p className="text-sm text-gray-500 py-2">
+                      모든 치료 과목이 이미 등록되어 있습니다.
+                      <br />
+                      <span className="text-xs text-gray-400">설정 &gt; 카테고리 관리에서 치료 과목을 추가할 수 있습니다.</span>
+                    </p>
+                  );
+                }
+
+                return (
+                  <select
+                    value={newTreatment}
+                    onChange={(e) => setNewTreatment(e.target.value)}
+                    className="w-full border border-gray-200 rounded-lg px-3 py-2"
+                  >
+                    <option value="">선택해주세요</option>
+                    {availableTypes.map(type => (
+                      <option key={type} value={type}>{type}</option>
+                    ))}
+                  </select>
+                );
+              })()}
             </div>
 
             <div className="flex justify-end gap-2">

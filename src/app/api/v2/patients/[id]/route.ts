@@ -3,6 +3,39 @@ import { NextRequest, NextResponse } from 'next/server';
 import { connectToDatabase } from '@/utils/mongodb';
 import { ObjectId } from 'mongodb';
 import { PatientStatus, Temperature, CallbackReason, CallbackHistoryEntry } from '@/types/v2';
+import { z } from 'zod';
+
+const patientPatchSchema = z.object({
+  name: z.string().optional(),
+  phone: z.string().optional(),
+  status: z.string().optional(),
+  temperature: z.string().optional(),
+  interest: z.string().optional(),
+  source: z.string().optional(),
+  memo: z.string().optional(),
+  nextAction: z.string().optional(),
+  nextActionDate: z.string().optional(),
+  tags: z.array(z.string()).optional(),
+  eventDate: z.string().optional(),
+  isReservation: z.boolean().optional(),
+  changedBy: z.string().optional(),
+  age: z.union([z.string(), z.number()]).optional(),
+  region: z.string().optional(),
+  closedReason: z.string().optional(),
+  isReactivation: z.boolean().optional(),
+  estimatedAmount: z.number().optional(),
+  actualAmount: z.number().optional(),
+  paymentStatus: z.string().optional(),
+  treatmentNote: z.string().optional(),
+  treatmentStartDate: z.string().optional(),
+  expectedCompletionDate: z.string().optional(),
+  updateType: z.enum(['status', 'schedule']).optional(),
+  callbackReason: z.string().optional(),
+  callbackNote: z.string().optional(),
+  newScheduleDate: z.string().optional(),
+  recallEnabled: z.boolean().optional(),
+  recallBaseDate: z.string().optional(),
+}).passthrough();
 
 export const dynamic = 'force-dynamic';
 
@@ -128,21 +161,27 @@ export async function PATCH(
     }
 
     const body = await request.json();
+    const parsed = patientPatchSchema.safeParse(body);
+
+    if (!parsed.success) {
+      return NextResponse.json(
+        { success: false, error: parsed.error.errors[0].message },
+        { status: 400 }
+      );
+    }
+
     const {
       name, phone, status, temperature, interest, source, memo,
       nextAction, nextActionDate, tags,
       eventDate, isReservation, changedBy,
       age, region,
       closedReason, isReactivation,
-      // 금액 관련 필드
       estimatedAmount, actualAmount, paymentStatus, treatmentNote,
-      // 치료 진행 관련 필드
       treatmentStartDate, expectedCompletionDate,
-      // 🆕 예정일 변경 관련 필드
-      updateType,          // 'status' | 'schedule' - schedule이면 예정일만 변경
-      callbackReason,      // 콜백 사유: 'no_answer' | 'postponed' | 'considering'
-      callbackNote,        // 콜백 메모
-      newScheduleDate,     // 새 예정일 (updateType === 'schedule'일 때)
+      updateType,
+      callbackReason,
+      callbackNote,
+      newScheduleDate,
     } = body;
 
     const { db } = await connectToDatabase();
@@ -404,19 +443,15 @@ export async function PATCH(
       return NextResponse.json({ error: 'Patient not found' }, { status: 404 });
     }
 
-    // 치료완료(completed)로 상태 변경 시 리콜 메시지 자동 생성
-    if (status === 'completed' && currentPatient && currentPatient.status !== 'completed') {
+    // 사후관리(followup)로 상태 변경 시 리콜 메시지 생성 (사용자가 리콜 활성화한 경우)
+    if (status === 'followup' && body.recallEnabled && currentPatient) {
       try {
-        // 환자의 관심 시술(치료 종류) 가져오기
         const treatment = currentPatient.aiAnalysis?.interest || currentPatient.interest || '';
-
         if (treatment) {
-          // 리콜 메시지 생성 API 호출 (내부 함수 직접 호출)
           const recallSetting = await db.collection('recall_settings').findOne({ treatment });
-
           if (recallSetting && recallSetting.schedules) {
             const enabledSchedules = recallSetting.schedules.filter((s: { enabled: boolean }) => s.enabled);
-            const baseDate = eventDate ? new Date(eventDate) : new Date();
+            const baseDate = body.recallBaseDate ? new Date(body.recallBaseDate) : new Date();
             const now = new Date();
 
             // 중복 체크
@@ -453,13 +488,12 @@ export async function PATCH(
 
             if (messagesToInsert.length > 0) {
               await db.collection('recall_messages').insertMany(messagesToInsert);
-              console.log(`[Patient PATCH] 리콜 메시지 ${messagesToInsert.length}개 자동 생성 (환자: ${currentPatient.name}, 치료: ${treatment})`);
+              console.log(`[Patient PATCH] 리콜 메시지 ${messagesToInsert.length}개 생성 (환자: ${currentPatient.name}, 치료: ${treatment})`);
             }
           }
         }
       } catch (recallError) {
         console.error('[Patient PATCH] 리콜 메시지 생성 실패:', recallError);
-        // 리콜 메시지 생성 실패해도 환자 상태 변경은 성공했으므로 계속 진행
       }
     }
 

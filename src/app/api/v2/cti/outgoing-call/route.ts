@@ -9,8 +9,8 @@ import { z } from 'zod';
 
 const outgoingCallSchema = z.object({
   phoneNumber: z.string().min(1, 'phoneNumber is required'),
-  callerNumber: z.string().optional(),
-  timestamp: z.string().optional(),
+  callerNumber: z.string().nullish(),
+  timestamp: z.string().nullish(),
 });
 
 const pusher = new Pusher({

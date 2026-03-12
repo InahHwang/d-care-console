@@ -9,10 +9,10 @@ import { z } from 'zod';
 
 const callEndSchema = z.object({
   callerNumber: z.string().min(1, 'callerNumber is required'),
-  calledNumber: z.string().optional(),
-  duration: z.number().optional(),
-  callStatus: z.string().optional(),
-  timestamp: z.string().optional(),
+  calledNumber: z.string().nullish(),
+  duration: z.number().nullish(),
+  callStatus: z.string().nullish(),
+  timestamp: z.string().nullish(),
 });
 
 const pusher = new Pusher({

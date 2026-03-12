@@ -35,3 +35,29 @@ export async function getActiveTreatmentTypeLabels(): Promise<string[]> {
     return DEFAULT_TREATMENT_LABELS;
   }
 }
+
+// DB에서 활성화된 관심 분야 라벨 목록 반환
+const DEFAULT_INTERESTED_SERVICE_LABELS = [
+  '단일 임플란트', '다수 임플란트', '무치악 임플란트',
+  '틀니', '라미네이트', '충치치료', '기타',
+];
+
+export async function getActiveInterestedServiceLabels(): Promise<string[]> {
+  try {
+    const { db } = await connectToDatabase();
+    const settings = await db.collection('settings').findOne({ type: 'categories' });
+
+    if (!settings?.interestedServices) {
+      return DEFAULT_INTERESTED_SERVICE_LABELS;
+    }
+
+    const activeLabels = (settings.interestedServices as CategoryItem[])
+      .filter((item) => item.isActive)
+      .map((item) => item.label);
+
+    return activeLabels.length > 0 ? activeLabels : DEFAULT_INTERESTED_SERVICE_LABELS;
+  } catch (error) {
+    console.error('관심 분야 목록 조회 오류:', error);
+    return DEFAULT_INTERESTED_SERVICE_LABELS;
+  }
+}

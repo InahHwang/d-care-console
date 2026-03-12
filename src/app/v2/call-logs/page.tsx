@@ -193,7 +193,7 @@ function RegisterPatientModal({ call, onClose, onSuccess }: RegisterPatientModal
   // 카테고리 데이터
   const [consultationTypes, setConsultationTypes] = useState<CategoryItem[]>([]);
   const [referralSources, setReferralSources] = useState<CategoryItem[]>([]);
-  const [interestedServices, setInterestedServices] = useState<CategoryItem[]>([]);
+  const [treatmentTypes, setTreatmentTypes] = useState<CategoryItem[]>([]);
   const [loadingCategories, setLoadingCategories] = useState(true);
 
   // 카테고리 데이터 로드
@@ -206,10 +206,10 @@ function RegisterPatientModal({ call, onClose, onSuccess }: RegisterPatientModal
           // 활성화된 항목만 필터링
           const activeTypes = (data.categories.consultationTypes || []).filter((item: CategoryItem) => item.isActive);
           const activeSources = (data.categories.referralSources || []).filter((item: CategoryItem) => item.isActive);
-          const activeServices = (data.categories.interestedServices || []).filter((item: CategoryItem) => item.isActive);
+          const activeTreatments = (data.categories.treatmentTypes || []).filter((item: CategoryItem) => item.isActive);
           setConsultationTypes(activeTypes);
           setReferralSources(activeSources);
-          setInterestedServices(activeServices);
+          setTreatmentTypes(activeTreatments);
           // 기본값 설정
           if (activeTypes.length > 0 && !consultationType) {
             setConsultationType(activeTypes[0].label);
@@ -228,6 +228,10 @@ function RegisterPatientModal({ call, onClose, onSuccess }: RegisterPatientModal
   const handleSubmit = async () => {
     if (!name.trim()) {
       setError('환자 이름을 입력해주세요');
+      return;
+    }
+    if (!interest) {
+      setError('관심 분야를 선택해주세요');
       return;
     }
 
@@ -370,21 +374,25 @@ function RegisterPatientModal({ call, onClose, onSuccess }: RegisterPatientModal
             )}
           </div>
 
-          {/* 관심 시술 */}
+          {/* 관심 분야 */}
           <div>
-            <label className="block text-sm font-medium text-gray-700 mb-2">관심 시술</label>
+            <label className="block text-sm font-medium text-gray-700 mb-2">
+              관심 분야 <span className="text-red-500">*</span>
+            </label>
             {loadingCategories ? (
               <div className="w-full px-3 py-2 border border-gray-200 rounded-lg bg-gray-50 text-gray-400">
                 로딩 중...
               </div>
-            ) : interestedServices.length > 0 ? (
+            ) : treatmentTypes.length > 0 ? (
               <select
                 value={interest}
                 onChange={(e) => setInterest(e.target.value)}
-                className="w-full px-3 py-2 border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                className={`w-full px-3 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 ${
+                  !interest ? 'border-red-300' : 'border-gray-200'
+                }`}
               >
                 <option value="">선택하세요</option>
-                {interestedServices.map((item) => (
+                {treatmentTypes.map((item) => (
                   <option key={item.id} value={item.label}>{item.label}</option>
                 ))}
               </select>
@@ -514,6 +522,29 @@ function EditAnalysisModal({ call, onClose, onSave }: EditAnalysisModalProps) {
   const [followUp, setFollowUp] = useState(call.followUp || '콜백필요');
   const [saving, setSaving] = useState(false);
 
+  // 카테고리 데이터
+  const [treatmentTypes, setTreatmentTypes] = useState<CategoryItem[]>([]);
+  const [loadingCategories, setLoadingCategories] = useState(true);
+
+  // 카테고리 데이터 로드
+  useEffect(() => {
+    const fetchCategories = async () => {
+      try {
+        const response = await fetch('/api/settings/categories');
+        const data = await response.json();
+        if (data.success) {
+          const activeTreatments = (data.categories.treatmentTypes || []).filter((item: CategoryItem) => item.isActive);
+          setTreatmentTypes(activeTreatments);
+        }
+      } catch (err) {
+        console.error('카테고리 로드 실패:', err);
+      } finally {
+        setLoadingCategories(false);
+      }
+    };
+    fetchCategories();
+  }, []);
+
   // 분류별 표시할 필드 결정
   const isPatientType = classification === '환자';
   const isVendor = classification === '거래처';
@@ -521,6 +552,10 @@ function EditAnalysisModal({ call, onClose, onSave }: EditAnalysisModalProps) {
   const isEtc = classification === '기타';
 
   const handleSave = async () => {
+    if (isPatientType && !interest) {
+      alert('관심 분야를 선택해주세요');
+      return;
+    }
     setSaving(true);
     try {
       const requestBody = {
@@ -660,17 +695,38 @@ function EditAnalysisModal({ call, onClose, onSave }: EditAnalysisModalProps) {
             </div>
           )}
 
-          {/* 관심 시술 (환자인 경우) */}
+          {/* 관심 분야 (환자인 경우) */}
           {isPatientType && (
             <div>
-              <label className="block text-sm font-medium text-gray-700 mb-2">관심 시술</label>
-              <input
-                type="text"
-                value={interest}
-                onChange={(e) => setInterest(e.target.value)}
-                placeholder="예: 임플란트, 교정, 충치치료"
-                className="w-full px-3 py-2 border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
-              />
+              <label className="block text-sm font-medium text-gray-700 mb-2">
+                관심 분야 <span className="text-red-500">*</span>
+              </label>
+              {loadingCategories ? (
+                <div className="w-full px-3 py-2 border border-gray-200 rounded-lg bg-gray-50 text-gray-400">
+                  로딩 중...
+                </div>
+              ) : treatmentTypes.length > 0 ? (
+                <select
+                  value={interest}
+                  onChange={(e) => setInterest(e.target.value)}
+                  className={`w-full px-3 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 ${
+                    !interest ? 'border-red-300' : 'border-gray-200'
+                  }`}
+                >
+                  <option value="">선택하세요</option>
+                  {treatmentTypes.map((item) => (
+                    <option key={item.id} value={item.label}>{item.label}</option>
+                  ))}
+                </select>
+              ) : (
+                <input
+                  type="text"
+                  value={interest}
+                  onChange={(e) => setInterest(e.target.value)}
+                  placeholder="예: 임플란트, 교정, 충치치료"
+                  className="w-full px-3 py-2 border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                />
+              )}
             </div>
           )}
 
@@ -1478,7 +1534,7 @@ function CallLogsPageContent() {
               <div className="col-span-2">환자</div>
               <div className="col-span-1">시간</div>
               <div className="col-span-1">통화시간</div>
-              <div className="col-span-1">관심 진료</div>
+              <div className="col-span-1">관심 분야</div>
               <div className="col-span-2">AI 요약</div>
               <div className="col-span-1">상태</div>
             </div>
@@ -1576,7 +1632,7 @@ function CallLogsPageContent() {
                         {formatDuration(call.duration)}
                       </div>
 
-                      {/* 관심 진료 */}
+                      {/* 관심 분야 */}
                       <div className="col-span-1 text-sm text-gray-600 truncate">
                         {call.interest || '-'}
                       </div>
@@ -1752,7 +1808,7 @@ function CallLogsPageContent() {
 
                   {selectedCall.interest && (
                     <div className="flex justify-between items-center">
-                      <span className="text-sm text-gray-600">관심 시술</span>
+                      <span className="text-sm text-gray-600">관심 분야</span>
                       <span className="font-medium text-gray-900">{selectedCall.interest}</span>
                     </div>
                   )}

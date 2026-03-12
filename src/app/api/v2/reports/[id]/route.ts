@@ -2,6 +2,7 @@
 // V2 월별 보고서 개별 관리 - 조회, 수정, 삭제
 
 export const dynamic = 'force-dynamic';
+export const maxDuration = 60;
 
 import { NextRequest, NextResponse } from 'next/server';
 import { ObjectId } from 'mongodb';

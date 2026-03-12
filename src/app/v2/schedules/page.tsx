@@ -279,12 +279,16 @@ function SchedulesContent() {
       const response = await fetch(`/api/v2/recall-messages/${id}/send`, {
         method: 'POST',
       });
-      if (response.ok) {
+      const result = await response.json();
+      if (response.ok && result.success) {
         fetchRecallMessages('pending');
-        alert('알림톡이 발송되었습니다 (Mock)');
+        alert(result.message || '문자가 발송되었습니다');
+      } else {
+        alert(result.error || '발송에 실패했습니다');
       }
     } catch (error) {
       console.error('Failed to send:', error);
+      alert('발송 중 오류가 발생했습니다');
     }
   };
 

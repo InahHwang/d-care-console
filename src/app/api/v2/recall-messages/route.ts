@@ -4,6 +4,22 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { connectToDatabase } from '@/utils/mongodb';
 import { ObjectId } from 'mongodb';
+import { z } from 'zod';
+
+const recallMessageCreateSchema = z.object({
+  patientId: z.string().min(1, 'patientId is required'),
+  treatment: z.string().min(1, 'treatment is required'),
+  timing: z.string().min(1, 'timing is required'),
+  timingDays: z.number({ required_error: 'timingDays is required' }),
+  message: z.string().min(1, 'message is required'),
+  lastVisit: z.string().min(1, 'lastVisit is required'),
+});
+
+const recallMessagePatchSchema = z.object({
+  id: z.string().min(1, 'id is required'),
+  status: z.enum(['pending', 'sent', 'booked', 'no-response', 'call-needed', 'completed'], { required_error: 'status is required' }),
+  bookedAt: z.string().nullish(),
+});
 
 export type RecallMessageStatus = 'pending' | 'sent' | 'booked' | 'no-response' | 'call-needed' | 'completed';
 
@@ -124,14 +140,16 @@ export async function GET(request: NextRequest) {
 export async function POST(request: NextRequest) {
   try {
     const body = await request.json();
-    const { patientId, treatment, timing, timingDays, message, lastVisit } = body;
+    const parsed = recallMessageCreateSchema.safeParse(body);
 
-    if (!patientId || !treatment || !timing || !timingDays || !message) {
+    if (!parsed.success) {
       return NextResponse.json(
-        { success: false, error: 'Missing required fields' },
+        { success: false, error: parsed.error.errors[0].message },
         { status: 400 }
       );
     }
+
+    const { patientId, treatment, timing, timingDays, message, lastVisit } = parsed.data;
 
     const { db } = await connectToDatabase();
     const now = new Date();
@@ -174,14 +192,16 @@ export async function POST(request: NextRequest) {
 export async function PATCH(request: NextRequest) {
   try {
     const body = await request.json();
-    const { id, status, bookedAt } = body;
+    const parsed = recallMessagePatchSchema.safeParse(body);
 
-    if (!id || !status) {
+    if (!parsed.success) {
       return NextResponse.json(
-        { success: false, error: 'id and status are required' },
+        { success: false, error: parsed.error.errors[0].message },
         { status: 400 }
       );
     }
+
+    const { id, status, bookedAt } = parsed.data;
 
     const { db } = await connectToDatabase();
     const now = new Date().toISOString();

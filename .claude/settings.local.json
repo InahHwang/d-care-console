@@ -116,7 +116,19 @@
       "Bash(head:*)",
       "Bash(# 채널 상담 목록에서 테스트 대화방이 생성되었는지 확인 curl -s \"\"https://d-care-console.vercel.app/api/v2/channel-chats?channel=kakao&limit=5\"\")",
       "WebFetch(domain:docs.channel.io)",
-      "WebFetch(domain:channel.io)"
+      "WebFetch(domain:channel.io)",
+      "WebFetch(domain:api-doc.channel.io)",
+      "WebFetch(domain:developers.channel.io)",
+      "Bash(cp:*)",
+      "WebFetch(domain:www.vercel-status.com)",
+      "Bash(vercel whoami:*)",
+      "Bash(xargs grep:*)",
+      "Bash(vercel logs:*)",
+      "WebFetch(domain:openai.com)",
+      "WebFetch(domain:developers.openai.com)",
+      "Bash(PYTHONIOENCODING=utf-8 python:*)",
+      "WebFetch(domain:catchall.ai.kr)",
+      "Bash(find \"/d/outbound-management 250728 - 백업\\(여기로돌아오기\\) - 복사본/d-care-console\" -type f \\\\\\( -name \".env*\" -o -name \"security*\" -o -name \"cors*\" \\\\\\) 2>/dev/null | grep -v node_modules | head -20)"
     ]
   }
 }

@@ -7,7 +7,6 @@ import PatientCategorySettings from '@/components/settings/PatientCategorySettin
 import {
   Settings,
   Phone,
-  Sparkles,
   Bell,
   Target,
   Save,
@@ -40,16 +39,6 @@ import type { User } from '@/types/user';
 
 interface SettingsData {
   clinicName: string;
-  cti: {
-    enabled: boolean;
-    serverUrl: string;
-    agentId: string;
-  };
-  ai: {
-    enabled: boolean;
-    autoAnalysis: boolean;
-    model: string;
-  };
   notifications: {
     missedCall: boolean;
     newPatient: boolean;
@@ -852,103 +841,6 @@ export default function SettingsPage() {
         </div>
       </section>
 
-      {/* CTI 설정 */}
-      <section className="bg-white rounded-xl border border-gray-100 p-6">
-        <div className="flex items-center justify-between mb-4">
-          <div className="flex items-center gap-2 text-gray-700 font-medium">
-            <Phone className="w-5 h-5" />
-            CTI 연동
-          </div>
-          <label className="flex items-center gap-2 cursor-pointer">
-            <input
-              type="checkbox"
-              checked={settings.cti.enabled}
-              onChange={(e) => updateSettings('cti.enabled', e.target.checked)}
-              className="w-5 h-5 rounded border-gray-300 text-blue-600 focus:ring-blue-500"
-            />
-            <span className="text-sm text-gray-600">활성화</span>
-          </label>
-        </div>
-
-        {settings.cti.enabled && (
-          <div className="space-y-4">
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">
-                CTI 서버 URL
-              </label>
-              <input
-                type="text"
-                value={settings.cti.serverUrl}
-                onChange={(e) => updateSettings('cti.serverUrl', e.target.value)}
-                placeholder="ws://localhost:5100"
-                className="w-full max-w-md border border-gray-200 rounded-lg px-3 py-2"
-              />
-            </div>
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">
-                상담사 ID
-              </label>
-              <input
-                type="text"
-                value={settings.cti.agentId}
-                onChange={(e) => updateSettings('cti.agentId', e.target.value)}
-                placeholder="agent001"
-                className="w-full max-w-md border border-gray-200 rounded-lg px-3 py-2"
-              />
-            </div>
-          </div>
-        )}
-      </section>
-
-      {/* AI 분석 설정 */}
-      <section className="bg-white rounded-xl border border-gray-100 p-6">
-        <div className="flex items-center justify-between mb-4">
-          <div className="flex items-center gap-2 text-gray-700 font-medium">
-            <Sparkles className="w-5 h-5" />
-            AI 분석
-          </div>
-          <label className="flex items-center gap-2 cursor-pointer">
-            <input
-              type="checkbox"
-              checked={settings.ai.enabled}
-              onChange={(e) => updateSettings('ai.enabled', e.target.checked)}
-              className="w-5 h-5 rounded border-gray-300 text-blue-600 focus:ring-blue-500"
-            />
-            <span className="text-sm text-gray-600">활성화</span>
-          </label>
-        </div>
-
-        {settings.ai.enabled && (
-          <div className="space-y-4">
-            <div>
-              <label className="flex items-center gap-2 cursor-pointer">
-                <input
-                  type="checkbox"
-                  checked={settings.ai.autoAnalysis}
-                  onChange={(e) => updateSettings('ai.autoAnalysis', e.target.checked)}
-                  className="w-4 h-4 rounded border-gray-300 text-blue-600 focus:ring-blue-500"
-                />
-                <span className="text-sm text-gray-700">통화 종료 후 자동 분석</span>
-              </label>
-            </div>
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">
-                AI 모델
-              </label>
-              <select
-                value={settings.ai.model}
-                onChange={(e) => updateSettings('ai.model', e.target.value)}
-                className="w-full max-w-md border border-gray-200 rounded-lg px-3 py-2"
-              >
-                <option value="gpt-4o-mini">GPT-4o Mini (빠름, 저렴)</option>
-                <option value="gpt-4o">GPT-4o (정확함)</option>
-                <option value="gpt-4-turbo">GPT-4 Turbo (균형)</option>
-              </select>
-            </div>
-          </div>
-        )}
-      </section>
-
       {/* 알림 설정 */}
       <section className="bg-white rounded-xl border border-gray-100 p-6">
         <div className="flex items-center gap-2 text-gray-700 font-medium mb-4">
@@ -956,7 +848,10 @@ export default function SettingsPage() {
           알림 설정
         </div>
 
-        <div className="space-y-3">
+        <div className="p-3 bg-gray-50 rounded-lg text-sm text-gray-500 mb-4">
+          알림 기능은 준비 중입니다. 설정은 저장되며, 기능 출시 시 자동 적용됩니다.
+        </div>
+        <div className="space-y-3 opacity-60">
           <label className="flex items-center gap-3 cursor-pointer">
             <input
               type="checkbox"

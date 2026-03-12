@@ -5,7 +5,32 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { connectToDatabase } from '@/utils/mongodb';
 import { ObjectId } from 'mongodb';
-import type { ConsultationV2, ConsultationType, ConsultationStatus } from '@/types/v2';
+import type { ConsultationV2, ConsultationType, ConsultationStatus, ClosedReason } from '@/types/v2';
+import { z } from 'zod';
+
+const consultationCreateSchema = z.object({
+  patientId: z.string().min(1, 'patientId is required'),
+  type: z.enum(['phone', 'visit'], { required_error: 'type is required' }),
+  status: z.enum(['agreed', 'disagreed', 'pending', 'no_answer', 'closed'], { required_error: 'status is required' }),
+  consultantName: z.string().min(1, 'consultantName is required'),
+  treatment: z.string().optional(),
+  originalAmount: z.number().optional(),
+  discountRate: z.number().optional(),
+  discountReason: z.string().optional(),
+  disagreeReasons: z.array(z.string()).optional(),
+  correctionPlan: z.string().optional(),
+  appointmentDate: z.string().optional(),
+  callbackDate: z.string().optional(),
+  inquiry: z.string().optional(),
+  memo: z.string().optional(),
+  closedReason: z.string().optional(),
+  closedReasonCustom: z.string().optional(),
+});
+
+const consultationPatchSchema = z.object({
+  id: z.string().min(1, 'id is required'),
+  editedBy: z.string().nullish(),
+}).passthrough();
 
 // GET - 상담 이력 조회
 export async function GET(request: NextRequest) {
@@ -127,10 +152,20 @@ export async function GET(request: NextRequest) {
 export async function POST(request: NextRequest) {
   try {
     const body = await request.json();
+    const parsed = consultationCreateSchema.safeParse(body);
+
+    if (!parsed.success) {
+      return NextResponse.json(
+        { success: false, error: parsed.error.errors[0].message },
+        { status: 400 }
+      );
+    }
+
     const {
       patientId,
-      type,           // 'phone' | 'visit'
-      status,         // 'agreed' | 'disagreed' | 'pending' | 'no_answer'
+      type,
+      status,
+      consultantName,
       treatment,
       originalAmount,
       discountRate,
@@ -139,20 +174,11 @@ export async function POST(request: NextRequest) {
       correctionPlan,
       appointmentDate,
       callbackDate,
-      consultantName,
       inquiry,
       memo,
       closedReason,
       closedReasonCustom,
-    } = body;
-
-    // 필수 필드 검증
-    if (!patientId || !type || !status || !consultantName) {
-      return NextResponse.json(
-        { success: false, error: 'patientId, type, status, consultantName are required' },
-        { status: 400 }
-      );
-    }
+    } = parsed.data;
 
     const { db } = await connectToDatabase();
     const now = new Date();
@@ -184,7 +210,7 @@ export async function POST(request: NextRequest) {
       consultantName,
       inquiry: inquiry || undefined,
       memo: memo || undefined,
-      closedReason: status === 'closed' ? closedReason : undefined,
+      closedReason: status === 'closed' ? closedReason as ClosedReason : undefined,
       closedReasonCustom: status === 'closed' && closedReason === '기타' ? closedReasonCustom : undefined,
       createdAt: nowISO,
     };
@@ -402,14 +428,17 @@ export async function POST(request: NextRequest) {
 export async function PATCH(request: NextRequest) {
   try {
     const body = await request.json();
-    const { id, editedBy, ...updateData } = body;
+    const parsed = consultationPatchSchema.safeParse(body);
 
-    if (!id) {
+    if (!parsed.success) {
       return NextResponse.json(
-        { success: false, error: 'id is required' },
+        { success: false, error: parsed.error.errors[0].message },
         { status: 400 }
       );
     }
+
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const { id, editedBy, ...updateData } = body as Record<string, any>;
 
     const { db } = await connectToDatabase();
     const nowISO = new Date().toISOString();

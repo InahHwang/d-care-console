@@ -10,13 +10,13 @@ import { z } from 'zod';
 
 const recordingSchema = z.object({
   callerNumber: z.string().min(1, 'callerNumber is required'),
-  calledNumber: z.string().optional(),
+  calledNumber: z.string().nullish(),
   recordingFileName: z.string().min(1, 'recordingFileName is required'),
-  recordingUrl: z.string().optional(),
-  recordingBase64: z.string().optional(),
-  duration: z.number().optional(),
-  timestamp: z.string().optional(),
-  callLogId: z.string().optional(),
+  recordingUrl: z.string().nullish(),
+  recordingBase64: z.string().nullish(),
+  duration: z.number().nullish(),
+  timestamp: z.string().nullish(),
+  callLogId: z.string().nullish(),
 });
 
 // Vercel Function 타임아웃 설정

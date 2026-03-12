@@ -2,14 +2,15 @@
 'use client';
 
 import React from 'react';
-import { AlertTriangle, Clock, CalendarClock, ChevronLeft, ChevronRight } from 'lucide-react';
+import { AlertTriangle, Clock, CalendarClock, RefreshCw, ChevronLeft, ChevronRight } from 'lucide-react';
 
-export type UrgencyFilter = 'all' | 'noshow' | 'today' | 'overdue';
+export type UrgencyFilter = 'all' | 'noshow' | 'today' | 'overdue' | 'aftercare';
 
 export interface UrgentStats {
   noshow: number;    // +N일 (노쇼/지연)
   today: number;     // D-Day (오늘)
   overdue: number;   // N일째 (임계값 초과)
+  aftercare: number; // 사후관리대상 (치료완료 + 사후관리)
 }
 
 interface UrgentSummaryCardsProps {
@@ -97,6 +98,18 @@ export function UrgentSummaryCards({
       iconColor: 'text-amber-500',
       countColor: 'text-amber-600',
     },
+    {
+      id: 'aftercare' as UrgencyFilter,
+      label: '사후관리대상',
+      description: '치료완료 + 사후관리',
+      icon: RefreshCw,
+      count: stats?.aftercare ?? 0,
+      bgColor: 'bg-slate-50',
+      borderColor: 'border-slate-200',
+      activeBorderColor: 'border-slate-500',
+      iconColor: 'text-slate-500',
+      countColor: 'text-slate-600',
+    },
   ];
 
   const isTodayFilterActive = activeFilter === 'today';
@@ -123,6 +136,7 @@ export function UrgentSummaryCards({
                 ${isActive && card.id === 'noshow' ? 'ring-red-300' : ''}
                 ${isActive && card.id === 'today' ? 'ring-blue-300' : ''}
                 ${isActive && card.id === 'overdue' ? 'ring-amber-300' : ''}
+                ${isActive && card.id === 'aftercare' ? 'ring-slate-300' : ''}
               `}
             >
               <div className={`p-2 rounded-lg bg-white ${card.iconColor}`}>

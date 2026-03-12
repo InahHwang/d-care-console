@@ -2,6 +2,15 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { connectToDatabase } from '@/utils/mongodb';
 import { ChannelType, ChatStatus } from '@/types/v2';
+import { z } from 'zod';
+
+const channelChatCreateSchema = z.object({
+  channel: z.string().min(1, 'channel is required'),
+  channelRoomId: z.string().min(1, 'channelRoomId is required'),
+  channelUserKey: z.string().nullish(),
+  phone: z.string().nullish(),
+  patientName: z.string().nullish(),
+});
 
 export const dynamic = 'force-dynamic';
 
@@ -89,14 +98,16 @@ export async function GET(request: NextRequest) {
 export async function POST(request: NextRequest) {
   try {
     const body = await request.json();
-    const { channel, channelRoomId, channelUserKey, phone, patientName } = body;
+    const parsed = channelChatCreateSchema.safeParse(body);
 
-    if (!channel || !channelRoomId) {
+    if (!parsed.success) {
       return NextResponse.json(
-        { success: false, error: 'channel과 channelRoomId는 필수입니다.' },
+        { success: false, error: parsed.error.errors[0].message },
         { status: 400 }
       );
     }
+
+    const { channel, channelRoomId, channelUserKey, phone, patientName } = parsed.data;
 
     const { db } = await connectToDatabase();
 

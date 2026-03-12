@@ -581,8 +581,12 @@ export default function PatientDetailPage() {
         body: JSON.stringify({
           status: data.newStatus,
           eventDate: data.eventDate,
-          isReservation: data.isReservation, // 예약 상태 여부
-          changedBy: user?.name || '알 수 없음', // 변경한 사용자
+          isReservation: data.isReservation,
+          changedBy: user?.name || '알 수 없음',
+          ...(data.recallEnabled !== undefined && {
+            recallEnabled: data.recallEnabled,
+            recallBaseDate: data.recallBaseDate,
+          }),
         }),
       });
 
@@ -1700,6 +1704,11 @@ export default function PatientDetailPage() {
           newStatus={pendingStatus}
           patientName={patient.name}
           scheduledDate={patient.nextActionDate}
+          patientInterest={displayInterest}
+          completedDate={(() => {
+            const entry = displayStatusHistory?.find((h: { to: string }) => h.to === 'completed');
+            return entry?.eventDate ? new Date(entry.eventDate).toISOString().split('T')[0] : undefined;
+          })()}
         />
       )}
 

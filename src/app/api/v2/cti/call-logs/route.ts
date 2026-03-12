@@ -11,11 +11,11 @@ import { z } from 'zod';
 const callLogEventSchema = z.object({
   eventType: z.string().min(1, 'eventType is required'),
   callerNumber: z.string().min(1, 'callerNumber is required'),
-  calledNumber: z.string().optional(),
-  timestamp: z.string().optional(),
-  duration: z.number().optional(),
-  callLogId: z.string().nullable().optional(),
-  extInfo: z.string().optional(),
+  calledNumber: z.string().nullish(),
+  timestamp: z.string().nullish(),
+  duration: z.number().nullish(),
+  callLogId: z.string().nullish(),
+  extInfo: z.string().nullish(),
 });
 
 const pusher = new Pusher({

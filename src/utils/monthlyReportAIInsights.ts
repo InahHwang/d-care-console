@@ -1,5 +1,5 @@
 // src/utils/monthlyReportAIInsights.ts
-// 월간 보고서 AI 인사이트 생성 - OpenAI GPT-4o-mini 활용
+// 월간 보고서 AI 인사이트 생성 - OpenAI GPT-5.2 활용
 
 import type { MonthlyStatsV2 } from '@/app/v2/reports/components/MonthlyReport-Types';
 
@@ -114,10 +114,10 @@ export async function generateAIInsights(
       'Content-Type': 'application/json',
     },
     body: JSON.stringify({
-      model: 'gpt-4o-mini',
+      model: 'gpt-5.2',
       messages: [
         {
-          role: 'system',
+          role: 'developer',
           content: '당신은 치과 경영 컨설턴트입니다. 요청받은 형식의 JSON만 출력합니다.',
         },
         {
@@ -125,8 +125,7 @@ export async function generateAIInsights(
           content: prompt,
         },
       ],
-      temperature: 0.4,
-      max_tokens: 1200,
+      max_completion_tokens: 1200,
     }),
   });
 
@@ -154,6 +153,6 @@ export async function generateAIInsights(
   return {
     insights: Array.isArray(result.insights) ? result.insights.slice(0, 7) : [],
     generatedAt: new Date().toISOString(),
-    model: 'gpt-4o-mini',
+    model: 'gpt-5.2',
   };
 }

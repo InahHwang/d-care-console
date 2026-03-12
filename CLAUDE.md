@@ -272,10 +272,29 @@ git commit -m "[CTIBridge] 변경 내용 요약"
 
 ### 진행 상태 추적
 
-각 단계 완료 시 아래 체크리스트 업데이트:
+롤백 태그: `pre-commercialization-checkpoint` (상용화 작업 전 복원 지점)
 
-- [ ] Step 1: (미정 - 착수 시 구체적 작업 내용 기록)
-- [ ] Step 2: (미정)
-- [ ] Step 3: (미정)
+#### Step 1: Zod 입력값 검증 (리스크: 낮음)
+- [x] 핵심 API 6개 적용 (`c7672da`, 2026-03-10)
+  - patients POST, cti/incoming-call, cti/call-logs, cti/call-end, cti/outgoing-call, call-analysis/recording
+- [x] 핵심 API 추가 7개 적용 (2026-03-12, Vercel 배포 완료)
+  - callbacks POST/PATCH, consultations POST/PATCH, channel-chats POST
+  - recall-messages POST/PATCH, call-analysis/analyze POST
+  - settings PATCH, patients/[id] PATCH
+  - 패턴: `safeParse()` → 실패 시 400 + 첫 번째 에러 메시지 반환
+- [ ] 나머지 API 적용 (webhooks, call-logs, reports, manuals 등) — 우선순위 낮음, 필요 시 점진적 추가
 
-> **참고**: 구체적인 Step 내용은 착수 시점에 사용자와 협의하여 결정. 이전 Phase 1~5를 그대로 따르지 않고, 우선순위와 리스크를 고려하여 순서/범위를 재설계할 것.
+#### Step 2: 보안 기본 조치 (리스크: 낮음)
+- [ ] CORS 제한
+- [ ] 보안 헤더 추가
+- [ ] 에러 메시지 노출 차단
+
+#### Step 3: 멀티테넌시 - clinicId (리스크: 중간)
+- [ ] DB 쿼리에 clinicId 필터 추가 (한 API씩 점진적 적용)
+
+#### Step 4: 인증 강화 - JWT/쿠키 (리스크: 높음)
+- [ ] JWT 인증 미들웨어 (한 라우트씩 점진적 적용)
+
+#### Step 5: 테스트/CI/모니터링 (리스크: 낮음)
+- [ ] 핵심 API 테스트 작성
+- [ ] CI 파이프라인 구축

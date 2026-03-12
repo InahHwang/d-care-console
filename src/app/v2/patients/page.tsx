@@ -169,7 +169,7 @@ function PatientsPageContent() {
       if (searchQuery) {
         params.set('search', searchQuery);
       }
-      if (urgencyFilter !== 'all') {
+      if (urgencyFilter !== 'all' && urgencyFilter !== 'aftercare') {
         params.set('urgency', urgencyFilter);
         // 'today' 필터에서 날짜 탐색 시 callbackDate 전달
         if (urgencyFilter === 'today' && callbackDate) {
@@ -258,7 +258,12 @@ function PatientsPageContent() {
   const handleUrgencyFilterChange = (filter: UrgencyFilter) => {
     setUrgencyFilter(filter);
     setActiveFilter('all'); // 긴급 필터 변경 시 상태 필터 초기화
-    setStatusOverride(''); // 대시보드 다중 상태 해제
+    // 사후관리대상: 치료완료 + 사후관리 상태 필터
+    if (filter === 'aftercare') {
+      setStatusOverride('completed,followup');
+    } else {
+      setStatusOverride(''); // 대시보드 다중 상태 해제
+    }
     setPaymentStatusFilter(''); // 결제상태 필터 해제
     setHasEstimateFilter(false); // 견적 필터 해제
     // 'today' 필터 해제 시 callbackDate를 오늘로 리셋

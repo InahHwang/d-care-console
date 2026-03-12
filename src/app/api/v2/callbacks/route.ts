@@ -6,6 +6,21 @@ import { NextRequest, NextResponse } from 'next/server';
 import { connectToDatabase } from '@/utils/mongodb';
 import { ObjectId } from 'mongodb';
 import type { CallbackV2, CallbackType, CallbackStatus } from '@/types/v2';
+import { z } from 'zod';
+
+const callbackCreateSchema = z.object({
+  patientId: z.string().min(1, 'patientId is required'),
+  type: z.enum(['callback', 'recall', 'thanks'], { required_error: 'type is required' }),
+  scheduledAt: z.string().min(1, 'scheduledAt is required'),
+  note: z.string().nullish(),
+});
+
+const callbackPatchSchema = z.object({
+  id: z.string().min(1, 'id is required'),
+  status: z.enum(['pending', 'completed', 'missed'], { required_error: 'status is required' }),
+  note: z.string().nullish(),
+  source: z.string().nullish(),
+});
 
 export async function GET(request: NextRequest) {
   try {
@@ -215,14 +230,16 @@ export async function GET(request: NextRequest) {
 export async function POST(request: NextRequest) {
   try {
     const body = await request.json();
-    const { patientId, type, scheduledAt, note } = body;
+    const parsed = callbackCreateSchema.safeParse(body);
 
-    if (!patientId || !type || !scheduledAt) {
+    if (!parsed.success) {
       return NextResponse.json(
-        { success: false, error: 'patientId, type, scheduledAt are required' },
+        { success: false, error: parsed.error.errors[0].message },
         { status: 400 }
       );
     }
+
+    const { patientId, type, scheduledAt, note } = parsed.data;
 
     const { db } = await connectToDatabase();
     const now = new Date().toISOString();
@@ -270,14 +287,16 @@ export async function POST(request: NextRequest) {
 export async function PATCH(request: NextRequest) {
   try {
     const body = await request.json();
-    const { id, status, note, source } = body;
+    const parsed = callbackPatchSchema.safeParse(body);
 
-    if (!id || !status) {
+    if (!parsed.success) {
       return NextResponse.json(
-        { success: false, error: 'id and status are required' },
+        { success: false, error: parsed.error.errors[0].message },
         { status: 400 }
       );
     }
+
+    const { id, status, note, source } = parsed.data;
 
     const { db } = await connectToDatabase();
     const now = new Date().toISOString();

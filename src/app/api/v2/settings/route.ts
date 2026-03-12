@@ -6,20 +6,32 @@ import { NextRequest, NextResponse } from 'next/server';
 // 캐싱 방지: 항상 최신 설정 데이터 반환
 export const dynamic = 'force-dynamic';
 import { connectToDatabase } from '@/utils/mongodb';
+import { z } from 'zod';
+
+const settingsPatchSchema = z.object({
+  clinicName: z.string().nullish(),
+  cti: z.record(z.unknown()).nullish(),
+  ai: z.record(z.unknown()).nullish(),
+  notifications: z.object({
+    missedCall: z.boolean(),
+    newPatient: z.boolean(),
+    callback: z.boolean(),
+  }).nullish(),
+  targets: z.object({
+    monthlyRevenue: z.number(),
+    dailyCalls: z.number(),
+    conversionRate: z.number(),
+  }).nullish(),
+  dailyReportSms: z.object({
+    enabled: z.boolean(),
+    recipients: z.array(z.string()),
+    schedule: z.record(z.object({ enabled: z.boolean(), time: z.string() })),
+  }).nullish(),
+}).passthrough();
 
 interface Settings {
   clinicId: string;
   clinicName: string;
-  cti: {
-    enabled: boolean;
-    serverUrl: string;
-    agentId: string;
-  };
-  ai: {
-    enabled: boolean;
-    autoAnalysis: boolean;
-    model: string;
-  };
   notifications: {
     missedCall: boolean;
     newPatient: boolean;
@@ -40,16 +52,6 @@ interface Settings {
 
 const DEFAULT_SETTINGS: Omit<Settings, 'clinicId' | 'updatedAt'> = {
   clinicName: '내 병원',
-  cti: {
-    enabled: true,
-    serverUrl: '',
-    agentId: '',
-  },
-  ai: {
-    enabled: true,
-    autoAnalysis: true,
-    model: 'gpt-4o-mini',
-  },
   notifications: {
     missedCall: true,
     newPatient: true,
@@ -99,6 +101,15 @@ export async function GET() {
 export async function PATCH(request: NextRequest) {
   try {
     const body = await request.json();
+    const parsed = settingsPatchSchema.safeParse(body);
+
+    if (!parsed.success) {
+      return NextResponse.json(
+        { success: false, error: parsed.error.errors[0].message },
+        { status: 400 }
+      );
+    }
+
     const { db } = await connectToDatabase();
 
     const clinicId = 'default';
