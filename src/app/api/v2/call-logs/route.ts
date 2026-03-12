@@ -454,8 +454,7 @@ export async function PATCH(request: NextRequest) {
     console.error('[CallLogs PATCH] 오류 스택:', error instanceof Error ? error.stack : 'N/A');
     return NextResponse.json(
       {
-        error: 'Failed to update call log',
-        details: error instanceof Error ? error.message : 'Unknown error'
+        error: '통화기록 수정 중 오류가 발생했습니다.'
       },
       { status: 500 }
     );

@@ -145,7 +145,7 @@ export async function POST(
   } catch (error: any) {
     console.error('[Recall Send API] 오류:', error);
     return NextResponse.json(
-      { success: false, error: error.message || 'Internal server error' },
+      { success: false, error: '리콜 메시지 발송 중 오류가 발생했습니다.' },
       { status: 500 }
     );
   }

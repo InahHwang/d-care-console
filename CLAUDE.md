@@ -285,9 +285,15 @@ git commit -m "[CTIBridge] 변경 내용 요약"
 - [ ] 나머지 API 적용 (webhooks, call-logs, reports, manuals 등) — 우선순위 낮음, 필요 시 점진적 추가
 
 #### Step 2: 보안 기본 조치 (리스크: 낮음)
-- [ ] CORS 제한
-- [ ] 보안 헤더 추가
-- [ ] 에러 메시지 노출 차단
+- [x] 보안 헤더 추가 (2026-03-12)
+  - X-Content-Type-Options, X-Frame-Options, X-XSS-Protection, Referrer-Policy, Permissions-Policy
+  - HSTS는 Vercel(HTTPS) 환경에서만 적용 (로컬 개발 호환)
+- [x] 에러 메시지 노출 차단 (2026-03-12)
+  - error.message를 클라이언트에 직접 반환하던 API 11개 → generic 메시지로 교체
+  - 대상: coaching, analyze, transcribe, diarize, call-logs PATCH, channel-chats/analyze, recall-messages/send, migration 3개
+- [x] CORS 정리 확인 (2026-03-12)
+  - 외부 연동(webhooks, channel-chats, widget)만 `*` 허용 — 기존 유지
+  - 내부 API는 same-origin 정책으로 보호 (추가 설정 불필요)
 
 #### Step 3: 멀티테넌시 - clinicId (리스크: 중간)
 - [ ] DB 쿼리에 clinicId 필터 추가 (한 API씩 점진적 적용)

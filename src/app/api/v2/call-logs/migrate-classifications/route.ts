@@ -50,7 +50,7 @@ export async function POST(request: NextRequest) {
   } catch (error) {
     console.error('마이그레이션 오류:', error);
     return NextResponse.json(
-      { error: '마이그레이션 실패', details: error instanceof Error ? error.message : 'Unknown error' },
+      { error: '마이그레이션 실패' },
       { status: 500 }
     );
   }

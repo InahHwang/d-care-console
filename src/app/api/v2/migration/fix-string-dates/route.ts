@@ -65,7 +65,7 @@ export async function POST(request: NextRequest) {
   } catch (error) {
     console.error('[FixDates] 오류:', error);
     return NextResponse.json(
-      { success: false, error: error instanceof Error ? error.message : 'Unknown error' },
+      { success: false, error: '날짜 수정 마이그레이션 중 오류가 발생했습니다.' },
       { status: 500 }
     );
   }

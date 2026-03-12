@@ -229,7 +229,7 @@ export async function POST(request: NextRequest) {
     return NextResponse.json(
       {
         success: false,
-        error: error instanceof Error ? error.message : '분석 중 오류가 발생했습니다.',
+        error: '채팅 분석 중 오류가 발생했습니다.',
       },
       { status: 500 }
     );

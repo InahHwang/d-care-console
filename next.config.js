@@ -15,10 +15,32 @@ const nextConfig = {
     unoptimized: true, // Vercel에서 이미지 최적화 문제 해결
   },
   
-  // 🔥 API 라우트 최적화 (속도개선 2 버전)
+  // 🔥 API 라우트 최적화 + 보안 헤더 (상용화 Step 2)
   async headers() {
+    // 공통 보안 헤더
+    const securityHeaders = [
+      { key: 'X-Content-Type-Options', value: 'nosniff' },
+      { key: 'X-Frame-Options', value: 'DENY' },
+      { key: 'X-XSS-Protection', value: '1; mode=block' },
+      { key: 'Referrer-Policy', value: 'strict-origin-when-cross-origin' },
+      { key: 'Permissions-Policy', value: 'camera=(), microphone=(), geolocation=()' },
+    ];
+
+    // Vercel HTTPS 환경에서만 HSTS 적용 (로컬 개발 시 제외)
+    if (process.env.VERCEL) {
+      securityHeaders.push({
+        key: 'Strict-Transport-Security',
+        value: 'max-age=31536000; includeSubDomains',
+      });
+    }
+
     return [
-      // CORS 헤더 - 외부 위젯 연동용
+      // 모든 페이지에 보안 헤더 적용
+      {
+        source: '/(.*)',
+        headers: securityHeaders,
+      },
+      // CORS 헤더 - 외부 웹훅 연동용 (네이버톡톡, 카카오, 인스타그램)
       {
         source: '/api/v2/webhooks/:path*',
         headers: [
@@ -28,6 +50,7 @@ const nextConfig = {
           { key: 'Access-Control-Max-Age', value: '86400' },
         ],
       },
+      // CORS 헤더 - 채널챗 외부 연동용
       {
         source: '/api/v2/channel-chats/:path*',
         headers: [
@@ -37,6 +60,7 @@ const nextConfig = {
           { key: 'Access-Control-Max-Age', value: '86400' },
         ],
       },
+      // CORS 헤더 - 외부 임베드 위젯용
       {
         source: '/widget/:path*',
         headers: [
@@ -45,22 +69,13 @@ const nextConfig = {
           { key: 'Access-Control-Allow-Headers', value: 'Content-Type' },
         ],
       },
-      // 일반 API 캐시 설정
+      // API 캐시 비활성화
       {
         source: '/api/:path*',
         headers: [
-          {
-            key: 'Cache-Control',
-            value: 'no-cache, no-store, must-revalidate',
-          },
-          {
-            key: 'Pragma',
-            value: 'no-cache',
-          },
-          {
-            key: 'Expires',
-            value: '0',
-          },
+          { key: 'Cache-Control', value: 'no-cache, no-store, must-revalidate' },
+          { key: 'Pragma', value: 'no-cache' },
+          { key: 'Expires', value: '0' },
         ],
       },
     ];
