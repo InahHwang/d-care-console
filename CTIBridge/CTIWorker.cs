@@ -817,28 +817,7 @@ public class CTIWorker : BackgroundService
                 }
                 _logger.LogInformation("═══════════════════════════════════════════════════════");
 
-                // ★ 070 모니터링 번호 등록 (다른 번호의 이벤트를 받기 위해)
-                await Task.Delay(500); // 잠시 대기
-                _logger.LogInformation("═══════════════════════════════════════════════════════");
-                _logger.LogInformation("📞 070 모니터링 번호 등록 시작");
-                int addMonResult = IMS_AddMonDn("07047414202");
-                if (addMonResult == SUCCESS)
-                {
-                    _logger.LogInformation("✅ 070 모니터링 등록 요청 성공! (07047414202)");
-                    _logger.LogInformation("   → 070의 기본 사용자가 로그아웃/부재중일 때 이벤트 수신 가능");
-                }
-                else
-                {
-                    _logger.LogWarning("❌ 070 모니터링 등록 실패 (코드: 0x{Code:X})", addMonResult);
-                    _logger.LogWarning("   → SK브로드밴드에 모니터링 권한 문의 필요");
-                }
-
-                // 현재 모니터링 목록 조회
-                int qryMonResult = IMS_QryMonDnList();
-                if (qryMonResult == SUCCESS)
-                {
-                    _logger.LogInformation("📋 모니터링 목록 조회 요청 성공");
-                }
+                // 070 모니터링 제거됨 — B 컴퓨터에서 070 계정으로 직접 로그인하므로 불필요
                 _logger.LogInformation("═══════════════════════════════════════════════════════");
 
                 return true;
