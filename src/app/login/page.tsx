@@ -63,7 +63,7 @@ export default function LoginPage() {
     dispatch(loginStart());
 
     try {
-      const response = await fetch('/api/auth/login', {
+      const response = await fetch('/api/v2/auth/login', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
