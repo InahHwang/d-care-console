@@ -1,7 +1,7 @@
 'use client';
 
 import React, { useState, useEffect } from 'react';
-import { Phone, MessageCircle, Clock, ChevronDown, Sparkles, X, Loader2, Plus, Building, Edit3, ClipboardCheck, CheckCircle, XCircle, AlertCircle, PhoneMissed, Ban } from 'lucide-react';
+import { Phone, MessageCircle, Clock, ChevronDown, Sparkles, X, Loader2, Plus, Building, Edit3, ClipboardCheck, ClipboardList, CheckCircle, XCircle, AlertCircle, PhoneMissed, Ban } from 'lucide-react';
 import { format } from 'date-fns';
 import { ko } from 'date-fns/locale';
 import { CHANNEL_CONFIG, ChannelType } from '@/types/v2';
@@ -73,12 +73,18 @@ interface ConsultationItem {
   memo?: string;
   closedReason?: string;
   closedReasonCustom?: string;
+  // 연결된 상담 결과 (중첩 표시용)
+  linkedResult?: ConsultationItem;
+  // 연결 ID (결과가 어떤 활동에 속하는지)
+  linkedCallLogId?: string;
+  linkedManualId?: string;
 }
 
 // 상담 결과 (consultations_v2에서 가져오는 데이터)
 interface ConsultationResult {
   id: string;
   callLogId?: string;
+  manualConsultationId?: string;
   type: 'phone' | 'visit';
   status: 'agreed' | 'disagreed' | 'pending' | 'no_answer' | 'closed';
   treatment?: string;
@@ -100,6 +106,7 @@ interface ConsultationHistoryCardProps {
   patientName?: string;
   className?: string;
   onSelectCall?: (callId: string) => void;
+  onAddResult?: (activityId: string, activityType: 'call' | 'manual') => void;
 }
 
 type FilterType = 'all' | 'call' | 'chat' | 'manual' | 'result';
@@ -318,7 +325,7 @@ function ChatDetailModal({ isOpen, onClose, chatId }: ChatDetailModalProps) {
   );
 }
 
-export function ConsultationHistoryCard({ patientId, patientName = '', className = '', onSelectCall }: ConsultationHistoryCardProps) {
+export function ConsultationHistoryCard({ patientId, patientName = '', className = '', onSelectCall, onAddResult }: ConsultationHistoryCardProps) {
   const [filter, setFilter] = useState<FilterType>('all');
   const [consultations, setConsultations] = useState<ConsultationItem[]>([]);
   const [isLoading, setIsLoading] = useState(false);
@@ -394,7 +401,7 @@ export function ConsultationHistoryCard({ patientId, patientName = '', className
       let resultItems: ConsultationItem[] = [];
       if (resultsData.success && resultsData.data?.consultations) {
         // 상담 결과를 ConsultationItem 형태로 변환
-        // 🆕 내원상담(visit)은 manualConsultations_v2에서 표시하므로 제외 (중복 방지)
+        // 내원상담(visit)은 manualConsultations_v2에서 표시하므로 제외 (중복 방지)
         resultItems = resultsData.data.consultations
           .filter((r: ConsultationResult) => r.type !== 'visit')
           .map((r: ConsultationResult) => ({
@@ -413,19 +420,45 @@ export function ConsultationHistoryCard({ patientId, patientName = '', className
             memo: r.memo,
             closedReason: r.closedReason,
             closedReasonCustom: r.closedReasonCustom,
+            linkedCallLogId: r.callLogId,
+            linkedManualId: r.manualConsultationId,
           }));
       }
+
+      // 결과를 활동에 연결 (callLogId / manualConsultationId 매칭)
+      const linkedResultMap = new Map<string, ConsultationItem>();
+      const unlinkedResults: ConsultationItem[] = [];
+
+      for (const result of resultItems) {
+        if (result.linkedCallLogId) {
+          linkedResultMap.set(result.linkedCallLogId, result);
+        } else if (result.linkedManualId) {
+          linkedResultMap.set(result.linkedManualId, result);
+        } else {
+          unlinkedResults.push(result);
+        }
+      }
+
+      // 활동 항목에 linkedResult 연결
+      const enrichedItems = callChatItems.map((item) => {
+        const linkedResult = linkedResultMap.get(item.id);
+        if (linkedResult) {
+          return { ...item, linkedResult };
+        }
+        return item;
+      });
 
       // 필터에 따라 목록 구성
       let mergedItems: ConsultationItem[] = [];
       if (filter === 'result') {
         mergedItems = resultItems;
       } else if (filter === 'all') {
-        mergedItems = [...callChatItems, ...resultItems].sort(
+        // 연결된 결과는 활동 밑에 표시하므로 unlinkedResults만 독립 표시
+        mergedItems = [...enrichedItems, ...unlinkedResults].sort(
           (a, b) => new Date(b.date).getTime() - new Date(a.date).getTime()
         );
       } else {
-        mergedItems = callChatItems;
+        mergedItems = enrichedItems;
       }
 
       setConsultations(mergedItems);
@@ -793,6 +826,64 @@ export function ConsultationHistoryCard({ patientId, patientName = '', className
                   </div>
                 )}
               </div>
+
+              {/* 연결된 상담 결과 (중첩 표시) */}
+              {item.linkedResult && (
+                <div className="ml-11 mt-1 mb-2 pl-3 border-l-2 border-gray-200">
+                  <div className="flex items-center gap-2 text-sm py-1.5">
+                    <span className={`px-2 py-0.5 rounded-full text-xs font-medium ${
+                      item.linkedResult.resultStatus === 'agreed' ? 'bg-emerald-100 text-emerald-700'
+                      : item.linkedResult.resultStatus === 'disagreed' ? 'bg-rose-100 text-rose-700'
+                      : item.linkedResult.resultStatus === 'no_answer' ? 'bg-slate-100 text-slate-700'
+                      : item.linkedResult.resultStatus === 'closed' ? 'bg-gray-200 text-gray-700'
+                      : 'bg-amber-100 text-amber-700'
+                    }`}>
+                      {item.linkedResult.resultStatus === 'agreed' ? '동의'
+                       : item.linkedResult.resultStatus === 'disagreed' ? '미동의'
+                       : item.linkedResult.resultStatus === 'no_answer' ? '부재중'
+                       : item.linkedResult.resultStatus === 'closed' ? '종결'
+                       : '보류'}
+                    </span>
+                    {item.linkedResult.treatment && (
+                      <span className="text-gray-600">{item.linkedResult.treatment}</span>
+                    )}
+                    {item.linkedResult.resultStatus === 'agreed' && item.linkedResult.finalAmount !== undefined && item.linkedResult.finalAmount > 0 && (
+                      <span className="text-emerald-600 text-xs">{item.linkedResult.finalAmount.toLocaleString()}원</span>
+                    )}
+                    {item.linkedResult.resultStatus === 'disagreed' && item.linkedResult.disagreeReasons && item.linkedResult.disagreeReasons.length > 0 && (
+                      <span className="text-rose-500 text-xs">{item.linkedResult.disagreeReasons.join(', ')}</span>
+                    )}
+                    {item.linkedResult.resultStatus === 'agreed' && item.linkedResult.appointmentDate && (
+                      <span className="text-emerald-500 text-xs">예약 {format(new Date(item.linkedResult.appointmentDate), 'M/d', { locale: ko })}</span>
+                    )}
+                    {(item.linkedResult.resultStatus === 'disagreed' || item.linkedResult.resultStatus === 'pending' || item.linkedResult.resultStatus === 'no_answer') && item.linkedResult.callbackDate && (
+                      <span className="text-amber-500 text-xs">콜백 {format(new Date(item.linkedResult.callbackDate), 'M/d', { locale: ko })}</span>
+                    )}
+                    {item.linkedResult.consultantName && (
+                      <span className="text-gray-400 text-xs">({item.linkedResult.consultantName})</span>
+                    )}
+                  </div>
+                  {item.linkedResult.memo && (
+                    <p className="text-xs text-gray-500 mt-0.5">{item.linkedResult.memo}</p>
+                  )}
+                </div>
+              )}
+
+              {/* 결과 미입력 표시 + 입력 버튼 (통화/수동입력에만, 결과가 없을 때, 부재중 제외) */}
+              {(item.type === 'call' || (item.type === 'manual' && item.source !== 'consultation_result')) && !item.linkedResult && onAddResult && item.status !== 'missed' && (
+                <div className="ml-11 mt-1 mb-2">
+                  <button
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      onAddResult(item.id, item.type as 'call' | 'manual');
+                    }}
+                    className="flex items-center gap-1.5 px-2.5 py-1 text-xs text-blue-600 bg-blue-50 rounded-lg hover:bg-blue-100 transition-colors"
+                  >
+                    <ClipboardList size={12} />
+                    결과 입력
+                  </button>
+                </div>
+              )}
             </div>
           ))
         )}

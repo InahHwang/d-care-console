@@ -25,6 +25,8 @@ const consultationCreateSchema = z.object({
   memo: z.string().optional(),
   closedReason: z.string().optional(),
   closedReasonCustom: z.string().optional(),
+  callLogId: z.string().optional(),
+  manualConsultationId: z.string().optional(),
 });
 
 const consultationPatchSchema = z.object({
@@ -126,6 +128,7 @@ export async function GET(request: NextRequest) {
           aiSummary: c.aiSummary,
           aiGenerated: c.aiGenerated,        // AI 자동 생성 여부
           callLogId: c.callLogId,            // 연결된 통화 기록 ID
+          manualConsultationId: c.manualConsultationId, // 연결된 수동 상담 ID
           editedAt: c.editedAt,              // 수정 시간
           editedBy: c.editedBy,              // 수정한 상담사
           date: c.date,
@@ -178,6 +181,8 @@ export async function POST(request: NextRequest) {
       memo,
       closedReason,
       closedReasonCustom,
+      callLogId,
+      manualConsultationId,
     } = parsed.data;
 
     const { db } = await connectToDatabase();
@@ -193,6 +198,8 @@ export async function POST(request: NextRequest) {
     // 상담 기록 생성
     const newConsultation: Omit<ConsultationV2, '_id'> = {
       patientId,
+      callLogId: callLogId || undefined,
+      manualConsultationId: manualConsultationId || undefined,
       type: type as ConsultationType,
       status: status as ConsultationStatus,
       date: now,

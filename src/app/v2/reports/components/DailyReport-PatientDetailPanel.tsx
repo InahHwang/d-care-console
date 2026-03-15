@@ -206,6 +206,16 @@ export function DailyReportPatientDetailPanel({
 
       {/* 본문 섹션 */}
       <div className="p-6 space-y-4">
+        {/* 종결 사유 */}
+        {patient.status === 'closed' && patient.closedReason && (
+          <div className="bg-gray-50 rounded-xl p-5 border border-gray-200">
+            <h3 className="font-semibold text-gray-700 mb-2 flex items-center gap-2">
+              <span>⊘</span> 종결 사유
+            </h3>
+            <p className="text-gray-600 text-sm">{patient.closedReason}</p>
+          </div>
+        )}
+
         {/* 미입력 안내 (aiSummary 유무에 따라 상담미입력/결과미입력 구분) */}
         {patient.status === 'no_consultation' && (() => {
           const noConsultConfig = getNoConsultationConfig(patient.aiSummary);

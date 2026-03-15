@@ -322,6 +322,7 @@ export interface ConsultationV2 {
   clinicId?: string;
   patientId: string;
   callLogId?: string;
+  manualConsultationId?: string;       // 수동입력 상담 연결
   type: ConsultationType;              // 상담 유형 (전화/내원)
   date: Date | string;
   treatment: string;

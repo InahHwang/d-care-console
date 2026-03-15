@@ -66,6 +66,7 @@ export function UrgentSummaryCards({
       id: 'noshow' as UrgencyFilter,
       label: '노쇼/지연',
       description: '예정일 경과',
+      tooltip: '노쇼: 내원 예약일이 지났는데 방문하지 않은 환자\n지연: 콜백 예정일이 지난 환자',
       icon: AlertTriangle,
       count: stats?.noshow ?? 0,
       bgColor: 'bg-red-50',
@@ -78,6 +79,7 @@ export function UrgentSummaryCards({
       id: 'today' as UrgencyFilter,
       label: isToday ? '오늘 예정' : `${formatDateLabel(selectedDate || today)} 예정`,
       description: isToday ? 'D-Day' : formatDateLabel(selectedDate || today),
+      tooltip: '오늘 콜백 또는 내원 예약이 잡혀있는 환자',
       icon: Clock,
       count: stats?.today ?? 0,
       bgColor: 'bg-blue-50',
@@ -90,6 +92,7 @@ export function UrgentSummaryCards({
       id: 'overdue' as UrgencyFilter,
       label: '장기 방치',
       description: '임계값 초과',
+      tooltip: '예정일 없이 오래 머물러 있는 환자\n전화상담 7일+, 내원완료 7일+, 치료중 30일+, 사후관리 90일+',
       icon: CalendarClock,
       count: stats?.overdue ?? 0,
       bgColor: 'bg-amber-50',
@@ -102,6 +105,7 @@ export function UrgentSummaryCards({
       id: 'aftercare' as UrgencyFilter,
       label: '사후관리대상',
       description: '치료완료 + 사후관리',
+      tooltip: '치료완료 또는 사후관리 단계의 환자 (정기 검진/리콜 대상)',
       icon: RefreshCw,
       count: stats?.aftercare ?? 0,
       bgColor: 'bg-slate-50',
@@ -127,6 +131,7 @@ export function UrgentSummaryCards({
               key={card.id}
               onClick={() => onFilterChange(isActive ? 'all' : card.id)}
               disabled={!hasItems && !isActive}
+              title={card.tooltip}
               className={`
                 flex items-center gap-3 px-4 py-3 rounded-xl border-2 transition-all
                 ${card.bgColor}

@@ -8,7 +8,7 @@ import { Phone, Building, Check, XCircle, Clock, Calendar, ChevronDown, ChevronU
 interface ConsultationRecord {
   id: string;
   type?: 'phone' | 'visit';  // optional for backwards compatibility
-  status: 'agreed' | 'disagreed' | 'pending';
+  status: 'agreed' | 'disagreed' | 'pending' | 'no_answer' | 'closed';
   treatment: string;
   originalAmount: number;
   finalAmount: number;
@@ -27,10 +27,12 @@ interface ConsultationHistoryProps {
   loading?: boolean;
 }
 
-const STATUS_CONFIG = {
+const STATUS_CONFIG: Record<string, { label: string; icon: typeof Check; color: string; bg: string }> = {
   agreed: { label: '동의', icon: Check, color: 'text-emerald-600', bg: 'bg-emerald-100' },
   disagreed: { label: '미동의', icon: XCircle, color: 'text-rose-600', bg: 'bg-rose-100' },
   pending: { label: '보류', icon: Clock, color: 'text-amber-600', bg: 'bg-amber-100' },
+  no_answer: { label: '부재중', icon: Phone, color: 'text-gray-600', bg: 'bg-gray-100' },
+  closed: { label: '종결', icon: XCircle, color: 'text-gray-500', bg: 'bg-gray-100' },
 };
 
 const TYPE_CONFIG = {

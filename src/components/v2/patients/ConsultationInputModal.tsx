@@ -3,7 +3,7 @@
 'use client';
 
 import React, { useState, useEffect } from 'react';
-import { X, Check, XCircle, Clock, Calendar, DollarSign, AlertCircle, Ban, PhoneMissed } from 'lucide-react';
+import { X, Check, XCircle, Clock, Calendar, DollarSign, AlertCircle, Ban, PhoneMissed, Phone, Building, Edit3, CheckCircle } from 'lucide-react';
 import { ConsultationType, ConsultationStatus, DISAGREE_REASON_CATEGORIES, MarketingTargetReason, ClosedReason, CLOSED_REASON_OPTIONS } from '@/types/v2';
 import { MarketingTargetCheckbox, MarketingTargetData } from '@/components/v2/marketing';
 
@@ -23,6 +23,18 @@ export interface ExistingConsultationData {
   memo?: string;
 }
 
+// 상담 활동 (통화기록 또는 수동입력 상담)
+export interface SourceActivity {
+  id: string;
+  type: 'call' | 'manual';
+  date: string;
+  summary: string;
+  direction?: string;      // 통화: inbound/outbound
+  duration?: number;       // 통화: 시간(초)
+  manualType?: string;     // 수동: phone/visit/other
+  hasResult: boolean;      // 이미 결과 입력됨
+}
+
 interface ConsultationInputModalProps {
   isOpen: boolean;
   onClose: () => void;
@@ -33,6 +45,9 @@ interface ConsultationInputModalProps {
   consultantName?: string;
   // 수정 모드용
   existingData?: ExistingConsultationData;
+  // 상담 활동 연결
+  sourceActivities?: SourceActivity[];
+  preselectedActivityId?: string;  // 이력카드에서 직접 선택한 경우
 }
 
 export interface ConsultationFormData {
@@ -52,6 +67,9 @@ export interface ConsultationFormData {
   // 종결 관련 필드
   closedReason?: ClosedReason;
   closedReasonCustom?: string;
+  // 상담 활동 연결
+  callLogId?: string;
+  manualConsultationId?: string;
   // 마케팅 타겟 관련 필드
   isMarketingTarget?: boolean;
   marketingTargetData?: {
@@ -80,6 +98,8 @@ export function ConsultationInputModal({
   patientInterest,
   consultantName: defaultConsultant,
   existingData,
+  sourceActivities,
+  preselectedActivityId,
 }: ConsultationInputModalProps) {
   // 수정 모드 여부
   const isEditMode = !!existingData;
@@ -107,6 +127,9 @@ export function ConsultationInputModal({
     scheduledDate: '',
     note: '',
   });
+
+  // 상담 활동 선택 (연결)
+  const [selectedActivityId, setSelectedActivityId] = useState<string | null>(preselectedActivityId || null);
 
   // 동적 데이터 (더 이상 사용하지 않지만 호환성 유지)
   const [loadingData, setLoadingData] = useState(false);
@@ -144,6 +167,8 @@ export function ConsultationInputModal({
         // 종결 초기화
         setClosedReason('');
         setClosedReasonCustom('');
+        // 상담 활동 선택 초기화
+        setSelectedActivityId(preselectedActivityId || null);
         // 마케팅 타겟 초기화
         setIsMarketingTarget(false);
         setMarketingTargetData({
@@ -199,6 +224,11 @@ export function ConsultationInputModal({
 
     setSubmitting(true);
     try {
+      // 선택된 상담 활동 연결 ID 결정
+      const selectedActivity = sourceActivities?.find(a => a.id === selectedActivityId);
+      const callLogId = selectedActivity?.type === 'call' ? selectedActivity.id : undefined;
+      const manualConsultationId = selectedActivity?.type === 'manual' ? selectedActivity.id : undefined;
+
       await onSubmit({
         type,
         status,
@@ -216,6 +246,9 @@ export function ConsultationInputModal({
         // 종결 관련 데이터
         closedReason: status === 'closed' ? (closedReason as ClosedReason) : undefined,
         closedReasonCustom: status === 'closed' && closedReason === '기타' ? closedReasonCustom : undefined,
+        // 상담 활동 연결
+        callLogId,
+        manualConsultationId,
         // 마케팅 타겟 관련 데이터
         isMarketingTarget: (status === 'disagreed' || status === 'pending') ? isMarketingTarget : false,
         marketingTargetData: isMarketingTarget && (status === 'disagreed' || status === 'pending')
@@ -249,6 +282,99 @@ export function ConsultationInputModal({
 
         {/* 본문 */}
         <div className="p-6 overflow-y-auto max-h-[calc(90vh-140px)] space-y-6">
+          {/* 0. 상담 활동 선택 (어떤 상담의 결과인지) */}
+          {sourceActivities && sourceActivities.length > 0 && !isEditMode && (
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-2">
+                어떤 상담의 결과인가요?
+              </label>
+              <div className="space-y-1.5 max-h-48 overflow-y-auto border rounded-lg p-2">
+                {sourceActivities.map((activity) => {
+                  const dateObj = new Date(activity.date);
+                  const dateStr = `${dateObj.getMonth() + 1}/${dateObj.getDate()}`;
+                  const timeStr = `${String(dateObj.getHours()).padStart(2, '0')}:${String(dateObj.getMinutes()).padStart(2, '0')}`;
+                  const durationStr = activity.duration
+                    ? `${Math.floor(activity.duration / 60)}:${String(activity.duration % 60).padStart(2, '0')}`
+                    : '';
+                  const isSelected = selectedActivityId === activity.id;
+
+                  return (
+                    <button
+                      key={activity.id}
+                      onClick={() => !activity.hasResult && setSelectedActivityId(isSelected ? null : activity.id)}
+                      disabled={activity.hasResult}
+                      className={`w-full flex items-center gap-2.5 px-3 py-2 rounded-lg text-left text-sm transition-colors ${
+                        activity.hasResult
+                          ? 'bg-gray-50 text-gray-400 cursor-not-allowed'
+                          : isSelected
+                            ? 'bg-blue-50 ring-2 ring-blue-400'
+                            : 'hover:bg-gray-50'
+                      }`}
+                    >
+                      {/* 아이콘 */}
+                      <div className={`w-7 h-7 rounded-full flex items-center justify-center flex-shrink-0 ${
+                        activity.type === 'call' ? 'bg-blue-100' : 'bg-amber-100'
+                      }`}>
+                        {activity.type === 'call' ? (
+                          <Phone size={13} className="text-blue-600" />
+                        ) : activity.manualType === 'visit' ? (
+                          <Building size={13} className="text-amber-600" />
+                        ) : (
+                          <Edit3 size={13} className="text-amber-600" />
+                        )}
+                      </div>
+
+                      {/* 정보 */}
+                      <div className="flex-1 min-w-0">
+                        <div className="flex items-center gap-1.5">
+                          {activity.type === 'call' ? (
+                            <span className={`text-xs px-1.5 py-0.5 rounded ${
+                              activity.direction === 'inbound' ? 'bg-blue-100 text-blue-700' : 'bg-purple-100 text-purple-700'
+                            }`}>
+                              {activity.direction === 'inbound' ? '수신' : '발신'}
+                            </span>
+                          ) : (
+                            <span className="text-xs px-1.5 py-0.5 rounded bg-amber-100 text-amber-700">
+                              {activity.manualType === 'visit' ? '내원' : activity.manualType === 'phone' ? '전화' : '수동'}
+                            </span>
+                          )}
+                          <span className="text-gray-500">{dateStr} {timeStr}</span>
+                          {durationStr && <span className="text-gray-400">({durationStr})</span>}
+                        </div>
+                        {activity.summary && (
+                          <p className="text-gray-600 truncate mt-0.5">{activity.summary}</p>
+                        )}
+                      </div>
+
+                      {/* 입력완료 표시 */}
+                      {activity.hasResult && (
+                        <span className="flex items-center gap-1 text-xs text-emerald-500 flex-shrink-0">
+                          <CheckCircle size={12} />
+                          입력완료
+                        </span>
+                      )}
+                    </button>
+                  );
+                })}
+
+                {/* 상담 활동 없이 직접 입력 옵션 */}
+                <button
+                  onClick={() => setSelectedActivityId(null)}
+                  className={`w-full flex items-center gap-2.5 px-3 py-2 rounded-lg text-left text-sm transition-colors ${
+                    selectedActivityId === null
+                      ? 'bg-blue-50 ring-2 ring-blue-400'
+                      : 'hover:bg-gray-50'
+                  }`}
+                >
+                  <div className="w-7 h-7 rounded-full flex items-center justify-center flex-shrink-0 bg-gray-100">
+                    <Edit3 size={13} className="text-gray-500" />
+                  </div>
+                  <span className="text-gray-600">상담 활동 없이 직접 입력</span>
+                </button>
+              </div>
+            </div>
+          )}
+
           {/* 1. 상담 결과 선택 */}
           <div>
             <label className="block text-sm font-medium text-gray-700 mb-2">

@@ -139,8 +139,13 @@ function PatientListItem({
         <span className="text-xs text-gray-400 flex-shrink-0">{patient.time}</span>
       </div>
 
-      {/* 2행: 치료명 */}
-      <div className="text-sm text-gray-700 mb-2">{patient.treatment}</div>
+      {/* 2행: 치료명 + 종결 사유 */}
+      <div className="text-sm text-gray-700 mb-2">
+        {patient.treatment}
+        {patient.status === 'closed' && patient.closedReason && (
+          <span className="ml-2 text-xs text-gray-500">({patient.closedReason})</span>
+        )}
+      </div>
 
       {/* 3행: 미동의/보류 사유 (태그) */}
       {(patient.status === 'disagreed' || patient.status === 'pending') &&

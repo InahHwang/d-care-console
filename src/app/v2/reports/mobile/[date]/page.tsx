@@ -131,6 +131,7 @@ interface DailyReportPatient {
   consultationType?: string;
   direction?: 'inbound' | 'outbound';
   source?: 'manual' | 'auto';
+  closedReason?: string;
   consultations?: ConsultationEntry[];
 }
 
@@ -303,6 +304,18 @@ function MobileDailyReportPage() {
   const [filter, setFilter] = useState<'all' | 'agreed' | 'disagreed' | 'pending' | 'no_answer' | 'no_consultation' | 'closed'>('all');
   const [selectedPatient, setSelectedPatient] = useState<DailyReportPatient | null>(null);
   const [selectedExistingCall, setSelectedExistingCall] = useState<ExistingPatientCall | null>(null);
+
+  // 날짜 이동 함수
+  const navigateDate = (offset: number) => {
+    const [y, m, d] = dateParam.split('-').map(Number);
+    const current = new Date(y, m - 1, d + offset);
+    const newDate = `${current.getFullYear()}-${String(current.getMonth() + 1).padStart(2, '0')}-${String(current.getDate()).padStart(2, '0')}`;
+    router.push(`/v2/reports/mobile/${newDate}`);
+  };
+
+  // 오늘 날짜인지 확인
+  const todayStr = new Date().toLocaleDateString('en-CA', { timeZone: 'Asia/Seoul' });
+  const isToday = dateParam === todayStr;
 
   useEffect(() => {
     if (dateParam) {
@@ -485,6 +498,17 @@ function MobileDailyReportPage() {
 
         {/* 상세 내용 */}
         <div className="p-4 space-y-4">
+          {/* 종결 사유 */}
+          {selectedPatient.status === 'closed' && selectedPatient.closedReason && (
+            <div className="bg-gray-50 rounded-xl p-4 shadow-sm border border-gray-200">
+              <div className="flex items-center gap-2 mb-2">
+                <span>⊘</span>
+                <h2 className="font-semibold text-gray-700 text-sm">종결 사유</h2>
+              </div>
+              <p className="text-sm text-gray-600">{selectedPatient.closedReason}</p>
+            </div>
+          )}
+
           {/* 상담 내용 - consultations 타임라인 (최신순) */}
           {selectedPatient.consultations && selectedPatient.consultations.length > 0 ? (
             <div className="space-y-3">
@@ -805,7 +829,36 @@ function MobileDailyReportPage() {
       <div className="bg-white border-b sticky top-0 z-10">
         <div className="px-4 py-3">
           <h1 className="font-semibold text-gray-900">D-Care 일별 보고서</h1>
-          <p className="text-xs text-gray-500">{data.date} ({data.dayOfWeek}) 신규 상담</p>
+          <div className="flex items-center gap-2 mt-1">
+            <button
+              onClick={() => navigateDate(-1)}
+              className="p-1 rounded-full hover:bg-gray-100 active:bg-gray-200 transition-colors"
+            >
+              <svg className="w-5 h-5 text-gray-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" />
+              </svg>
+            </button>
+            <p className="text-sm text-gray-600 font-medium">{data.date} ({data.dayOfWeek})</p>
+            <button
+              onClick={() => navigateDate(1)}
+              disabled={isToday}
+              className={`p-1 rounded-full transition-colors ${
+                isToday ? 'text-gray-300' : 'hover:bg-gray-100 active:bg-gray-200 text-gray-500'
+              }`}
+            >
+              <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
+              </svg>
+            </button>
+            {!isToday && (
+              <button
+                onClick={() => router.push(`/v2/reports/mobile/${todayStr}`)}
+                className="ml-1 px-2 py-0.5 text-xs bg-blue-100 text-blue-700 rounded-full font-medium"
+              >
+                오늘
+              </button>
+            )}
+          </div>
         </div>
 
         {/* 요약 카드 (압축) */}
@@ -911,8 +964,8 @@ function MobileDailyReportPage() {
                 <div className="p-4">
                   <div className="flex items-start justify-between mb-2">
                     <div className="flex items-center gap-2">
-                      <span className={`w-6 h-6 rounded-full ${config.badgeColor} text-white text-xs flex items-center justify-center font-bold`}>
-                        {config.icon}
+                      <span className={`px-2 py-0.5 rounded-full ${config.badgeColor} text-white text-xs font-medium`}>
+                        {config.label}
                       </span>
                       <span className="font-semibold text-gray-900">{patient.name}</span>
                       {patient.gender && patient.age && (
@@ -929,7 +982,12 @@ function MobileDailyReportPage() {
                     <span className="text-xs text-gray-400">{patient.time}</span>
                   </div>
 
-                  <div className="text-sm text-gray-900 mb-2">{patient.treatment || '치료 미정'}</div>
+                  <div className="text-sm text-gray-900 mb-2">
+                    {patient.treatment || '치료 미정'}
+                    {patient.status === 'closed' && patient.closedReason && (
+                      <span className="ml-2 text-xs text-gray-500">({patient.closedReason})</span>
+                    )}
+                  </div>
 
                   {patient.status === 'disagreed' && patient.disagreeReasons?.length > 0 && (
                     <div className="flex flex-wrap gap-1 mb-2">

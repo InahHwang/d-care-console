@@ -40,6 +40,7 @@ interface DailyReportPatient {
   consultationType?: string;    // 상담타입 (inbound/outbound/returning 등)
   direction?: 'inbound' | 'outbound';  // 수신/발신
   source?: 'manual' | 'auto';          // 수동입력 여부
+  closedReason?: string;               // 종결 사유
   // 해당 날짜의 모든 상담 기록 (시간순)
   consultations?: { type: 'phone' | 'visit' | 'other'; time: string; content?: string; consultantName?: string; duration?: number; direction?: 'inbound' | 'outbound'; source?: 'manual' | 'auto' }[];
 }
@@ -318,6 +319,11 @@ export async function GET(
             consultationNumber: (prevCountMap.get(consultation.patientId) || 0) + 1,
             direction: callLog?.direction as 'inbound' | 'outbound' | undefined,
             source: 'auto',
+            closedReason: consultation.status === 'closed'
+              ? ((consultation as any).closedReason === '기타' && (consultation as any).closedReasonCustom
+                ? `기타: ${(consultation as any).closedReasonCustom}`
+                : (consultation as any).closedReason)
+              : undefined,
             consultations: [{
               type: consultation.type || 'phone',
               time,
@@ -694,6 +700,24 @@ export async function GET(
       // 1) 치료중/치료완료 상태인데 상담 결과가 미입력이면 → 자동 동의
       if (TREATMENT_STATUSES.includes(effectiveStatus) && rp.status === 'no_consultation') {
         rp.status = 'agreed';
+      }
+
+      // 1-1) 종결 상태인데 상담 결과가 미입력이면 → 종결로 표시
+      if (effectiveStatus === 'closed' && rp.status === 'no_consultation') {
+        rp.status = 'closed';
+      }
+
+      // 1-2) 종결 환자: 종결 사유 채우기 (statusHistory에서 가장 최근 closed 이력의 reason)
+      if (rp.status === 'closed' && !rp.closedReason) {
+        const closedHistory = patient.statusHistory
+          ?.filter((h: any) => h.to === 'closed' && h.reason)
+          .sort((a: any, b: any) => new Date(b.changedAt).getTime() - new Date(a.changedAt).getTime());
+        if (closedHistory && closedHistory.length > 0) {
+          const entry = closedHistory[0] as any;
+          rp.closedReason = entry.reason === '기타' && entry.customReason
+            ? `기타: ${entry.customReason}`
+            : entry.reason;
+        }
       }
 
       // 2) callbackDate가 없으면 환자의 nextActionDate를 fallback으로 사용

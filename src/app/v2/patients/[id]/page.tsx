@@ -33,7 +33,7 @@ import { useCategories } from '@/hooks/useCategories';
 import { StatusChangeModal, StatusChangeData } from '@/components/v2/patients/StatusChangeModal';
 import { CallDetailModal } from '@/components/v2/patients/CallDetailModal';
 import { ClosePatientModal } from '@/components/v2/patients/ClosePatientModal';
-import { ConsultationInputModal, ConsultationFormData, ExistingConsultationData } from '@/components/v2/patients/ConsultationInputModal';
+import { ConsultationInputModal, ConsultationFormData, ExistingConsultationData, SourceActivity } from '@/components/v2/patients/ConsultationInputModal';
 import { ConsultationHistory } from '@/components/v2/patients/ConsultationHistory';
 import { ConsultationHistoryCard } from '@/components/v2/patients/ConsultationHistoryCard';
 import { MessageSendModalV2 } from '@/components/v2/patients/MessageSendModalV2';
@@ -208,6 +208,8 @@ export default function PatientDetailPage() {
   const [consultationModalOpen, setConsultationModalOpen] = useState(false);
   const [consultationType, setConsultationType] = useState<'phone' | 'visit'>('phone');
   const [existingConsultation, setExistingConsultation] = useState<ExistingConsultationData | undefined>(undefined);
+  const [sourceActivities, setSourceActivities] = useState<SourceActivity[]>([]);
+  const [preselectedActivityId, setPreselectedActivityId] = useState<string | undefined>(undefined);
 
   // 상담 이력
   const [consultations, setConsultations] = useState<any[]>([]);
@@ -464,10 +466,56 @@ export default function PatientDetailPage() {
     }
   };
 
+  // 상담 활동 목록 구성 (통화기록 + 수동입력)
+  const buildSourceActivities = async (): Promise<SourceActivity[]> => {
+    // 이미 결과가 입력된 callLogId / manualConsultationId 목록
+    const usedCallLogIds = new Set(consultations.filter((c: { callLogId?: string }) => c.callLogId).map((c: { callLogId: string }) => c.callLogId));
+    const usedManualIds = new Set(consultations.filter((c: { manualConsultationId?: string }) => c.manualConsultationId).map((c: { manualConsultationId: string }) => c.manualConsultationId));
+
+    // 통화기록 → SourceActivity
+    const callActivities: SourceActivity[] = callLogs.map((log) => ({
+      id: log.id,
+      type: 'call' as const,
+      date: log.callTime,
+      summary: log.summary || '',
+      direction: log.callType,
+      duration: log.duration,
+      hasResult: usedCallLogIds.has(log.id),
+    }));
+
+    // 수동입력 상담 조회
+    let manualActivities: SourceActivity[] = [];
+    try {
+      const res = await fetch(`/api/v2/patients/${patientId}/manual-consultations`);
+      const data = await res.json();
+      if (data.success) {
+        manualActivities = (data.data || [])
+          .filter((m: { source?: string }) => m.source !== 'consultation_result')
+          .map((m: { id: string; date: string; content: string; type: string }) => ({
+            id: m.id,
+            type: 'manual' as const,
+            date: m.date,
+            summary: m.content || '',
+            manualType: m.type,
+            hasResult: usedManualIds.has(m.id),
+          }));
+      }
+    } catch {
+      // 수동 상담 조회 실패 시 무시
+    }
+
+    // 시간순 정렬 (최신 순)
+    return [...callActivities, ...manualActivities]
+      .sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
+  };
+
   // 상담 결과 입력 모달 열기 - 항상 신규 입력 모드
-  const openConsultationModal = (type: 'phone' | 'visit') => {
+  const openConsultationModal = async (type: 'phone' | 'visit', activityId?: string) => {
     setConsultationType(type);
     setExistingConsultation(undefined);
+    setPreselectedActivityId(activityId);
+    const activities = await buildSourceActivities();
+    setSourceActivities(activities);
     setConsultationModalOpen(true);
   };
 
@@ -1569,6 +1617,9 @@ export default function PatientDetailPage() {
                   setSelectedCallLogId(callId);
                   setCallDetailModalOpen(true);
                 }}
+                onAddResult={(activityId, activityType) => {
+                  openConsultationModal(activityType === 'call' ? 'phone' : 'visit', activityId);
+                }}
               />
             </div>
           </Card>
@@ -1747,6 +1798,8 @@ export default function PatientDetailPage() {
         patientInterest={patient.interest}
         consultantName={user?.name}
         existingData={existingConsultation}
+        sourceActivities={sourceActivities}
+        preselectedActivityId={preselectedActivityId}
       />
 
       {/* 🆕 새 여정 시작 모달 */}
