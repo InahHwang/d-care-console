@@ -296,8 +296,14 @@ git commit -m "[CTIBridge] 변경 내용 요약"
   - 내부 API는 same-origin 정책으로 보호 (추가 설정 불필요)
 
 #### Step 3: 테스트/CI/모니터링 (리스크: 낮음) ← 순서 변경: 안전망 먼저
-- [ ] 핵심 API 테스트 작성
-- [ ] CI 파이프라인 구축
+- [x] 핵심 API 테스트 작성 (2026-03-15)
+  - Jest + ts-jest 환경 설정 (`jest.config.js`, `npm test`)
+  - 테스트 105개: Zod 스키마 검증 + 헬퍼 함수 단위 테스트
+  - 대상: patients, callbacks, consultations, CTI(incoming/outgoing/call-end), channel-chats, recall-messages, settings
+  - 위치: `src/__tests__/*.test.ts`
+- [x] CI 파이프라인 구축 (2026-03-15)
+  - GitHub Actions: `.github/workflows/ci.yml`
+  - push(main, pre-commercialization-real) / PR(main) 시 자동 테스트 + 빌드
 
 #### Step 4: 멀티테넌시 - clinicId (리스크: 중간)
 - [ ] DB 쿼리에 clinicId 필터 추가 (한 API씩 점진적 적용)
