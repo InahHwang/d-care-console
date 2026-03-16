@@ -41,7 +41,7 @@ export const fetchMessageLogs = createAsyncThunk(
   async (_, { rejectWithValue }) => {
     try {
       // MongoDB API 호출
-      const response = await api.get('/messages/log');
+      const response = await api.get('/v2/messages/log');
       
       if (response.status === 200 && response.data.success) {
         return response.data.data as MessageLog[];
@@ -69,7 +69,7 @@ export const saveMessageLog = createAsyncThunk(
   async (messageLog: MessageLog, { getState, rejectWithValue }) => {
     try {
       // MongoDB API 호출
-      const response = await api.post('/messages/log', messageLog);
+      const response = await api.post('/v2/messages/log', messageLog);
       
       if (response.status === 200 && response.data.success) {
         // API 응답에서 ID가 있으면 사용, 없으면 원본 ID 유지
@@ -165,7 +165,7 @@ export const saveMessageLogs = createAsyncThunk(
   async (messageLogs: MessageLog[], { getState, rejectWithValue }) => {
     try {
       // 각 로그에 대해 개별적으로 API 호출
-      const savePromises = messageLogs.map(log => api.post('/messages/log', log));
+      const savePromises = messageLogs.map(log => api.post('/v2/messages/log', log));
       const responses = await Promise.all(savePromises);
       
       // 저장된 로그 목록 생성

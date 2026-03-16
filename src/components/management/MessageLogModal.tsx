@@ -103,7 +103,7 @@ export default function MessageLogModal({ isOpen, onClose, patientId, embedded =
   if (confirm('모든 메시지 발송 내역을 초기화하시겠습니까?\n이 작업은 되돌릴 수 없습니다.')) {
     try {
       // 1. API를 통해 데이터베이스에서 실제 삭제
-      const response = await fetch('/api/messages/log', {
+      const response = await fetch('/api/v2/messages/log', {
         method: 'DELETE',
         headers: {
           'Content-Type': 'application/json',
