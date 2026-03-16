@@ -109,7 +109,7 @@ export const sendMessage = async (messageData: {
   imageUrl?: string;
 }) => {
   try {
-    const response = await api.post('/messages/send', messageData);
+    const response = await api.post('/v2/messages/send', messageData);
     return response.data;
   } catch (error: any) {
     // 에러 메시지 개선

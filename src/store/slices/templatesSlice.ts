@@ -19,7 +19,7 @@ export const fetchTemplates = createAsyncThunk(
     try {
       console.log('🔍 fetchTemplates: API로 템플릿 목록 조회 시작');
       
-      const response = await api.get('/templates');
+      const response = await api.get('/v2/templates');
       
       if (response.data.success) {
         console.log('✅ fetchTemplates: 템플릿 조회 성공:', response.data.data.length, '개');
@@ -62,7 +62,7 @@ export const addTemplate = createAsyncThunk(
     try {
       console.log('➕ addTemplate: API로 템플릿 추가 시작:', template.title);
       
-      const response = await api.post('/templates', template);
+      const response = await api.post('/v2/templates', template);
       
       if (response.data.success) {
         console.log('✅ addTemplate: 템플릿 추가 성공');
@@ -101,7 +101,7 @@ export const updateTemplate = createAsyncThunk(
     try {
       console.log('✏️ updateTemplate: API로 템플릿 수정 시작:', template.title);
       
-      const response = await api.put('/templates', template);
+      const response = await api.put('/v2/templates', template);
       
       if (response.data.success) {
         console.log('✅ updateTemplate: 템플릿 수정 성공');
@@ -144,7 +144,7 @@ export const deleteTemplate = createAsyncThunk(
     try {
       console.log('🗑️ deleteTemplate: API로 템플릿 삭제 시작:', templateId);
       
-      const response = await api.delete(`/templates?id=${templateId}`);
+      const response = await api.delete(`/v2/templates?id=${templateId}`);
       
       if (response.data.success) {
         console.log('✅ deleteTemplate: 템플릿 삭제 성공');
