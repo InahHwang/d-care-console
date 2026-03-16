@@ -2,15 +2,16 @@
 'use client';
 
 import React from 'react';
-import { AlertTriangle, Clock, CalendarClock, RefreshCw, ChevronLeft, ChevronRight } from 'lucide-react';
+import { AlertTriangle, Clock, CalendarClock, RefreshCw, ChevronLeft, ChevronRight, HeartPulse } from 'lucide-react';
 
-export type UrgencyFilter = 'all' | 'noshow' | 'today' | 'overdue' | 'aftercare';
+export type UrgencyFilter = 'all' | 'noshow' | 'today' | 'overdue' | 'inTreatment' | 'aftercare';
 
 export interface UrgentStats {
-  noshow: number;    // +N일 (노쇼/지연)
-  today: number;     // D-Day (오늘)
-  overdue: number;   // N일째 (임계값 초과)
-  aftercare: number; // 사후관리대상 (치료완료 + 사후관리)
+  noshow: number;      // +N일 (노쇼/지연)
+  today: number;       // D-Day (오늘)
+  overdue: number;     // N일째 (임계값 초과)
+  inTreatment: number; // 치료중 환자
+  aftercare: number;   // 사후관리대상 (치료완료 + 사후관리)
 }
 
 interface UrgentSummaryCardsProps {
@@ -92,7 +93,7 @@ export function UrgentSummaryCards({
       id: 'overdue' as UrgencyFilter,
       label: '장기 방치',
       description: '임계값 초과',
-      tooltip: '예정일 없이 오래 머물러 있는 환자\n전화상담 7일+, 내원완료 7일+, 치료중 30일+, 사후관리 90일+',
+      tooltip: '예정일 없이 오래 머물러 있는 환자\n전화상담 7일+, 내원완료 7일+, 사후관리 90일+',
       icon: CalendarClock,
       count: stats?.overdue ?? 0,
       bgColor: 'bg-amber-50',
@@ -100,6 +101,19 @@ export function UrgentSummaryCards({
       activeBorderColor: 'border-amber-500',
       iconColor: 'text-amber-500',
       countColor: 'text-amber-600',
+    },
+    {
+      id: 'inTreatment' as UrgencyFilter,
+      label: '치료중',
+      description: '치료 진행중',
+      tooltip: '현재 치료가 진행중인 환자',
+      icon: HeartPulse,
+      count: stats?.inTreatment ?? 0,
+      bgColor: 'bg-emerald-50',
+      borderColor: 'border-emerald-200',
+      activeBorderColor: 'border-emerald-500',
+      iconColor: 'text-emerald-500',
+      countColor: 'text-emerald-600',
     },
     {
       id: 'aftercare' as UrgencyFilter,
@@ -141,6 +155,7 @@ export function UrgentSummaryCards({
                 ${isActive && card.id === 'noshow' ? 'ring-red-300' : ''}
                 ${isActive && card.id === 'today' ? 'ring-blue-300' : ''}
                 ${isActive && card.id === 'overdue' ? 'ring-amber-300' : ''}
+                ${isActive && card.id === 'inTreatment' ? 'ring-emerald-300' : ''}
                 ${isActive && card.id === 'aftercare' ? 'ring-slate-300' : ''}
               `}
             >

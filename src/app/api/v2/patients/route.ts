@@ -45,7 +45,7 @@ const DAYS_THRESHOLD: Record<PatientStatus, number> = {
   reserved: 0,       // 예약은 nextActionDate로 판단
   visited: 7,
   treatmentBooked: 0, // 치료예약은 nextActionDate로 판단
-  treatment: 30,
+  treatment: 999,     // 치료중은 별도 필터로 관리 (장기방치에서 제외)
   completed: 999,    // 완료는 경고 없음
   followup: 90,
   closed: 999,       // 종결은 경고 없음
@@ -330,12 +330,17 @@ export async function GET(request: NextRequest) {
       periodQuery.createdAt = { $gte: periodStartDate };
     }
     const allPatientsForUrgent = await collection.find(periodQuery, { projection }).toArray();
-    let urgentStats = { noshow: 0, today: 0, overdue: 0, aftercare: 0 };
+    let urgentStats = { noshow: 0, today: 0, overdue: 0, aftercare: 0, inTreatment: 0 };
 
     allPatientsForUrgent.forEach((p) => {
       // 사후관리대상 카운트 (치료완료 + 사후관리)
       if (p.status === 'completed' || p.status === 'followup') {
         urgentStats.aftercare++;
+      }
+
+      // 치료중 카운트
+      if (p.status === 'treatment') {
+        urgentStats.inTreatment++;
       }
 
       // 치료중 상태일 때는 treatmentStartDate 우선 사용
@@ -465,7 +470,10 @@ export async function GET(request: NextRequest) {
         };
       });
 
-      const filtered = allMapped.filter((p) => p.urgency === urgency);
+      // inTreatment는 urgency가 아니라 status 기반 필터
+      const filtered = (urgency as string) === 'inTreatment'
+        ? allMapped.filter((p) => p.status === 'treatment')
+        : allMapped.filter((p) => p.urgency === urgency);
       const filteredTotal = filtered.length;
       const start = (page - 1) * limit;
       mappedPatients = filtered.slice(start, start + limit);

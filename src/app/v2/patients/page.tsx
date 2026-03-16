@@ -169,7 +169,7 @@ function PatientsPageContent() {
       if (searchQuery) {
         params.set('search', searchQuery);
       }
-      if (urgencyFilter !== 'all' && urgencyFilter !== 'aftercare') {
+      if (urgencyFilter !== 'all' && urgencyFilter !== 'aftercare' && urgencyFilter !== 'inTreatment') {
         params.set('urgency', urgencyFilter);
         // 'today' 필터에서 날짜 탐색 시 callbackDate 전달
         if (urgencyFilter === 'today' && callbackDate) {
@@ -261,6 +261,8 @@ function PatientsPageContent() {
     // 사후관리대상: 치료완료 + 사후관리 상태 필터
     if (filter === 'aftercare') {
       setStatusOverride('completed,followup');
+    } else if (filter === 'inTreatment') {
+      setStatusOverride('treatment');
     } else {
       setStatusOverride(''); // 대시보드 다중 상태 해제
     }
