@@ -269,6 +269,7 @@ export async function PATCH(
 
     if (name !== undefined) updateData.name = name;
     if (phone !== undefined) updateData.phone = phone;
+    if (body.consultationType !== undefined) updateData.consultationType = body.consultationType;
     if (status !== undefined) {
       updateData.status = status as PatientStatus;
       // 상태가 변경되면 statusChangedAt 업데이트 및 히스토리 기록

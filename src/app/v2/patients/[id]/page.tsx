@@ -679,6 +679,7 @@ export default function PatientDetailPage() {
         body: JSON.stringify({
           name: editData.name,
           phone: editData.phone,
+          consultationType: editData.consultationType,
           interest: editData.interest,
           source: editData.source,
           memo: editData.memo,
@@ -1088,14 +1089,27 @@ export default function PatientDetailPage() {
                   ) : (
                     <h1 className="text-2xl font-bold text-gray-900">{patient.name}</h1>
                   )}
-                  {(() => {
-                    const typeLabel = getConsultationTypeLabel(patient.consultationType);
-                    return typeLabel ? (
-                      <span className="px-2 py-1 bg-purple-100 text-purple-700 rounded text-sm font-medium">
-                        {typeLabel}
-                      </span>
-                    ) : null;
-                  })()}
+                  {isEditing ? (
+                    <select
+                      value={editData.consultationType || ''}
+                      onChange={(e) => setEditData({ ...editData, consultationType: e.target.value })}
+                      className="px-2 py-1 text-sm border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                    >
+                      <option value="">상담타입 선택</option>
+                      {Object.entries(consultationTypeMap).map(([id, label]) => (
+                        <option key={id} value={id}>{label}</option>
+                      ))}
+                    </select>
+                  ) : (
+                    (() => {
+                      const typeLabel = getConsultationTypeLabel(patient.consultationType);
+                      return typeLabel ? (
+                        <span className="px-2 py-1 bg-purple-100 text-purple-700 rounded text-sm font-medium">
+                          {typeLabel}
+                        </span>
+                      ) : null;
+                    })()
+                  )}
                   <StatusBadge status={displayStatus} />
                 </div>
                 <div className="flex items-center gap-3 flex-wrap">
