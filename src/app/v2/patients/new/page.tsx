@@ -67,7 +67,7 @@ export default function NewPatientPage() {
   useEffect(() => {
     const fetchCategories = async () => {
       try {
-        const response = await fetch('/api/settings/categories');
+        const response = await fetch('/api/v2/settings/categories');
         const data = await response.json();
         if (data.success) {
           const activeTypes = (data.categories.consultationTypes || []).filter((item: CategoryItem) => item.isActive);

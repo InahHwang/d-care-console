@@ -112,7 +112,7 @@ function PatientsPageContent() {
   useEffect(() => {
     const fetchCategories = async () => {
       try {
-        const response = await fetch('/api/settings/categories');
+        const response = await fetch('/api/v2/settings/categories');
         if (response.ok) {
           const data = await response.json();
           if (data.success && data.categories?.consultationTypes) {

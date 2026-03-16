@@ -200,7 +200,7 @@ function RegisterPatientModal({ call, onClose, onSuccess }: RegisterPatientModal
   useEffect(() => {
     const fetchCategories = async () => {
       try {
-        const response = await fetch('/api/settings/categories');
+        const response = await fetch('/api/v2/settings/categories');
         const data = await response.json();
         if (data.success) {
           // 활성화된 항목만 필터링
@@ -530,7 +530,7 @@ function EditAnalysisModal({ call, onClose, onSave }: EditAnalysisModalProps) {
   useEffect(() => {
     const fetchCategories = async () => {
       try {
-        const response = await fetch('/api/settings/categories');
+        const response = await fetch('/api/v2/settings/categories');
         const data = await response.json();
         if (data.success) {
           const activeTreatments = (data.categories.treatmentTypes || []).filter((item: CategoryItem) => item.isActive);

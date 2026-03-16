@@ -61,7 +61,7 @@ const DEFAULT_CATEGORIES: Categories = {
 
 // 카테고리 데이터 fetch 함수
 const fetchCategories = async (): Promise<Categories> => {
-  const response = await fetch('/api/settings/categories');
+  const response = await fetch('/api/v2/settings/categories');
 
   if (!response.ok) {
     throw new Error('카테고리를 불러오는데 실패했습니다.');

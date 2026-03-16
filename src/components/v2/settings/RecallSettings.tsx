@@ -62,7 +62,7 @@ export default function RecallSettings() {
   // 치료 과목 목록 조회
   const fetchTreatmentTypes = useCallback(async () => {
     try {
-      const response = await fetch('/api/settings/categories');
+      const response = await fetch('/api/v2/settings/categories');
       const result = await response.json();
       if (result.success && result.categories?.treatmentTypes) {
         const activeLabels = result.categories.treatmentTypes
