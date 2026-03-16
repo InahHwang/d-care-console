@@ -102,7 +102,7 @@ export default function SettingsPage() {
     setUsersLoading(true);
     try {
       const token = localStorage.getItem('token');
-      const response = await fetch('/api/users?includeInactive=true', {
+      const response = await fetch('/api/v2/users?includeInactive=true', {
         headers: { 'Authorization': `Bearer ${token}` }
       });
       const data = await response.json();

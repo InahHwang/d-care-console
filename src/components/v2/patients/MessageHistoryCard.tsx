@@ -41,7 +41,7 @@ export function MessageHistoryCard({ patientId, patientPhone, className = '' }: 
   const fetchMessages = async () => {
     setIsLoading(true);
     try {
-      const res = await fetch('/api/messages/log');
+      const res = await fetch('/api/v2/messages/log');
       const data = await res.json();
 
       if (data.success && Array.isArray(data.data)) {
