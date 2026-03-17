@@ -3,7 +3,7 @@
 
 export const dynamic = 'force-dynamic';
 
-import React, { useState, useEffect, useCallback, Suspense, useRef } from 'react';
+import React, { useState, useEffect, useCallback, useMemo, Suspense, useRef } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import {
   Search,
@@ -862,14 +862,39 @@ function formatCallTimeOneLine(dateString: string) {
   return `${month}/${day} ${hours}:${minutes}`;
 }
 
-// ★ 착신번호 간략 표시 (031-xxx → 031, 070-xxx → 070)
-function formatCalledNumber(calledNumber?: string) {
-  if (!calledNumber) return '-';
+// ★ 회선번호 표시: 동일 prefix가 여러 개면 뒷 4자리 추가 (070-4201, 070-4202)
+function getCalledNumberPrefix(calledNumber: string): string {
   const normalized = calledNumber.replace(/\D/g, '');
   if (normalized.startsWith('031')) return '031';
   if (normalized.startsWith('070')) return '070';
   if (normalized.startsWith('02')) return '02';
   return normalized.slice(0, 3);
+}
+
+function buildLineDisplayMap(logs: { calledNumber?: string }[]): Map<string, string> {
+  const prefixNumbers = new Map<string, Set<string>>();
+  for (const log of logs) {
+    if (!log.calledNumber) continue;
+    const normalized = log.calledNumber.replace(/\D/g, '');
+    const prefix = getCalledNumberPrefix(log.calledNumber);
+    if (!prefixNumbers.has(prefix)) prefixNumbers.set(prefix, new Set());
+    prefixNumbers.get(prefix)!.add(normalized);
+  }
+  const displayMap = new Map<string, string>();
+  prefixNumbers.forEach((numbers, prefix) => {
+    if (numbers.size <= 1) {
+      numbers.forEach((num) => displayMap.set(num, prefix));
+    } else {
+      numbers.forEach((num) => displayMap.set(num, `${prefix}-${num.slice(-4)}`));
+    }
+  });
+  return displayMap;
+}
+
+function formatCalledNumber(calledNumber: string | undefined, displayMap: Map<string, string>): string {
+  if (!calledNumber) return '-';
+  const normalized = calledNumber.replace(/\D/g, '');
+  return displayMap.get(normalized) || getCalledNumberPrefix(calledNumber);
 }
 
 function CallLogsPageContent() {
@@ -883,6 +908,7 @@ function CallLogsPageContent() {
   const initialFilter = (searchParams.get('filter') as ClassificationFilter) || 'all';
 
   const [callLogs, setCallLogs] = useState<CallLog[]>([]);
+  const lineDisplayMap = useMemo(() => buildLineDisplayMap(callLogs), [callLogs]);
   const [loading, setLoading] = useState(true);
   const [filter, setFilter] = useState<ClassificationFilter>(initialFilter);
   const [searchQuery, setSearchQuery] = useState('');
@@ -1529,7 +1555,7 @@ function CallLogsPageContent() {
             {/* 테이블 헤더 */}
             <div className="grid grid-cols-12 gap-2 px-5 py-3 bg-gray-50 border-b text-sm font-medium text-gray-500">
               <div className="col-span-1">유형</div>
-              <div className="col-span-1">착신</div>
+              <div className="col-span-1">회선</div>
               <div className="col-span-2">전화번호</div>
               <div className="col-span-2">환자</div>
               <div className="col-span-1">시간</div>
@@ -1586,7 +1612,7 @@ function CallLogsPageContent() {
                         </div>
                       </div>
 
-                      {/* 착신번호 */}
+                      {/* 회선번호 */}
                       <div className="col-span-1">
                         <span className={`text-xs font-medium px-2 py-1 rounded ${
                           call.calledNumber?.includes('070')
@@ -1595,7 +1621,7 @@ function CallLogsPageContent() {
                             ? 'bg-blue-100 text-blue-700'
                             : 'bg-gray-100 text-gray-600'
                         }`}>
-                          {formatCalledNumber(call.calledNumber)}
+                          {formatCalledNumber(call.calledNumber, lineDisplayMap)}
                         </span>
                       </div>
 
