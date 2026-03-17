@@ -13,7 +13,7 @@ interface CallLog {
   callType: 'inbound' | 'outbound';
   duration: number;
   phone: string;
-  calledNumber?: string;  // ★ 착신번호 (031 or 070)
+  calledNumber?: string;  // ★ 회선번호 (031 or 070)
   callerName: string;
   patientId: string | null;
   patientName: string;
@@ -83,15 +83,42 @@ function getCallTypeLabel(callType: string, duration: number) {
   return callType === 'inbound' ? '수신' : '발신';
 }
 
-// ★ 착신번호 간략 표시 (031-xxx → 031, 070-xxx → 070)
-function formatCalledNumber(calledNumber?: string) {
-  if (!calledNumber) return '-';
+// ★ 회선번호 표시: 동일 prefix가 여러 개면 뒷 4자리 추가 (070-4201, 070-4202)
+function getCalledNumberPrefix(calledNumber: string): string {
   const normalized = calledNumber.replace(/\D/g, '');
   if (normalized.startsWith('031')) return '031';
   if (normalized.startsWith('070')) return '070';
   if (normalized.startsWith('02')) return '02';
-  // 그 외에는 앞 3자리
   return normalized.slice(0, 3);
+}
+
+function buildLineDisplayMap(callLogs: { calledNumber?: string }[]): Map<string, string> {
+  // 1. prefix별 고유 번호 수집
+  const prefixNumbers = new Map<string, Set<string>>();
+  for (const log of callLogs) {
+    if (!log.calledNumber) continue;
+    const normalized = log.calledNumber.replace(/\D/g, '');
+    const prefix = getCalledNumberPrefix(log.calledNumber);
+    if (!prefixNumbers.has(prefix)) prefixNumbers.set(prefix, new Set());
+    prefixNumbers.get(prefix)!.add(normalized);
+  }
+
+  // 2. 번호 → 표시명 매핑
+  const displayMap = new Map<string, string>();
+  prefixNumbers.forEach((numbers, prefix) => {
+    if (numbers.size <= 1) {
+      numbers.forEach((num) => displayMap.set(num, prefix));
+    } else {
+      numbers.forEach((num) => displayMap.set(num, `${prefix}-${num.slice(-4)}`));
+    }
+  });
+  return displayMap;
+}
+
+function formatCalledNumber(calledNumber: string | undefined, displayMap: Map<string, string>): string {
+  if (!calledNumber) return '-';
+  const normalized = calledNumber.replace(/\D/g, '');
+  return displayMap.get(normalized) || getCalledNumberPrefix(calledNumber);
 }
 
 export function CallLogList({
@@ -101,6 +128,8 @@ export function CallLogList({
   onCallClick,
   loading,
 }: CallLogListProps) {
+  const lineDisplayMap = React.useMemo(() => buildLineDisplayMap(callLogs), [callLogs]);
+
   if (loading) {
     return (
       <div className="bg-white rounded-xl border border-gray-100 overflow-hidden">
@@ -109,7 +138,7 @@ export function CallLogList({
             <tr>
               <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">시간</th>
               <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">유형</th>
-              <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">착신</th>
+              <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">회선</th>
               <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">전화번호</th>
               <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">환자명</th>
               <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">분류</th>
@@ -145,7 +174,7 @@ export function CallLogList({
           <tr>
             <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">시간</th>
             <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">유형</th>
-            <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">착신</th>
+            <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">회선</th>
             <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">전화번호</th>
             <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">환자명</th>
             <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">분류</th>
@@ -179,7 +208,7 @@ export function CallLogList({
                 </div>
               </td>
 
-              {/* 착신번호 */}
+              {/* 회선번호 */}
               <td className="px-4 py-3">
                 <span className={`text-xs font-medium px-2 py-1 rounded ${
                   log.calledNumber?.includes('070')
@@ -188,7 +217,7 @@ export function CallLogList({
                     ? 'bg-blue-100 text-blue-700'
                     : 'bg-gray-100 text-gray-600'
                 }`}>
-                  {formatCalledNumber(log.calledNumber)}
+                  {formatCalledNumber(log.calledNumber, lineDisplayMap)}
                 </span>
               </td>
 
