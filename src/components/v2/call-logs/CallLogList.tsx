@@ -83,42 +83,14 @@ function getCallTypeLabel(callType: string, duration: number) {
   return callType === 'inbound' ? '수신' : '발신';
 }
 
-// ★ 회선번호 표시: 동일 prefix가 여러 개면 뒷 4자리 추가 (070-4201, 070-4202)
-function getCalledNumberPrefix(calledNumber: string): string {
-  const normalized = calledNumber.replace(/\D/g, '');
-  if (normalized.startsWith('031')) return '031';
-  if (normalized.startsWith('070')) return '070';
-  if (normalized.startsWith('02')) return '02';
-  return normalized.slice(0, 3);
-}
-
-function buildLineDisplayMap(callLogs: { calledNumber?: string }[]): Map<string, string> {
-  // 1. prefix별 고유 번호 수집
-  const prefixNumbers = new Map<string, Set<string>>();
-  for (const log of callLogs) {
-    if (!log.calledNumber) continue;
-    const normalized = log.calledNumber.replace(/\D/g, '');
-    const prefix = getCalledNumberPrefix(log.calledNumber);
-    if (!prefixNumbers.has(prefix)) prefixNumbers.set(prefix, new Set());
-    prefixNumbers.get(prefix)!.add(normalized);
-  }
-
-  // 2. 번호 → 표시명 매핑
-  const displayMap = new Map<string, string>();
-  prefixNumbers.forEach((numbers, prefix) => {
-    if (numbers.size <= 1) {
-      numbers.forEach((num) => displayMap.set(num, prefix));
-    } else {
-      numbers.forEach((num) => displayMap.set(num, `${prefix}-${num.slice(-4)}`));
-    }
-  });
-  return displayMap;
-}
-
-function formatCalledNumber(calledNumber: string | undefined, displayMap: Map<string, string>): string {
+// ★ 회선번호 표시: 031은 그대로, 070은 뒷4자리 추가 (070-4201, 070-4202)
+function formatCalledNumber(calledNumber?: string): string {
   if (!calledNumber) return '-';
   const normalized = calledNumber.replace(/\D/g, '');
-  return displayMap.get(normalized) || getCalledNumberPrefix(calledNumber);
+  if (normalized.startsWith('070')) return `070-${normalized.slice(-4)}`;
+  if (normalized.startsWith('031')) return '031';
+  if (normalized.startsWith('02')) return '02';
+  return normalized.slice(0, 3);
 }
 
 export function CallLogList({
@@ -128,8 +100,6 @@ export function CallLogList({
   onCallClick,
   loading,
 }: CallLogListProps) {
-  const lineDisplayMap = React.useMemo(() => buildLineDisplayMap(callLogs), [callLogs]);
-
   if (loading) {
     return (
       <div className="bg-white rounded-xl border border-gray-100 overflow-hidden">
@@ -217,7 +187,7 @@ export function CallLogList({
                     ? 'bg-blue-100 text-blue-700'
                     : 'bg-gray-100 text-gray-600'
                 }`}>
-                  {formatCalledNumber(log.calledNumber, lineDisplayMap)}
+                  {formatCalledNumber(log.calledNumber)}
                 </span>
               </td>
 

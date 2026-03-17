@@ -3,7 +3,7 @@
 
 export const dynamic = 'force-dynamic';
 
-import React, { useState, useEffect, useCallback, useMemo, Suspense, useRef } from 'react';
+import React, { useState, useEffect, useCallback, Suspense, useRef } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import {
   Search,
@@ -862,39 +862,14 @@ function formatCallTimeOneLine(dateString: string) {
   return `${month}/${day} ${hours}:${minutes}`;
 }
 
-// ★ 회선번호 표시: 동일 prefix가 여러 개면 뒷 4자리 추가 (070-4201, 070-4202)
-function getCalledNumberPrefix(calledNumber: string): string {
-  const normalized = calledNumber.replace(/\D/g, '');
-  if (normalized.startsWith('031')) return '031';
-  if (normalized.startsWith('070')) return '070';
-  if (normalized.startsWith('02')) return '02';
-  return normalized.slice(0, 3);
-}
-
-function buildLineDisplayMap(logs: { calledNumber?: string }[]): Map<string, string> {
-  const prefixNumbers = new Map<string, Set<string>>();
-  for (const log of logs) {
-    if (!log.calledNumber) continue;
-    const normalized = log.calledNumber.replace(/\D/g, '');
-    const prefix = getCalledNumberPrefix(log.calledNumber);
-    if (!prefixNumbers.has(prefix)) prefixNumbers.set(prefix, new Set());
-    prefixNumbers.get(prefix)!.add(normalized);
-  }
-  const displayMap = new Map<string, string>();
-  prefixNumbers.forEach((numbers, prefix) => {
-    if (numbers.size <= 1) {
-      numbers.forEach((num) => displayMap.set(num, prefix));
-    } else {
-      numbers.forEach((num) => displayMap.set(num, `${prefix}-${num.slice(-4)}`));
-    }
-  });
-  return displayMap;
-}
-
-function formatCalledNumber(calledNumber: string | undefined, displayMap: Map<string, string>): string {
+// ★ 회선번호 표시: 031은 그대로, 070은 뒷4자리 추가 (070-4201, 070-4202)
+function formatCalledNumber(calledNumber?: string): string {
   if (!calledNumber) return '-';
   const normalized = calledNumber.replace(/\D/g, '');
-  return displayMap.get(normalized) || getCalledNumberPrefix(calledNumber);
+  if (normalized.startsWith('070')) return `070-${normalized.slice(-4)}`;
+  if (normalized.startsWith('031')) return '031';
+  if (normalized.startsWith('02')) return '02';
+  return normalized.slice(0, 3);
 }
 
 function CallLogsPageContent() {
@@ -908,7 +883,6 @@ function CallLogsPageContent() {
   const initialFilter = (searchParams.get('filter') as ClassificationFilter) || 'all';
 
   const [callLogs, setCallLogs] = useState<CallLog[]>([]);
-  const lineDisplayMap = useMemo(() => buildLineDisplayMap(callLogs), [callLogs]);
   const [loading, setLoading] = useState(true);
   const [filter, setFilter] = useState<ClassificationFilter>(initialFilter);
   const [searchQuery, setSearchQuery] = useState('');
@@ -1621,7 +1595,7 @@ function CallLogsPageContent() {
                             ? 'bg-blue-100 text-blue-700'
                             : 'bg-gray-100 text-gray-600'
                         }`}>
-                          {formatCalledNumber(call.calledNumber, lineDisplayMap)}
+                          {formatCalledNumber(call.calledNumber)}
                         </span>
                       </div>
 
