@@ -20,6 +20,7 @@ import {
   ExternalLink,
   BookOpen,
   Target,
+  Shield,
 } from 'lucide-react';
 import { ROLE_CONFIG } from '@/types/invitation';
 import type { UserRole } from '@/types/invitation';
@@ -44,6 +45,7 @@ const navItems: NavItem[] = [
   { id: 'marketing-targets', label: '이벤트 타겟', href: '/v2/marketing-targets', icon: <Target size={20} /> },
   { id: 'reports', label: '리포트', href: '/v2/reports', icon: <BarChart3 size={20} /> },
   { id: 'settings', label: '설정', href: '/v2/settings', icon: <Settings size={20} />, managerOnly: true },
+  { id: 'audit', label: '감사 로그', href: '/v2/admin/audit', icon: <Shield size={20} />, adminOnly: true },
 ];
 
 interface SidebarProps {
@@ -75,6 +77,10 @@ export function Sidebar({ analysisPending = 0, callbackCount = 0, unreadChatCoun
     // 설정 메뉴: /v2/settings로 시작하는 모든 경로
     if (href === '/v2/settings') {
       return pathname.startsWith('/v2/settings');
+    }
+    // 감사 로그: /v2/admin으로 시작하는 모든 경로
+    if (href === '/v2/admin/audit') {
+      return pathname.startsWith('/v2/admin');
     }
     return pathname.startsWith(href);
   };
