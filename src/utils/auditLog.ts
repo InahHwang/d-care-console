@@ -92,6 +92,7 @@ export function logAudit(
     documentName?: string;
     reason?: string;
     user?: AuditUser | null;
+    changedBy?: string;  // JWT 없을 때 fallback용 (request body의 changedBy)
   }
 ) {
   // fire-and-forget — 에러가 나도 API 응답에 영향 없음
@@ -108,17 +109,18 @@ async function _writeAuditLog(
     documentName?: string;
     reason?: string;
     user?: AuditUser | null;
+    changedBy?: string;
   }
 ) {
   try {
     const user = options?.user ?? extractUserFromRequest(request);
     const { ipAddress, userAgent } = extractClientInfo(request);
 
-    // JWT 없으면 changedBy 필드에서 fallback
+    // JWT → changedBy 순으로 fallback
     const finalUser = user || {
-      userId: 'unknown',
-      userName: 'unknown',
-      userRole: 'unknown',
+      userId: options?.changedBy || 'unknown',
+      userName: options?.changedBy || 'unknown',
+      userRole: 'staff',
     };
 
     const { db } = await connectToDatabase();

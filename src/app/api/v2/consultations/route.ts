@@ -231,7 +231,7 @@ export async function POST(request: NextRequest) {
       { field: 'status', oldValue: null, newValue: status },
       { field: 'treatment', oldValue: null, newValue: treatment || '' },
       { field: 'finalAmount', oldValue: null, newValue: finalAmount },
-    ]);
+    ], { changedBy: consultantName });
 
     // 환자 상태 업데이트
     const patientUpdate: Record<string, unknown> = {

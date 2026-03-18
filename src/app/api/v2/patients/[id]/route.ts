@@ -375,11 +375,13 @@ export async function PATCH(
           documentName: currentPatient.name,
           reason: closedReason || undefined,
           user: auditUser,
+          changedBy: changedBy || undefined,
         });
       } else if (changes.length > 0) {
         logAudit(request, 'patient.update', 'patients_v2', id, changes, {
           documentName: currentPatient.name,
           user: auditUser,
+          changedBy: changedBy || undefined,
         });
       }
     }
