@@ -22,6 +22,7 @@ export async function GET(request: NextRequest) {
     const page = parseInt(searchParams.get('page') || '1');
     const limit = Math.min(parseInt(searchParams.get('limit') || '50'), 100);
     const userId = searchParams.get('userId');
+    const userName = searchParams.get('userName');
     const action = searchParams.get('action');
     const collection = searchParams.get('collection');
     const startDate = searchParams.get('startDate');
@@ -33,6 +34,7 @@ export async function GET(request: NextRequest) {
     const filter: Record<string, unknown> = {};
 
     if (userId) filter.userId = userId;
+    if (userName) filter.userName = userName;
     if (action) filter.action = { $regex: action };
     if (collection) filter.collection = collection;
 

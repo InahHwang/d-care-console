@@ -74,7 +74,7 @@ export default function AuditPage() {
   const fetchAuditLogs = useCallback(async () => {
     const params = new URLSearchParams({ page: String(page), limit: '30' });
     if (actionFilter) params.set('action', actionFilter);
-    if (userFilter) params.set('userId', userFilter);
+    if (userFilter) params.set('userName', userFilter);
 
     const token = localStorage.getItem('token');
     const res = await fetch(`/api/v2/audit?${params}`, {
@@ -111,9 +111,9 @@ export default function AuditPage() {
               <div
                 key={s.userId}
                 className={`p-4 bg-white rounded-lg border cursor-pointer transition-colors ${
-                  userFilter === s.userId ? 'border-indigo-500 ring-1 ring-indigo-500' : 'border-gray-200 hover:border-gray-300'
+                  userFilter === s.userName ? 'border-indigo-500 ring-1 ring-indigo-500' : 'border-gray-200 hover:border-gray-300'
                 }`}
-                onClick={() => setUserFilter(userFilter === s.userId ? '' : s.userId)}
+                onClick={() => { setUserFilter(userFilter === s.userName ? '' : s.userName); setPage(1); }}
               >
                 <div className="flex items-center justify-between mb-2">
                   <div className="flex items-center gap-2">
