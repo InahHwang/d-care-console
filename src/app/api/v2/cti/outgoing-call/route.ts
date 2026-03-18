@@ -52,6 +52,7 @@ async function findPatientV2(
         { phone: normalized },
         { phone: phoneNumber },
       ],
+      deletedAt: { $exists: false },
     },
     {
       projection: {

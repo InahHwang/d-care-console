@@ -54,6 +54,7 @@ async function findPatientV2(db: Awaited<ReturnType<typeof connectToDatabase>>['
         { phone: normalized },
         { phone: phoneNumber },
       ],
+      deletedAt: { $exists: false },
     },
     {
       projection: {

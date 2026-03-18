@@ -85,6 +85,7 @@ async function autoCompleteCallbackForOutbound(
     const patient = await db.collection('patients_v2').findOne({
       _id: new ObjectId(patientId),
       nextActionDate: { $exists: true, $ne: null },
+      deletedAt: { $exists: false },
     });
 
     if (patient?.nextActionDate) {

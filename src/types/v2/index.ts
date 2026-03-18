@@ -527,6 +527,44 @@ export interface CallLogFilter {
 }
 
 // ============================================
+// 감사 로그 (Audit Log) 타입
+// ============================================
+
+export type AuditAction =
+  | 'patient.create'
+  | 'patient.update'
+  | 'patient.delete'
+  | 'patient.status_change'
+  | 'callback.create'
+  | 'callback.update'
+  | 'callback.delete'
+  | 'consultation.create'
+  | 'consultation.update'
+  | 'consultation.delete';
+
+export interface AuditChange {
+  field: string;
+  oldValue: unknown;
+  newValue: unknown;
+}
+
+export interface AuditLog {
+  _id?: ObjectId | string;
+  userId: string;
+  userName: string;
+  userRole: string;
+  action: AuditAction;
+  collection: string;
+  documentId: string;
+  documentName?: string;
+  changes: AuditChange[];
+  reason?: string;
+  ipAddress?: string;
+  userAgent?: string;
+  timestamp: Date;
+}
+
+// ============================================
 // 유틸리티 타입
 // ============================================
 

@@ -7,6 +7,7 @@ import { connectToDatabase } from '@/utils/mongodb';
 import { ObjectId } from 'mongodb';
 import type { CallbackV2, CallbackType, CallbackStatus } from '@/types/v2';
 import { z } from 'zod';
+import { logAudit } from '@/utils/auditLog';
 
 const callbackCreateSchema = z.object({
   patientId: z.string().min(1, 'patientId is required'),
@@ -57,7 +58,7 @@ export async function GET(request: NextRequest) {
             from: 'patients_v2',
             let: { patientId: { $toObjectId: '$patientId' } },
             pipeline: [
-              { $match: { $expr: { $eq: ['$_id', '$$patientId'] } } },
+              { $match: { $expr: { $eq: ['$_id', '$$patientId'] }, deletedAt: { $exists: false } } },
               { $project: { name: 1, phone: 1, interest: 1, temperature: 1, status: 1 } }
             ],
             as: 'patient'
@@ -69,7 +70,8 @@ export async function GET(request: NextRequest) {
 
     // 2. patients_v2의 nextActionDate에서 조회 (기존 데이터 호환)
     const patientFilter: Record<string, unknown> = {
-      nextActionDate: { $exists: true, $ne: null }
+      nextActionDate: { $exists: true, $ne: null },
+      deletedAt: { $exists: false },
     };
 
     // patientId로 필터링 (특정 환자만 조회)
@@ -173,6 +175,7 @@ export async function GET(request: NextRequest) {
 
     // patients_v2 통계 (오늘 nextActionDate인 환자)
     const patientTodayCount = await db.collection('patients_v2').countDocuments({
+      deletedAt: { $exists: false },
       $or: [
         { nextActionDate: { $gte: today, $lt: tomorrow } },
         { nextActionDate: { $gte: today.toISOString(), $lt: tomorrow.toISOString() } },
@@ -255,6 +258,13 @@ export async function POST(request: NextRequest) {
 
     const result = await db.collection('callbacks_v2').insertOne(newCallback);
 
+    // 감사 로그
+    logAudit(request, 'callback.create', 'callbacks_v2', result.insertedId.toString(), [
+      { field: 'patientId', oldValue: null, newValue: patientId },
+      { field: 'type', oldValue: null, newValue: type },
+      { field: 'scheduledAt', oldValue: null, newValue: scheduledAt },
+    ]);
+
     // 환자의 nextAction 업데이트
     await db.collection('patients_v2').updateOne(
       { _id: new ObjectId(patientId) },
@@ -324,6 +334,11 @@ export async function PATCH(request: NextRequest) {
         { $set: updateData },
         { returnDocument: 'after' }
       );
+
+      // 감사 로그
+      logAudit(request, 'callback.update', 'callbacks_v2', id, [
+        { field: 'status', oldValue: result?.status, newValue: status },
+      ]);
 
       return NextResponse.json({
         success: true,

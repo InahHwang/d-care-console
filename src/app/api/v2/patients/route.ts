@@ -130,8 +130,8 @@ export async function GET(request: NextRequest) {
     const { db } = await connectToDatabase();
     const collection = db.collection('patients_v2');
 
-    // 쿼리 빌드
-    const query: PatientQuery = {};
+    // 쿼리 빌드 (soft delete된 환자 제외)
+    const query: PatientQuery = { deletedAt: { $exists: false } } as PatientQuery;
 
     if (status) {
       // 콤마 구분 다중 상태 지원 (대시보드 전환율 클릭 등)

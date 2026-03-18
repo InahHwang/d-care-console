@@ -52,6 +52,7 @@ export async function GET(request: NextRequest) {
       // 1. 오늘 할 일 통계 (patients_v2에서 집계)
       // nextActionDate가 Date 객체 또는 문자열로 저장될 수 있어 $or로 처리
       db.collection('patients_v2').aggregate([
+        { $match: { deletedAt: { $exists: false } } },
         {
           $facet: {
             // 경과된 환자 (nextActionDate < today)
@@ -111,6 +112,7 @@ export async function GET(request: NextRequest) {
 
       // 2. 매출 통계 (patients_v2에서 집계)
       db.collection('patients_v2').aggregate([
+        { $match: { deletedAt: { $exists: false } } },
         {
           $facet: {
             // 이번 달 매출
@@ -188,6 +190,7 @@ export async function GET(request: NextRequest) {
 
       // 3. 전환율 통계 (patients_v2에서 집계)
       db.collection('patients_v2').aggregate([
+        { $match: { deletedAt: { $exists: false } } },
         {
           $facet: {
             // 이번 달 신규 등록 (전체)

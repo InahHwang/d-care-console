@@ -4,6 +4,7 @@ import { connectToDatabase } from '@/utils/mongodb';
 import { ObjectId } from 'mongodb';
 import { PatientStatus, Temperature, CallbackReason, CallbackHistoryEntry } from '@/types/v2';
 import { z } from 'zod';
+import { extractUserFromRequest, diffChanges, logAudit } from '@/utils/auditLog';
 
 const patientPatchSchema = z.object({
   name: z.string().nullish(),
@@ -56,7 +57,7 @@ export async function GET(
 
     // 환자 정보와 통화 이력을 병렬로 조회
     const [patient, callLogs] = await Promise.all([
-      db.collection('patients_v2').findOne({ _id: new ObjectId(id) }),
+      db.collection('patients_v2').findOne({ _id: new ObjectId(id), deletedAt: { $exists: false } }),
       db.collection('callLogs_v2')
         .find({ patientId: id })
         .sort({ startedAt: -1 })
@@ -188,8 +189,8 @@ export async function PATCH(
 
     const { db } = await connectToDatabase();
 
-    // 현재 환자 정보 조회 (상태 변경 감지용)
-    const currentPatient = await db.collection('patients_v2').findOne({ _id: new ObjectId(id) });
+    // 현재 환자 정보 조회 (상태 변경 감지용, soft delete 제외)
+    const currentPatient = await db.collection('patients_v2').findOne({ _id: new ObjectId(id), deletedAt: { $exists: false } });
 
     const updateData: Record<string, unknown> = {
       updatedAt: new Date(),
@@ -361,6 +362,26 @@ export async function PATCH(
     }
     if (Object.keys(pushOps).length > 0) {
       updateQuery.$push = pushOps;
+    }
+
+    // 감사 로그: 변경사항 기록
+    if (currentPatient) {
+      const auditUser = extractUserFromRequest(request);
+      const changes = diffChanges(currentPatient as Record<string, unknown>, updateData);
+
+      // 상태 변경은 별도 action으로 기록
+      if (statusHistoryEntry) {
+        logAudit(request, 'patient.status_change', 'patients_v2', id, changes, {
+          documentName: currentPatient.name,
+          reason: closedReason || undefined,
+          user: auditUser,
+        });
+      } else if (changes.length > 0) {
+        logAudit(request, 'patient.update', 'patients_v2', id, changes, {
+          documentName: currentPatient.name,
+          user: auditUser,
+        });
+      }
     }
 
     const result = await db.collection('patients_v2').updateOne(
@@ -556,13 +577,37 @@ export async function DELETE(
 
     const { db } = await connectToDatabase();
 
-    const result = await db.collection('patients_v2').deleteOne({
+    // soft delete: 환자 정보 보존하면서 삭제 표시
+    const patient = await db.collection('patients_v2').findOne({
       _id: new ObjectId(id),
+      deletedAt: { $exists: false },
     });
 
-    if (result.deletedCount === 0) {
+    if (!patient) {
       return NextResponse.json({ error: 'Patient not found' }, { status: 404 });
     }
+
+    const auditUser = extractUserFromRequest(request);
+    const deletedBy = auditUser?.userName || 'unknown';
+
+    await db.collection('patients_v2').updateOne(
+      { _id: new ObjectId(id) },
+      {
+        $set: {
+          deletedAt: new Date(),
+          deletedBy,
+        },
+      }
+    );
+
+    // 감사 로그 기록
+    logAudit(request, 'patient.delete', 'patients_v2', id, [
+      { field: 'deletedAt', oldValue: null, newValue: new Date().toISOString() },
+      { field: 'deletedBy', oldValue: null, newValue: deletedBy },
+    ], {
+      documentName: patient.name,
+      user: auditUser,
+    });
 
     // 연결된 통화기록의 patientId 해제
     try {
@@ -575,31 +620,40 @@ export async function DELETE(
       console.error('[Patient DELETE] 통화기록 patientId 해제 실패:', callLogError);
     }
 
-    // 연결된 콜백 일정 삭제
+    // 연결된 콜백 일정도 soft delete
     try {
-      const callbackDeleteResult = await db.collection('callbacks_v2').deleteMany({ patientId: id });
-      console.log(`[Patient DELETE] 콜백 일정 삭제: ${callbackDeleteResult.deletedCount}건 (환자ID: ${id})`);
+      const callbackResult = await db.collection('callbacks_v2').updateMany(
+        { patientId: id },
+        { $set: { deletedAt: new Date(), deletedBy } }
+      );
+      console.log(`[Patient DELETE] 콜백 일정 soft delete: ${callbackResult.modifiedCount}건 (환자ID: ${id})`);
     } catch (callbackError) {
-      console.error('[Patient DELETE] 콜백 일정 삭제 실패:', callbackError);
+      console.error('[Patient DELETE] 콜백 soft delete 실패:', callbackError);
     }
 
-    // 연결된 상담 기록 삭제
+    // 연결된 상담 기록도 soft delete
     try {
-      const consultationDeleteResult = await db.collection('consultations_v2').deleteMany({ patientId: id });
-      console.log(`[Patient DELETE] 상담 기록 삭제: ${consultationDeleteResult.deletedCount}건 (환자ID: ${id})`);
+      const consultationResult = await db.collection('consultations_v2').updateMany(
+        { patientId: id },
+        { $set: { deletedAt: new Date(), deletedBy } }
+      );
+      console.log(`[Patient DELETE] 상담 기록 soft delete: ${consultationResult.modifiedCount}건 (환자ID: ${id})`);
     } catch (consultationError) {
-      console.error('[Patient DELETE] 상담 기록 삭제 실패:', consultationError);
+      console.error('[Patient DELETE] 상담 soft delete 실패:', consultationError);
     }
 
-    // 연결된 수동 상담 기록 삭제
+    // 연결된 수동 상담 기록도 soft delete
     try {
-      const manualConsultationDeleteResult = await db.collection('manualConsultations_v2').deleteMany({ patientId: id });
-      console.log(`[Patient DELETE] 수동 상담 기록 삭제: ${manualConsultationDeleteResult.deletedCount}건 (환자ID: ${id})`);
-    } catch (manualConsultationError) {
-      console.error('[Patient DELETE] 수동 상담 기록 삭제 실패:', manualConsultationError);
+      const manualResult = await db.collection('manualConsultations_v2').updateMany(
+        { patientId: id },
+        { $set: { deletedAt: new Date(), deletedBy } }
+      );
+      console.log(`[Patient DELETE] 수동 상담 soft delete: ${manualResult.modifiedCount}건 (환자ID: ${id})`);
+    } catch (manualError) {
+      console.error('[Patient DELETE] 수동 상담 soft delete 실패:', manualError);
     }
 
-    // 연결된 리콜 메시지 삭제
+    // 연결된 리콜 메시지 삭제 (리콜은 soft delete 불필요 — 발송 스케줄이므로)
     try {
       const recallDeleteResult = await db.collection('recall_messages').deleteMany({ patientId: id });
       console.log(`[Patient DELETE] 리콜 메시지 삭제: ${recallDeleteResult.deletedCount}건 (환자ID: ${id})`);

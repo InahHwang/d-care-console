@@ -7,6 +7,7 @@ import { connectToDatabase } from '@/utils/mongodb';
 import { ObjectId } from 'mongodb';
 import type { ConsultationV2, ConsultationType, ConsultationStatus, ClosedReason } from '@/types/v2';
 import { z } from 'zod';
+import { logAudit } from '@/utils/auditLog';
 
 const consultationCreateSchema = z.object({
   patientId: z.string().min(1, 'patientId is required'),
@@ -223,6 +224,14 @@ export async function POST(request: NextRequest) {
     };
 
     const result = await db.collection('consultations_v2').insertOne(newConsultation);
+
+    // 감사 로그
+    logAudit(request, 'consultation.create', 'consultations_v2', result.insertedId.toString(), [
+      { field: 'patientId', oldValue: null, newValue: patientId },
+      { field: 'status', oldValue: null, newValue: status },
+      { field: 'treatment', oldValue: null, newValue: treatment || '' },
+      { field: 'finalAmount', oldValue: null, newValue: finalAmount },
+    ]);
 
     // 환자 상태 업데이트
     const patientUpdate: Record<string, unknown> = {
