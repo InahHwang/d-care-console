@@ -21,7 +21,6 @@ interface AuditLog {
 }
 
 interface UserSummary {
-  userId: string;
   userName: string;
   totalActions: number;
   deletes: number;
@@ -99,7 +98,7 @@ export default function AuditPage() {
       {/* Header */}
       <div className="flex items-center gap-3 mb-6">
         <Shield className="w-6 h-6 text-indigo-600" />
-        <h1 className="text-2xl font-bold text-gray-900">감사 로그</h1>
+        <h1 className="text-2xl font-bold text-gray-900">활동 로그</h1>
       </div>
 
       {/* 사용자별 활동 요약 (최근 7일) */}
@@ -109,7 +108,7 @@ export default function AuditPage() {
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3">
             {userSummary.map((s) => (
               <div
-                key={s.userId}
+                key={s.userName}
                 className={`p-4 bg-white rounded-lg border cursor-pointer transition-colors ${
                   userFilter === s.userName ? 'border-indigo-500 ring-1 ring-indigo-500' : 'border-gray-200 hover:border-gray-300'
                 }`}
@@ -168,10 +167,10 @@ export default function AuditPage() {
           <div className="p-8 text-center text-gray-500">로딩 중...</div>
         ) : error ? (
           <div className="p-8 text-center text-red-500">
-            감사 로그를 불러올 수 없습니다. 관리자 권한이 필요합니다.
+            활동 로그를 불러올 수 없습니다. 관리자 권한이 필요합니다.
           </div>
         ) : logs.length === 0 ? (
-          <div className="p-8 text-center text-gray-500">감사 로그가 없습니다.</div>
+          <div className="p-8 text-center text-gray-500">활동 로그가 없습니다.</div>
         ) : (
           <table className="w-full text-sm">
             <thead className="bg-gray-50 text-gray-600">

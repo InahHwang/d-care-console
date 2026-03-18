@@ -45,7 +45,7 @@ const navItems: NavItem[] = [
   { id: 'marketing-targets', label: '이벤트 타겟', href: '/v2/marketing-targets', icon: <Target size={20} /> },
   { id: 'reports', label: '리포트', href: '/v2/reports', icon: <BarChart3 size={20} /> },
   { id: 'settings', label: '설정', href: '/v2/settings', icon: <Settings size={20} />, managerOnly: true },
-  { id: 'audit', label: '감사 로그', href: '/v2/admin/audit', icon: <Shield size={20} />, adminOnly: true },
+  { id: 'audit', label: '활동 로그', href: '/v2/admin/audit', icon: <Shield size={20} />, adminOnly: true },
 ];
 
 interface SidebarProps {

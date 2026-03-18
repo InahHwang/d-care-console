@@ -68,7 +68,7 @@ export async function GET(request: NextRequest) {
         },
         {
           $group: {
-            _id: { userId: '$userId', userName: '$userName' },
+            _id: '$userName',
             totalActions: { $sum: 1 },
             deletes: {
               $sum: { $cond: [{ $regexMatch: { input: '$action', regex: /\.delete$/ } }, 1, 0] },
@@ -105,8 +105,7 @@ export async function GET(request: NextRequest) {
         limit,
         totalPages: Math.ceil(totalCount / limit),
         userSummary: userSummary.map((s) => ({
-          userId: s._id.userId,
-          userName: s._id.userName,
+          userName: s._id,
           totalActions: s.totalActions,
           deletes: s.deletes,
           statusChanges: s.statusChanges,
