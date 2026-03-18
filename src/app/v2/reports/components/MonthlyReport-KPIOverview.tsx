@@ -69,15 +69,7 @@ function Sparkline({ data, color }: { data: Array<{ v: number }>; color: string 
   );
 }
 
-// ============================================
-// 금액 포맷
-// ============================================
-
-function formatAmount(amount: number): string {
-  if (amount >= 100000000) return `${(amount / 100000000).toFixed(1)}억원`;
-  if (amount >= 10000) return `${Math.round(amount / 10000).toLocaleString()}만원`;
-  return `${amount.toLocaleString()}원`;
-}
+import { formatAmount } from './MonthlyReport-Utils';
 
 // ============================================
 // 메인 컴포넌트

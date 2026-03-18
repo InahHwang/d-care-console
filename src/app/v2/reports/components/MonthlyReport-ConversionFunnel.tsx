@@ -1,9 +1,9 @@
 // src/app/v2/reports/components/MonthlyReport-ConversionFunnel.tsx
-// V2 환자 전환 퍼널 - 8단계 여정 시각화 + 이탈 구간 분석
+// V2 환자 전환 퍼널 - 누적 도달 기반 4단계 + 현재 상태 분포
 'use client';
 
 import React, { useMemo } from 'react';
-import { Filter, ArrowRight, AlertTriangle } from 'lucide-react';
+import { Filter, ArrowDown, AlertTriangle } from 'lucide-react';
 import type { MonthlyStatsV2 } from './MonthlyReport-Types';
 import { PROGRESS_STAGE_CONFIG } from './MonthlyReport-Types';
 import type { PatientStatus } from '@/types/v2';
@@ -16,12 +16,10 @@ interface MonthlyReportConversionFunnelProps {
   stats: MonthlyStatsV2;
 }
 
-interface FunnelStage {
-  status: PatientStatus;
+interface FunnelStep {
   label: string;
   count: number;
-  percentage: number;
-  bgColor: string;
+  rate: number;        // totalInquiries 대비 비율
   barColor: string;
 }
 
@@ -31,69 +29,58 @@ interface DropoffInfo {
   fromCount: number;
   toCount: number;
   dropCount: number;
-  dropRate: number;
+  dropRate: number;    // from 대비 이탈률
 }
 
 // ============================================
 // Constants
 // ============================================
 
-/** 퍼널에 표시할 단계 순서 (closed 제외) */
-const FUNNEL_ORDER: PatientStatus[] = [
-  'consulting',
-  'reserved',
-  'visited',
-  'treatmentBooked',
-  'treatment',
-  'completed',
-  'followup',
+const STATUS_DISPLAY_ORDER: PatientStatus[] = [
+  'consulting', 'reserved', 'visited', 'treatmentBooked',
+  'treatment', 'completed', 'followup', 'closed',
 ];
-
-/** 퍼널 바 색상 (Tailwind bg 클래스) */
-const FUNNEL_BAR_COLORS: Record<PatientStatus, string> = {
-  consulting: 'bg-yellow-400',
-  reserved: 'bg-orange-400',
-  visited: 'bg-purple-400',
-  treatmentBooked: 'bg-indigo-400',
-  treatment: 'bg-blue-400',
-  completed: 'bg-green-400',
-  followup: 'bg-teal-400',
-  closed: 'bg-gray-400',
-};
 
 // ============================================
 // Helper Functions
 // ============================================
 
-function buildFunnelStages(
-  progressStats: Record<PatientStatus, number>,
-  totalInquiries: number
-): FunnelStage[] {
-  return FUNNEL_ORDER.map((status) => {
-    const config = PROGRESS_STAGE_CONFIG[status];
-    const count = progressStats[status] || 0;
-    const percentage = totalInquiries > 0
-      ? Math.round((count / totalInquiries) * 100)
-      : 0;
-
-    return {
-      status,
-      label: config.label,
-      count,
-      percentage,
-      bgColor: config.bgColor,
-      barColor: FUNNEL_BAR_COLORS[status],
-    };
-  });
+function buildFunnelSteps(stats: MonthlyStatsV2): FunnelStep[] {
+  const total = stats.totalInquiries;
+  return [
+    {
+      label: '총 문의',
+      count: total,
+      rate: 100,
+      barColor: 'bg-gray-500',
+    },
+    {
+      label: '예약 도달',
+      count: stats.reservedPatients,
+      rate: total > 0 ? Math.round((stats.reservedPatients / total) * 100) : 0,
+      barColor: 'bg-orange-500',
+    },
+    {
+      label: '내원 도달',
+      count: stats.visitedPatients,
+      rate: total > 0 ? Math.round((stats.visitedPatients / total) * 100) : 0,
+      barColor: 'bg-purple-500',
+    },
+    {
+      label: '결제 도달',
+      count: stats.agreedPatients,
+      rate: total > 0 ? Math.round((stats.agreedPatients / total) * 100) : 0,
+      barColor: 'bg-green-500',
+    },
+  ];
 }
 
-function calculateDropoffs(stages: FunnelStage[]): DropoffInfo[] {
+function calculateDropoffs(steps: FunnelStep[]): DropoffInfo[] {
   const dropoffs: DropoffInfo[] = [];
 
-  for (let i = 0; i < stages.length - 1; i++) {
-    const from = stages[i];
-    const to = stages[i + 1];
-    // 누적 카운팅 기반: 이전 단계 도달 수 - 다음 단계 도달 수 = 이탈 수
+  for (let i = 0; i < steps.length - 1; i++) {
+    const from = steps[i];
+    const to = steps[i + 1];
     const dropCount = Math.max(from.count - to.count, 0);
     const dropRate = from.count > 0
       ? Math.round((dropCount / from.count) * 100)
@@ -114,7 +101,6 @@ function calculateDropoffs(stages: FunnelStage[]): DropoffInfo[] {
 
 function findMaxDropoff(dropoffs: DropoffInfo[]): DropoffInfo | null {
   if (dropoffs.length === 0) return null;
-
   return dropoffs.reduce((max, curr) =>
     curr.dropCount > max.dropCount ? curr : max
   );
@@ -125,45 +111,38 @@ function findMaxDropoff(dropoffs: DropoffInfo[]): DropoffInfo | null {
 // ============================================
 
 function FunnelBar({
-  stage,
+  step,
   maxCount,
   index,
 }: {
-  stage: FunnelStage;
+  step: FunnelStep;
   maxCount: number;
   index: number;
 }) {
   const widthPercent = maxCount > 0
-    ? Math.max((stage.count / maxCount) * 100, 8)
+    ? Math.max((step.count / maxCount) * 100, 8)
     : 8;
 
   return (
     <div className="flex items-center gap-3">
-      {/* 순서 번호 */}
       <div className="w-6 h-6 rounded-full bg-gray-100 flex items-center justify-center text-xs font-medium text-gray-500 flex-shrink-0">
         {index + 1}
       </div>
-
-      {/* 라벨 */}
       <div className="w-20 text-sm font-medium text-gray-700 flex-shrink-0 text-right">
-        {stage.label}
+        {step.label}
       </div>
-
-      {/* 바 */}
       <div className="flex-1 relative">
         <div
-          className={`h-9 rounded-md ${stage.barColor} transition-all duration-500 flex items-center px-3`}
-          style={{ width: `${widthPercent}%`, minWidth: '60px' }}
+          className={`h-10 rounded-md ${step.barColor} transition-all duration-500 flex items-center px-3`}
+          style={{ width: `${widthPercent}%`, minWidth: '70px' }}
         >
           <span className="text-sm font-bold text-white whitespace-nowrap">
-            {stage.count}건
+            {step.count}명
           </span>
         </div>
       </div>
-
-      {/* 비율 */}
-      <div className="w-14 text-sm text-gray-500 text-right flex-shrink-0">
-        {stage.percentage}%
+      <div className="w-14 text-sm font-semibold text-gray-600 text-right flex-shrink-0">
+        {step.rate}%
       </div>
     </div>
   );
@@ -175,8 +154,35 @@ function DropoffArrow({ dropoff }: { dropoff: DropoffInfo }) {
   return (
     <div className="flex items-center gap-3 pl-9 ml-20">
       <div className="flex items-center gap-1 text-xs text-red-500">
-        <ArrowRight className="w-3 h-3 rotate-90" />
-        <span>-{dropoff.dropCount}건 ({dropoff.dropRate}% 이탈)</span>
+        <ArrowDown className="w-3 h-3" />
+        <span>-{dropoff.dropCount}명 ({dropoff.dropRate}% 이탈)</span>
+      </div>
+    </div>
+  );
+}
+
+function StatusDistribution({ stats }: { stats: MonthlyStatsV2 }) {
+  const total = stats.totalInquiries;
+  if (total === 0) return null;
+
+  return (
+    <div>
+      <h3 className="text-sm font-semibold text-gray-700 mb-3">현재 상태 분포</h3>
+      <div className="flex flex-wrap gap-2">
+        {STATUS_DISPLAY_ORDER.map((status) => {
+          const count = stats.progressStats[status] || 0;
+          if (count === 0) return null;
+          const config = PROGRESS_STAGE_CONFIG[status];
+          return (
+            <div
+              key={status}
+              className={`flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-medium ${config.color} ${config.bgColor}`}
+            >
+              <span>{config.label}</span>
+              <span className="font-bold">{count}명</span>
+            </div>
+          );
+        })}
       </div>
     </div>
   );
@@ -189,14 +195,14 @@ function DropoffArrow({ dropoff }: { dropoff: DropoffInfo }) {
 const MonthlyReportConversionFunnel: React.FC<MonthlyReportConversionFunnelProps> = ({
   stats,
 }) => {
-  const funnelStages = useMemo(
-    () => buildFunnelStages(stats.progressStats, stats.totalInquiries),
-    [stats.progressStats, stats.totalInquiries]
+  const funnelSteps = useMemo(
+    () => buildFunnelSteps(stats),
+    [stats]
   );
 
   const dropoffs = useMemo(
-    () => calculateDropoffs(funnelStages),
-    [funnelStages]
+    () => calculateDropoffs(funnelSteps),
+    [funnelSteps]
   );
 
   const maxDropoff = useMemo(
@@ -204,7 +210,7 @@ const MonthlyReportConversionFunnel: React.FC<MonthlyReportConversionFunnelProps
     [dropoffs]
   );
 
-  const maxCount = Math.max(...funnelStages.map((s) => s.count), 1);
+  const maxCount = Math.max(...funnelSteps.map((s) => s.count), 1);
   const closedCount = stats.progressStats.closed || 0;
 
   return (
@@ -218,20 +224,23 @@ const MonthlyReportConversionFunnel: React.FC<MonthlyReportConversionFunnelProps
             총 {stats.totalInquiries}건
           </span>
         </h2>
+        <p className="text-xs text-gray-500 mt-1">
+          이번 달 신규 문의 환자가 각 단계까지 도달한 누적 수
+        </p>
       </div>
 
       <div className="p-6">
-        {/* 퍼널 시각화 */}
-        {funnelStages.length > 0 ? (
+        {/* 퍼널 시각화 (누적 도달 기준) */}
+        {stats.totalInquiries > 0 ? (
           <div className="space-y-1 mb-6">
-            {funnelStages.map((stage, index) => (
-              <React.Fragment key={stage.status}>
+            {funnelSteps.map((step, index) => (
+              <React.Fragment key={step.label}>
                 <FunnelBar
-                  stage={stage}
+                  step={step}
                   maxCount={maxCount}
                   index={index}
                 />
-                {index < funnelStages.length - 1 && (
+                {index < funnelSteps.length - 1 && (
                   <DropoffArrow dropoff={dropoffs[index]} />
                 )}
               </React.Fragment>
@@ -244,20 +253,22 @@ const MonthlyReportConversionFunnel: React.FC<MonthlyReportConversionFunnelProps
         )}
 
         {/* 종결 환자 별도 표시 */}
-        <div className="flex items-center gap-3 px-4 py-3 bg-gray-50 rounded-lg mb-6">
-          <div className="w-3 h-3 bg-gray-400 rounded-full flex-shrink-0" />
-          <span className="text-sm font-medium text-gray-600">종결</span>
-          <span className="text-sm font-bold text-gray-700">{closedCount}건</span>
-          <span className="text-xs text-gray-400">
-            ({stats.totalInquiries > 0
-              ? Math.round((closedCount / stats.totalInquiries) * 100)
-              : 0}%)
-          </span>
-        </div>
+        {closedCount > 0 && (
+          <div className="flex items-center gap-3 px-4 py-3 bg-gray-50 rounded-lg mb-6">
+            <div className="w-3 h-3 bg-gray-400 rounded-full flex-shrink-0" />
+            <span className="text-sm font-medium text-gray-600">종결</span>
+            <span className="text-sm font-bold text-gray-700">{closedCount}명</span>
+            <span className="text-xs text-gray-400">
+              ({stats.totalInquiries > 0
+                ? Math.round((closedCount / stats.totalInquiries) * 100)
+                : 0}%)
+            </span>
+          </div>
+        )}
 
         {/* 최대 이탈 구간 하이라이트 */}
         {maxDropoff && maxDropoff.dropCount > 0 && (
-          <div className="flex items-start gap-3 bg-red-50 border border-red-200 rounded-lg px-4 py-3">
+          <div className="flex items-start gap-3 bg-red-50 border border-red-200 rounded-lg px-4 py-3 mb-6">
             <AlertTriangle className="w-5 h-5 text-red-500 mt-0.5 flex-shrink-0" />
             <div>
               <div className="text-sm font-bold text-red-800 mb-1">
@@ -268,17 +279,20 @@ const MonthlyReportConversionFunnel: React.FC<MonthlyReportConversionFunnelProps
                 {' → '}
                 <span className="font-medium">{maxDropoff.toLabel}</span>
                 {' 단계에서 '}
-                <span className="font-bold">{maxDropoff.dropCount}건</span>
+                <span className="font-bold">{maxDropoff.dropCount}명</span>
                 {' ('}
                 <span className="font-bold">{maxDropoff.dropRate}%</span>
                 {') 이탈이 발생했습니다.'}
               </div>
               <div className="text-xs text-red-600 mt-1">
-                {maxDropoff.fromLabel} {maxDropoff.fromCount}건 → {maxDropoff.toLabel} {maxDropoff.toCount}건
+                {maxDropoff.fromLabel} {maxDropoff.fromCount}명 → {maxDropoff.toLabel} {maxDropoff.toCount}명
               </div>
             </div>
           </div>
         )}
+
+        {/* 현재 상태 분포 (참고용) */}
+        <StatusDistribution stats={stats} />
       </div>
     </div>
   );

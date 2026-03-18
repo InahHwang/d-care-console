@@ -5,6 +5,7 @@
 import React, { useMemo } from 'react';
 import { Megaphone, TrendingUp, Award, AlertCircle } from 'lucide-react';
 import type { MonthlyStatsV2, ChannelROIItem } from './MonthlyReport-Types';
+import { formatAmount } from './MonthlyReport-Utils';
 
 const {
   BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer, Legend,
@@ -37,16 +38,6 @@ const BAR_COLORS = {
   결제: '#22C55E',  // green
 };
 
-// ============================================
-// Helper Functions
-// ============================================
-
-function formatAmount(amount: number): string {
-  if (amount >= 100000000) return `${(amount / 100000000).toFixed(1)}억원`;
-  if (amount >= 10000) return `${Math.round(amount / 10000).toLocaleString()}만원`;
-  return `${amount.toLocaleString()}원`;
-}
-
 function buildChartData(items: ChannelROIItem[]): ChannelChartData[] {
   return items.map((item) => ({
     channel: item.channel,
@@ -57,20 +48,33 @@ function buildChartData(items: ChannelROIItem[]): ChannelChartData[] {
   }));
 }
 
-function findBestChannel(items: ChannelROIItem[]): ChannelROIItem | null {
+/** 결제전환율 동률 시: 1차 매출, 2차 객단가로 tiebreak → 1등 1명만 반환 + 동률 목록 */
+function findBestChannel(items: ChannelROIItem[]): {
+  best: ChannelROIItem | null;
+  tied: ChannelROIItem[];  // 동률 채널들 (best 포함)
+} {
   const withPaid = items.filter((c) => c.paidCount > 0);
-  if (withPaid.length === 0) return null;
-  return withPaid.reduce((best, curr) =>
-    curr.paidRate > best.paidRate ? curr : best
+  if (withPaid.length === 0) return { best: null, tied: [] };
+
+  const maxRate = Math.max(...withPaid.map((c) => c.paidRate));
+  const tied = withPaid.filter((c) => c.paidRate === maxRate);
+
+  if (tied.length === 1) return { best: tied[0], tied };
+
+  // tiebreak: 매출 → 객단가
+  const sorted = [...tied].sort((a, b) =>
+    b.totalRevenue !== a.totalRevenue
+      ? b.totalRevenue - a.totalRevenue
+      : b.avgDealSize - a.avgDealSize
   );
+  return { best: sorted[0], tied };
 }
 
-function findWorstChannel(items: ChannelROIItem[]): ChannelROIItem | null {
+function findWorstChannels(items: ChannelROIItem[]): ChannelROIItem[] {
   const withInquiries = items.filter((c) => c.count > 0);
-  if (withInquiries.length === 0) return null;
-  return withInquiries.reduce((worst, curr) =>
-    curr.paidRate < worst.paidRate ? curr : worst
-  );
+  if (withInquiries.length === 0) return [];
+  const minRate = Math.min(...withInquiries.map((c) => c.paidRate));
+  return withInquiries.filter((c) => c.paidRate === minRate);
 }
 
 // ============================================
@@ -144,10 +148,10 @@ function ChannelGroupedChart({ data }: { data: ChannelChartData[] }) {
 
 function ChannelTable({
   items,
-  bestChannelName,
+  bestChannelNames,
 }: {
   items: ChannelROIItem[];
-  bestChannelName: string | null;
+  bestChannelNames: Set<string>;
 }) {
   // 문의수 내림차순 정렬
   const sorted = [...items].sort((a, b) => b.count - a.count);
@@ -182,7 +186,7 @@ function ChannelTable({
         </thead>
         <tbody>
           {sorted.map((item) => {
-            const isBest = item.channel === bestChannelName;
+            const isBest = bestChannelNames.has(item.channel);
             return (
               <tr
                 key={item.channel}
@@ -247,16 +251,28 @@ function ChannelTable({
 }
 
 function InsightCallout({
-  best,
-  worst,
+  bestResult,
+  worstList,
 }: {
-  best: ChannelROIItem | null;
-  worst: ChannelROIItem | null;
+  bestResult: { best: ChannelROIItem | null; tied: ChannelROIItem[] };
+  worstList: ChannelROIItem[];
 }) {
-  if (!best && !worst) return null;
+  const { best, tied } = bestResult;
+  if (!best && worstList.length === 0) return null;
 
-  // 같은 채널이면 비교 의미 없음
-  if (best && worst && best.channel === worst.channel) return null;
+  // 최고/최저가 같은 채널이면 비교 의미 없음
+  const bestName = best?.channel;
+  const allSame = best && worstList.length === 1 && worstList[0].channel === bestName;
+  if (allSame) return null;
+
+  // worst에서 best/동률 채널 제외, 문의 3건 이상만
+  const tiedNames = new Set(tied.map((c) => c.channel));
+  const filteredWorst = worstList.filter(
+    (c) => !tiedNames.has(c.channel) && c.count >= 3
+  );
+
+  // 동률에서 best 제외한 나머지
+  const otherTied = tied.filter((c) => c.channel !== bestName);
 
   return (
     <div className="mt-4 bg-blue-50 border border-blue-200 rounded-lg px-4 py-3">
@@ -269,28 +285,46 @@ function InsightCallout({
               {' 채널이 결제전환율 '}
               <span className="font-bold">{best.paidRate}%</span>
               {'로 가장 높은 성과를 보이고 있습니다.'}
-              {best.avgDealSize > 0 && (
+              {best.totalRevenue > 0 && (
                 <span>
-                  {' (객단가 '}
-                  <span className="font-bold">{formatAmount(best.avgDealSize)}</span>
+                  {' (매출 '}
+                  <span className="font-bold">{formatAmount(best.totalRevenue)}</span>
+                  {best.avgDealSize > 0 && (
+                    <span>, 객단가 <span className="font-bold">{formatAmount(best.avgDealSize)}</span></span>
+                  )}
                   {')'}
+                </span>
+              )}
+              {otherTied.length > 0 && (
+                <span>
+                  {' '}
+                  {otherTied.map((ch, i) => (
+                    <React.Fragment key={ch.channel}>
+                      {i > 0 && ', '}
+                      <span className="font-bold">{ch.channel}</span>
+                    </React.Fragment>
+                  ))}
+                  {' 채널도 동일 전환율이나 매출 기준으로 차이가 있습니다.'}
                 </span>
               )}
             </p>
           )}
-          {worst && worst.count >= 3 && (
+          {filteredWorst.length > 0 && (
             <p>
-              <span className="font-bold text-red-600">{worst.channel}</span>
+              {filteredWorst.map((ch, i) => (
+                <React.Fragment key={ch.channel}>
+                  {i > 0 && ', '}
+                  <span className="font-bold text-red-600">{ch.channel}</span>
+                </React.Fragment>
+              ))}
               {' 채널은 결제전환율 '}
-              <span className="font-bold">{worst.paidRate}%</span>
+              <span className="font-bold">{filteredWorst[0].paidRate}%</span>
               {'로 개선이 필요합니다.'}
               {best && (
                 <span>
-                  {' ('}
-                  {best.channel}
-                  {' 대비 '}
+                  {' (최고 대비 '}
                   <span className="font-bold">
-                    {best.paidRate - worst.paidRate}%p
+                    {best.paidRate - filteredWorst[0].paidRate}%p
                   </span>
                   {' 차이)'}
                 </span>
@@ -318,13 +352,13 @@ const MonthlyReportChannelROI: React.FC<MonthlyReportChannelROIProps> = ({
     [channelROI, hasData]
   );
 
-  const bestChannel = useMemo(
-    () => (hasData ? findBestChannel(channelROI!) : null),
+  const bestResult = useMemo(
+    () => (hasData ? findBestChannel(channelROI!) : { best: null, tied: [] }),
     [channelROI, hasData]
   );
 
-  const worstChannel = useMemo(
-    () => (hasData ? findWorstChannel(channelROI!) : null),
+  const worstChannels = useMemo(
+    () => (hasData ? findWorstChannels(channelROI!) : []),
     [channelROI, hasData]
   );
 
@@ -358,12 +392,12 @@ const MonthlyReportChannelROI: React.FC<MonthlyReportChannelROIProps> = ({
               </h3>
               <ChannelTable
                 items={channelROI!}
-                bestChannelName={bestChannel?.channel || null}
+                bestChannelNames={new Set(bestResult.best ? [bestResult.best.channel] : [])}
               />
             </div>
 
             {/* 자동 생성 인사이트 */}
-            <InsightCallout best={bestChannel} worst={worstChannel} />
+            <InsightCallout bestResult={bestResult} worstList={worstChannels} />
           </>
         )}
       </div>

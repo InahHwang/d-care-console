@@ -150,6 +150,7 @@ export async function PATCH(
 
         const aiInsightsData = {
           insights: aiResult.insights,
+          structuredInsights: aiResult.structuredInsights,
           generatedAt: aiResult.generatedAt,
           model: aiResult.model,
         };
@@ -161,7 +162,10 @@ export async function PATCH(
         }
       } catch (aiError) {
         console.error('[Reports V2] AI 인사이트 생성 실패:', aiError);
-        // 실패해도 요청 자체는 성공 처리 (규칙 기반 인사이트 유지)
+        return NextResponse.json(
+          { success: false, error: 'AI 인사이트 생성에 실패했습니다: ' + (aiError instanceof Error ? aiError.message : String(aiError)) },
+          { status: 500 }
+        );
       }
     }
 

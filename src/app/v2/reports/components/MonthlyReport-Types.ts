@@ -43,6 +43,7 @@ export interface PatientSummaryV2 {
   fullConsultation: string;     // 전체 내용
   estimatedAmount: number;      // 예상 금액
   finalAmount: number;          // 최종 금액
+  paymentStatus?: 'none' | 'partial' | 'completed'; // 결제 상태
   hasPhoneConsultation: boolean;
   hasVisitConsultation: boolean;
   consultationType: 'inbound' | 'outbound' | 'returning' | 'unknown'; // 최초 통화 방향
@@ -131,6 +132,23 @@ export interface DemographicCrossItem {
   ageBracket: string;
   treatmentType: string;
   count: number;
+}
+
+// ============================================
+// 상담타입 ROI 분석
+// ============================================
+
+export interface ConsultationTypeROIItem {
+  type: string;
+  count: number;
+  reservedCount: number;
+  visitedCount: number;
+  paidCount: number;
+  reservedRate: number;
+  visitedRate: number;
+  paidRate: number;
+  totalRevenue: number;
+  avgDealSize: number;
 }
 
 // ============================================
@@ -272,6 +290,9 @@ export interface MonthlyStatsV2 {
   // 인구통계 교차분석 (연령대 x 치료관심)
   demographicCrossAnalysis?: DemographicCrossItem[];
 
+  // 상담타입 ROI 분석
+  consultationTypeROI?: ConsultationTypeROIItem[];
+
   // 채널 ROI 분석
   channelROI?: ChannelROIItem[];
 
@@ -290,6 +311,11 @@ export interface MonthlyStatsV2 {
   // AI 생성 인사이트 (OpenAI, on-demand)
   aiInsights?: {
     insights: string[];
+    structuredInsights?: Array<{
+      title: string;
+      detail: string;
+      action: string;
+    }>;
     generatedAt: string;
     model: string;
   };

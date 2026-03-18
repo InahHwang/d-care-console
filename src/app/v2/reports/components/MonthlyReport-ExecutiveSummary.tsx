@@ -5,6 +5,7 @@
 import React from 'react';
 import { Target, TrendingUp, TrendingDown, Lightbulb, AlertTriangle, Sparkles } from 'lucide-react';
 import type { MonthlyStatsV2, ChangeIndicator } from './MonthlyReport-Types';
+import { formatAmount } from './MonthlyReport-Utils';
 
 // ============================================
 // Types
@@ -17,16 +18,6 @@ interface MonthlyReportExecutiveSummaryProps {
   onGenerateAIInsights?: () => Promise<void>;
   isGeneratingAI?: boolean;
   isReadOnly?: boolean;
-}
-
-// ============================================
-// Helper Functions
-// ============================================
-
-function formatAmount(amount: number): string {
-  if (amount >= 100000000) return `${(amount / 100000000).toFixed(1)}억원`;
-  if (amount >= 10000) return `${Math.round(amount / 10000).toLocaleString()}만원`;
-  return `${amount.toLocaleString()}원`;
 }
 
 function getChangeSign(change: ChangeIndicator): string {
@@ -145,11 +136,13 @@ const MonthlyReportExecutiveSummary: React.FC<MonthlyReportExecutiveSummaryProps
   isReadOnly = false,
 }) => {
   const hasAIInsights = stats.aiInsights?.insights && stats.aiInsights.insights.length > 0;
+  const hasStructuredAI = stats.aiInsights?.structuredInsights && stats.aiInsights.structuredInsights.length > 0;
   const hasRuleInsights = stats.executiveInsights && stats.executiveInsights.length > 0;
   const displayInsights = hasAIInsights
     ? stats.aiInsights!.insights
     : (stats.executiveInsights || []);
-  const hasInsights = displayInsights.length > 0;
+  const structuredInsights = hasStructuredAI ? stats.aiInsights!.structuredInsights! : [];
+  const hasInsights = displayInsights.length > 0 || structuredInsights.length > 0;
 
   return (
     <div className="bg-white rounded-lg shadow-sm border mb-6 overflow-hidden">
@@ -223,7 +216,33 @@ const MonthlyReportExecutiveSummary: React.FC<MonthlyReportExecutiveSummaryProps
             )}
           </div>
 
-          {hasInsights ? (
+          {hasStructuredAI ? (
+            <div className="space-y-3">
+              {structuredInsights.map((item, index) => (
+                <div
+                  key={index}
+                  className="bg-gray-50 rounded-lg px-4 py-3 border border-gray-100"
+                >
+                  <div className="flex items-start gap-2 mb-1.5">
+                    {getInsightIcon(item.title)}
+                    <span className="text-sm font-semibold text-gray-900">
+                      {item.title}
+                    </span>
+                  </div>
+                  {item.detail && (
+                    <p className="text-sm text-gray-600 leading-relaxed ml-6 mb-1.5">
+                      {item.detail}
+                    </p>
+                  )}
+                  {item.action && (
+                    <p className="text-sm text-blue-700 bg-blue-50 rounded px-3 py-1.5 ml-6">
+                      <span className="font-medium">Action:</span> {item.action}
+                    </p>
+                  )}
+                </div>
+              ))}
+            </div>
+          ) : hasInsights ? (
             <ul className="space-y-3">
               {displayInsights.map((insight, index) => (
                 <li

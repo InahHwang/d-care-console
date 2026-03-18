@@ -34,15 +34,7 @@ interface ChartDataItem {
 
 const PIE_COLORS = ['#10B981', '#3B82F6', '#F59E0B', '#EF4444', '#8B5CF6', '#EC4899'];
 
-// ============================================
-// Helpers
-// ============================================
-
-function formatAmount(amount: number): string {
-  if (amount >= 100000000) return `${(amount / 100000000).toFixed(1)}억원`;
-  if (amount >= 10000) return `${Math.round(amount / 10000).toLocaleString()}만원`;
-  return `${amount.toLocaleString()}원`;
-}
+import { formatAmount } from './MonthlyReport-Utils';
 
 function CustomBarTooltip({ active, payload, label }: any) {
   if (!active || !payload || payload.length === 0) return null;
@@ -200,33 +192,48 @@ const MonthlyReportTreatmentAnalysis: React.FC<MonthlyReportTreatmentAnalysisPro
 
         {/* Row 2: 매출 파이차트 + 테이블 */}
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-          {/* 왼쪽: 매출 파이차트 (도넛) */}
+          {/* 왼쪽: 매출 도넛차트 + 범례 리스트 */}
           <div>
             <h3 className="text-sm font-semibold text-gray-700 mb-3">치료별 매출 비중</h3>
             {revenueData.length > 0 ? (
-              <ResponsiveContainer width="100%" height={250}>
-                <PieChart>
-                  <Pie
-                    data={revenueData}
-                    cx="50%"
-                    cy="50%"
-                    innerRadius={55}
-                    outerRadius={90}
-                    paddingAngle={2}
-                    dataKey="value"
-                    nameKey="name"
-                    label={({ name, percentage }: any) =>
-                      `${name} ${percentage.toFixed(0)}%`
-                    }
-                    labelLine={{ strokeWidth: 1 }}
-                  >
-                    {revenueData.map((_: any, i: number) => (
-                      <Cell key={i} fill={PIE_COLORS[i % PIE_COLORS.length]} />
-                    ))}
-                  </Pie>
-                  <Tooltip content={<CustomPieTooltip />} />
-                </PieChart>
-              </ResponsiveContainer>
+              <div>
+                <ResponsiveContainer width="100%" height={200}>
+                  <PieChart>
+                    <Pie
+                      data={revenueData}
+                      cx="50%"
+                      cy="50%"
+                      innerRadius={50}
+                      outerRadius={80}
+                      paddingAngle={2}
+                      dataKey="value"
+                      nameKey="name"
+                    >
+                      {revenueData.map((_: any, i: number) => (
+                        <Cell key={i} fill={PIE_COLORS[i % PIE_COLORS.length]} />
+                      ))}
+                    </Pie>
+                    <Tooltip content={<CustomPieTooltip />} />
+                  </PieChart>
+                </ResponsiveContainer>
+                <div className="mt-2 space-y-1.5">
+                  {revenueData.map((d: any, i: number) => (
+                    <div key={d.name} className="flex items-center justify-between text-sm">
+                      <div className="flex items-center gap-2">
+                        <span
+                          className="w-3 h-3 rounded-full flex-shrink-0"
+                          style={{ backgroundColor: PIE_COLORS[i % PIE_COLORS.length] }}
+                        />
+                        <span className="text-gray-700">{d.name}</span>
+                      </div>
+                      <div className="flex items-center gap-3">
+                        <span className="text-gray-900 font-medium">{formatAmount(d.value)}</span>
+                        <span className="text-gray-500 w-10 text-right">{d.percentage.toFixed(0)}%</span>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </div>
             ) : (
               <div className="flex items-center justify-center h-[250px] text-sm text-gray-400">
                 매출 데이터가 없습니다.

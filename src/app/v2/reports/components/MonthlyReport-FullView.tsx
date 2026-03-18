@@ -10,13 +10,13 @@ import MonthlyReportExecutiveSummary from './MonthlyReport-ExecutiveSummary';
 import MonthlyReportKPIOverview from './MonthlyReport-KPIOverview';
 import MonthlyReportConversionFunnel from './MonthlyReport-ConversionFunnel';
 import MonthlyReportDemographics from './MonthlyReport-Demographics';
+import MonthlyReportConsultationTypeROI from './MonthlyReport-ConsultationTypeROI';
 import MonthlyReportChannelROI from './MonthlyReport-ChannelROI';
 import MonthlyReportTreatmentAnalysis from './MonthlyReport-TreatmentAnalysis';
 import MonthlyReportRevenueAnalysis from './MonthlyReport-RevenueAnalysis';
 import MonthlyReportTrends from './MonthlyReport-Trends';
 import MonthlyReportDisagreeAnalysis from './MonthlyReport-DisagreeAnalysis';
 import MonthlyReportPatientConsultationTable from './MonthlyReport-PatientConsultationTable';
-import MonthlyReportInsights from './MonthlyReport-Insights';
 import MonthlyReportManagerQA from './MonthlyReport-ManagerQA';
 import MonthlyReportActionButtons from './MonthlyReport-ActionButtons';
 import MonthlyReportPatientDetailModal from './MonthlyReport-PatientDetailModal';
@@ -194,7 +194,10 @@ const MonthlyReportFullView: React.FC<MonthlyReportFullViewProps> = ({
         {/* 5. 인구통계 대시보드 */}
         <MonthlyReportDemographics stats={report.stats} />
 
-        {/* 6. 유입채널 ROI 분석 */}
+        {/* 6. 상담타입 ROI 분석 */}
+        <MonthlyReportConsultationTypeROI stats={report.stats} />
+
+        {/* 7. 유입채널 ROI 분석 */}
         <MonthlyReportChannelROI stats={report.stats} />
 
         {/* 7. 치료 관심분야 분석 */}
@@ -204,6 +207,7 @@ const MonthlyReportFullView: React.FC<MonthlyReportFullViewProps> = ({
         <MonthlyReportRevenueAnalysis
           revenueAnalysis={report.stats.revenueAnalysis}
           dailyTrends={report.stats.dailyTrends}
+          patientSummaries={report.stats.patientSummaries}
         />
 
         {/* 9. 일별/요일별 추이 */}
@@ -218,10 +222,7 @@ const MonthlyReportFullView: React.FC<MonthlyReportFullViewProps> = ({
           onPatientClick={setSelectedPatient}
         />
 
-        {/* 12. 인사이트 & 개선사항 */}
-        <MonthlyReportInsights stats={report.stats} />
-
-        {/* 13. 매니저 의견 + 양방향 피드백 */}
+        {/* 12. 매니저 의견 + 양방향 피드백 */}
         <MonthlyReportManagerQA
           report={report}
           managerAnswers={managerAnswers}

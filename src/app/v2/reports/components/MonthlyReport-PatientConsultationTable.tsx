@@ -32,47 +32,36 @@ function formatShortDate(dateStr: string): string {
   return `${d.getMonth() + 1}/${d.getDate()}`;
 }
 
-// 고액환자 자동 감지 (200만원 이상)
+// 고액환자 자동 감지 (200만원 이상, 결제 완료 제외)
 function detectAttentionPatients(patients: PatientSummaryV2[]): AttentionItem[] {
   const items: AttentionItem[] = [];
-  const now = new Date();
 
   for (const p of patients) {
-    // 고액 종결 → 놓친 매출
-    if (p.status === 'closed' && p.estimatedAmount >= 2000000) {
-      items.push({
-        patient: p,
-        reason: '놓친 매출',
-        severity: p.estimatedAmount >= 5000000 ? 'high' : 'medium',
-      });
+    if (p.estimatedAmount < 2000000) continue;
+    // 결제 완료 환자는 제외
+    if (p.paymentStatus === 'partial' || p.paymentStatus === 'completed') continue;
+
+    let reason: string;
+    let severity: 'high' | 'medium';
+
+    if (p.status === 'closed') {
+      reason = '놓친 매출';
+      severity = p.estimatedAmount >= 5000000 ? 'high' : 'medium';
+    } else if (p.status === 'consulting') {
+      reason = p.hasActiveCallback ? '상담 진행중' : '상담 방치';
+      severity = p.hasActiveCallback ? 'medium' : 'high';
+    } else if (p.status === 'reserved') {
+      reason = p.hasActiveCallback ? '예약 관리중' : '예약 후 방치';
+      severity = p.hasActiveCallback ? 'medium' : 'high';
+    } else if (p.status === 'visited' || p.status === 'treatmentBooked') {
+      reason = p.hasActiveCallback ? '내원 후 관리중' : '내원 후 방치';
+      severity = p.hasActiveCallback ? 'medium' : 'high';
+    } else {
+      reason = '고액 진행중';
+      severity = 'medium';
     }
-    // 고액 상담 — 콜백 유무로 정체/방치 구분
-    else if (p.status === 'consulting' && p.estimatedAmount >= 2000000) {
-      items.push({
-        patient: p,
-        reason: p.hasActiveCallback ? '상담 진행중' : '상담 방치',
-        severity: p.hasActiveCallback ? 'medium' : 'high',
-      });
-    }
-    // 고액 내원 후 방치 — 내원했는데 콜백 없이 방치
-    else if (p.status === 'visited' && p.estimatedAmount >= 2000000 && !p.hasActiveCallback) {
-      items.push({
-        patient: p,
-        reason: '내원 후 방치',
-        severity: 'high',
-      });
-    }
-    // 고액 예약 — 예약일이 지났는데 아직 reserved인 경우만
-    else if (p.status === 'reserved' && p.estimatedAmount >= 2000000) {
-      const callbackDate = p.nextCallbackDate ? new Date(p.nextCallbackDate) : null;
-      if (callbackDate && callbackDate < now) {
-        items.push({
-          patient: p,
-          reason: '예약 후 미내원',
-          severity: 'medium',
-        });
-      }
-    }
+
+    items.push({ patient: p, reason, severity });
   }
 
   return items.sort((a, b) => {
@@ -81,17 +70,7 @@ function detectAttentionPatients(patients: PatientSummaryV2[]): AttentionItem[] 
   });
 }
 
-// 금액 포맷
-function formatAmount(amount: number): string {
-  if (amount >= 100000000) {
-    const value = parseFloat((amount / 100000000).toFixed(2));
-    return `${value}억`;
-  }
-  if (amount >= 10000) {
-    return `${Math.round(amount / 10000).toLocaleString()}만`;
-  }
-  return `${amount.toLocaleString()}`;
-}
+import { formatAmount } from './MonthlyReport-Utils';
 
 const MonthlyReportPatientConsultationTable: React.FC<MonthlyReportPatientConsultationTableProps> = ({
   stats,
@@ -100,6 +79,8 @@ const MonthlyReportPatientConsultationTable: React.FC<MonthlyReportPatientConsul
   const patients = stats.patientSummaries || [];
   const [expandedStages, setExpandedStages] = useState<Set<PatientStatus>>(new Set());
   const [registeringCallback, setRegisteringCallback] = useState<string | null>(null);
+  // 콜백 등록 성공한 환자 ID → 등록일 (로컬 상태, 보고서 새로고침 없이 즉시 반영)
+  const [registeredCallbacks, setRegisteredCallbacks] = useState<Map<string, string>>(new Map());
 
   // 콜백 등록 핸들러
   const handleRegisterCallback = useCallback(async (patient: PatientSummaryV2, e: React.MouseEvent) => {
@@ -117,10 +98,11 @@ const MonthlyReportPatientConsultationTable: React.FC<MonthlyReportPatientConsul
           patientId: patient.patientId,
           type: 'callback',
           scheduledAt: tomorrow.toISOString(),
-          note: `[월보고서] ${patient.interest} ${formatAmount(patient.estimatedAmount)}원 - ${patient.consultationSummary?.slice(0, 30) || ''}`,
+          note: `[월보고서] ${patient.interest} ${formatAmount(patient.estimatedAmount)} - ${patient.consultationSummary?.slice(0, 30) || ''}`,
         }),
       });
       if (res.ok) {
+        setRegisteredCallbacks((prev) => new Map(prev).set(patient.patientId, tomorrow.toISOString()));
         alert(`${patient.name} 환자 콜백이 등록되었습니다.\n(내일 오전 10시 예정)`);
       } else {
         alert('콜백 등록에 실패했습니다.');
@@ -221,34 +203,46 @@ const MonthlyReportPatientConsultationTable: React.FC<MonthlyReportPatientConsul
                     <div className="flex items-center gap-3 flex-shrink-0 ml-3">
                       {/* 콜백 상태 */}
                       <div className="text-right">
-                        {item.patient.status === 'closed' ? (
-                          <div className="flex items-center gap-1 text-xs text-gray-500 bg-gray-100 border border-gray-200 rounded-full px-2 py-1">
-                            <XCircle className="w-3 h-3" />
-                            <span>종결</span>
-                          </div>
-                        ) : item.patient.hasActiveCallback ? (
-                          <div className="flex items-center gap-1 text-xs text-green-700 bg-green-50 border border-green-200 rounded-full px-2 py-1">
-                            <CheckCircle2 className="w-3 h-3" />
-                            <span>콜백 {item.patient.nextCallbackDate
-                              ? formatShortDate(item.patient.nextCallbackDate)
-                              : '등록됨'
-                            }</span>
-                          </div>
-                        ) : (
-                          <button
-                            onClick={(e) => handleRegisterCallback(item.patient, e)}
-                            disabled={registeringCallback === item.patient.patientId}
-                            className="flex items-center gap-1 text-xs text-amber-700 bg-amber-50 border border-amber-300 rounded-full px-2 py-1 hover:bg-amber-100 transition-colors no-print"
-                          >
-                            <AlertCircle className="w-3 h-3" />
-                            {registeringCallback === item.patient.patientId ? '등록중...' : '콜백 미등록'}
-                          </button>
-                        )}
+                        {(() => {
+                          const justRegistered = registeredCallbacks.get(item.patient.patientId);
+                          const hasCallback = item.patient.hasActiveCallback || !!justRegistered;
+                          const callbackDate = justRegistered || item.patient.nextCallbackDate;
+
+                          if (item.patient.status === 'closed') {
+                            return (
+                              <div className="flex items-center gap-1 text-xs text-gray-500 bg-gray-100 border border-gray-200 rounded-full px-2 py-1">
+                                <XCircle className="w-3 h-3" />
+                                <span>종결</span>
+                              </div>
+                            );
+                          }
+                          if (hasCallback) {
+                            return (
+                              <div className="flex items-center gap-1 text-xs text-green-700 bg-green-50 border border-green-200 rounded-full px-2 py-1">
+                                <CheckCircle2 className="w-3 h-3" />
+                                <span>콜백 {callbackDate
+                                  ? formatShortDate(callbackDate)
+                                  : '등록됨'
+                                }</span>
+                              </div>
+                            );
+                          }
+                          return (
+                            <button
+                              onClick={(e) => handleRegisterCallback(item.patient, e)}
+                              disabled={registeringCallback === item.patient.patientId}
+                              className="flex items-center gap-1 text-xs text-amber-700 bg-amber-50 border border-amber-300 rounded-full px-2 py-1 hover:bg-amber-100 transition-colors no-print"
+                            >
+                              <AlertCircle className="w-3 h-3" />
+                              {registeringCallback === item.patient.patientId ? '등록중...' : '콜백 미등록'}
+                            </button>
+                          );
+                        })()}
                       </div>
                       {/* 금액 + 상세 */}
                       <div className="text-right">
                         <div className="text-sm font-semibold text-gray-900">
-                          {formatAmount(item.patient.estimatedAmount)}원
+                          {formatAmount(item.patient.estimatedAmount)}
                         </div>
                         <a
                           href={`/v2/patients/${item.patient.patientId}`}
@@ -302,11 +296,11 @@ const MonthlyReportPatientConsultationTable: React.FC<MonthlyReportPatientConsul
                     </div>
                     <div className="flex items-center gap-4 text-xs text-gray-500">
                       {stageEstimated > 0 && (
-                        <span>정가 {formatAmount(stageEstimated)}원</span>
+                        <span>정가 {formatAmount(stageEstimated)}</span>
                       )}
                       {stageFinal > 0 && (
                         <>
-                          <span className="text-blue-600 font-medium">할인가 {formatAmount(stageFinal)}원</span>
+                          <span className="text-blue-600 font-medium">할인가 {formatAmount(stageFinal)}</span>
                           <span className="text-amber-600">
                             ({Math.round((1 - stageFinal / stageEstimated) * 100)}%↓)
                           </span>
@@ -338,13 +332,13 @@ const MonthlyReportPatientConsultationTable: React.FC<MonthlyReportPatientConsul
                           <div className="flex items-center gap-3 flex-shrink-0 ml-4">
                             {patient.estimatedAmount > 0 && (
                               <span className="text-xs text-gray-500">
-                                {formatAmount(patient.estimatedAmount)}원
+                                {formatAmount(patient.estimatedAmount)}
                               </span>
                             )}
                             {patient.finalAmount > 0 && patient.estimatedAmount > 0 && (
                               <>
                                 <span className="text-xs text-blue-600 font-medium">
-                                  → {formatAmount(patient.finalAmount)}원
+                                  → {formatAmount(patient.finalAmount)}
                                 </span>
                                 <span className="text-xs text-amber-600">
                                   ({Math.round((1 - patient.finalAmount / patient.estimatedAmount) * 100)}%↓)
@@ -374,12 +368,12 @@ const MonthlyReportPatientConsultationTable: React.FC<MonthlyReportPatientConsul
         {/* 합계 */}
         <div className="mt-4 flex justify-end gap-6 text-sm border-t pt-4">
           <div className="text-gray-600">
-            정가 합계: <span className="font-bold text-gray-900">{formatAmount(totalEstimated)}원</span>
+            정가 합계: <span className="font-bold text-gray-900">{formatAmount(totalEstimated)}</span>
           </div>
           {totalFinal > 0 && (
             <>
               <div className="text-gray-600">
-                할인가 합계: <span className="font-bold text-blue-700">{formatAmount(totalFinal)}원</span>
+                할인가 합계: <span className="font-bold text-blue-700">{formatAmount(totalFinal)}</span>
               </div>
               {totalEstimated > 0 && (
                 <div className="text-amber-600 font-medium">

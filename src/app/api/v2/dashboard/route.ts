@@ -331,7 +331,7 @@ export async function GET(request: NextRequest) {
     const thisMonthPaidCount = thisMonthRevenue.paidCount || 0;
     const lastMonthConfirmed = lastMonthRevenue.confirmedRevenue || 0;
 
-    // 할인율: 결제 환자의 정가 대비 실결제 비율
+    // 할인율: 결제 환자의 정가 대비 최종금액 비율
     const discountRate = thisMonthPaidEstimated > 0
       ? Math.round((1 - thisMonthConfirmed / thisMonthPaidEstimated) * 100)
       : 0;

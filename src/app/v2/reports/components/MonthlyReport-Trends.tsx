@@ -27,15 +27,7 @@ interface DailyChartItem {
   revenue: number;
 }
 
-// ============================================
-// Helpers
-// ============================================
-
-function formatAmount(amount: number): string {
-  if (amount >= 100000000) return `${(amount / 100000000).toFixed(1)}억원`;
-  if (amount >= 10000) return `${Math.round(amount / 10000).toLocaleString()}만원`;
-  return `${amount.toLocaleString()}원`;
-}
+import { formatAmount } from './MonthlyReport-Utils';
 
 function DailyTooltip({ active, payload, label }: any) {
   if (!active || !payload || payload.length === 0) return null;

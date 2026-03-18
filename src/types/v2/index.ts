@@ -29,6 +29,11 @@ export type ClosedReason =
   | '연락두절'
   | '연락거부'
   | '타병원이동'
+  | '비용부담'
+  | '상담미신청'
+  | '건강고령'
+  | '시간일정'
+  | '치료보류'
   | '기타';
 
 export type Temperature = 'hot' | 'warm' | 'cold';
@@ -80,7 +85,7 @@ export interface Journey {
   startedAt: Date | string;            // 여정 시작일
   closedAt?: Date | string;            // 여정 종료일
   estimatedAmount?: number;            // 예상 치료금액
-  actualAmount?: number;               // 실제 결제금액
+  actualAmount?: number;               // 최종금액 (할인 적용 후)
   paymentStatus?: PaymentStatus;       // 결제 상태
   treatmentNote?: string;              // 시술 내역 메모
   statusHistory?: StatusHistoryEntry[]; // 상태 변경 이력
@@ -152,6 +157,7 @@ export interface PatientV2 {
   interest?: string;
   interestDetail?: string;
   source: string;
+  consultationType?: string;     // 상담 유형 (인바운드, 아웃바운드, 구신환 등)
   referrerId?: string;
   aiRegistered: boolean;
   aiConfidence?: number;
@@ -173,7 +179,7 @@ export interface PatientV2 {
   };
   // 금액 관련 필드 (하위 호환성 - activeJourney와 동기화)
   estimatedAmount?: number;      // 예상 치료금액 (원)
-  actualAmount?: number;         // 실제 결제금액 (원)
+  actualAmount?: number;         // 최종금액 (할인 적용 후, 원)
   paymentStatus?: PaymentStatus; // 결제 상태
   treatmentNote?: string;        // 시술 내역 메모
   // 여정(Journey) 관련 필드
@@ -544,10 +550,14 @@ export const PATIENT_STATUS_CONFIG: StatusConfig = {
 };
 
 // 종결 사유 옵션
-export const CLOSED_REASON_OPTIONS: { value: ClosedReason; label: string }[] = [
-  { value: '거리멀음', label: '거리가 멀어요' },
-  { value: '연락두절', label: '연락 두절' },
-  { value: '연락거부', label: '연락 거부' },
-  { value: '타병원이동', label: '타병원 이동' },
-  { value: '기타', label: '기타' },
+export const CLOSED_REASON_OPTIONS: { value: ClosedReason; label: string; description: string }[] = [
+  { value: '거리멀음', label: '거리가 멀어요', description: '남양주까지 내원이 어려운 경우' },
+  { value: '연락두절', label: '수신거부/연락두절', description: '전화를 받지 않거나 거부하는 경우' },
+  { value: '타병원이동', label: '타병원 이동', description: '다른 치과에서 치료하기로 한 경우' },
+  { value: '비용부담', label: '비용 부담', description: '치료비가 부담되어 포기한 경우' },
+  { value: '상담미신청', label: '상담 미신청', description: '본인이 상담을 신청한 적 없는 경우' },
+  { value: '건강고령', label: '건강/고령', description: '건강 문제나 고령으로 치료가 어려운 경우' },
+  { value: '시간일정', label: '시간/일정', description: '업무나 일정상 내원이 어려운 경우' },
+  { value: '치료보류', label: '치료 보류', description: '당장은 치료 의지가 없어 보류하는 경우' },
+  { value: '기타', label: '기타', description: '위에 해당하지 않는 경우 (직접 입력)' },
 ];

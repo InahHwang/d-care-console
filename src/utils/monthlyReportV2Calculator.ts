@@ -14,6 +14,7 @@ import type {
   AgeDistributionItem,
   GenderStats,
   DemographicCrossItem,
+  ConsultationTypeROIItem,
   ChannelROIItem,
   TreatmentAnalysisItem,
   WeeklyPatternItem,
@@ -59,6 +60,7 @@ export async function calculateMonthlyStatsV2(
   const [
     patients, consultations, callLogs,
     prevPatients, prevConsultations, prevCallLogs,
+    categoriesDoc,
   ] = await Promise.all([
     // 현재 달
     db.collection<PatientV2>('patients_v2').find(
@@ -80,7 +82,22 @@ export async function calculateMonthlyStatsV2(
     db.collection<CallLogV2>('callLogs_v2').find(
       dateOrQuery('createdAt', prevStartDate, prevEndDate, prevStartDateStr, prevEndDateStr)
     ).toArray(),
+    // 카테고리 설정 (상담타입 ID→라벨 매핑용)
+    db.collection('settings').findOne({ type: 'categories' }),
   ]);
+
+  // 카테고리 ID → 라벨 매핑 빌드
+  const categoryLabelMap = new Map<string, string>();
+  if (categoriesDoc) {
+    for (const cat of ['consultationTypes', 'referralSources', 'interestedServices', 'treatmentTypes']) {
+      const items = (categoriesDoc as Record<string, any>)[cat];
+      if (Array.isArray(items)) {
+        for (const item of items) {
+          if (item.id && item.label) categoryLabelMap.set(item.id, item.label);
+        }
+      }
+    }
+  }
 
   // 현재 달 통계 계산
   const currentStats = computeRawStats(patients, consultations, callLogs, year, month, endDate);
@@ -97,7 +114,7 @@ export async function calculateMonthlyStatsV2(
   const revenueAnalysis = calculateRevenueAnalysis(patients, consultations);
 
   // 일별 추이
-  const dailyTrends = buildDailyTrends(callLogs, consultations, year, month, endDate);
+  const dailyTrends = buildDailyTrends(callLogs, patients, year, month, endDate);
 
   // 관심분야별 통계
   const interestBreakdown = buildInterestBreakdown(consultations);
@@ -109,6 +126,7 @@ export async function calculateMonthlyStatsV2(
   const ageDistribution = buildAgeDistribution(patients);
   const genderStats = buildGenderStatsData(patients);
   const demographicCrossAnalysis = buildDemographicCrossAnalysis(patients, consultations);
+  const consultationTypeROI = buildConsultationTypeROI(patients, categoryLabelMap);
   const channelROI = buildChannelROIStats(patients);
   const treatmentAnalysis = buildTreatmentAnalysis(patients, consultations);
   const weeklyPattern = buildWeeklyPattern(dailyTrends);
@@ -137,6 +155,7 @@ export async function calculateMonthlyStatsV2(
     ageDistribution,
     genderStats,
     demographicCrossAnalysis,
+    consultationTypeROI,
     channelROI,
     treatmentAnalysis,
     weeklyPattern,
@@ -409,6 +428,7 @@ export function buildPatientSummaries(
       fullConsultation: fullParts.join('\n\n') || '기록된 내용이 없습니다.',
       estimatedAmount,
       finalAmount,
+      paymentStatus: patient.paymentStatus || 'none',
       hasPhoneConsultation: phoneConsults.length > 0,
       hasVisitConsultation: visitConsults.length > 0,
       consultationType,
@@ -475,7 +495,7 @@ export function calculateRevenueAnalysis(
 
   const totalPotentialAmount = achievedAmount + consultingOngoingAmount + visitManagementAmount + consultingLostAmount + visitLostAmount;
 
-  // 할인율: 결제 환자의 견적 대비 실결제
+  // 할인율: 결제 환자의 견적 대비 최종금액
   const discountRate = achievedEstimated > 0
     ? Math.round((1 - achievedAmount / achievedEstimated) * 100)
     : 0;
@@ -546,8 +566,14 @@ function buildRegionStats(patients: PatientV2[]): RegionStatV2[] {
   const total = patients.length;
 
   for (const p of patients) {
-    // 환자에 region 필드가 있으면 우선 사용
-    const region = p.region || estimateRegionFromPhone(p.phone);
+    // region이 객체({province, city})인 경우 문자열로 변환
+    let region: string;
+    if (p.region && typeof p.region === 'object') {
+      const r = p.region as { province?: string; city?: string };
+      region = [r.province, r.city].filter(Boolean).join(' ') || '미확인';
+    } else {
+      region = (p.region as string) || estimateRegionFromPhone(p.phone);
+    }
     regionCounts[region] = (regionCounts[region] || 0) + 1;
   }
 
@@ -691,7 +717,7 @@ function buildProgressStats(patients: PatientV2[]): Record<PatientStatus, number
 
 function buildDailyTrends(
   callLogs: CallLogV2[],
-  consultations: ConsultationV2[],
+  patients: PatientV2[],
   year: number,
   month: number,
   endDate: Date,
@@ -718,13 +744,16 @@ function buildDailyTrends(
     }
   }
 
-  // 상담 집계
-  for (const consult of consultations) {
-    const dateStr = new Date(consult.date).toISOString().split('T')[0];
-    const daily = dailyMap.get(dateStr);
-    if (daily && consult.status === 'agreed') {
-      daily.agreed++;
-      daily.revenue += consult.finalAmount || 0;
+  // 결제 환자 매출 집계 (환자 등록일 기준)
+  for (const p of patients) {
+    if (p.paymentStatus === 'partial' || p.paymentStatus === 'completed') {
+      const createdAt = typeof p.createdAt === 'string' ? p.createdAt : p.createdAt.toISOString();
+      const dateStr = createdAt.split('T')[0];
+      const daily = dailyMap.get(dateStr);
+      if (daily) {
+        daily.agreed++;
+        daily.revenue += p.actualAmount || 0;
+      }
     }
   }
 
@@ -885,6 +914,63 @@ function getAgeBracket(age: number): string {
 // 채널 ROI 분석
 // ============================================
 
+// ============================================
+// 상담타입 ROI 분석
+// ============================================
+
+function buildConsultationTypeROI(
+  patients: PatientV2[],
+  labelMap: Map<string, string>,
+): ConsultationTypeROIItem[] {
+  const typeMap = new Map<string, {
+    count: number;
+    reservedCount: number;
+    visitedCount: number;
+    paidCount: number;
+    totalRevenue: number;
+  }>();
+
+  for (const p of patients) {
+    const rawType = p.consultationType || '미분류';
+    const type = labelMap.get(rawType) || rawType;
+    if (!typeMap.has(type)) {
+      typeMap.set(type, { count: 0, reservedCount: 0, visitedCount: 0, paidCount: 0, totalRevenue: 0 });
+    }
+    const t = typeMap.get(type)!;
+    t.count++;
+
+    if (RESERVED_OR_ABOVE.includes(p.status) || hasReachedStatus(p, RESERVED_OR_ABOVE)) {
+      t.reservedCount++;
+    }
+    if (VISITED_OR_ABOVE.includes(p.status) || hasReachedStatus(p, VISITED_OR_ABOVE)) {
+      t.visitedCount++;
+    }
+    if (p.paymentStatus === 'partial' || p.paymentStatus === 'completed') {
+      t.paidCount++;
+      t.totalRevenue += p.actualAmount || 0;
+    }
+  }
+
+  return Array.from(typeMap.entries())
+    .map(([type, data]) => ({
+      type,
+      count: data.count,
+      reservedCount: data.reservedCount,
+      visitedCount: data.visitedCount,
+      paidCount: data.paidCount,
+      reservedRate: data.count > 0 ? Math.round((data.reservedCount / data.count) * 1000) / 10 : 0,
+      visitedRate: data.count > 0 ? Math.round((data.visitedCount / data.count) * 1000) / 10 : 0,
+      paidRate: data.count > 0 ? Math.round((data.paidCount / data.count) * 1000) / 10 : 0,
+      totalRevenue: data.totalRevenue,
+      avgDealSize: data.paidCount > 0 ? Math.round(data.totalRevenue / data.paidCount) : 0,
+    }))
+    .sort((a, b) => b.count - a.count);
+}
+
+// ============================================
+// 채널 ROI 분석
+// ============================================
+
 function buildChannelROIStats(patients: PatientV2[]): ChannelROIItem[] {
   const channelMap = new Map<string, {
     count: number;
@@ -938,7 +1024,38 @@ function buildTreatmentAnalysis(
   patients: PatientV2[],
   consultations: ConsultationV2[],
 ): TreatmentAnalysisItem[] {
-  // 환자별 치료관심 매핑
+  // 치료별 집계
+  const treatmentMap = new Map<string, {
+    totalCount: number;
+    paidCount: number;
+    totalRevenue: number;
+    disagreeReasonsMap: Map<string, number>;
+  }>();
+
+  // 1. 환자 데이터 기반 — 문의수 + 확정매출(결제상태 기준)
+  for (const p of patients) {
+    const treatment =
+      p.journeys?.find((j) => j.isActive)?.treatmentType ||
+      p.interest ||
+      '기타';
+
+    if (!treatmentMap.has(treatment)) {
+      treatmentMap.set(treatment, {
+        totalCount: 0, paidCount: 0, totalRevenue: 0,
+        disagreeReasonsMap: new Map(),
+      });
+    }
+    const t = treatmentMap.get(treatment)!;
+    t.totalCount++;
+
+    // 확정매출: paymentStatus 기준 (대시보드와 동일)
+    if (p.paymentStatus === 'partial' || p.paymentStatus === 'completed') {
+      t.paidCount++;
+      t.totalRevenue += p.actualAmount || 0;
+    }
+  }
+
+  // 2. 상담 기록에서 미동의 사유만 추가 수집
   const patientInterest = new Map<string, string>();
   for (const p of patients) {
     const pid = p._id?.toString() || '';
@@ -949,30 +1066,16 @@ function buildTreatmentAnalysis(
     patientInterest.set(pid, interest);
   }
 
-  // 치료별 집계
-  const treatmentMap = new Map<string, {
-    totalCount: number;
-    agreedCount: number;
-    totalRevenue: number;
-    disagreeReasonsMap: Map<string, number>;
-  }>();
-
   for (const c of consultations) {
-    const treatment = c.treatment || patientInterest.get(c.patientId) || '기타';
-    if (!treatmentMap.has(treatment)) {
-      treatmentMap.set(treatment, {
-        totalCount: 0, agreedCount: 0, totalRevenue: 0,
-        disagreeReasonsMap: new Map(),
-      });
-    }
-    const t = treatmentMap.get(treatment)!;
-    t.totalCount++;
-
-    if (c.status === 'agreed') {
-      t.agreedCount++;
-      t.totalRevenue += c.finalAmount || 0;
-    }
     if (c.status === 'disagreed' && c.disagreeReasons) {
+      const treatment = c.treatment || patientInterest.get(c.patientId) || '기타';
+      if (!treatmentMap.has(treatment)) {
+        treatmentMap.set(treatment, {
+          totalCount: 0, paidCount: 0, totalRevenue: 0,
+          disagreeReasonsMap: new Map(),
+        });
+      }
+      const t = treatmentMap.get(treatment)!;
       for (const reason of c.disagreeReasons) {
         t.disagreeReasonsMap.set(reason, (t.disagreeReasonsMap.get(reason) || 0) + 1);
       }
@@ -983,11 +1086,11 @@ function buildTreatmentAnalysis(
     .map(([treatment, data]) => ({
       treatment,
       totalCount: data.totalCount,
-      agreedCount: data.agreedCount,
+      agreedCount: data.paidCount,
       conversionRate: data.totalCount > 0
-        ? Math.round((data.agreedCount / data.totalCount) * 1000) / 10 : 0,
+        ? Math.round((data.paidCount / data.totalCount) * 1000) / 10 : 0,
       totalRevenue: data.totalRevenue,
-      avgDealSize: data.agreedCount > 0 ? Math.round(data.totalRevenue / data.agreedCount) : 0,
+      avgDealSize: data.paidCount > 0 ? Math.round(data.totalRevenue / data.paidCount) : 0,
       disagreeReasons: Array.from(data.disagreeReasonsMap.entries())
         .map(([reason, count]) => ({ reason, count }))
         .sort((a, b) => b.count - a.count),
@@ -1034,15 +1137,36 @@ function buildWeeklyPattern(
 // 종결 사유 통계
 // ============================================
 
+/** 종결 사유를 표준 라벨로 정규화 (기존 데이터 호환) */
+const CLOSED_REASON_LABEL_MAP: Record<string, string> = {
+  '거리멀음': '거리가 멀어요',
+  '연락두절': '수신거부/연락두절',
+  '연락거부': '수신거부/연락두절',  // 기존 값 통합
+  '타병원이동': '타병원 이동',
+  '비용부담': '비용 부담',
+  '상담미신청': '상담 미신청',
+  '건강고령': '건강/고령',
+  '시간일정': '시간/일정',
+  '치료보류': '치료 보류',
+};
+
 function buildClosedReasonStats(patients: PatientV2[]): ClosedReasonStatItem[] {
   const closed = patients.filter((p) => p.status === 'closed');
   const reasonMap = new Map<string, number>();
 
   for (const p of closed) {
-    // statusHistory에서 closed 전환 기록의 reason 추출
     const closedEntry = p.statusHistory?.find((h) => h.to === 'closed');
     const reason = closedEntry?.reason || '미분류';
-    const label = reason === '기타' && closedEntry?.customReason ? closedEntry.customReason : reason;
+
+    let label: string;
+    if (reason === '기타' && closedEntry?.customReason) {
+      // 기타 직접 입력은 그대로 표시
+      label = closedEntry.customReason;
+    } else {
+      // 선택지 값을 한글 라벨로 변환
+      label = CLOSED_REASON_LABEL_MAP[reason] || reason;
+    }
+
     reasonMap.set(label, (reasonMap.get(label) || 0) + 1);
   }
 

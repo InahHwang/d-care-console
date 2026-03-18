@@ -7,8 +7,7 @@ import { XCircle, AlertTriangle } from 'lucide-react';
 import type { MonthlyStatsV2 } from './MonthlyReport-Types';
 
 const {
-  BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer,
-  PieChart, Pie, Cell, Legend,
+  BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer, Cell,
 } = require('recharts') as any;
 
 // ============================================
@@ -24,7 +23,7 @@ interface MonthlyReportDisagreeAnalysisProps {
 // ============================================
 
 const BAR_COLORS = ['#EF4444', '#F97316', '#FB923C', '#FDBA74', '#FED7AA'];
-const PIE_COLORS = ['#EF4444', '#F97316', '#F59E0B', '#6B7280', '#9CA3AF'];
+const CLOSED_BAR_COLORS = ['#6B7280', '#9CA3AF', '#D1D5DB', '#E5E7EB', '#F3F4F6'];
 
 // ============================================
 // Helpers
@@ -41,15 +40,20 @@ function DisagreeBarTooltip({ active, payload }: any) {
   );
 }
 
-function ClosedPieTooltip({ active, payload }: any) {
+function ClosedBarTooltip({ active, payload }: any) {
   if (!active || !payload || payload.length === 0) return null;
-  const item = payload[0];
+  const data = payload[0]?.payload;
   return (
     <div className="bg-white border rounded-lg shadow-lg p-3 text-sm">
-      <p className="font-semibold text-gray-900">{item.name}</p>
-      <p className="text-gray-600">{item.value}건 ({(item.payload?.percentage ?? 0).toFixed(1)}%)</p>
+      <p className="font-semibold text-gray-900">{data?.reason}</p>
+      <p className="text-gray-600">{data?.count}건 ({data?.percentage}%)</p>
     </div>
   );
+}
+
+/** 긴 사유명을 최대 길이로 자르기 */
+function truncateReason(reason: string, maxLen: number = 12): string {
+  return reason.length > maxLen ? reason.slice(0, maxLen) + '…' : reason;
 }
 
 // ============================================
@@ -73,14 +77,33 @@ const MonthlyReportDisagreeAnalysis: React.FC<MonthlyReportDisagreeAnalysisProps
     return disagreeReasons.reduce((sum, r) => sum + r.count, 0);
   }, [disagreeReasons]);
 
-  // 종결 사유 파이차트 데이터
-  const closedPieData = useMemo(() => {
+  // 종결 사유 바차트 데이터 (상위 8개 + 나머지 기타로 묶기)
+  const closedChartData = useMemo(() => {
     if (!closedReasonStats || closedReasonStats.length === 0) return [];
-    return closedReasonStats.map((c) => ({
-      name: c.reason,
-      value: c.count,
-      percentage: c.percentage,
-    }));
+
+    const MAX_ITEMS = 8;
+    if (closedReasonStats.length <= MAX_ITEMS) {
+      return closedReasonStats.map((c) => ({
+        reason: c.reason,
+        count: c.count,
+        percentage: c.percentage,
+      }));
+    }
+
+    const top = closedReasonStats.slice(0, MAX_ITEMS);
+    const rest = closedReasonStats.slice(MAX_ITEMS);
+    const restCount = rest.reduce((sum, c) => sum + c.count, 0);
+    const totalClosed = closedReasonStats.reduce((sum, c) => sum + c.count, 0);
+
+    return [
+      ...top.map((c) => ({ reason: c.reason, count: c.count, percentage: c.percentage })),
+      { reason: '기타', count: restCount, percentage: totalClosed > 0 ? Math.round((restCount / totalClosed) * 1000) / 10 : 0 },
+    ];
+  }, [closedReasonStats]);
+
+  const totalClosedCount = useMemo(() => {
+    if (!closedReasonStats) return 0;
+    return closedReasonStats.reduce((sum, c) => sum + c.count, 0);
   }, [closedReasonStats]);
 
   // 치료별 미동의 사유 교차분석 (상위 3개 치료)
@@ -174,39 +197,57 @@ const MonthlyReportDisagreeAnalysis: React.FC<MonthlyReportDisagreeAnalysisProps
                 )}
               </div>
 
-              {/* 오른쪽: 종결 사유 파이차트 */}
+              {/* 오른쪽: 종결 사유 가로 바차트 */}
               <div>
                 <h3 className="text-sm font-semibold text-gray-700 mb-3 flex items-center gap-1">
                   <XCircle className="w-4 h-4 text-gray-500" />
                   종결 사유
+                  {totalClosedCount > 0 && (
+                    <span className="text-xs text-gray-400 ml-1">({totalClosedCount}건)</span>
+                  )}
                 </h3>
-                {closedPieData.length > 0 ? (
-                  <ResponsiveContainer width="100%" height={250}>
-                    <PieChart>
-                      <Pie
-                        data={closedPieData}
-                        cx="50%"
-                        cy="50%"
-                        innerRadius={45}
-                        outerRadius={80}
-                        paddingAngle={2}
-                        dataKey="value"
-                        nameKey="name"
-                        label={({ name, percentage }: any) =>
-                          `${name} ${percentage.toFixed(0)}%`
-                        }
-                        labelLine={{ strokeWidth: 1 }}
+                {closedChartData.length > 0 ? (
+                  <ResponsiveContainer width="100%" height={Math.max(closedChartData.length * 40 + 20, 150)}>
+                    <BarChart
+                      data={closedChartData}
+                      layout="vertical"
+                      margin={{ top: 5, right: 50, left: 10, bottom: 5 }}
+                    >
+                      <XAxis type="number" tick={{ fontSize: 11 }} allowDecimals={false} />
+                      <YAxis
+                        type="category"
+                        dataKey="reason"
+                        tick={{ fontSize: 12 }}
+                        tickFormatter={(v: string) => truncateReason(v)}
+                        width={100}
+                      />
+                      <Tooltip content={<ClosedBarTooltip />} />
+                      <Bar
+                        dataKey="count"
+                        radius={[0, 4, 4, 0]}
+                        barSize={20}
+                        label={({ x, y, width, height, index }: any) => {
+                          const pct = closedChartData[index]?.percentage ?? 0;
+                          return (
+                            <text
+                              x={x + width + 5}
+                              y={y + height / 2 + 4}
+                              fontSize={11}
+                              fill="#6B7280"
+                            >
+                              {pct}%
+                            </text>
+                          );
+                        }}
                       >
-                        {closedPieData.map((_: any, i: number) => (
-                          <Cell key={i} fill={PIE_COLORS[i % PIE_COLORS.length]} />
+                        {closedChartData.map((_: any, i: number) => (
+                          <Cell key={i} fill={CLOSED_BAR_COLORS[i % CLOSED_BAR_COLORS.length]} />
                         ))}
-                      </Pie>
-                      <Tooltip content={<ClosedPieTooltip />} />
-                      <Legend wrapperStyle={{ fontSize: 12 }} />
-                    </PieChart>
+                      </Bar>
+                    </BarChart>
                   </ResponsiveContainer>
                 ) : (
-                  <div className="flex items-center justify-center h-[250px] bg-gray-50 rounded-lg border border-dashed border-gray-300">
+                  <div className="flex items-center justify-center h-[150px] bg-gray-50 rounded-lg border border-dashed border-gray-300">
                     <p className="text-sm text-gray-400">데이터 새로고침 필요</p>
                   </div>
                 )}

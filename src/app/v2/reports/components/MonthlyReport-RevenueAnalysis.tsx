@@ -1,13 +1,14 @@
 // src/app/v2/reports/components/MonthlyReport-RevenueAnalysis.tsx
-// V2 매출 현황 분석 - 도넛차트 + 달성/잠재/손실 + 할인율/객단가 + 누적매출
+// V2 매출 현황 분석 - 도넛차트 + 달성/잠재/손실 + 할인율/객단가 + 누적매출 + 환자 명단
 'use client';
 
 import React, { useState, useMemo } from 'react';
 import {
   BarChart3, CheckCircle, Clock, XCircle,
-  ChevronDown, ChevronRight, TrendingDown, Lightbulb,
+  ChevronDown, ChevronRight, TrendingDown, Lightbulb, ExternalLink,
 } from 'lucide-react';
-import type { MonthlyStatsV2, RevenueAnalysisV2 } from './MonthlyReport-Types';
+import type { MonthlyStatsV2, RevenueAnalysisV2, PatientSummaryV2 } from './MonthlyReport-Types';
+import { formatAmount } from './MonthlyReport-Utils';
 
 const {
   PieChart, Pie, Cell, ResponsiveContainer, Tooltip,
@@ -21,19 +22,45 @@ const {
 interface MonthlyReportRevenueAnalysisProps {
   revenueAnalysis: RevenueAnalysisV2;
   dailyTrends?: MonthlyStatsV2['dailyTrends'];
+  patientSummaries?: PatientSummaryV2[];
 }
+
+type DetailCategory = 'consultingOngoing' | 'visitManagement' | 'consultingLost' | 'visitLost' | null;
 
 const DONUT_COLORS = ['#10B981', '#3B82F6', '#EF4444'];
 
-function formatAmount(amount: number): string {
-  if (amount >= 100000000) {
-    const value = parseFloat((amount / 100000000).toFixed(2));
-    return `${value}억원`;
-  }
-  if (amount >= 10000) {
-    return `${Math.round(amount / 10000).toLocaleString()}만원`;
-  }
-  return `${amount.toLocaleString()}원`;
+// ============================================
+// 환자 분류 헬퍼
+// ============================================
+
+function categorizePatients(patients: PatientSummaryV2[]) {
+  const isPaid = (p: PatientSummaryV2) =>
+    p.paymentStatus === 'partial' || p.paymentStatus === 'completed' ||
+    (!p.paymentStatus && p.finalAmount > 0 && (p.status === 'treatment' || p.status === 'completed'));
+
+  // 잠재 - 아직 안 오신 환자 (consulting/reserved + 미결제)
+  const consultingOngoing = patients.filter((p) =>
+    !isPaid(p) && p.status !== 'closed' &&
+    (p.status === 'consulting' || p.status === 'reserved')
+  );
+
+  // 잠재 - 왔지만 미결제 (visited 이상 + 미결제, closed 제외)
+  const visitManagement = patients.filter((p) =>
+    !isPaid(p) && p.status !== 'closed' &&
+    p.status !== 'consulting' && p.status !== 'reserved'
+  );
+
+  // 손실 - 방문 전 이탈 (closed + 내원 이력 없음)
+  const consultingLost = patients.filter((p) =>
+    p.status === 'closed' && !p.hasVisitConsultation
+  );
+
+  // 손실 - 방문 후 이탈 (closed + 내원 이력 있음)
+  const visitLost = patients.filter((p) =>
+    p.status === 'closed' && p.hasVisitConsultation
+  );
+
+  return { consultingOngoing, visitManagement, consultingLost, visitLost };
 }
 
 // ============================================
@@ -62,15 +89,78 @@ function RevenueTooltip({ active, payload, label }: any) {
 }
 
 // ============================================
+// 환자 목록 서브 컴포넌트
+// ============================================
+
+function PatientList({ patients, color }: { patients: PatientSummaryV2[]; color: 'blue' | 'red' }) {
+  if (patients.length === 0) return null;
+
+  const borderColor = color === 'blue' ? 'border-blue-100' : 'border-red-100';
+  const hoverColor = color === 'blue' ? 'hover:bg-blue-50' : 'hover:bg-red-50';
+
+  return (
+    <div className={`mt-3 border ${borderColor} rounded-lg overflow-hidden`}>
+      <div className="divide-y divide-gray-100">
+        {patients
+          .sort((a, b) => (b.estimatedAmount || 0) - (a.estimatedAmount || 0))
+          .map((p) => (
+          <div
+            key={p.patientId}
+            className={`flex items-center justify-between px-3 py-2 ${hoverColor} transition-colors`}
+          >
+            <div className="flex-1 min-w-0">
+              <div className="flex items-center gap-2">
+                <span className="text-sm font-medium text-gray-900">{p.name}</span>
+                {p.age && <span className="text-xs text-gray-400">{p.age}세</span>}
+                <span className="text-xs text-gray-500">{p.interest || '미분류'}</span>
+              </div>
+              {p.consultationSummary && (
+                <div className="text-xs text-gray-400 truncate mt-0.5">{p.consultationSummary}</div>
+              )}
+            </div>
+            <div className="flex items-center gap-2 flex-shrink-0 ml-3">
+              {p.estimatedAmount > 0 && (
+                <span className="text-xs font-medium text-gray-600">
+                  {formatAmount(p.estimatedAmount)}
+                </span>
+              )}
+              <a
+                href={`/v2/patients/${p.patientId}`}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="p-1 text-gray-400 hover:text-blue-600 rounded"
+              >
+                <ExternalLink className="w-3.5 h-3.5" />
+              </a>
+            </div>
+          </div>
+        ))}
+      </div>
+    </div>
+  );
+}
+
+// ============================================
 // 메인 컴포넌트
 // ============================================
 
 const MonthlyReportRevenueAnalysis: React.FC<MonthlyReportRevenueAnalysisProps> = ({
   revenueAnalysis,
   dailyTrends,
+  patientSummaries,
 }) => {
   const [showDetails, setShowDetails] = useState(false);
+  const [expandedCategory, setExpandedCategory] = useState<DetailCategory>(null);
   const { achieved, potential, lost, summary } = revenueAnalysis;
+
+  const categorized = useMemo(
+    () => patientSummaries ? categorizePatients(patientSummaries) : null,
+    [patientSummaries]
+  );
+
+  const toggleCategory = (cat: DetailCategory) => {
+    setExpandedCategory((prev) => prev === cat ? null : cat);
+  };
 
   // 도넛 차트 데이터
   const donutData = useMemo(() => [
@@ -144,7 +234,6 @@ const MonthlyReportRevenueAnalysis: React.FC<MonthlyReportRevenueAnalysisProps> 
 
           {/* 3분류 카드 */}
           <div className="flex-1 grid grid-cols-1 md:grid-cols-3 gap-3">
-            {/* 확정매출 */}
             <div className="bg-emerald-50 border border-emerald-200 rounded-lg p-4">
               <div className="flex items-center gap-2 mb-2">
                 <CheckCircle className="w-4 h-4 text-emerald-600" />
@@ -153,12 +242,13 @@ const MonthlyReportRevenueAnalysis: React.FC<MonthlyReportRevenueAnalysisProps> 
               <div className="text-2xl font-bold text-emerald-900 mb-1">
                 {formatAmount(achieved.amount)}
               </div>
-              <div className="text-xs text-emerald-700">
+              <div className="text-xs text-emerald-700 mb-1">
                 {achieved.patients}명 ({achieved.percentage}%)
               </div>
+              <div className="text-xs text-emerald-600/70">
+                결제 완료된 최종금액 합계
+              </div>
             </div>
-
-            {/* 잠재매출 */}
             <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
               <div className="flex items-center gap-2 mb-2">
                 <Clock className="w-4 h-4 text-blue-600" />
@@ -167,12 +257,13 @@ const MonthlyReportRevenueAnalysis: React.FC<MonthlyReportRevenueAnalysisProps> 
               <div className="text-2xl font-bold text-blue-900 mb-1">
                 {formatAmount(potential.totalAmount)}
               </div>
-              <div className="text-xs text-blue-700">
+              <div className="text-xs text-blue-700 mb-1">
                 {potential.totalPatients}명 ({potential.percentage}%)
               </div>
+              <div className="text-xs text-blue-600/70">
+                미결제 환자의 원래금액 합계
+              </div>
             </div>
-
-            {/* 손실매출 */}
             <div className="bg-red-50 border border-red-200 rounded-lg p-4">
               <div className="flex items-center gap-2 mb-2">
                 <XCircle className="w-4 h-4 text-red-600" />
@@ -181,8 +272,11 @@ const MonthlyReportRevenueAnalysis: React.FC<MonthlyReportRevenueAnalysisProps> 
               <div className="text-2xl font-bold text-red-900 mb-1">
                 {formatAmount(lost.totalAmount)}
               </div>
-              <div className="text-xs text-red-700">
+              <div className="text-xs text-red-700 mb-1">
                 {lost.totalPatients}명 ({lost.percentage}%)
+              </div>
+              <div className="text-xs text-red-600/70">
+                종결 환자의 원래금액 합계
               </div>
             </div>
           </div>
@@ -208,8 +302,9 @@ const MonthlyReportRevenueAnalysis: React.FC<MonthlyReportRevenueAnalysisProps> 
           </div>
           <div className="text-gray-300">|</div>
           <div className="flex items-center gap-2 text-sm">
-            <span className="text-gray-500">매출 달성율</span>
+            <span className="text-gray-500">매출 회수율</span>
             <span className="font-semibold text-gray-900">{summary.achievementRate}%</span>
+            <span className="text-xs text-gray-400">전체 문의금액 대비 결제 금액 비율</span>
           </div>
         </div>
 
@@ -275,49 +370,82 @@ const MonthlyReportRevenueAnalysis: React.FC<MonthlyReportRevenueAnalysisProps> 
 
         {showDetails && (
           <div className="space-y-4">
-            {/* 잠재매출 세부 - 아직 전환 가능한 환자들 */}
+            {/* 잠재매출 세부 */}
             <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
               <h4 className="text-sm font-semibold text-blue-900 mb-3 flex items-center gap-2">
                 <Clock className="w-4 h-4" />
                 아직 전환 가능한 환자 ({potential.totalPatients}명)
               </h4>
               <div className="grid grid-cols-2 gap-3 text-sm">
-                <div className="bg-white rounded-lg p-4 border border-blue-100">
-                  <div className="flex items-center gap-2 mb-2">
-                    <span className="text-lg">📞</span>
-                    <span className="font-medium text-blue-800">아직 안 오신 환자</span>
-                  </div>
-                  <div className="text-2xl font-bold text-blue-900 mb-1">
-                    {potential.consultingOngoing.patients}명
-                  </div>
-                  <div className="text-sm text-blue-700 mb-2">
-                    {formatAmount(potential.consultingOngoing.amount)}
-                  </div>
-                  <div className="text-xs text-gray-500 bg-gray-50 rounded px-2 py-1">
-                    전화상담 · 예약만 한 상태
-                  </div>
-                  <div className="text-xs text-blue-600 mt-2 font-medium">→ 내원 유도 필요</div>
+                {/* 아직 안 오신 환자 */}
+                <div>
+                  <button
+                    onClick={() => toggleCategory('consultingOngoing')}
+                    className="w-full bg-white rounded-lg p-4 border border-blue-100 text-left hover:shadow-sm transition-shadow"
+                  >
+                    <div className="flex items-center justify-between mb-2">
+                      <div className="flex items-center gap-2">
+                        <span className="text-lg">📞</span>
+                        <span className="font-medium text-blue-800">아직 안 오신 환자</span>
+                      </div>
+                      {categorized && categorized.consultingOngoing.length > 0 && (
+                        expandedCategory === 'consultingOngoing'
+                          ? <ChevronDown className="w-4 h-4 text-blue-400" />
+                          : <ChevronRight className="w-4 h-4 text-blue-400" />
+                      )}
+                    </div>
+                    <div className="text-2xl font-bold text-blue-900 mb-1">
+                      {potential.consultingOngoing.patients}명
+                    </div>
+                    <div className="text-sm text-blue-700 mb-2">
+                      {formatAmount(potential.consultingOngoing.amount)}
+                    </div>
+                    <div className="text-xs text-gray-500 bg-gray-50 rounded px-2 py-1">
+                      전화상담 · 예약만 한 상태
+                    </div>
+                    <div className="text-xs text-blue-600 mt-2 font-medium">→ 내원 유도 필요</div>
+                  </button>
+                  {expandedCategory === 'consultingOngoing' && categorized && (
+                    <PatientList patients={categorized.consultingOngoing} color="blue" />
+                  )}
                 </div>
-                <div className="bg-white rounded-lg p-4 border border-blue-100">
-                  <div className="flex items-center gap-2 mb-2">
-                    <span className="text-lg">🏥</span>
-                    <span className="font-medium text-blue-800">왔지만 아직 미결제</span>
-                  </div>
-                  <div className="text-2xl font-bold text-blue-900 mb-1">
-                    {potential.visitManagement.patients}명
-                  </div>
-                  <div className="text-sm text-blue-700 mb-2">
-                    {formatAmount(potential.visitManagement.amount)}
-                  </div>
-                  <div className="text-xs text-gray-500 bg-gray-50 rounded px-2 py-1">
-                    내원 완료, 치료 결정 대기 중
-                  </div>
-                  <div className="text-xs text-blue-600 mt-2 font-medium">→ 치료 동의 유도 필요</div>
+
+                {/* 왔지만 아직 미결제 */}
+                <div>
+                  <button
+                    onClick={() => toggleCategory('visitManagement')}
+                    className="w-full bg-white rounded-lg p-4 border border-blue-100 text-left hover:shadow-sm transition-shadow"
+                  >
+                    <div className="flex items-center justify-between mb-2">
+                      <div className="flex items-center gap-2">
+                        <span className="text-lg">🏥</span>
+                        <span className="font-medium text-blue-800">왔지만 아직 미결제</span>
+                      </div>
+                      {categorized && categorized.visitManagement.length > 0 && (
+                        expandedCategory === 'visitManagement'
+                          ? <ChevronDown className="w-4 h-4 text-blue-400" />
+                          : <ChevronRight className="w-4 h-4 text-blue-400" />
+                      )}
+                    </div>
+                    <div className="text-2xl font-bold text-blue-900 mb-1">
+                      {potential.visitManagement.patients}명
+                    </div>
+                    <div className="text-sm text-blue-700 mb-2">
+                      {formatAmount(potential.visitManagement.amount)}
+                    </div>
+                    <div className="text-xs text-gray-500 bg-gray-50 rounded px-2 py-1">
+                      내원 완료, 치료 결정 대기 중
+                    </div>
+                    <div className="text-xs text-blue-600 mt-2 font-medium">→ 치료 동의 유도 필요</div>
+                  </button>
+                  {expandedCategory === 'visitManagement' && categorized && (
+                    <PatientList patients={categorized.visitManagement} color="blue" />
+                  )}
                 </div>
               </div>
             </div>
 
-            {/* 손실매출 세부 - 이탈한 환자들 */}
+            {/* 손실매출 세부 */}
             {lost.totalPatients > 0 && (
               <div className="bg-red-50 border border-red-200 rounded-lg p-4">
                 <h4 className="text-sm font-semibold text-red-900 mb-3 flex items-center gap-2">
@@ -325,37 +453,70 @@ const MonthlyReportRevenueAnalysis: React.FC<MonthlyReportRevenueAnalysisProps> 
                   이탈한 환자 ({lost.totalPatients}명)
                 </h4>
                 <div className="grid grid-cols-2 gap-3 text-sm">
-                  <div className="bg-white rounded-lg p-4 border border-red-100">
-                    <div className="flex items-center gap-2 mb-2">
-                      <span className="text-lg">🚪</span>
-                      <span className="font-medium text-red-800">방문 전 이탈</span>
-                    </div>
-                    <div className="text-2xl font-bold text-red-900 mb-1">
-                      {lost.consultingLost.patients}명
-                    </div>
-                    <div className="text-sm text-red-700 mb-2">
-                      {formatAmount(lost.consultingLost.amount)}
-                    </div>
-                    <div className="text-xs text-gray-500 bg-gray-50 rounded px-2 py-1">
-                      상담만 하고 내원하지 않은 환자
-                    </div>
-                    <div className="text-xs text-red-600 mt-2 font-medium">→ 재연락 검토</div>
+                  {/* 방문 전 이탈 */}
+                  <div>
+                    <button
+                      onClick={() => toggleCategory('consultingLost')}
+                      className="w-full bg-white rounded-lg p-4 border border-red-100 text-left hover:shadow-sm transition-shadow"
+                    >
+                      <div className="flex items-center justify-between mb-2">
+                        <div className="flex items-center gap-2">
+                          <span className="text-lg">🚪</span>
+                          <span className="font-medium text-red-800">방문 전 이탈</span>
+                        </div>
+                        {categorized && categorized.consultingLost.length > 0 && (
+                          expandedCategory === 'consultingLost'
+                            ? <ChevronDown className="w-4 h-4 text-red-400" />
+                            : <ChevronRight className="w-4 h-4 text-red-400" />
+                        )}
+                      </div>
+                      <div className="text-2xl font-bold text-red-900 mb-1">
+                        {lost.consultingLost.patients}명
+                      </div>
+                      <div className="text-sm text-red-700 mb-2">
+                        {formatAmount(lost.consultingLost.amount)}
+                      </div>
+                      <div className="text-xs text-gray-500 bg-gray-50 rounded px-2 py-1">
+                        상담만 하고 내원하지 않은 환자
+                      </div>
+                      <div className="text-xs text-red-600 mt-2 font-medium">→ 재연락 검토</div>
+                    </button>
+                    {expandedCategory === 'consultingLost' && categorized && (
+                      <PatientList patients={categorized.consultingLost} color="red" />
+                    )}
                   </div>
-                  <div className="bg-white rounded-lg p-4 border border-red-100">
-                    <div className="flex items-center gap-2 mb-2">
-                      <span className="text-lg">😔</span>
-                      <span className="font-medium text-red-800">방문 후 이탈</span>
-                    </div>
-                    <div className="text-2xl font-bold text-red-900 mb-1">
-                      {lost.visitLost.patients}명
-                    </div>
-                    <div className="text-sm text-red-700 mb-2">
-                      {formatAmount(lost.visitLost.amount)}
-                    </div>
-                    <div className="text-xs text-gray-500 bg-gray-50 rounded px-2 py-1">
-                      내원까지 했지만 치료 없이 종결
-                    </div>
-                    <div className="text-xs text-red-600 mt-2 font-medium">→ 원인 분석 및 재상담 검토</div>
+
+                  {/* 방문 후 이탈 */}
+                  <div>
+                    <button
+                      onClick={() => toggleCategory('visitLost')}
+                      className="w-full bg-white rounded-lg p-4 border border-red-100 text-left hover:shadow-sm transition-shadow"
+                    >
+                      <div className="flex items-center justify-between mb-2">
+                        <div className="flex items-center gap-2">
+                          <span className="text-lg">😔</span>
+                          <span className="font-medium text-red-800">방문 후 이탈</span>
+                        </div>
+                        {categorized && categorized.visitLost.length > 0 && (
+                          expandedCategory === 'visitLost'
+                            ? <ChevronDown className="w-4 h-4 text-red-400" />
+                            : <ChevronRight className="w-4 h-4 text-red-400" />
+                        )}
+                      </div>
+                      <div className="text-2xl font-bold text-red-900 mb-1">
+                        {lost.visitLost.patients}명
+                      </div>
+                      <div className="text-sm text-red-700 mb-2">
+                        {formatAmount(lost.visitLost.amount)}
+                      </div>
+                      <div className="text-xs text-gray-500 bg-gray-50 rounded px-2 py-1">
+                        내원까지 했지만 치료 없이 종결
+                      </div>
+                      <div className="text-xs text-red-600 mt-2 font-medium">→ 원인 분석 및 재상담 검토</div>
+                    </button>
+                    {expandedCategory === 'visitLost' && categorized && (
+                      <PatientList patients={categorized.visitLost} color="red" />
+                    )}
                   </div>
                 </div>
               </div>

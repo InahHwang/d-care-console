@@ -76,7 +76,7 @@ export function ClosePatientModal({
 
           <div className="mb-5">
             <p className="text-sm font-medium text-gray-700 mb-3">종결 사유를 선택해주세요</p>
-            <div className="space-y-2">
+            <div className="space-y-2 max-h-[320px] overflow-y-auto pr-1">
               {CLOSED_REASON_OPTIONS.map((option) => (
                 <button
                   key={option.value}
@@ -91,6 +91,9 @@ export function ClosePatientModal({
                     selectedReason === option.value ? 'text-gray-900' : 'text-gray-700'
                   }`}>
                     {option.label}
+                  </span>
+                  <span className="block text-xs text-gray-400 mt-0.5">
+                    {option.description}
                   </span>
                 </button>
               ))}

@@ -7,8 +7,15 @@ import type { MonthlyStatsV2 } from '@/app/v2/reports/components/MonthlyReport-T
 // Types
 // ============================================
 
+export interface AIInsightItem {
+  title: string;
+  detail: string;
+  action: string;
+}
+
 export interface AIInsightResult {
-  insights: string[];
+  insights: string[];           // 하위 호환 (레거시)
+  structuredInsights: AIInsightItem[];  // 구조화된 인사이트
   generatedAt: string;
   model: string;
 }
@@ -59,19 +66,21 @@ ${JSON.stringify(safeData, null, 2)}
 
 {
   "insights": [
-    "인사이트 1",
-    "인사이트 2"
+    {
+      "title": "핵심 요약 (한 줄)",
+      "detail": "데이터 근거와 분석 (수치 포함)",
+      "action": "구체적 실행 제안"
+    }
   ]
 }
 
 ## 인사이트 작성 가이드라인
 
 ### 작성 원칙
-1. **해석적 인사이트**: 단순 수치 나열이 아닌, "왜 그런가" + "어떻게 해야 하는가"를 포함
-2. **실행 가능한 제안**: 각 인사이트에 구체적인 액션 아이템 포함
-3. **데이터 근거 명시**: 반드시 관련 수치를 포함하여 설득력 확보
+1. **title**: 핵심 메시지를 한 줄로 요약 (예: "인바운드 문의 급감이 전체 실적 하락의 주원인")
+2. **detail**: 관련 수치와 팩트를 근거로 제시 (예: "인바운드 67% 감소, 전체 문의 32% 하락")
+3. **action**: 구체적이고 실행 가능한 제안 (예: "네이버 플레이스 리뷰 이벤트 + 블로그 콘텐츠 주 2회 발행")
 4. **한국어 작성**: 치과 업계 용어 사용, 존대말 없이 간결한 보고 문체
-5. **구분자 활용**: 데이터 팩트와 제안을 " — " (em dash)로 구분
 
 ### 반드시 포함할 분석 관점 (5~7개 생성)
 1. **채널 효율성**: 어떤 유입 채널이 가장 높은 ROI를 보이는지, 투자를 늘려야 할 채널과 줄여야 할 채널
@@ -79,16 +88,6 @@ ${JSON.stringify(safeData, null, 2)}
 3. **매출 기회**: 잠재환자 전환 시 추가 가능 매출, 고액 치료 전환율 분석
 4. **이탈 원인**: 미동의 사유와 종결 사유를 종합하여 해결 가능한 이탈 원인 제시
 5. **운영 최적화**: 요일별 패턴, 인력 배치, 피크타임 관리
-
-### 좋은 인사이트 예시
-- "소개 환자 전환율 47.4%로 전 채널 중 최고 — 소개 프로그램(리워드/감사카드) 강화 검토 필요"
-- "예약→내원 전환 32.5%로 병목 발생 — 예약 48시간 전 리마인드 콜 + 당일 확인 문자 도입 권고"
-- "가격 부담 미동의 42% — 3/6/12개월 무이자 분할납부 옵션 제안 시 전환 가능 환자 약 8명 추정"
-
-### 나쁜 인사이트 예시 (이렇게 하지 마세요)
-- "총 문의 45건, 전월 대비 3건 증가" (단순 수치 나열)
-- "전환율이 좋습니다" (구체적 수치 없음)
-- "마케팅을 강화하세요" (실행 방안 없음)
 
 JSON만 출력하세요.`;
 }
@@ -125,7 +124,7 @@ export async function generateAIInsights(
           content: prompt,
         },
       ],
-      max_completion_tokens: 1200,
+      max_completion_tokens: 3000,
     }),
   });
 
@@ -136,9 +135,13 @@ export async function generateAIInsights(
 
   const data = await response.json();
   const content = data.choices[0]?.message?.content;
+  const finishReason = data.choices[0]?.finish_reason;
+
+  console.log(`[AI Insights] finish_reason: ${finishReason}, content length: ${content?.length || 0}`);
 
   if (!content) {
-    throw new Error('OpenAI 응답이 비어있습니다.');
+    const refusal = data.choices[0]?.message?.refusal;
+    throw new Error(`OpenAI 응답이 비어있습니다. finish_reason: ${finishReason}, refusal: ${refusal || 'none'}`);
   }
 
   // JSON 파싱 (코드블록 래핑 대응)
@@ -150,8 +153,29 @@ export async function generateAIInsights(
 
   const result = JSON.parse(jsonStr);
 
+  // 구조화된 인사이트 파싱
+  const structuredInsights: AIInsightItem[] = [];
+  const flatInsights: string[] = [];
+
+  if (Array.isArray(result.insights)) {
+    for (const item of result.insights) {
+      if (typeof item === 'string') {
+        flatInsights.push(item);
+        structuredInsights.push({ title: item, detail: '', action: '' });
+      } else if (typeof item === 'object' && item !== null) {
+        const obj = item as Record<string, unknown>;
+        const title = String(obj.title || '');
+        const detail = String(obj.detail || obj.whatItMeans || obj.description || '');
+        const action = String(obj.action || obj.recommendation || '');
+        structuredInsights.push({ title, detail, action });
+        flatInsights.push([title, detail, action].filter(Boolean).join(' — '));
+      }
+    }
+  }
+
   return {
-    insights: Array.isArray(result.insights) ? result.insights.slice(0, 7) : [],
+    insights: flatInsights.slice(0, 7),
+    structuredInsights: structuredInsights.slice(0, 7),
     generatedAt: new Date().toISOString(),
     model: 'gpt-5.2',
   };

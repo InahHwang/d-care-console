@@ -219,7 +219,7 @@ function RegionDistribution({ stats }: { stats: MonthlyStatsV2 }) {
           <span className="w-6 h-6 bg-blue-100 text-blue-800 rounded-full flex items-center justify-center text-xs font-medium flex-shrink-0">
             {index + 1}
           </span>
-          <span className="text-sm text-gray-700 w-16 flex-shrink-0 truncate">
+          <span className="text-sm text-gray-700 w-24 flex-shrink-0">
             {region.region}
           </span>
           <div className="flex-1">
