@@ -1,6 +1,6 @@
 // src/app/api/v2/patients/route.ts
 import { NextRequest, NextResponse } from 'next/server';
-import { connectToDatabase } from '@/utils/mongodb';
+import { connectToDatabase, getClinicId } from '@/utils/mongodb';
 import { ObjectId } from 'mongodb';
 import { PatientStatus, Temperature, Journey } from '@/types/v2';
 import { z } from 'zod';
@@ -129,9 +129,10 @@ export async function GET(request: NextRequest) {
 
     const { db } = await connectToDatabase();
     const collection = db.collection('patients_v2');
+    const clinicId = getClinicId();
 
-    // 쿼리 빌드 (soft delete된 환자 제외)
-    const query: PatientQuery = { deletedAt: { $exists: false } } as PatientQuery;
+    // 쿼리 빌드 (soft delete된 환자 제외, clinicId 필터 적용)
+    const query: PatientQuery = { clinicId, deletedAt: { $exists: false } } as PatientQuery;
 
     if (status) {
       // 콤마 구분 다중 상태 지원 (대시보드 전환율 클릭 등)
@@ -323,6 +324,7 @@ export async function GET(request: NextRequest) {
 
     // 기간 필터가 적용된 환자들의 긴급 통계 계산 (종결 환자만 제외)
     const periodQuery: Record<string, unknown> = {
+      clinicId,
       status: { $nin: ['closed'] }
     };
     const periodStartDate = getPeriodStartDate(period);
@@ -529,9 +531,10 @@ export async function POST(request: NextRequest) {
 
     const { db } = await connectToDatabase();
     const collection = db.collection('patients_v2');
+    const clinicId = getClinicId();
 
-    // 중복 체크
-    const existing = await collection.findOne({ phone });
+    // 중복 체크 (같은 병원 내에서만)
+    const existing = await collection.findOne({ clinicId, phone });
     if (existing) {
       return NextResponse.json(
         { error: 'Patient with this phone number already exists', patientId: existing._id.toString() },
@@ -552,7 +555,7 @@ export async function POST(request: NextRequest) {
     } else {
       // 통화기록에서 첫 통화일 조회
       const firstCallLog = await db.collection('callLogs_v2')
-        .find({ phone })
+        .find({ clinicId, phone })
         .sort({ callTime: 1 })
         .limit(1)
         .toArray();
@@ -582,6 +585,7 @@ export async function POST(request: NextRequest) {
     };
 
     const newPatient: Record<string, unknown> = {
+      clinicId,
       name,
       phone,
       status: 'consulting' as PatientStatus,
@@ -624,7 +628,7 @@ export async function POST(request: NextRequest) {
     // 같은 전화번호의 모든 통화기록에 patientId 연결
     try {
       const callLogUpdateResult = await db.collection('callLogs_v2').updateMany(
-        { phone: phone },
+        { clinicId, phone: phone },
         { $set: { patientId: patientId } }
       );
       console.log(`[Patient POST] 통화기록 patientId 연결: ${callLogUpdateResult.modifiedCount}건 (전화번호: ${phone}, patientId: ${patientId})`);

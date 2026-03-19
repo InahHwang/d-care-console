@@ -29,9 +29,12 @@ import {
   MessageSquare,
   Plus,
   Clock,
+  Sparkles,
+  PhoneOff,
 } from 'lucide-react';
 import ManualSettings from '@/components/v2/settings/ManualSettings';
 import RecallSettings from '@/components/v2/settings/RecallSettings';
+import AIChatAdminPanel from '@/components/v2/settings/AIChat-AdminPanel';
 import { useAppSelector } from '@/hooks/reduxHooks';
 import { ROLE_CONFIG, INVITATION_STATUS_CONFIG } from '@/types/invitation';
 import type { UserRole, Invitation, InvitationStatus } from '@/types/invitation';
@@ -54,9 +57,10 @@ interface SettingsData {
     recipients: string[];
     schedule: Record<string, { enabled: boolean; time: string }>;
   };
+  excludedPhones?: string[];
 }
 
-type TabType = 'general' | 'categories' | 'manuals' | 'recall' | 'users' | 'invitations';
+type TabType = 'general' | 'categories' | 'manuals' | 'recall' | 'users' | 'invitations' | 'ai-chat';
 
 export default function SettingsPage() {
   const { user: currentUser } = useAppSelector((state) => state.auth);
@@ -462,6 +466,17 @@ export default function SettingsPage() {
               <UserPlus className="w-4 h-4" />
               초대 관리
             </button>
+            <button
+              onClick={() => setActiveTab('ai-chat')}
+              className={`flex items-center gap-2 px-4 py-2 rounded-t-lg font-medium text-sm transition-colors ${
+                activeTab === 'ai-chat'
+                  ? 'bg-white border border-b-white border-gray-200 -mb-[3px] text-purple-600'
+                  : 'text-gray-500 hover:text-gray-700 hover:bg-gray-50'
+              }`}
+            >
+              <Sparkles className="w-4 h-4" />
+              AI 대화 관리
+            </button>
           </>
         )}
       </div>
@@ -816,6 +831,13 @@ export default function SettingsPage() {
         </div>
       )}
 
+      {/* AI 대화 관리 탭 (관리자만) */}
+      {activeTab === 'ai-chat' && isAdmin && (
+        <section className="bg-white rounded-xl border border-gray-100 p-6">
+          <AIChatAdminPanel />
+        </section>
+      )}
+
       {/* 일반 설정 탭 (관리자만) */}
       {activeTab === 'general' && isAdmin && (
         <>
@@ -928,6 +950,9 @@ export default function SettingsPage() {
         </div>
       </section>
 
+      {/* 통화기록 제외 번호 설정 */}
+      <ExcludedPhonesSection settings={settings} updateSettings={updateSettings} />
+
       {/* 일보고서 SMS 발송 설정 */}
       <DailyReportSmsSection settings={settings} updateSettings={updateSettings} />
 
@@ -958,6 +983,99 @@ export default function SettingsPage() {
         </>
       )}
     </div>
+  );
+}
+
+// 통화기록 제외 번호 설정 섹션
+function ExcludedPhonesSection({
+  settings,
+  updateSettings,
+}: {
+  settings: SettingsData;
+  updateSettings: (path: string, value: unknown) => void;
+}) {
+  const [newPhone, setNewPhone] = useState('');
+  const excludedPhones = settings.excludedPhones ?? [];
+
+  const handleAddPhone = () => {
+    const phone = newPhone.replace(/[^0-9]/g, '');
+    if (!phone || phone.length < 8) return;
+    if (excludedPhones.includes(phone)) {
+      setNewPhone('');
+      return;
+    }
+    updateSettings('excludedPhones', [...excludedPhones, phone]);
+    setNewPhone('');
+  };
+
+  const handleRemovePhone = (phone: string) => {
+    updateSettings('excludedPhones', excludedPhones.filter((p) => p !== phone));
+  };
+
+  const handleKeyDown = (e: React.KeyboardEvent) => {
+    if (e.key === 'Enter') {
+      e.preventDefault();
+      handleAddPhone();
+    }
+  };
+
+  // 전화번호 포맷팅 (표시용)
+  const formatDisplay = (phone: string) => {
+    if (phone.length === 11) return `${phone.slice(0, 3)}-${phone.slice(3, 7)}-${phone.slice(7)}`;
+    if (phone.length === 10) return `${phone.slice(0, 3)}-${phone.slice(3, 6)}-${phone.slice(6)}`;
+    if (phone.length === 9) return `${phone.slice(0, 2)}-${phone.slice(2, 5)}-${phone.slice(5)}`;
+    return phone;
+  };
+
+  return (
+    <section className="bg-white rounded-xl border border-gray-100 p-6">
+      <div className="flex items-center gap-2 text-gray-700 font-medium mb-2">
+        <PhoneOff className="w-5 h-5" />
+        통화기록 제외 번호
+      </div>
+      <p className="text-sm text-gray-500 mb-4">
+        등록된 번호의 수신/발신 통화는 통화기록에 남지 않습니다. (내부 전화, 테스트 번호 등)
+      </p>
+
+      <div className="flex gap-2 mb-4">
+        <input
+          type="text"
+          value={newPhone}
+          onChange={(e) => setNewPhone(e.target.value)}
+          onKeyDown={handleKeyDown}
+          placeholder="전화번호 입력 (숫자만)"
+          className="flex-1 max-w-xs border border-gray-200 rounded-lg px-3 py-2 text-sm"
+        />
+        <button
+          onClick={handleAddPhone}
+          className="flex items-center gap-1 px-4 py-2 bg-gray-100 hover:bg-gray-200 rounded-lg text-sm font-medium text-gray-700 transition-colors"
+        >
+          <Plus className="w-4 h-4" />
+          추가
+        </button>
+      </div>
+
+      {excludedPhones.length > 0 ? (
+        <div className="flex flex-wrap gap-2">
+          {excludedPhones.map((phone) => (
+            <div
+              key={phone}
+              className="flex items-center gap-2 bg-red-50 border border-red-200 rounded-lg px-3 py-1.5"
+            >
+              <span className="text-sm text-red-700 font-mono">{formatDisplay(phone)}</span>
+              <button
+                onClick={() => handleRemovePhone(phone)}
+                className="text-red-400 hover:text-red-600 transition-colors"
+              >
+                <X className="w-3.5 h-3.5" />
+              </button>
+            </div>
+          ))}
+        </div>
+      ) : (
+        <p className="text-sm text-gray-400">등록된 제외 번호가 없습니다.</p>
+      )}
+    </section>
   );
 }
 

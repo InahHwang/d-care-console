@@ -27,6 +27,7 @@ const settingsPatchSchema = z.object({
     recipients: z.array(z.string()),
     schedule: z.record(z.object({ enabled: z.boolean(), time: z.string() })),
   }).nullish(),
+  excludedPhones: z.array(z.string()).nullish(),
 }).passthrough();
 
 interface Settings {
@@ -127,6 +128,7 @@ export async function PATCH(request: NextRequest) {
     if (body.notifications !== undefined) updateData.notifications = body.notifications;
     if (body.targets !== undefined) updateData.targets = body.targets;
     if (body.dailyReportSms !== undefined) updateData.dailyReportSms = body.dailyReportSms;
+    if (body.excludedPhones !== undefined) updateData.excludedPhones = body.excludedPhones;
 
     const result = await db.collection<Settings>('settings_v2').findOneAndUpdate(
       { clinicId },

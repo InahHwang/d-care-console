@@ -306,9 +306,28 @@ git commit -m "[CTIBridge] 변경 내용 요약"
   - push(main, pre-commercialization-real) / PR(main) 시 자동 테스트 + 빌드
 
 #### Step 4: 멀티테넌시 - clinicId (리스크: 중간)
-- [ ] DB 쿼리에 clinicId 필터 추가 (한 API씩 점진적 적용)
-- ⚠️ 기존 데이터에 clinicId 없을 수 있음 → 마이그레이션 먼저 필요
-- ⚠️ Step 3 테스트 완료 후 진행할 것 (장애 리스크 30~40% → 10~15%로 감소)
+- [x] Step 4-1: DB 마이그레이션 완료 (`b1e1d60`, 2026-03-15)
+  - `/api/v2/migrate/add-clinic-id` 엔드포인트 생성
+  - `clinics` 컬렉션 생성 (clinicId: 'default')
+  - V2 컬렉션 15개에 `clinicId: 'default'` 일괄 추가 (2026-03-18 재확인: modified 0 = 이미 완료)
+  - clinicId 포함 복합 인덱스 7개 생성 (patients_v2, callLogs_v2, callbacks_v2, consultations_v2, channelChats_v2)
+- [ ] Step 4-2: API에 clinicId 필터 적용 (한 API씩 점진적 진행)
+  - 진행 방식: API 1개 수정 → 배포 → 사장님 운영 확인 → 다음 API
+  - ⚠️ 진료시간 외에 작업할 것 (문제 시 환자 응대에 영향)
+  - 대상 API 목록 (미정, 진행 시 하나씩 체크):
+    - [ ] patients (조회/생성/수정)
+    - [ ] callLogs (조회)
+    - [ ] callbacks (조회/생성/수정)
+    - [ ] consultations (조회/생성/수정)
+    - [ ] channel-chats (조회/생성)
+    - [ ] call-analysis (조회)
+    - [ ] recall-messages (조회/생성)
+    - [ ] settings (조회/수정)
+    - [ ] 기타 (manuals, reports 등)
 
 #### Step 5: 인증 강화 - JWT/쿠키 (리스크: 높음)
 - [ ] JWT 인증 미들웨어 (한 라우트씩 점진적 적용)
+
+#### 참고: 사업화 외부 연동 분석
+- 상세 문서: `docs/commercialization-integrations.md` (2026-03-18 작성)
+- 12개 외부 서비스 연동 현황, 병원별 분리 필요 작업 정리

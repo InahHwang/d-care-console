@@ -1,6 +1,6 @@
 // src/app/api/v2/patients/[id]/route.ts
 import { NextRequest, NextResponse } from 'next/server';
-import { connectToDatabase } from '@/utils/mongodb';
+import { connectToDatabase, getClinicId } from '@/utils/mongodb';
 import { ObjectId } from 'mongodb';
 import { PatientStatus, Temperature, CallbackReason, CallbackHistoryEntry } from '@/types/v2';
 import { z } from 'zod';
@@ -54,12 +54,13 @@ export async function GET(
     }
 
     const { db } = await connectToDatabase();
+    const clinicId = getClinicId();
 
     // 환자 정보와 통화 이력을 병렬로 조회
     const [patient, callLogs] = await Promise.all([
-      db.collection('patients_v2').findOne({ _id: new ObjectId(id), deletedAt: { $exists: false } }),
+      db.collection('patients_v2').findOne({ _id: new ObjectId(id), clinicId, deletedAt: { $exists: false } }),
       db.collection('callLogs_v2')
-        .find({ patientId: id })
+        .find({ clinicId, patientId: id })
         .sort({ startedAt: -1 })
         .limit(10)
         .project({
@@ -188,9 +189,10 @@ export async function PATCH(
     } = body;
 
     const { db } = await connectToDatabase();
+    const clinicId = getClinicId();
 
     // 현재 환자 정보 조회 (상태 변경 감지용, soft delete 제외)
-    const currentPatient = await db.collection('patients_v2').findOne({ _id: new ObjectId(id), deletedAt: { $exists: false } });
+    const currentPatient = await db.collection('patients_v2').findOne({ _id: new ObjectId(id), clinicId, deletedAt: { $exists: false } });
 
     const updateData: Record<string, unknown> = {
       updatedAt: new Date(),
@@ -578,10 +580,12 @@ export async function DELETE(
     }
 
     const { db } = await connectToDatabase();
+    const clinicId = getClinicId();
 
     // soft delete: 환자 정보 보존하면서 삭제 표시
     const patient = await db.collection('patients_v2').findOne({
       _id: new ObjectId(id),
+      clinicId,
       deletedAt: { $exists: false },
     });
 

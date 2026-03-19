@@ -146,6 +146,22 @@ export async function POST(request: NextRequest) {
     console.log(`[CTI v2] 수신: ${callerNumber} → ${calledNumber}`);
 
     const { db } = await connectToDatabase();
+
+    // 제외 번호 체크 (설정에서 관리)
+    const normalizedCaller = normalizePhone(callerNumber);
+    try {
+      const settings = await db.collection('settings_v2').findOne({ clinicId: 'default' });
+      const excludedPhones: string[] = (settings?.excludedPhones && Array.isArray(settings.excludedPhones))
+        ? settings.excludedPhones.map((p: string) => p.replace(/\D/g, ''))
+        : ['07047414471', '0315672278'];
+      if (excludedPhones.includes(normalizedCaller)) {
+        console.log(`[CTI v2] 제외 번호: ${callerNumber} (무시)`);
+        return NextResponse.json({ success: true, message: 'Excluded number' });
+      }
+    } catch {
+      // 설정 조회 실패 시 계속 진행
+    }
+
     const callTime = timestamp || new Date().toISOString();
     let isNewPatient = false;
 

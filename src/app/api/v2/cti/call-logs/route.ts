@@ -40,8 +40,21 @@ function formatPhone(phone: string): string {
   return phone;
 }
 
-// 제외할 전화번호 (내부 통화)
-const EXCLUDED_PHONES = ['07047414471', '0315672278'];
+// 제외할 전화번호 기본값 (설정에서 관리, 설정 조회 실패 시 폴백)
+const DEFAULT_EXCLUDED_PHONES = ['07047414471', '0315672278'];
+
+// DB 설정에서 제외 전화번호 목록 조회
+async function getExcludedPhones(db: Awaited<ReturnType<typeof connectToDatabase>>['db']): Promise<string[]> {
+  try {
+    const settings = await db.collection('settings_v2').findOne({ clinicId: 'default' });
+    if (settings?.excludedPhones && Array.isArray(settings.excludedPhones)) {
+      return settings.excludedPhones.map((p: string) => p.replace(/\D/g, ''));
+    }
+    return DEFAULT_EXCLUDED_PHONES;
+  } catch {
+    return DEFAULT_EXCLUDED_PHONES;
+  }
+}
 
 // ★ 발신 통화 성공 시 오늘 예정된 콜백 자동 완료
 async function autoCompleteCallbackForOutbound(
@@ -195,13 +208,14 @@ export async function POST(request: NextRequest) {
 
     console.log(`[CallLogs V2] ${eventType} 이벤트: caller=${callerNumber}, called=${calledNumber}, duration=${duration || 0}, callLogId=${directCallLogId || '없음'}`);
 
-    // 제외 번호 체크
     const normalizedCaller = normalizePhone(callerNumber);
-    if (EXCLUDED_PHONES.includes(normalizedCaller)) {
+    const { db } = await connectToDatabase();
+
+    // 제외 번호 체크 (설정에서 관리)
+    const excludedPhones = await getExcludedPhones(db);
+    if (excludedPhones.includes(normalizedCaller)) {
       return NextResponse.json({ success: true, message: 'Excluded number' });
     }
-
-    const { db } = await connectToDatabase();
     const now = new Date();
     const formattedCaller = formatPhone(callerNumber);
 

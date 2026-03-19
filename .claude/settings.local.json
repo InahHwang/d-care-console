@@ -129,7 +129,11 @@
       "Bash(PYTHONIOENCODING=utf-8 python:*)",
       "WebFetch(domain:catchall.ai.kr)",
       "Bash(find \"/d/outbound-management 250728 - 백업\\(여기로돌아오기\\) - 복사본/d-care-console\" -type f \\\\\\( -name \".env*\" -o -name \"security*\" -o -name \"cors*\" \\\\\\) 2>/dev/null | grep -v node_modules | head -20)",
-      "Bash(find /d -name \"*schedule*\" -o -name \"*callback*\" | grep -E \"\\\\.\\(tsx?|json\\)$\" | head -30)"
+      "Bash(find /d -name \"*schedule*\" -o -name \"*callback*\" | grep -E \"\\\\.\\(tsx?|json\\)$\" | head -30)",
+      "Bash(cd:*)",
+      "WebFetch(domain:www.shoplworks.com)",
+      "Bash(grep -E \"\\\\.\\(ts|js\\)$\")",
+      "Bash(sed \"s/.*collection\\(''''\\\\\\\\\\([^'''']*\\\\\\\\\\)''''.*/\\\\1/\")"
     ]
   }
 }

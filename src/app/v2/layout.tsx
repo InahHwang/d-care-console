@@ -6,6 +6,7 @@ import { usePathname } from 'next/navigation';
 import { Sidebar } from '@/components/v2/layout/Sidebar';
 import { CTIPanel } from '@/components/v2/cti';
 import AuthGuard from '@/components/auth/AuthGuard';
+import AIChatWidget from '@/components/v2/ai-chat/AIChat-Widget';
 
 export default function V2Layout({ children }: { children: React.ReactNode }) {
   const pathname = usePathname();
@@ -25,6 +26,7 @@ export default function V2Layout({ children }: { children: React.ReactNode }) {
         <Sidebar />
         <main className="flex-1 overflow-auto">{children}</main>
         <CTIPanel />
+        <AIChatWidget />
       </div>
     </AuthGuard>
   );

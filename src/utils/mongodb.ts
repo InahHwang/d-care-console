@@ -258,12 +258,27 @@ async function createIndexesSafely(db: Db) {
       console.warn('Invitations 인덱스 생성 중 오류:', invitationsIndexError);
     }
 
+    // AI Chat 컬렉션 인덱스
+    try {
+      await db.collection('ai_chats_v2').createIndex({ userId: 1, updatedAt: -1 });
+      await db.collection('ai_chats_v2').createIndex({ isArchived: 1 });
+      await db.collection('ai_chats_v2').createIndex({ createdAt: -1 });
+    } catch (aiChatIndexError) {
+      console.warn('AI Chat 인덱스 생성 중 오류:', aiChatIndexError);
+    }
+
     const envInfo = getEnvironmentInfo();
     console.log(`✅ MongoDB 인덱스 생성/확인 완료 (${envInfo.database})`);
   } catch (error) {
     console.warn('인덱스 생성 중 일부 오류 발생:', error);
     // 인덱스 생성 실패는 치명적이지 않으므로 계속 진행
   }
+}
+
+// 🔥 clinicId 헬퍼 함수 (Step 4-2: 멀티테넌시)
+// 현재는 'default' 고정. JWT 인증 도입 시 요청 컨텍스트에서 추출하도록 변경 예정.
+export function getClinicId(): string {
+  return 'default';
 }
 
 // 새로운 헬퍼 함수 추가
