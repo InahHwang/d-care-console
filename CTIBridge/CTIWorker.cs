@@ -977,11 +977,11 @@ public class CTIWorker : BackgroundService
             {
                 _logger.LogInformation("📞 전화 수신: {Caller} → {Called}", evt.Dn1, evt.Dn2);
 
-                // ★ 동시착신 중복 방지: 같은 발신번호 + 1초 이내 재ring → 동시착신 → 무시
-                // 같은 발신번호라도 1초 초과면 새 통화로 처리
+                // ★ 동시착신 중복 방지: 현재 진행 중인 통화와 같은 발신번호면 중복 (상태 기반)
+                // _inboundCallerNumber가 차있으면 = 아직 통화 진행 중 → 같은 번호는 동시착신
+                // 통화 종료 시 ResetInboundCallState()에서 _inboundCallerNumber = "" 로 초기화됨
                 bool isDuplicate = !string.IsNullOrEmpty(_inboundCallerNumber) &&
-                    _inboundCallerNumber == evt.Dn1 &&
-                    (DateTime.Now - _inboundCallTime).TotalSeconds < 1.0;
+                    _inboundCallerNumber == evt.Dn1;
 
                 if (!isDuplicate)
                 {

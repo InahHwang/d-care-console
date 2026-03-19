@@ -52,8 +52,24 @@ const ACTION_COLORS: Record<string, string> = {
   'consultation.update': 'bg-teal-100 text-teal-700',
 };
 
+const VALUE_LABELS: Record<string, string> = {
+  // 환자 상태
+  consulting: '전화상담', reserved: '내원예약', visited: '내원완료',
+  treatmentBooked: '치료예약', treatment: '치료중', completed: '치료완료',
+  followup: '사후관리', closed: '종결',
+  // 온도
+  hot: '뜨거움', warm: '따뜻함', cold: '차가움',
+  // 상담 결과
+  agreed: '동의', disagreed: '미동의', pending: '보류', no_answer: '부재중',
+  // 결제 상태
+  none: '미결제', partial: '부분결제',
+  // 콜백
+  callback: '콜백', recall: '리콜', thanks: '감사전화',
+};
+
 function formatValue(value: unknown): string {
   if (value === null || value === undefined) return '-';
+  if (typeof value === 'string' && VALUE_LABELS[value]) return VALUE_LABELS[value];
   if (typeof value === 'object') return JSON.stringify(value);
   return String(value);
 }
