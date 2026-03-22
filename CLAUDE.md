@@ -325,7 +325,16 @@ git commit -m "[CTIBridge] 변경 내용 요약"
     - [x] settings (조회/수정) — 2026-03-22 getClinicId() 사용으로 변경
     - [x] dashboard (조회) — 2026-03-22 적용, 배포 완료
     - [x] reports (조회/생성/수정/삭제) — 2026-03-22 적용, 배포 완료
-    - [ ] 기타 (consultations, call-analysis 등)
+    - [x] recall-settings (조회/생성/수정/삭제) — 2026-03-22 적용
+    - [x] referrals (조회/생성/수정/삭제) — 2026-03-22 적용
+    - [x] marketing-targets (조회) — 2026-03-22 적용
+    - [x] templates (조회/생성/수정/삭제) — 2026-03-22 적용
+    - [x] ai-chat (조회/생성/삭제) — 2026-03-22 적용
+    - [x] alimtalk (발송/조회) — 2026-03-22 적용
+    - [ ] consultations (조회/생성/수정)
+    - [ ] callLogs + CTI (조회/생성) — CTI write 동시 수정 필요 (리스크 높음)
+    - [ ] call-analysis (조회) — callLogs와 같이
+    - [ ] users/invitations — 멀티테넌시 사용자-병원 매핑 설계 필요
 
 #### Step 5: 인증 강화 - JWT/쿠키 (리스크: 높음)
 - [ ] JWT 인증 미들웨어 (한 라우트씩 점진적 적용)
