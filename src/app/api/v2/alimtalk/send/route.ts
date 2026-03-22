@@ -3,7 +3,7 @@
 // TODO: 실제 알림톡 서비스 연동 시 이 파일 수정
 
 import { NextRequest, NextResponse } from 'next/server';
-import { connectToDatabase } from '@/utils/mongodb';
+import { connectToDatabase, getClinicId } from '@/utils/mongodb';
 
 export interface AlimtalkRequest {
   phone: string;
@@ -32,6 +32,7 @@ export async function POST(request: NextRequest) {
     }
 
     const { db } = await connectToDatabase();
+    const clinicId = getClinicId();
     const now = new Date();
     const messageId = `mock_${Date.now()}_${Math.random().toString(36).substring(7)}`;
 
@@ -45,6 +46,7 @@ export async function POST(request: NextRequest) {
 
     // 발송 로그 저장
     await db.collection('alimtalk_logs').insertOne({
+      clinicId,
       messageId,
       phone,
       message,
@@ -85,8 +87,9 @@ export async function GET(request: NextRequest) {
     const limit = parseInt(searchParams.get('limit') || '20');
 
     const { db } = await connectToDatabase();
+    const clinicId = getClinicId();
 
-    const filter: Record<string, unknown> = {};
+    const filter: Record<string, unknown> = { clinicId };
     if (phone) {
       filter.phone = phone;
     }

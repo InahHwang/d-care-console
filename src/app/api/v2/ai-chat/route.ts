@@ -2,7 +2,7 @@
 // AI 채팅 API — GPT-5.2 기반 치과 상담 어시스턴트
 
 import { NextRequest, NextResponse } from 'next/server';
-import { connectToDatabase } from '@/utils/mongodb';
+import { connectToDatabase, getClinicId } from '@/utils/mongodb';
 import { ObjectId } from 'mongodb';
 import { extractUserFromRequest } from '@/utils/auditLog';
 
@@ -190,6 +190,7 @@ export async function GET(request: NextRequest) {
     const targetUserId = searchParams.get('userId');
 
     const { db } = await connectToDatabase();
+    const clinicId = getClinicId();
 
     // 관리자는 다른 사용자의 대화도 조회 가능
     const isAdmin = user.userRole === 'admin' || user.userRole === 'master';
@@ -245,7 +246,7 @@ export async function GET(request: NextRequest) {
       userIdFilter = { userId: user.userId };
     }
 
-    const query = { ...userIdFilter, isArchived: { $ne: true } };
+    const query = { clinicId, ...userIdFilter, isArchived: { $ne: true } };
     const total = await db.collection('ai_chats_v2').countDocuments(query);
 
     const conversations = await db.collection('ai_chats_v2')
@@ -300,6 +301,7 @@ export async function POST(request: NextRequest) {
     }
 
     const { db } = await connectToDatabase();
+    const clinicId = getClinicId();
     const now = new Date().toISOString();
 
     // 새 메시지 객체
@@ -324,6 +326,7 @@ export async function POST(request: NextRequest) {
     if (!conversation) {
       isNewConversation = true;
       const newConversation = {
+        clinicId,
         userId: user.userId,
         userName: user.userName,
         title: generateTitle(message),
