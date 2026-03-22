@@ -323,7 +323,9 @@ git commit -m "[CTIBridge] 변경 내용 요약"
     - [ ] call-analysis (조회)
     - [x] recall-messages (조회/생성) — 2026-03-22 적용, 빌드 확인 완료
     - [x] settings (조회/수정) — 2026-03-22 getClinicId() 사용으로 변경
-    - [ ] 기타 (manuals, reports 등)
+    - [x] dashboard (조회) — 2026-03-22 적용, 배포 완료
+    - [x] reports (조회/생성/수정/삭제) — 2026-03-22 적용, 배포 완료
+    - [ ] 기타 (consultations, call-analysis 등)
 
 #### Step 5: 인증 강화 - JWT/쿠키 (리스크: 높음)
 - [ ] JWT 인증 미들웨어 (한 라우트씩 점진적 적용)

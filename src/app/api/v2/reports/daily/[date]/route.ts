@@ -4,7 +4,7 @@
 export const dynamic = 'force-dynamic';
 
 import { NextRequest, NextResponse } from 'next/server';
-import { connectToDatabase } from '@/utils/mongodb';
+import { connectToDatabase, getClinicId } from '@/utils/mongodb';
 import type { ConsultationV2, PatientV2, CallLogV2 } from '@/types/v2';
 
 interface DailyReportPatient {
@@ -145,12 +145,14 @@ export async function GET(
     console.log(`[Report v2] ${selectedDate} 일별 리포트 조회`);
 
     const { db } = await connectToDatabase();
+    const clinicId = getClinicId();
 
     // 해당 날짜의 상담 기록 조회
     const startOfDay = `${selectedDate}T00:00:00.000Z`;
     const endOfDay = `${selectedDate}T23:59:59.999Z`;
 
     const consultations = await db.collection<ConsultationV2>('consultations_v2').find({
+      clinicId,
       date: {
         $gte: new Date(startOfDay),
         $lte: new Date(endOfDay),
@@ -160,6 +162,7 @@ export async function GET(
     // 해당 날짜 통화 기록 조회 (상담 기록이 없는 경우 통화 기반으로)
     // createdAt이 Date 객체이므로 Date로 변환하여 비교
     const callLogs = await db.collection<CallLogV2>('callLogs_v2').find({
+      clinicId,
       createdAt: {
         $gte: new Date(startOfDay),
         $lte: new Date(endOfDay),
@@ -169,6 +172,7 @@ export async function GET(
 
     // 해당 날짜의 수동 상담 기록 조회
     const manualConsultations = await db.collection('manualConsultations_v2').find({
+      clinicId,
       date: {
         $gte: new Date(startOfDay),
         $lte: new Date(endOfDay),

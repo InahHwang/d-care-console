@@ -7,7 +7,7 @@ export const maxDuration = 60;
 import { NextRequest, NextResponse } from 'next/server';
 import { ObjectId } from 'mongodb';
 import jwt from 'jsonwebtoken';
-import { connectToDatabase } from '@/utils/mongodb';
+import { connectToDatabase, getClinicId } from '@/utils/mongodb';
 import { calculateMonthlyStatsV2 } from '@/utils/monthlyReportV2Calculator';
 import { v4 as uuidv4 } from 'uuid';
 
@@ -47,7 +47,8 @@ export async function GET(
     }
 
     const { db } = await connectToDatabase();
-    const report = await db.collection('reports_v2').findOne({ _id: new ObjectId(id) });
+    const clinicId = getClinicId();
+    const report = await db.collection('reports_v2').findOne({ _id: new ObjectId(id), clinicId });
 
     if (!report) {
       return NextResponse.json(
@@ -98,7 +99,8 @@ export async function PATCH(
     }
 
     const { db } = await connectToDatabase();
-    const report = await db.collection('reports_v2').findOne({ _id: new ObjectId(id) });
+    const clinicId = getClinicId();
+    const report = await db.collection('reports_v2').findOne({ _id: new ObjectId(id), clinicId });
     if (!report) {
       return NextResponse.json(
         { success: false, error: '보고서를 찾을 수 없습니다.' },
@@ -238,12 +240,12 @@ export async function PATCH(
     }
 
     await db.collection('reports_v2').updateOne(
-      { _id: new ObjectId(id) },
+      { _id: new ObjectId(id), clinicId },
       { $set: updateFields }
     );
 
     // 업데이트된 보고서 반환
-    const updated = await db.collection('reports_v2').findOne({ _id: new ObjectId(id) });
+    const updated = await db.collection('reports_v2').findOne({ _id: new ObjectId(id), clinicId });
 
     return NextResponse.json({
       success: true,
@@ -284,7 +286,8 @@ export async function DELETE(
     }
 
     const { db } = await connectToDatabase();
-    const result = await db.collection('reports_v2').deleteOne({ _id: new ObjectId(id) });
+    const clinicId = getClinicId();
+    const result = await db.collection('reports_v2').deleteOne({ _id: new ObjectId(id), clinicId });
 
     if (result.deletedCount === 0) {
       return NextResponse.json(

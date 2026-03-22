@@ -5,12 +5,13 @@ import { NextRequest, NextResponse } from 'next/server';
 
 // 캐싱 방지: 항상 최신 데이터 반환 (설정 변경 즉시 반영)
 export const dynamic = 'force-dynamic';
-import { connectToDatabase } from '@/utils/mongodb';
+import { connectToDatabase, getClinicId } from '@/utils/mongodb';
 
 // GET: 대시보드 데이터 조회
 export async function GET(request: NextRequest) {
   try {
     const { db } = await connectToDatabase();
+    const clinicId = getClinicId();
 
     // KST(UTC+9) 기준 날짜 계산 (Vercel 서버는 UTC이므로 보정 필요)
     const KST_OFFSET = 9 * 60 * 60 * 1000;
@@ -52,7 +53,7 @@ export async function GET(request: NextRequest) {
       // 1. 오늘 할 일 통계 (patients_v2에서 집계)
       // nextActionDate가 Date 객체 또는 문자열로 저장될 수 있어 $or로 처리
       db.collection('patients_v2').aggregate([
-        { $match: { deletedAt: { $exists: false } } },
+        { $match: { clinicId, deletedAt: { $exists: false } } },
         {
           $facet: {
             // 경과된 환자 (nextActionDate < today)
@@ -112,7 +113,7 @@ export async function GET(request: NextRequest) {
 
       // 2. 매출 통계 (patients_v2에서 집계)
       db.collection('patients_v2').aggregate([
-        { $match: { deletedAt: { $exists: false } } },
+        { $match: { clinicId, deletedAt: { $exists: false } } },
         {
           $facet: {
             // 이번 달 매출
@@ -190,7 +191,7 @@ export async function GET(request: NextRequest) {
 
       // 3. 전환율 통계 (patients_v2에서 집계)
       db.collection('patients_v2').aggregate([
-        { $match: { deletedAt: { $exists: false } } },
+        { $match: { clinicId, deletedAt: { $exists: false } } },
         {
           $facet: {
             // 이번 달 신규 등록 (전체)
@@ -276,7 +277,7 @@ export async function GET(request: NextRequest) {
       ]).toArray(),
 
       // 4. 설정에서 목표매출 조회
-      db.collection('settings_v2').findOne({ clinicId: 'default' }),
+      db.collection('settings_v2').findOne({ clinicId }),
     ]);
 
     // 목표매출 (만원 → 원 변환)

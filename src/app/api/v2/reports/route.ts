@@ -5,7 +5,7 @@ export const dynamic = 'force-dynamic';
 
 import { NextRequest, NextResponse } from 'next/server';
 import jwt from 'jsonwebtoken';
-import { connectToDatabase } from '@/utils/mongodb';
+import { connectToDatabase, getClinicId } from '@/utils/mongodb';
 import { calculateMonthlyStatsV2 } from '@/utils/monthlyReportV2Calculator';
 
 // JWT 토큰 검증 헬퍼
@@ -32,10 +32,11 @@ function verifyToken(request: NextRequest) {
 export async function GET() {
   try {
     const { db } = await connectToDatabase();
+    const clinicId = getClinicId();
     const reports = await db
       .collection('reports_v2')
       .find(
-        {},
+        { clinicId },
         {
           projection: {
             _id: 1,
@@ -95,9 +96,10 @@ export async function POST(request: NextRequest) {
     const yearMonth = `${year}-${month.toString().padStart(2, '0')}`;
 
     const { db } = await connectToDatabase();
+    const clinicId = getClinicId();
 
     // 중복 체크
-    const existing = await db.collection('reports_v2').findOne({ yearMonth });
+    const existing = await db.collection('reports_v2').findOne({ clinicId, yearMonth });
     if (existing) {
       return NextResponse.json(
         { success: false, error: `${year}년 ${month}월 보고서가 이미 존재합니다.` },
@@ -112,6 +114,7 @@ export async function POST(request: NextRequest) {
 
     const now = new Date().toISOString();
     const reportDoc = {
+      clinicId,
       yearMonth,
       year,
       month,
