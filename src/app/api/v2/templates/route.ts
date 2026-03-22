@@ -1,16 +1,17 @@
 // src/app/api/v2/templates/route.ts
 import { NextRequest, NextResponse } from 'next/server';
-import { connectToDatabase } from '@/utils/mongodb';
+import { connectToDatabase, getClinicId } from '@/utils/mongodb';
 import { MessageTemplate } from '@/types/messageLog';
 
 // GET: 템플릿 목록 조회
 export async function GET(request: NextRequest) {
   try {
     const { db } = await connectToDatabase();
+    const clinicId = getClinicId();
     const collection = db.collection('templates');
 
     const templates = await collection
-      .find({})
+      .find({ clinicId })
       .sort({ updatedAt: -1 })
       .toArray();
 
@@ -47,16 +48,18 @@ export async function POST(request: NextRequest) {
     }
 
     const { db } = await connectToDatabase();
+    const clinicId = getClinicId();
     const collection = db.collection('templates');
 
-    const newTemplate: MessageTemplate = {
+    const newTemplate = {
+      clinicId,
       ...templateData,
       createdAt: new Date().toISOString(),
       updatedAt: new Date().toISOString(),
       createdBy: templateData.createdBy || 'system'
     };
 
-    const existingTemplate = await collection.findOne({ id: newTemplate.id });
+    const existingTemplate = await collection.findOne({ clinicId, id: newTemplate.id });
     if (existingTemplate) {
       return NextResponse.json(
         { success: false, message: '이미 존재하는 템플릿 ID입니다.' },
@@ -93,6 +96,7 @@ export async function PUT(request: NextRequest) {
     }
 
     const { db } = await connectToDatabase();
+    const clinicId = getClinicId();
     const collection = db.collection('templates');
 
     const updatedTemplate: MessageTemplate = {
@@ -101,7 +105,7 @@ export async function PUT(request: NextRequest) {
     };
 
     const result = await collection.updateOne(
-      { id: templateData.id },
+      { clinicId, id: templateData.id },
       { $set: updatedTemplate }
     );
 
@@ -140,9 +144,10 @@ export async function DELETE(request: NextRequest) {
     }
 
     const { db } = await connectToDatabase();
+    const clinicId = getClinicId();
     const collection = db.collection('templates');
 
-    const result = await collection.deleteOne({ id: templateId });
+    const result = await collection.deleteOne({ clinicId, id: templateId });
 
     if (result.deletedCount === 0) {
       return NextResponse.json(

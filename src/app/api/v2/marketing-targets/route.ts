@@ -2,7 +2,7 @@
 // 이벤트 타겟 환자 목록 조회 API
 
 import { NextRequest, NextResponse } from 'next/server';
-import { connectToDatabase } from '@/utils/mongodb';
+import { connectToDatabase, getClinicId } from '@/utils/mongodb';
 import type { MarketingTargetReason } from '@/types/v2';
 
 export const dynamic = 'force-dynamic';
@@ -21,9 +21,11 @@ export async function GET(request: NextRequest) {
     const sortOrder = searchParams.get('sortOrder') || 'asc'; // 'asc' | 'desc'
 
     const { db } = await connectToDatabase();
+    const clinicId = getClinicId();
 
     // 기본 필터: 이벤트 타겟으로 지정된 환자만
     const filter: Record<string, unknown> = {
+      clinicId,
       'marketingInfo.isTarget': true,
     };
 
@@ -105,7 +107,7 @@ export async function GET(request: NextRequest) {
 
     // 통계 정보 계산
     const stats = await db.collection('patients_v2').aggregate([
-      { $match: { 'marketingInfo.isTarget': true } },
+      { $match: { clinicId, 'marketingInfo.isTarget': true } },
       {
         $group: {
           _id: null,
