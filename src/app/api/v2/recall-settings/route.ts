@@ -2,7 +2,7 @@
 // 리콜 발송 설정 API
 
 import { NextRequest, NextResponse } from 'next/server';
-import { connectToDatabase } from '@/utils/mongodb';
+import { connectToDatabase, getClinicId } from '@/utils/mongodb';
 import { ObjectId } from 'mongodb';
 
 export interface RecallSchedule {
@@ -25,9 +25,10 @@ export interface RecallSetting {
 export async function GET() {
   try {
     const { db } = await connectToDatabase();
+    const clinicId = getClinicId();
 
     const settings = await db.collection<RecallSetting>('recall_settings')
-      .find({})
+      .find({ clinicId })
       .sort({ treatment: 1 })
       .toArray();
 
@@ -64,10 +65,11 @@ export async function POST(request: NextRequest) {
     }
 
     const { db } = await connectToDatabase();
+    const clinicId = getClinicId();
     const now = new Date().toISOString();
 
     // 중복 치료 확인
-    const existing = await db.collection('recall_settings').findOne({ treatment });
+    const existing = await db.collection('recall_settings').findOne({ clinicId, treatment });
     if (existing) {
       return NextResponse.json(
         { success: false, error: '이미 등록된 치료 종류입니다' },
@@ -75,7 +77,8 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    const newSetting: RecallSetting = {
+    const newSetting = {
+      clinicId,
       treatment,
       schedules: schedules || [],
       createdAt: now,
@@ -114,6 +117,7 @@ export async function PUT(request: NextRequest) {
     }
 
     const { db } = await connectToDatabase();
+    const clinicId = getClinicId();
     const now = new Date().toISOString();
 
     const updateData: Partial<RecallSetting> = {
@@ -124,7 +128,7 @@ export async function PUT(request: NextRequest) {
     if (schedules) updateData.schedules = schedules;
 
     const result = await db.collection('recall_settings').findOneAndUpdate(
-      { _id: new ObjectId(id) },
+      { _id: new ObjectId(id), clinicId },
       { $set: updateData },
       { returnDocument: 'after' }
     );
@@ -166,9 +170,11 @@ export async function DELETE(request: NextRequest) {
     }
 
     const { db } = await connectToDatabase();
+    const clinicId = getClinicId();
 
     const result = await db.collection('recall_settings').deleteOne({
       _id: new ObjectId(id),
+      clinicId,
     });
 
     if (result.deletedCount === 0) {

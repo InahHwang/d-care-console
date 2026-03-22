@@ -2,7 +2,7 @@
 // 소개 환자 관리 API
 
 import { NextRequest, NextResponse } from 'next/server';
-import { connectToDatabase } from '@/utils/mongodb';
+import { connectToDatabase, getClinicId } from '@/utils/mongodb';
 import { ObjectId } from 'mongodb';
 import type { ReferralV2 } from '@/types/v2';
 
@@ -14,9 +14,10 @@ export async function GET(request: NextRequest) {
     const thanksSent = searchParams.get('thanksSent'); // 'true' | 'false' | null
 
     const { db } = await connectToDatabase();
+    const clinicId = getClinicId();
 
     // 필터 조건 구성
-    const filter: Record<string, unknown> = {};
+    const filter: Record<string, unknown> = { clinicId };
     if (thanksSent !== null) {
       filter.thanksSent = thanksSent === 'true';
     }
@@ -60,6 +61,7 @@ export async function GET(request: NextRequest) {
 
     // 통계
     const [stats] = await db.collection('referrals_v2').aggregate([
+      { $match: { clinicId } },
       {
         $group: {
           _id: null,
@@ -72,6 +74,7 @@ export async function GET(request: NextRequest) {
 
     // 소개자별 통계 (상위 10명)
     const topReferrers = await db.collection('referrals_v2').aggregate([
+      { $match: { clinicId } },
       {
         $group: {
           _id: '$referrerId',
@@ -154,9 +157,11 @@ export async function POST(request: NextRequest) {
     }
 
     const { db } = await connectToDatabase();
+    const clinicId = getClinicId();
 
     // 이미 등록된 관계인지 확인
     const existing = await db.collection('referrals_v2').findOne({
+      clinicId,
       referrerId,
       referredId,
     });
@@ -171,6 +176,7 @@ export async function POST(request: NextRequest) {
     const now = new Date().toISOString();
 
     const newReferral = {
+      clinicId,
       referrerId,
       referredId,
       thanksSent: false,
@@ -221,6 +227,7 @@ export async function PATCH(request: NextRequest) {
     }
 
     const { db } = await connectToDatabase();
+    const clinicId = getClinicId();
     const now = new Date().toISOString();
 
     const updateData: Record<string, unknown> = {};
@@ -235,7 +242,7 @@ export async function PATCH(request: NextRequest) {
     }
 
     const result = await db.collection('referrals_v2').findOneAndUpdate(
-      { _id: new ObjectId(id) },
+      { _id: new ObjectId(id), clinicId },
       { $set: updateData },
       { returnDocument: 'after' }
     );
@@ -274,9 +281,11 @@ export async function DELETE(request: NextRequest) {
     }
 
     const { db } = await connectToDatabase();
+    const clinicId = getClinicId();
 
     const result = await db.collection('referrals_v2').deleteOne({
       _id: new ObjectId(id),
+      clinicId,
     });
 
     if (result.deletedCount === 0) {
