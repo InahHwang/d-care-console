@@ -1,30 +1,10 @@
 // src/app/api/v2/recall-messages/[id]/send/route.ts
-// 리콜 메시지 즉시 발송 API (CoolSMS 실제 발송)
+// 리콜 메시지 즉시 발송 API (네이버 클라우드 SENS)
 
 import { NextRequest, NextResponse } from 'next/server';
-import { connectToDatabase } from '@/utils/mongodb';
+import { connectToDatabase, getClinicId } from '@/utils/mongodb';
 import { ObjectId } from 'mongodb';
-
-const isVercel = process.env.VERCEL === '1' || process.env.VERCEL_ENV !== undefined;
-
-// CoolSMS SDK 임포트
-let coolsmsService: any = null;
-try {
-  if (isVercel) {
-    const coolsmsModule = require('coolsms-node-sdk');
-    coolsmsService = coolsmsModule.default || coolsmsModule;
-  } else {
-    coolsmsService = require('coolsms-node-sdk').default;
-  }
-} catch (error: any) {
-  console.error('[Recall Send] CoolSMS SDK 임포트 실패:', error.message);
-}
-
-const COOLSMS_CONFIG = {
-  API_KEY: process.env.COOLSMS_API_KEY || '',
-  API_SECRET: process.env.COOLSMS_API_SECRET || '',
-  SENDER_NUMBER: process.env.COOLSMS_SENDER_NUMBER || '',
-};
+import { sendMessage as sensSendMessage, isSensConfigured } from '@/utils/naverSens';
 
 // 메시지 바이트 길이 계산 (한글 2바이트, 영문 1바이트)
 function getByteLength(str: string): number {
@@ -51,11 +31,13 @@ export async function POST(
     }
 
     const { db } = await connectToDatabase();
+    const clinicId = getClinicId();
     const now = new Date();
 
     // 메시지 조회
     const message = await db.collection('recall_messages').findOne({
       _id: new ObjectId(id),
+      clinicId,
     });
 
     if (!message) {
@@ -68,6 +50,7 @@ export async function POST(
     // 환자 정보 조회
     const patient = await db.collection('patients_v2').findOne({
       _id: new ObjectId(message.patientId),
+      clinicId,
     });
 
     if (!patient) {
@@ -84,24 +67,26 @@ export async function POST(
       );
     }
 
-    // CoolSMS 발송
-    if (!coolsmsService || !COOLSMS_CONFIG.API_KEY || !COOLSMS_CONFIG.API_SECRET || !COOLSMS_CONFIG.SENDER_NUMBER) {
+    // SENS 발송
+    if (!isSensConfigured()) {
       return NextResponse.json(
         { success: false, error: 'SMS 발송 설정이 올바르지 않습니다' },
         { status: 500 }
       );
     }
 
-    const messageService = new coolsmsService(COOLSMS_CONFIG.API_KEY, COOLSMS_CONFIG.API_SECRET);
     const messageText = message.message;
     const messageType = getByteLength(messageText) > 90 ? 'LMS' : 'SMS';
 
-    const sendResult = await messageService.sendOne({
+    const sendResult = await sensSendMessage({
       to: patient.phone.replace(/-/g, ''),
-      from: COOLSMS_CONFIG.SENDER_NUMBER,
       text: messageText,
       type: messageType,
     });
+
+    if (!sendResult.success) {
+      throw new Error(sendResult.error || 'SENS 발송 실패');
+    }
 
     console.log(`[Recall Send] 발송 성공: ${patient.name}(${patient.phone}) - ${messageType}`);
 
@@ -114,14 +99,14 @@ export async function POST(
       message: messageText,
       messageType,
       status: 'sent',
-      coolsmsResult: sendResult,
+      sensResult: sendResult,
       sentAt: now,
       createdAt: now.toISOString(),
     });
 
     // 메시지 상태 업데이트
     await db.collection('recall_messages').updateOne(
-      { _id: new ObjectId(id) },
+      { _id: new ObjectId(id), clinicId },
       {
         $set: {
           status: 'sent',

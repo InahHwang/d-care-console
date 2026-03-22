@@ -2,7 +2,7 @@
 // 환자 치료 완료 시 리콜 메시지 자동 생성 API
 
 import { NextRequest, NextResponse } from 'next/server';
-import { connectToDatabase } from '@/utils/mongodb';
+import { connectToDatabase, getClinicId } from '@/utils/mongodb';
 import { ObjectId } from 'mongodb';
 
 export const dynamic = 'force-dynamic';
@@ -47,10 +47,12 @@ export async function POST(request: NextRequest) {
     }
 
     const { db } = await connectToDatabase();
+    const clinicId = getClinicId();
 
     // 1. 환자 정보 확인
     const patient = await db.collection('patients_v2').findOne({
-      _id: new ObjectId(patientId)
+      _id: new ObjectId(patientId),
+      clinicId,
     });
 
     if (!patient) {
@@ -103,6 +105,7 @@ export async function POST(request: NextRequest) {
         .replace(/\{이름\}/g, patient.name || '고객');
 
       return {
+        clinicId,
         patientId: patientId,
         treatment: treatment,
         timing: schedule.timing,
@@ -117,6 +120,7 @@ export async function POST(request: NextRequest) {
 
     // 6. 중복 체크 (같은 환자, 같은 치료, 같은 타이밍의 pending 메시지가 있는지)
     const existingMessages = await db.collection('recall_messages').find({
+      clinicId,
       patientId: patientId,
       treatment: treatment,
       status: 'pending',

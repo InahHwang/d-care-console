@@ -2,7 +2,7 @@
 // 리콜 발송 내역 API
 
 import { NextRequest, NextResponse } from 'next/server';
-import { connectToDatabase } from '@/utils/mongodb';
+import { connectToDatabase, getClinicId } from '@/utils/mongodb';
 import { ObjectId } from 'mongodb';
 import { z } from 'zod';
 
@@ -47,15 +47,17 @@ export async function GET(request: NextRequest) {
     const limit = parseInt(searchParams.get('limit') || '20');
 
     const { db } = await connectToDatabase();
+    const clinicId = getClinicId();
 
     // 필터 조건
-    const filter: Record<string, unknown> = {};
+    const filter: Record<string, unknown> = { clinicId };
     if (status) {
       filter.status = status;
     }
 
     // 통계 조회
     const stats = await db.collection('recall_messages').aggregate([
+      { $match: { clinicId } },
       {
         $group: {
           _id: '$status',
@@ -152,6 +154,7 @@ export async function POST(request: NextRequest) {
     const { patientId, treatment, timing, timingDays, message, lastVisit } = parsed.data;
 
     const { db } = await connectToDatabase();
+    const clinicId = getClinicId();
     const now = new Date();
 
     // 발송 예정일 계산
@@ -159,7 +162,8 @@ export async function POST(request: NextRequest) {
     scheduledAt.setDate(scheduledAt.getDate() + timingDays);
     scheduledAt.setHours(10, 0, 0, 0); // 오전 10시로 설정
 
-    const newMessage: RecallMessage = {
+    const newMessage = {
+      clinicId,
       patientId,
       treatment,
       timing,
@@ -204,6 +208,7 @@ export async function PATCH(request: NextRequest) {
     const { id, status, bookedAt } = parsed.data;
 
     const { db } = await connectToDatabase();
+    const clinicId = getClinicId();
     const now = new Date().toISOString();
 
     const updateData: Record<string, unknown> = {
@@ -220,7 +225,7 @@ export async function PATCH(request: NextRequest) {
     }
 
     const result = await db.collection('recall_messages').findOneAndUpdate(
-      { _id: new ObjectId(id) },
+      { _id: new ObjectId(id), clinicId },
       { $set: updateData },
       { returnDocument: 'after' }
     );

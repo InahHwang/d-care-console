@@ -5,7 +5,7 @@ import { NextRequest, NextResponse } from 'next/server';
 
 // 캐싱 방지: 항상 최신 설정 데이터 반환
 export const dynamic = 'force-dynamic';
-import { connectToDatabase } from '@/utils/mongodb';
+import { connectToDatabase, getClinicId } from '@/utils/mongodb';
 import { z } from 'zod';
 
 const settingsPatchSchema = z.object({
@@ -28,6 +28,24 @@ const settingsPatchSchema = z.object({
     schedule: z.record(z.object({ enabled: z.boolean(), time: z.string() })),
   }).nullish(),
   excludedPhones: z.array(z.string()).nullish(),
+  sms: z.object({
+    senderNumber: z.string(),
+    senderName: z.string(),
+    approvalStatus: z.enum(['none', 'pending', 'approved', 'rejected']),
+    approvalNote: z.string().optional(),
+    isConfigured: z.boolean().optional(),
+  }).nullish(),
+  channels: z.object({
+    naver: z.object({ enabled: z.boolean(), authToken: z.string(), isConfigured: z.boolean() }).optional(),
+    kakao: z.object({ enabled: z.boolean(), apiToken: z.string(), isConfigured: z.boolean() }).optional(),
+    instagram: z.object({
+      enabled: z.boolean(),
+      accessToken: z.string(),
+      pageId: z.string(),
+      webhookVerifyToken: z.string(),
+      isConfigured: z.boolean(),
+    }).optional(),
+  }).nullish(),
 }).passthrough();
 
 interface Settings {
@@ -69,8 +87,7 @@ export async function GET() {
   try {
     const { db } = await connectToDatabase();
 
-    // 현재 설정 조회 (클리닉 ID는 일단 고정)
-    const clinicId = 'default';
+    const clinicId = getClinicId();
     let settings: Settings | null = await db.collection<Settings>('settings_v2').findOne({ clinicId });
 
     if (!settings) {
@@ -113,7 +130,7 @@ export async function PATCH(request: NextRequest) {
 
     const { db } = await connectToDatabase();
 
-    const clinicId = 'default';
+    const clinicId = getClinicId();
     const now = new Date().toISOString();
 
     // 업데이트할 필드만 추출
@@ -129,6 +146,8 @@ export async function PATCH(request: NextRequest) {
     if (body.targets !== undefined) updateData.targets = body.targets;
     if (body.dailyReportSms !== undefined) updateData.dailyReportSms = body.dailyReportSms;
     if (body.excludedPhones !== undefined) updateData.excludedPhones = body.excludedPhones;
+    if (body.sms !== undefined) updateData.sms = body.sms;
+    if (body.channels !== undefined) updateData.channels = body.channels;
 
     const result = await db.collection<Settings>('settings_v2').findOneAndUpdate(
       { clinicId },

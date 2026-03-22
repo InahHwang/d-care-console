@@ -1,7 +1,7 @@
 // src/app/api/v2/channel-chats/[chatId]/messages/route.ts
 import { NextRequest, NextResponse } from 'next/server';
 import { ObjectId } from 'mongodb';
-import { connectToDatabase } from '@/utils/mongodb';
+import { connectToDatabase, getClinicId } from '@/utils/mongodb';
 import { MessageDirection, MessageType, SenderType, MessageStatus, ChannelType } from '@/types/v2';
 import Pusher from 'pusher';
 
@@ -26,19 +26,8 @@ const BIZGO_CSTALK_API_URL = 'https://mars.ibapi.kr/api/comm/v1/send/cstalk/plai
 // 인스타그램 Graph API
 const INSTAGRAM_GRAPH_API_URL = 'https://graph.facebook.com/v18.0';
 
-// CoolSMS SDK (홈페이지 채팅 이탈 고객 SMS 알림용)
-let coolsmsService: any = null;
-try {
-  const isVercel = process.env.VERCEL === '1';
-  if (isVercel) {
-    const coolsmsModule = require('coolsms-node-sdk');
-    coolsmsService = coolsmsModule.default || coolsmsModule;
-  } else {
-    coolsmsService = require('coolsms-node-sdk').default;
-  }
-} catch (error) {
-  console.log('[채널메시지] CoolSMS SDK 로드 실패 (SMS 알림 비활성화)');
-}
+// 네이버 클라우드 SENS (홈페이지 채팅 이탈 고객 SMS 알림용)
+import { sendMessage as sensSendMessage, isSensConfigured } from '@/utils/naverSens';
 
 export const dynamic = 'force-dynamic';
 
@@ -62,10 +51,12 @@ export async function GET(request: NextRequest, { params }: RouteParams) {
     }
 
     const { db } = await connectToDatabase();
+    const clinicId = getClinicId();
 
     // 대화방 존재 확인
     const chat = await db.collection('channelChats_v2').findOne({
       _id: new ObjectId(chatId),
+      clinicId,
     });
 
     if (!chat) {
@@ -131,10 +122,12 @@ export async function POST(request: NextRequest, { params }: RouteParams) {
     }
 
     const { db } = await connectToDatabase();
+    const clinicId = getClinicId();
 
     // 대화방 존재 확인
     const chat = await db.collection('channelChats_v2').findOne({
       _id: new ObjectId(chatId),
+      clinicId,
     });
 
     if (!chat) {
@@ -492,19 +485,9 @@ async function sendWebsiteChatSmsNotification(
   chat: any,
   agentMessage: string
 ): Promise<void> {
-  // CoolSMS SDK 로드 확인
-  if (!coolsmsService) {
-    console.log('[SMS 알림] CoolSMS SDK 미로드, 알림 건너뜀');
-    return;
-  }
-
-  // 환경 변수 확인
-  const apiKey = process.env.COOLSMS_API_KEY;
-  const apiSecret = process.env.COOLSMS_API_SECRET;
-  const senderNumber = process.env.COOLSMS_SENDER_NUMBER;
-
-  if (!apiKey || !apiSecret || !senderNumber) {
-    console.log('[SMS 알림] CoolSMS 환경 변수 미설정, 알림 건너뜀');
+  // SENS 설정 확인
+  if (!isSensConfigured()) {
+    console.log('[SMS 알림] SENS 미설정, 알림 건너뜀');
     return;
   }
 
@@ -515,25 +498,24 @@ async function sendWebsiteChatSmsNotification(
   }
 
   try {
-    // 병원 이름 가져오기 (설정에서)
     const settings = await db.collection('settings').findOne({});
     const clinicName = settings?.clinicName || '병원';
 
-    // SMS 메시지 생성 (90바이트 이내)
     const smsMessage = `[${clinicName}] 홈페이지 상담 답변이 도착했습니다. 확인해주세요.`;
 
     console.log('[SMS 알림] 발송 시도:', { phone, clinicName, chatId: chat._id?.toString() });
 
-    // CoolSMS 발송
-    const messageService = new coolsmsService(apiKey, apiSecret);
-    await messageService.sendOne({
+    const result = await sensSendMessage({
       to: phone,
-      from: senderNumber,
       text: smsMessage,
       type: 'SMS',
     });
 
-    console.log('[SMS 알림] 발송 성공:', phone);
+    if (result.success) {
+      console.log('[SMS 알림] 발송 성공:', phone);
+    } else {
+      console.error('[SMS 알림] 발송 실패:', result.error);
+    }
 
     // 중복 발송 방지: smsNotificationSent 플래그 설정
     await db.collection('channelChats_v2').updateOne(
@@ -542,7 +524,6 @@ async function sendWebsiteChatSmsNotification(
     );
   } catch (error) {
     console.error('[SMS 알림] 발송 실패:', error);
-    // 실패해도 메인 로직에 영향 없음
   }
 }
 

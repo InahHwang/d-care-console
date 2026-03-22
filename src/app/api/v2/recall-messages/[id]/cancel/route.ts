@@ -2,7 +2,7 @@
 // 리콜 메시지 취소 API
 
 import { NextRequest, NextResponse } from 'next/server';
-import { connectToDatabase } from '@/utils/mongodb';
+import { connectToDatabase, getClinicId } from '@/utils/mongodb';
 import { ObjectId } from 'mongodb';
 
 // POST - 발송 취소
@@ -21,11 +21,13 @@ export async function POST(
     }
 
     const { db } = await connectToDatabase();
+    const clinicId = getClinicId();
     const now = new Date().toISOString();
 
     // 메시지가 pending 상태인지 확인
     const message = await db.collection('recall_messages').findOne({
       _id: new ObjectId(id),
+      clinicId,
       status: 'pending',
     });
 
@@ -38,7 +40,7 @@ export async function POST(
 
     // 삭제 대신 상태를 cancelled로 변경
     await db.collection('recall_messages').updateOne(
-      { _id: new ObjectId(id) },
+      { _id: new ObjectId(id), clinicId },
       {
         $set: {
           status: 'cancelled',

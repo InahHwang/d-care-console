@@ -2,7 +2,7 @@
 // 리콜 메시지 전화 완료 API
 
 import { NextRequest, NextResponse } from 'next/server';
-import { connectToDatabase } from '@/utils/mongodb';
+import { connectToDatabase, getClinicId } from '@/utils/mongodb';
 import { ObjectId } from 'mongodb';
 
 // POST - 전화 완료 처리
@@ -23,6 +23,7 @@ export async function POST(
     }
 
     const { db } = await connectToDatabase();
+    const clinicId = getClinicId();
     const now = new Date().toISOString();
 
     const updateData: Record<string, unknown> = {
@@ -38,7 +39,7 @@ export async function POST(
     }
 
     const resultDoc = await db.collection('recall_messages').findOneAndUpdate(
-      { _id: new ObjectId(id) },
+      { _id: new ObjectId(id), clinicId },
       { $set: updateData },
       { returnDocument: 'after' }
     );

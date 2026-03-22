@@ -1,6 +1,6 @@
 // src/app/api/v2/channel-chats/route.ts
 import { NextRequest, NextResponse } from 'next/server';
-import { connectToDatabase } from '@/utils/mongodb';
+import { connectToDatabase, getClinicId } from '@/utils/mongodb';
 import { ChannelType, ChatStatus } from '@/types/v2';
 import { z } from 'zod';
 
@@ -15,6 +15,7 @@ const channelChatCreateSchema = z.object({
 export const dynamic = 'force-dynamic';
 
 interface ChatQuery {
+  clinicId?: string;
   channel?: ChannelType;
   status?: ChatStatus | { $ne: string };
   $or?: Array<{ patientName?: { $regex: string; $options: string }; phone?: { $regex: string } }>;
@@ -32,8 +33,10 @@ export async function GET(request: NextRequest) {
 
     const { db } = await connectToDatabase();
 
+    const clinicId = getClinicId();
+
     // 쿼리 빌드
-    const query: ChatQuery = {};
+    const query: ChatQuery = { clinicId };
 
     if (channel && channel !== 'all') {
       query.channel = channel;
@@ -72,7 +75,7 @@ export async function GET(request: NextRequest) {
 
     // 읽지 않은 총 메시지 수
     const unreadTotal = await db.collection('channelChats_v2').aggregate([
-      { $match: { status: { $ne: 'closed' } } },
+      { $match: { clinicId, status: { $ne: 'closed' } } },
       { $group: { _id: null, total: { $sum: '$unreadCount' } } },
     ]).toArray();
 
@@ -110,9 +113,10 @@ export async function POST(request: NextRequest) {
     const { channel, channelRoomId, channelUserKey, phone, patientName } = parsed.data;
 
     const { db } = await connectToDatabase();
+    const clinicId = getClinicId();
 
     // 이미 존재하는 대화방인지 확인
-    const existing = await db.collection('channelChats_v2').findOne({ channelRoomId });
+    const existing = await db.collection('channelChats_v2').findOne({ clinicId, channelRoomId });
     if (existing) {
       return NextResponse.json({
         success: true,
@@ -128,6 +132,7 @@ export async function POST(request: NextRequest) {
     if (phone) {
       const normalizedPhone = phone.replace(/-/g, '');
       const patient = await db.collection('patients_v2').findOne({
+        clinicId,
         $or: [
           { phone: normalizedPhone },
           { phone: { $regex: normalizedPhone.slice(-8) + '$' } },
@@ -142,6 +147,7 @@ export async function POST(request: NextRequest) {
 
     const now = new Date();
     const newChat = {
+      clinicId,
       channel,
       channelRoomId,
       channelUserKey,

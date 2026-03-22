@@ -3,7 +3,7 @@
 
 import { NextRequest, NextResponse } from 'next/server';
 import { ObjectId } from 'mongodb';
-import { connectToDatabase } from '@/utils/mongodb';
+import { connectToDatabase, getClinicId } from '@/utils/mongodb';
 import { getActiveTreatmentTypeLabels } from '@/utils/treatmentTypes';
 import OpenAI from 'openai';
 import Pusher from 'pusher';
@@ -64,10 +64,12 @@ export async function POST(request: NextRequest, { params }: RouteParams) {
     }
 
     const { db } = await connectToDatabase();
+    const clinicId = getClinicId();
 
     // 대화방 조회
     const chat = await db.collection('channelChats_v2').findOne({
       _id: new ObjectId(chatId),
+      clinicId,
     });
 
     if (!chat) {

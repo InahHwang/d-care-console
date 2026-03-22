@@ -315,14 +315,14 @@ git commit -m "[CTIBridge] 변경 내용 요약"
   - 진행 방식: API 1개 수정 → 배포 → 사장님 운영 확인 → 다음 API
   - ⚠️ 진료시간 외에 작업할 것 (문제 시 환자 응대에 영향)
   - 대상 API 목록 (미정, 진행 시 하나씩 체크):
-    - [ ] patients (조회/생성/수정)
-    - [ ] callLogs (조회)
-    - [ ] callbacks (조회/생성/수정)
+    - [x] patients (조회/생성/수정)
+    - [ ] callLogs (조회) — CTI write 쪽도 같이 수정 필요 (리스크 높음)
+    - [x] callbacks (조회/생성/수정) — 이미 적용되어 있었음
     - [ ] consultations (조회/생성/수정)
-    - [ ] channel-chats (조회/생성)
+    - [x] channel-chats (조회/생성) — 2026-03-22 적용, 빌드 확인 완료
     - [ ] call-analysis (조회)
-    - [ ] recall-messages (조회/생성)
-    - [ ] settings (조회/수정)
+    - [x] recall-messages (조회/생성) — 2026-03-22 적용, 빌드 확인 완료
+    - [x] settings (조회/수정) — 2026-03-22 getClinicId() 사용으로 변경
     - [ ] 기타 (manuals, reports 등)
 
 #### Step 5: 인증 강화 - JWT/쿠키 (리스크: 높음)
