@@ -30,8 +30,10 @@ import {
   ChevronLeft,
   ChevronRight,
   AlertCircle,
+  Download,
 } from 'lucide-react';
 import { Pagination } from '@/components/v2/ui/Pagination';
+import { exportCallLogsToExcel } from '@/utils/callLogExcelExport';
 import { Temperature } from '@/types/v2';
 import { useAppSelector } from '@/hooks/reduxHooks';
 
@@ -1265,6 +1267,47 @@ function CallLogsPageContent() {
     }
   };
 
+  const [exporting, setExporting] = useState(false);
+
+  const handleExcelDownload = async () => {
+    setExporting(true);
+    try {
+      const params = new URLSearchParams();
+      params.set('export', 'true');
+      params.set('page', '1');
+
+      if (dateRange) {
+        params.set('startDate', dateRange.start);
+        params.set('endDate', dateRange.end);
+      } else {
+        params.set('date', selectedDate);
+      }
+
+      if (filter === 'patient') params.set('classification', '환자');
+      else if (filter === 'georaecheo') params.set('classification', '거래처');
+      else if (filter === 'spam') params.set('classification', '스팸');
+      else if (filter === 'etc') params.set('classification', '기타');
+
+      if (searchQuery) params.set('search', searchQuery);
+      if (directionFilter !== 'all') params.set('direction', directionFilter);
+
+      const response = await fetch(`/api/v2/call-logs?${params.toString()}`);
+      if (!response.ok) throw new Error('Failed to fetch');
+
+      const data = await response.json();
+
+      const dateLabel = dateRange
+        ? `${dateRange.start}_${dateRange.end}`
+        : selectedDate;
+      exportCallLogsToExcel(data.callLogs, `통화기록_${dateLabel}.xlsx`);
+    } catch (error) {
+      console.error('엑셀 다운로드 실패:', error);
+      alert('엑셀 다운로드에 실패했습니다.');
+    } finally {
+      setExporting(false);
+    }
+  };
+
   const getStatCount = (filterId: ClassificationFilter) => {
     if (!stats) return 0;
     switch (filterId) {
@@ -1442,6 +1485,14 @@ function CallLogsPageContent() {
                 <Sparkles size={16} />
                 <span>AI 분석 활성화</span>
               </div>
+              <button
+                onClick={handleExcelDownload}
+                disabled={exporting}
+                className="flex items-center gap-2 px-4 py-2 text-gray-600 border border-gray-300 hover:bg-gray-50 rounded-lg font-medium disabled:opacity-50"
+              >
+                {exporting ? <Loader2 size={18} className="animate-spin" /> : <Download size={18} />}
+                엑셀 다운로드
+              </button>
               <button
                 onClick={handleAddPatient}
                 className="flex items-center gap-2 px-4 py-2 bg-blue-500 hover:bg-blue-600 text-white rounded-lg font-medium"

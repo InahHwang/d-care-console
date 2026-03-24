@@ -28,8 +28,9 @@ interface CallLogQuery {
 export async function GET(request: NextRequest) {
   try {
     const searchParams = request.nextUrl.searchParams;
+    const isExport = searchParams.get('export') === 'true';
     const page = parseInt(searchParams.get('page') || '1');
-    const limit = Math.min(parseInt(searchParams.get('limit') || '20'), 50);
+    const limit = isExport ? 5000 : Math.min(parseInt(searchParams.get('limit') || '20'), 50);
     const direction = searchParams.get('direction'); // inbound, outbound
     const classification = searchParams.get('classification'); // 신규환자, 기존환자, etc
     const date = searchParams.get('date'); // YYYY-MM-DD
