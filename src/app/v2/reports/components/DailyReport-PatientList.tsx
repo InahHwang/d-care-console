@@ -177,8 +177,7 @@ function PatientListItem({
           예약 {patient.appointmentDate}
         </div>
       )}
-      {(patient.status === 'no_answer' || patient.status === 'disagreed' || patient.status === 'pending') &&
-        patient.callbackDate && (
+      {patient.status !== 'agreed' && patient.callbackDate && (
           <div className={`text-sm mb-2 ${
             patient.status === 'no_answer' ? 'text-slate-600' :
             patient.status === 'disagreed' ? 'text-rose-600' :

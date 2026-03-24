@@ -1015,15 +1015,22 @@ function MobileDailyReportPage() {
                     </div>
                   )}
 
-                  {(patient.status === 'disagreed' || patient.status === 'pending' || patient.status === 'no_answer') && (
+                  {patient.callbackDate && (
                     <div className={`text-sm ${
                       patient.status === 'disagreed' ? 'text-rose-600'
                         : patient.status === 'no_answer' ? 'text-slate-600'
                         : 'text-amber-600'
                     }`}>
-                      {patient.callbackDate
-                        ? `📞 콜백 예정: ${patient.callbackDate}`
-                        : '📞 예정된 콜백 없음'}
+                      📞 콜백 예정: {patient.callbackDate}
+                    </div>
+                  )}
+                  {!patient.callbackDate && (patient.status === 'disagreed' || patient.status === 'pending' || patient.status === 'no_answer') && (
+                    <div className={`text-sm ${
+                      patient.status === 'disagreed' ? 'text-rose-600'
+                        : patient.status === 'no_answer' ? 'text-slate-600'
+                        : 'text-amber-600'
+                    }`}>
+                      📞 예정된 콜백 없음
                     </div>
                   )}
 

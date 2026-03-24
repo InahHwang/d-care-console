@@ -407,9 +407,8 @@ export function DailyReportPatientDetailPanel({
           </div>
         )}
 
-        {/* 콜백 예정 (미동의/보류/부재중 시) */}
-        {(patient.status === 'disagreed' || patient.status === 'pending' || patient.status === 'no_answer') &&
-          patient.callbackDate && (
+        {/* 콜백 예정 */}
+        {patient.callbackDate && (
             <div
               className={`rounded-xl p-5 border ${
                 patient.status === 'disagreed'
