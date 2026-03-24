@@ -124,3 +124,127 @@ export async function POST(request: NextRequest, { params }: RouteParams) {
     );
   }
 }
+
+// PATCH: 수동 상담 이력 수정
+export async function PATCH(request: NextRequest, { params }: RouteParams) {
+  try {
+    const { id: patientId } = await params;
+    const body = await request.json();
+    const { consultationId, type, date, content, consultantName } = body;
+
+    if (!ObjectId.isValid(patientId)) {
+      return NextResponse.json(
+        { success: false, error: '유효하지 않은 환자 ID입니다.' },
+        { status: 400 }
+      );
+    }
+
+    if (!consultationId || !ObjectId.isValid(consultationId)) {
+      return NextResponse.json(
+        { success: false, error: '유효하지 않은 상담 ID입니다.' },
+        { status: 400 }
+      );
+    }
+
+    if (!content || !content.trim()) {
+      return NextResponse.json(
+        { success: false, error: '상담 내용은 필수입니다.' },
+        { status: 400 }
+      );
+    }
+
+    const { db } = await connectToDatabase();
+
+    // 해당 상담이 이 환자의 것인지 확인
+    const existing = await db.collection('manualConsultations_v2').findOne({
+      _id: new ObjectId(consultationId),
+      patientId,
+    });
+
+    if (!existing) {
+      return NextResponse.json(
+        { success: false, error: '상담 이력을 찾을 수 없습니다.' },
+        { status: 404 }
+      );
+    }
+
+    const now = new Date();
+    const updateData: any = {
+      content: content.trim(),
+      updatedAt: now,
+    };
+    if (type) updateData.type = type;
+    if (date) updateData.date = new Date(date);
+    if (consultantName) updateData.consultantName = consultantName;
+
+    await db.collection('manualConsultations_v2').updateOne(
+      { _id: new ObjectId(consultationId) },
+      { $set: updateData }
+    );
+
+    console.log(`[수동 상담] 수정: 환자ID=${patientId}, 상담ID=${consultationId}`);
+
+    return NextResponse.json({
+      success: true,
+      data: { id: consultationId, ...updateData },
+    });
+  } catch (error) {
+    console.error('[수동 상담 이력] 수정 오류:', error);
+    return NextResponse.json(
+      { success: false, error: '수정 중 오류가 발생했습니다.' },
+      { status: 500 }
+    );
+  }
+}
+
+// DELETE: 수동 상담 이력 삭제
+export async function DELETE(request: NextRequest, { params }: RouteParams) {
+  try {
+    const { id: patientId } = await params;
+    const { searchParams } = new URL(request.url);
+    const consultationId = searchParams.get('consultationId');
+
+    if (!ObjectId.isValid(patientId)) {
+      return NextResponse.json(
+        { success: false, error: '유효하지 않은 환자 ID입니다.' },
+        { status: 400 }
+      );
+    }
+
+    if (!consultationId || !ObjectId.isValid(consultationId)) {
+      return NextResponse.json(
+        { success: false, error: '유효하지 않은 상담 ID입니다.' },
+        { status: 400 }
+      );
+    }
+
+    const { db } = await connectToDatabase();
+
+    // 해당 상담이 이 환자의 것인지 확인
+    const existing = await db.collection('manualConsultations_v2').findOne({
+      _id: new ObjectId(consultationId),
+      patientId,
+    });
+
+    if (!existing) {
+      return NextResponse.json(
+        { success: false, error: '상담 이력을 찾을 수 없습니다.' },
+        { status: 404 }
+      );
+    }
+
+    await db.collection('manualConsultations_v2').deleteOne({
+      _id: new ObjectId(consultationId),
+    });
+
+    console.log(`[수동 상담] 삭제: 환자ID=${patientId}, 상담ID=${consultationId}`);
+
+    return NextResponse.json({ success: true });
+  } catch (error) {
+    console.error('[수동 상담 이력] 삭제 오류:', error);
+    return NextResponse.json(
+      { success: false, error: '삭제 중 오류가 발생했습니다.' },
+      { status: 500 }
+    );
+  }
+}

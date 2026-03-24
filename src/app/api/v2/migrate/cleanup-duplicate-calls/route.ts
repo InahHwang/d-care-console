@@ -1,6 +1,6 @@
 // 동시착신 중복 통화기록 정리 API
-// 같은 발신번호 + 5초 이내 inbound 기록 중 중복 건 삭제
-// 실제 통화된(connected) 건은 보존, 나머지(ringing/missed) 삭제
+// 같은 발신번호 + 10초 이내 inbound 기록 중 중복 건 삭제
+// 녹취/요약 있는 건 우선 보존
 
 import { NextRequest, NextResponse } from 'next/server';
 import { connectToDatabase } from '@/utils/mongodb';
@@ -11,17 +11,18 @@ export async function POST(request: NextRequest) {
     const { db } = await connectToDatabase();
     const body = await request.json().catch(() => ({}));
 
-    // 기본: 오늘자. date 파라미터로 특정 날짜 지정 가능 (YYYY-MM-DD)
-    const targetDate = body.date || new Date().toISOString().split('T')[0];
-    const startOfDay = new Date(`${targetDate}T00:00:00+09:00`);
-    const endOfDay = new Date(`${targetDate}T23:59:59+09:00`);
+    // date 파라미터: 특정 날짜(YYYY-MM-DD) 또는 "all"로 전체 정리
+    const targetDate = body.date || 'all';
 
-    // 오늘자 inbound 통화기록 조회 (시간순 정렬)
+    const query: Record<string, unknown> = { direction: 'inbound' };
+    if (targetDate !== 'all') {
+      const startOfDay = new Date(`${targetDate}T00:00:00+09:00`);
+      const endOfDay = new Date(`${targetDate}T23:59:59+09:00`);
+      query.createdAt = { $gte: startOfDay, $lte: endOfDay };
+    }
+
     const callLogs = await db.collection('callLogs_v2')
-      .find({
-        direction: 'inbound',
-        createdAt: { $gte: startOfDay, $lte: endOfDay },
-      })
+      .find(query)
       .sort({ createdAt: 1 })
       .toArray();
 
@@ -36,7 +37,7 @@ export async function POST(request: NextRequest) {
       const phone = (current.phone || '').replace(/\D/g, '');
       if (!phone) continue;
 
-      // 같은 발신번호 + 5초 이내인 기록 그룹핑
+      // 같은 발신번호 + 10초 이내인 기록 그룹핑
       const group = [current];
       for (let j = i + 1; j < callLogs.length; j++) {
         const other = callLogs[j];
@@ -46,21 +47,31 @@ export async function POST(request: NextRequest) {
         const timeDiff = Math.abs(
           new Date(other.createdAt).getTime() - new Date(current.createdAt).getTime()
         );
-        if (timeDiff > 5000) break; // 5초 초과면 다른 통화
+        if (timeDiff > 10000) break; // 10초 초과면 다른 통화
 
         group.push(other);
       }
 
-      if (group.length <= 1) continue; // 중복 없음
+      if (group.length <= 1) {
+        processed.add(currentId);
+        continue;
+      }
 
-      // connected 건이 있으면 그걸 보존, 없으면 첫 번째 보존
-      const connected = group.find(g => g.status === 'connected');
-      const keep = connected || group[0];
+      // 보존 우선순위: 녹취 있는 것 > aiStatus completed > duration 큰 것
+      group.sort((a, b) => {
+        const aRec = a.recordingUrl && a.recordingUrl.startsWith('http') ? 1 : 0;
+        const bRec = b.recordingUrl && b.recordingUrl.startsWith('http') ? 1 : 0;
+        if (bRec !== aRec) return bRec - aRec;
+        const aComp = a.aiStatus === 'completed' ? 1 : 0;
+        const bComp = b.aiStatus === 'completed' ? 1 : 0;
+        if (bComp !== aComp) return bComp - aComp;
+        return (b.duration || 0) - (a.duration || 0);
+      });
 
-      for (const log of group) {
-        processed.add(log._id.toString());
-        if (log._id.toString() !== keep._id.toString()) {
-          toDelete.push(log._id);
+      for (let k = 0; k < group.length; k++) {
+        processed.add(group[k]._id.toString());
+        if (k > 0) {
+          toDelete.push(group[k]._id);
         }
       }
     }
@@ -68,15 +79,15 @@ export async function POST(request: NextRequest) {
     // dryRun 모드 (기본): 삭제 대상만 확인
     if (body.dryRun !== false) {
       const deleteDetails = await db.collection('callLogs_v2')
-        .find({ _id: { $in: toDelete } })
-        .project({ phone: 1, calledNumber: 1, status: 1, createdAt: 1 })
+        .find({ _id: { $in: toDelete.slice(0, 50) } })
+        .project({ phone: 1, calledNumber: 1, status: 1, duration: 1, aiStatus: 1, createdAt: 1 })
         .toArray();
 
       return NextResponse.json({
         message: `[DRY RUN] ${targetDate} 중복 ${toDelete.length}건 발견`,
         totalLogs: callLogs.length,
         duplicateCount: toDelete.length,
-        duplicates: deleteDetails,
+        sample: deleteDetails,
         hint: 'dryRun: false 로 실행하면 실제 삭제됩니다',
       });
     }

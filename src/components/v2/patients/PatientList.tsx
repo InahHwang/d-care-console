@@ -280,10 +280,11 @@ export function PatientList({ patients, onPatientClick, onCallClick, loading, co
           <div className="w-[14%] min-w-[100px]">환자명</div>
           <div className="w-[6%] min-w-[45px]">나이</div>
           <div className="w-[10%] min-w-[95px]">금액</div>
-          <div className="w-[14%] min-w-[110px]">전화번호</div>
-          <div className="w-[12%] min-w-[80px]">관심시술</div>
+          <div className="w-[12%] min-w-[100px]">전화번호</div>
+          <div className="w-[10%] min-w-[75px]">지역</div>
+          <div className="w-[12%] min-w-[80px]">치료과목</div>
           <div className="w-[10%] min-w-[70px]">상태</div>
-          <div className="w-[23%] min-w-[150px]">예정일</div>
+          <div className="w-[15%] min-w-[120px]">예정일</div>
           <div className="w-[6%] min-w-[50px]"></div>
         </div>
         <div className="divide-y divide-gray-100">
@@ -313,10 +314,11 @@ export function PatientList({ patients, onPatientClick, onCallClick, loading, co
         <div className="w-[14%] min-w-[100px]">환자명</div>
         <div className="w-[6%] min-w-[45px]">나이</div>
         <div className="w-[10%] min-w-[95px]">금액</div>
-        <div className="w-[14%] min-w-[110px]">전화번호</div>
-        <div className="w-[12%] min-w-[80px]">관심시술</div>
+        <div className="w-[12%] min-w-[100px]">전화번호</div>
+        <div className="w-[10%] min-w-[75px]">지역</div>
+        <div className="w-[12%] min-w-[80px]">치료과목</div>
         <div className="w-[10%] min-w-[70px]">상태</div>
-        <div className="w-[23%] min-w-[150px]">예정일</div>
+        <div className="w-[15%] min-w-[120px]">예정일</div>
         <div className="w-[6%] min-w-[50px]"></div>
       </div>
 
@@ -419,8 +421,17 @@ export function PatientList({ patients, onPatientClick, onCallClick, loading, co
               </div>
 
               {/* 전화번호 */}
-              <div className="w-[14%] min-w-[110px] text-sm text-gray-600">
+              <div className="w-[12%] min-w-[100px] text-sm text-gray-600">
                 {formatPhone(patient.phone)}
+              </div>
+
+              {/* 지역 */}
+              <div className="w-[10%] min-w-[75px] text-sm text-gray-600 truncate">
+                {patient.region?.province
+                  ? patient.region.city
+                    ? `${patient.region.province} ${patient.region.city}`
+                    : patient.region.province
+                  : '-'}
               </div>
 
               {/* 관심시술 */}
@@ -450,7 +461,7 @@ export function PatientList({ patients, onPatientClick, onCallClick, loading, co
               </div>
 
               {/* 예정일 + 메모 */}
-              <div className="w-[23%] min-w-[150px] text-sm">
+              <div className="w-[15%] min-w-[120px] text-sm">
                 {patient.nextActionDate ? (
                   <div className="flex items-center gap-2">
                     <div className="flex flex-col shrink-0">

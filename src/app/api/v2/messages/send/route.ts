@@ -175,29 +175,8 @@ async function optimizeImageForMMS(imageInput: string | Buffer): Promise<{ succe
   }
 }
 
-// CoolSMS SDK 임포트
-let coolsmsService: any = null;
-let sdkImportError: string | null = null;
-
-try {
-  if (isVercel) {
-    const coolsmsModule = require('coolsms-node-sdk');
-    coolsmsService = coolsmsModule.default || coolsmsModule;
-  } else {
-    coolsmsService = require('coolsms-node-sdk').default;
-  }
-  console.log('✅ CoolSMS SDK 임포트 성공');
-} catch (error: any) {
-  sdkImportError = error.message;
-  console.error('❌ CoolSMS SDK 임포트 실패:', error.message);
-}
-
-// CoolSMS API 설정
-const COOLSMS_CONFIG = {
-  API_KEY: process.env.COOLSMS_API_KEY || '',
-  API_SECRET: process.env.COOLSMS_API_SECRET || '',
-  SENDER_NUMBER: process.env.COOLSMS_SENDER_NUMBER || '',
-};
+// 네이버 클라우드 SENS
+import { sendMessage as sensSendMessage, uploadImage as sensUploadImage, isSensConfigured } from '@/utils/naverSens';
 
 export async function POST(request: NextRequest) {
   console.log('======= 메시지 발송 API 시작 =======');
@@ -206,11 +185,10 @@ export async function POST(request: NextRequest) {
   const currentUser = getCurrentUser(request);
   
   try {
-    // SDK 임포트 상태 확인
-    if (sdkImportError) {
-      console.error('SDK 임포트 에러:', sdkImportError);
-      
-      // 🔥 백엔드 로그 - SDK 임포트 실패
+    // SENS 설정 확인
+    if (!isSensConfigured()) {
+      console.error('SENS 설정 누락');
+
       await logActivityToDatabase({
         action: 'message_send_api_error',
         targetId: 'system',
@@ -218,13 +196,13 @@ export async function POST(request: NextRequest) {
         userId: currentUser.id,
         userName: currentUser.name,
         details: {
-          error: `SDK 임포트 실패: ${sdkImportError}`,
+          error: 'SENS 설정 누락',
           apiEndpoint: '/api/messages/send'
         }
       });
-      
+
       return NextResponse.json(
-        { success: false, message: `SDK 임포트 실패: ${sdkImportError}` },
+        { success: false, message: 'SMS 발송 설정이 올바르지 않습니다.' },
         { status: 500 }
       );
     }
@@ -281,31 +259,7 @@ export async function POST(request: NextRequest) {
     }
 
     // 환경변수 확인
-    console.log('🔑 환경 변수 확인:', {
-      apiKey: COOLSMS_CONFIG.API_KEY ? '설정됨' : '없음',
-      apiSecret: COOLSMS_CONFIG.API_SECRET ? '설정됨' : '없음',
-      sender: COOLSMS_CONFIG.SENDER_NUMBER ? '설정됨' : '없음'
-    });
-    
-    if (!COOLSMS_CONFIG.API_KEY || !COOLSMS_CONFIG.API_SECRET || !COOLSMS_CONFIG.SENDER_NUMBER) {
-      // 🔥 백엔드 로그 - 설정 오류
-      await logActivityToDatabase({
-        action: 'message_send_api_error',
-        targetId: 'system',
-        targetName: 'SMS 서비스',
-        userId: currentUser.id,
-        userName: currentUser.name,
-        details: {
-          error: 'CoolSMS 설정 누락',
-          apiEndpoint: '/api/messages/send'
-        }
-      });
-      
-      return NextResponse.json(
-        { success: false, message: 'CoolSMS 설정이 올바르지 않습니다.' },
-        { status: 500 }
-      );
-    }
+    console.log('🔑 SENS 환경 변수: 설정 완료');
 
     // 내용 길이 확인 (2000바이트 제한)
     let contentByteLength = 0;
@@ -339,10 +293,6 @@ export async function POST(request: NextRequest) {
         { status: 400 }
       );
     }
-
-    // CoolSMS 서비스 초기화
-    const messageService = new coolsmsService(COOLSMS_CONFIG.API_KEY, COOLSMS_CONFIG.API_SECRET);
-    console.log('✅ CoolSMS 서비스 초기화 성공');
 
     // 메시지 타입 결정
     let actualMessageType = getMessageType(content);
@@ -379,7 +329,6 @@ export async function POST(request: NextRequest) {
     for (const patient of patients) {
       const messageOptions: any = {
         to: patient.phoneNumber,
-        from: COOLSMS_CONFIG.SENDER_NUMBER,
         text: content.replace(/\[환자명\]/g, patient.name || '고객'),
         type: actualMessageType
       };
@@ -397,91 +346,62 @@ export async function POST(request: NextRequest) {
         // MMS 이미지 처리
         if (shouldAttemptMMS && imageUrl) {
           console.log(`📁 [${patient.name}] MMS 이미지 처리 시작`);
-          
-          // 이미지 최적화
+
           const imageProcessResult = await optimizeImageForMMS(imageUrl);
-          
+
           if (!imageProcessResult.success) {
             console.log(`⚠️ [${patient.name}] 이미지 최적화 실패, LMS로 대체:`, imageProcessResult.error);
-            
-            // LMS로 대체하되, 이미지 실패 안내 문구는 추가하지 않음
             actualMessageType = 'LMS';
             messageOptions.type = 'LMS';
             patientResult.actualType = 'LMS';
             patientResult.error = `이미지 처리 실패로 LMS 발송: ${imageProcessResult.error}`;
           } else {
             console.log(`✅ [${patient.name}] 이미지 최적화 완료: ${(imageProcessResult.buffer!.length / 1024).toFixed(1)}KB`);
-            
-            try {
-              // 임시 파일 생성 및 CoolSMS 업로드
-              let tempFilePath = '';
-              
-              if (isVercel) {
-                tempFilePath = `/tmp/temp_${Date.now()}_${patient.id}.jpg`;
-              } else {
-                const uploadsDir = path.join(process.cwd(), 'public/uploads');
-                if (!fs.existsSync(uploadsDir)) {
-                  fs.mkdirSync(uploadsDir, { recursive: true });
-                }
-                tempFilePath = path.join(uploadsDir, `temp_${Date.now()}_${patient.id}.jpg`);
-              }
-              
-              // 최적화된 이미지를 임시 파일로 저장
-              fs.writeFileSync(tempFilePath, imageProcessResult.buffer!);
-              
-              console.log(`🔄 [${patient.name}] MMS 이미지 업로드 시도: ${tempFilePath}`);
-              
-              // CoolSMS 이미지 업로드
-              const uploadResult = await messageService.uploadFile(tempFilePath, "MMS");
-              const imageId = uploadResult.fileId;
-              
-              console.log(`✅ [${patient.name}] 이미지 업로드 성공, imageId:`, imageId);
-              
-              // MMS 옵션 설정
-              messageOptions.imageId = imageId;
+
+            // SENS 이미지 업로드
+            const uploadResult = await sensUploadImage(imageProcessResult.buffer!);
+
+            if (uploadResult.success && uploadResult.fileId) {
+              console.log(`✅ [${patient.name}] SENS 이미지 업로드 성공:`, uploadResult.fileId);
+              messageOptions.imageId = uploadResult.fileId;
               messageOptions.type = 'MMS';
               patientResult.actualType = 'MMS';
-              
-              // 임시 파일 정리
-              try {
-                fs.unlinkSync(tempFilePath);
-                console.log(`🗑️ [${patient.name}] 임시 파일 삭제 완료`);
-              } catch (cleanupError) {
-                console.log(`⚠️ [${patient.name}] 임시 파일 삭제 실패:`, cleanupError);
-              }
-              
-            } catch (uploadError: any) {
-              console.log(`❌ [${patient.name}] 이미지 업로드 실패:`, uploadError.message);
-              console.log(`🔄 [${patient.name}] LMS로 대체 발송`);
-              
-              // LMS로 대체하되, 이미지 실패 안내 문구는 추가하지 않음
+            } else {
+              console.log(`❌ [${patient.name}] 이미지 업로드 실패, LMS로 대체:`, uploadResult.error);
               actualMessageType = 'LMS';
               messageOptions.type = 'LMS';
-              
               delete messageOptions.imageId;
               patientResult.actualType = 'LMS';
-              patientResult.error = `이미지 업로드 실패로 LMS 발송: ${uploadError.message}`;
+              patientResult.error = `이미지 업로드 실패로 LMS 발송: ${uploadResult.error}`;
             }
           }
         }
 
-        console.log(`📤 [${patient.name}] 최종 발송 옵션:`, {
+        console.log(`📤 [${patient.name}] 최종 발송:`, {
           to: messageOptions.to,
-          from: messageOptions.from,
           type: messageOptions.type,
           textLength: messageOptions.text.length,
           hasImageId: !!messageOptions.imageId
         });
 
-        // 메시지 발송
+        // SENS 메시지 발송
         console.log(`📨 [${patient.name}] ${messageOptions.type} 발송 시작...`);
-        const result = await messageService.sendOne(messageOptions);
-        console.log(`✅ [${patient.name}] 메시지 발송 성공!`, result);
-        
+        const result = await sensSendMessage({
+          to: messageOptions.to,
+          text: messageOptions.text,
+          type: messageOptions.type,
+          imageId: messageOptions.imageId,
+        });
+
+        if (!result.success) {
+          throw new Error(result.error || 'SENS 발송 실패');
+        }
+
+        console.log(`✅ [${patient.name}] 메시지 발송 성공!`, result.requestId);
+
         patientResult.success = true;
         patientResult.actualType = messageOptions.type;
 
-        // 🔥 백엔드 로그 - 개별 메시지 발송 성공 (프론트엔드 로깅이 없는 경우에만)
         if (!skipFrontendLog) {
           await logActivityToDatabase({
             action: 'message_send_api_success',
@@ -494,20 +414,19 @@ export async function POST(request: NextRequest) {
               messageType: patientResult.actualType,
               contentLength: messageOptions.text.length,
               hasImage: !!messageOptions.imageId,
-              messageId: result.messageId || 'unknown',
+              requestId: result.requestId || 'unknown',
               apiEndpoint: '/api/messages/send'
             }
           });
         }
-        
+
       } catch (error: any) {
         const errorMessage = error instanceof Error ? error.message : '알 수 없는 오류';
         console.error(`❌ [${patient.name}] 메시지 발송 실패:`, errorMessage);
-        
+
         patientResult.success = false;
         patientResult.error = errorMessage;
 
-        // 🔥 백엔드 로그 - 개별 메시지 발송 실패 (프론트엔드 로깅이 없는 경우에만)
         if (!skipFrontendLog) {
           await logActivityToDatabase({
             action: 'message_send_api_error',
@@ -613,7 +532,7 @@ export async function POST(request: NextRequest) {
 // GET 핸들러
 export async function GET() {
   return NextResponse.json({
-    message: "CoolSMS 메시지 발송 API",
+    message: "네이버 클라우드 SENS 메시지 발송 API",
     status: "ready",
     environment: isVercel ? 'vercel' : 'local',
     supports: ["SMS", "LMS", "MMS"],
@@ -622,7 +541,6 @@ export async function GET() {
       maxSize: "200KB",
       maxWidth: "1500px",
       maxHeight: "1440px",
-      maxSubject: "40 characters",
       maxContent: "2000 bytes (Korean ~1000 chars)"
     },
     note: "MMS 발송 실패 시 자동으로 LMS로 대체됩니다."

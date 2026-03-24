@@ -9,6 +9,7 @@ import {
   ConversionFunnelCard,
   TodayTasks,
 } from '@/components/v2/dashboard';
+import OnboardingChecklistWidget from '@/components/v2/dashboard/Onboarding-ChecklistWidget';
 
 interface ConversionRates {
   newInquiries: {
@@ -122,6 +123,9 @@ export default function DashboardPage() {
         subtitle="이번달 성과와 오늘 할 일을 확인하세요"
         onRefresh={handleRefresh}
       />
+
+      {/* 온보딩 체크리스트 (설정 미완료 시 표시) */}
+      <OnboardingChecklistWidget />
 
       {/* 이번달 성과 (전환율 퍼널) */}
       <ConversionFunnelCard

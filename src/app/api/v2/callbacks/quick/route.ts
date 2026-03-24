@@ -3,7 +3,7 @@
 // 4곳 업데이트: patients_v2.nextAction/nextActionDate, callbackHistory, journey callbackHistory, callbacks_v2
 
 import { NextRequest, NextResponse } from 'next/server';
-import { connectToDatabase } from '@/utils/mongodb';
+import { connectToDatabase, getClinicId } from '@/utils/mongodb';
 import { ObjectId } from 'mongodb';
 
 export async function POST(request: NextRequest) {
@@ -19,12 +19,13 @@ export async function POST(request: NextRequest) {
     }
 
     const { db } = await connectToDatabase();
+    const clinicId = getClinicId();
     const now = new Date();
     const nowISO = now.toISOString();
 
     // 환자 조회 (activeJourneyId 필요)
     const currentPatient = await db.collection('patients_v2').findOne(
-      { _id: new ObjectId(patientId) }
+      { _id: new ObjectId(patientId), clinicId }
     );
     if (!currentPatient) {
       return NextResponse.json(
@@ -42,7 +43,7 @@ export async function POST(request: NextRequest) {
 
     // 2. patients_v2: nextAction/nextActionDate + callbackHistory push
     await db.collection('patients_v2').updateOne(
-      { _id: new ObjectId(patientId) },
+      { _id: new ObjectId(patientId), clinicId },
       {
         $set: {
           nextAction: '콜백',
@@ -56,7 +57,7 @@ export async function POST(request: NextRequest) {
     // 3. 활성 여정의 callbackHistory에도 추가
     if (currentPatient.activeJourneyId) {
       await db.collection('patients_v2').updateOne(
-        { _id: new ObjectId(patientId) },
+        { _id: new ObjectId(patientId), clinicId },
         { $push: { 'journeys.$[journey].callbackHistory': callbackHistoryEntry } as any },
         { arrayFilters: [{ 'journey.id': currentPatient.activeJourneyId }] }
       );
@@ -64,6 +65,7 @@ export async function POST(request: NextRequest) {
 
     // 4. callbacks_v2에 추가
     const result = await db.collection('callbacks_v2').insertOne({
+      clinicId,
       patientId,
       type: 'callback',
       scheduledAt: new Date(scheduledAt),

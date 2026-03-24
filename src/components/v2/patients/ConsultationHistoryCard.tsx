@@ -1,7 +1,7 @@
 'use client';
 
 import React, { useState, useEffect } from 'react';
-import { Phone, MessageCircle, Clock, ChevronDown, Sparkles, X, Loader2, Plus, Building, Edit3, ClipboardCheck, ClipboardList, CheckCircle, XCircle, AlertCircle, PhoneMissed, Ban } from 'lucide-react';
+import { Phone, MessageCircle, Clock, ChevronDown, Sparkles, X, Loader2, Plus, Building, Edit3, ClipboardCheck, ClipboardList, CheckCircle, XCircle, AlertCircle, PhoneMissed, Ban, Pencil, Trash2 } from 'lucide-react';
 import { format } from 'date-fns';
 import { ko } from 'date-fns/locale';
 import { CHANNEL_CONFIG, ChannelType } from '@/types/v2';
@@ -107,6 +107,8 @@ interface ConsultationHistoryCardProps {
   className?: string;
   onSelectCall?: (callId: string) => void;
   onAddResult?: (activityId: string, activityType: 'call' | 'manual') => void;
+  onEditResult?: (resultId: string, resultData: ConsultationItem) => void;
+  onDeleteResult?: (resultId: string) => void;
 }
 
 type FilterType = 'all' | 'call' | 'chat' | 'manual' | 'result';
@@ -325,7 +327,7 @@ function ChatDetailModal({ isOpen, onClose, chatId }: ChatDetailModalProps) {
   );
 }
 
-export function ConsultationHistoryCard({ patientId, patientName = '', className = '', onSelectCall, onAddResult }: ConsultationHistoryCardProps) {
+export function ConsultationHistoryCard({ patientId, patientName = '', className = '', onSelectCall, onAddResult, onEditResult, onDeleteResult }: ConsultationHistoryCardProps) {
   const [filter, setFilter] = useState<FilterType>('all');
   const [consultations, setConsultations] = useState<ConsultationItem[]>([]);
   const [isLoading, setIsLoading] = useState(false);
@@ -335,8 +337,9 @@ export function ConsultationHistoryCard({ patientId, patientName = '', className
   const [selectedChatId, setSelectedChatId] = useState<string | null>(null);
   const [chatModalOpen, setChatModalOpen] = useState(false);
 
-  // 수동 입력 모달
+  // 수동 입력/수정 모달
   const [manualModalOpen, setManualModalOpen] = useState(false);
+  const [editingManual, setEditingManual] = useState<{ id: string; type: 'phone' | 'visit' | 'other'; date: string; content: string; consultantName?: string } | null>(null);
 
   // 인라인 AI 분석 상태
   const [analyzingChatId, setAnalyzingChatId] = useState<string | null>(null);
@@ -378,6 +381,41 @@ export function ConsultationHistoryCard({ patientId, patientName = '', className
       alert('AI 분석 중 오류가 발생했습니다.');
     } finally {
       setAnalyzingChatId(null);
+    }
+  };
+
+  // 수동 상담 수정 버튼 클릭
+  const handleEditManual = (item: ConsultationItem, e: React.MouseEvent) => {
+    e.stopPropagation();
+    setEditingManual({
+      id: item.id,
+      type: (item.manualType || 'other') as 'phone' | 'visit' | 'other',
+      date: item.date,
+      content: item.content || item.summary || '',
+      consultantName: item.consultantName,
+    });
+    setManualModalOpen(true);
+  };
+
+  // 수동 상담 삭제
+  const handleDeleteManual = async (item: ConsultationItem, e: React.MouseEvent) => {
+    e.stopPropagation();
+    if (!confirm('이 상담 이력을 삭제하시겠습니까?')) return;
+
+    try {
+      const res = await fetch(
+        `/api/v2/patients/${patientId}/manual-consultations?consultationId=${item.id}`,
+        { method: 'DELETE' }
+      );
+      const data = await res.json();
+      if (data.success) {
+        fetchConsultations();
+      } else {
+        alert(data.error || '삭제에 실패했습니다.');
+      }
+    } catch (error) {
+      console.error('수동 상담 삭제 오류:', error);
+      alert('삭제 중 오류가 발생했습니다.');
     }
   };
 
@@ -819,8 +857,61 @@ export function ConsultationHistoryCard({ patientId, patientName = '', className
                     상세보기
                   </div>
                 )}
-                {/* 수동 입력 상담자 표시 */}
-                {item.type === 'manual' && item.consultantName && (
+                {/* 수동 입력: 상담자 + 수정/삭제 버튼 */}
+                {item.type === 'manual' && item.source !== 'consultation_result' && (
+                  <div className="flex items-center gap-1 flex-shrink-0 self-center">
+                    {item.consultantName && (
+                      <span className="text-xs text-gray-400 mr-1">{item.consultantName}</span>
+                    )}
+                    <button
+                      onClick={(e) => handleEditManual(item, e)}
+                      className="p-1 text-gray-400 hover:text-blue-600 hover:bg-blue-50 rounded transition-colors"
+                      title="수정"
+                    >
+                      <Pencil size={13} />
+                    </button>
+                    <button
+                      onClick={(e) => handleDeleteManual(item, e)}
+                      className="p-1 text-gray-400 hover:text-red-600 hover:bg-red-50 rounded transition-colors"
+                      title="삭제"
+                    >
+                      <Trash2 size={13} />
+                    </button>
+                  </div>
+                )}
+                {/* 상담 결과: 수정/삭제 버튼 */}
+                {item.type === 'result' && (onEditResult || onDeleteResult) && (
+                  <div className="flex items-center gap-1 flex-shrink-0 self-center">
+                    {item.consultantName && (
+                      <span className="text-xs text-gray-400 mr-1">{item.consultantName}</span>
+                    )}
+                    {onEditResult && (
+                      <button
+                        onClick={(e) => { e.stopPropagation(); onEditResult(item.id.replace('result_', ''), item); }}
+                        className="p-1 text-gray-400 hover:text-blue-600 hover:bg-blue-50 rounded transition-colors"
+                        title="수정"
+                      >
+                        <Pencil size={13} />
+                      </button>
+                    )}
+                    {onDeleteResult && (
+                      <button
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          if (confirm('이 상담 결과를 삭제하시겠습니까?')) {
+                            onDeleteResult(item.id.replace('result_', ''));
+                          }
+                        }}
+                        className="p-1 text-gray-400 hover:text-red-600 hover:bg-red-50 rounded transition-colors"
+                        title="삭제"
+                      >
+                        <Trash2 size={13} />
+                      </button>
+                    )}
+                  </div>
+                )}
+                {/* 상담결과에서 생성된 수동 상담은 상담자만 표시 */}
+                {item.type === 'manual' && item.source === 'consultation_result' && item.consultantName && (
                   <div className="text-xs text-gray-400 flex-shrink-0 self-center">
                     {item.consultantName}
                   </div>
@@ -861,6 +952,34 @@ export function ConsultationHistoryCard({ patientId, patientName = '', className
                     )}
                     {item.linkedResult.consultantName && (
                       <span className="text-gray-400 text-xs">({item.linkedResult.consultantName})</span>
+                    )}
+                    {/* 연결된 결과 수정/삭제 버튼 */}
+                    {(onEditResult || onDeleteResult) && (
+                      <div className="flex items-center gap-0.5 ml-auto">
+                        {onEditResult && (
+                          <button
+                            onClick={(e) => { e.stopPropagation(); onEditResult(item.linkedResult!.id.replace('result_', ''), item.linkedResult!); }}
+                            className="p-1 text-gray-400 hover:text-blue-600 hover:bg-blue-50 rounded transition-colors"
+                            title="수정"
+                          >
+                            <Pencil size={12} />
+                          </button>
+                        )}
+                        {onDeleteResult && (
+                          <button
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              if (confirm('이 상담 결과를 삭제하시겠습니까?')) {
+                                onDeleteResult(item.linkedResult!.id.replace('result_', ''));
+                              }
+                            }}
+                            className="p-1 text-gray-400 hover:text-red-600 hover:bg-red-50 rounded transition-colors"
+                            title="삭제"
+                          >
+                            <Trash2 size={12} />
+                          </button>
+                        )}
+                      </div>
                     )}
                   </div>
                   {item.linkedResult.memo && (
@@ -912,15 +1031,17 @@ export function ConsultationHistoryCard({ patientId, patientName = '', className
         />
       )}
 
-      {/* 수동 상담 입력 모달 */}
+      {/* 수동 상담 입력/수정 모달 */}
       <ManualConsultationModal
         isOpen={manualModalOpen}
-        onClose={() => setManualModalOpen(false)}
+        onClose={() => { setManualModalOpen(false); setEditingManual(null); }}
         patientId={patientId}
         patientName={patientName}
         onSuccess={() => {
           fetchConsultations();
+          setEditingManual(null);
         }}
+        editData={editingManual}
       />
     </div>
   );

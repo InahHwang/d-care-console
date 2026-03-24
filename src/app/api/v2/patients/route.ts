@@ -126,6 +126,8 @@ export async function GET(request: NextRequest) {
     const paymentStatusParam = searchParams.get('paymentStatus'); // 결제상태 필터
     const hasEstimate = searchParams.get('hasEstimate') === 'true'; // 견적 있는 환자만
     const hasCoaching = searchParams.get('hasCoaching') === 'true'; // AI 코칭 완료 환자만
+    const consultationType = searchParams.get('consultationType'); // 상담타입 필터
+    const region = searchParams.get('region'); // 지역(시/도) 필터
 
     const { db } = await connectToDatabase();
     const collection = db.collection('patients_v2');
@@ -163,12 +165,24 @@ export async function GET(request: NextRequest) {
       (query as any).lastCoachingAt = { $exists: true };
     }
 
+    if (consultationType) {
+      if (consultationType.includes(',')) {
+        (query as any).consultationType = { $in: consultationType.split(',') };
+      } else {
+        (query as any).consultationType = consultationType;
+      }
+    }
+
     if (temperature) {
       query.temperature = temperature;
     }
 
     if (interest) {
-      query['aiAnalysis.interest'] = { $regex: interest, $options: 'i' };
+      (query as any).interest = { $regex: interest, $options: 'i' };
+    }
+
+    if (region) {
+      (query as any)['region.province'] = region;
     }
 
     if (search) {
@@ -533,8 +547,8 @@ export async function POST(request: NextRequest) {
     const collection = db.collection('patients_v2');
     const clinicId = getClinicId();
 
-    // 중복 체크 (같은 병원 내에서만)
-    const existing = await collection.findOne({ clinicId, phone });
+    // 중복 체크 (같은 병원 내에서, 삭제되지 않은 환자만)
+    const existing = await collection.findOne({ clinicId, phone, deletedAt: { $exists: false } });
     if (existing) {
       return NextResponse.json(
         { error: 'Patient with this phone number already exists', patientId: existing._id.toString() },

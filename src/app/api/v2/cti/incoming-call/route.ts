@@ -165,6 +165,41 @@ export async function POST(request: NextRequest) {
     const callTime = timestamp || new Date().toISOString();
     let isNewPatient = false;
 
+    // ★ 동시착신 중복 방지: 같은 발신번호로 10초 이내 ringing 기록이 있으면 중복
+    const formattedCaller = formatPhone(callerNumber);
+    const tenSecondsAgo = new Date(Date.now() - 10 * 1000);
+    const existingCall = await db.collection('callLogs_v2').findOne({
+      phone: formattedCaller,
+      direction: 'inbound',
+      status: { $in: ['ringing', 'connected'] },
+      createdAt: { $gte: tenSecondsAgo },
+    }, { sort: { createdAt: -1 } });
+
+    if (existingCall) {
+      console.log(`[CTI v2] 동시착신 중복 무시: ${callerNumber} → ${calledNumber} (기존: ${existingCall._id}, calledNumber: ${existingCall.calledNumber})`);
+      // 기존 레코드의 환자 정보 반환
+      const existingPatient = existingCall.patientId
+        ? await db.collection('patients_v2').findOne({ _id: new ObjectId(existingCall.patientId) })
+        : null;
+      return NextResponse.json({
+        success: true,
+        duplicate: true,
+        patient: existingPatient ? {
+          id: existingPatient._id?.toString(),
+          name: existingPatient.name,
+          phone: existingPatient.phone,
+          status: existingPatient.status,
+          temperature: existingPatient.temperature,
+        } : null,
+        callLog: {
+          id: existingCall._id?.toString(),
+          phone: existingCall.phone,
+          direction: existingCall.direction,
+          startedAt: existingCall.startedAt,
+        },
+      });
+    }
+
     // 1. 환자 검색 (자동등록 비활성화 - 상담사가 수동으로만 등록)
     const patient = await findPatientV2(db, callerNumber);
 

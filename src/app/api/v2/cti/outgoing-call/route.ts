@@ -86,8 +86,18 @@ export async function POST(request: NextRequest) {
     const formattedPhone = formatPhone(phoneNumber);
     const now = new Date();
 
-    // 환자 검색
-    const patient = await findPatientV2(db, phoneNumber);
+    // 환자 검색 (콜드스타트 시 DB 초기화로 실패할 수 있어 1회 재시도)
+    let patient = await findPatientV2(db, phoneNumber);
+    if (!patient) {
+      console.log(`[OutgoingCall V2] 환자 못 찾음, 500ms 후 재시도: ${formattedPhone}`);
+      await new Promise(resolve => setTimeout(resolve, 500));
+      patient = await findPatientV2(db, phoneNumber);
+      if (!patient) {
+        console.warn(`[OutgoingCall V2] ⚠️ 재시도에도 환자 못 찾음: ${formattedPhone}`);
+      } else {
+        console.log(`[OutgoingCall V2] ✅ 재시도 성공: ${patient.name} (${formattedPhone})`);
+      }
+    }
     const patientId = patient?._id?.toString() || null;
 
     // 기존 환자면 lastContactAt, callCount 업데이트

@@ -2,6 +2,7 @@
 'use client';
 
 import React, { useState, useEffect, useCallback } from 'react';
+import { useSearchParams } from 'next/navigation';
 import { PageHeader } from '@/components/v2/layout/PageHeader';
 import PatientCategorySettings from '@/components/settings/PatientCategorySettings';
 import {
@@ -31,10 +32,14 @@ import {
   Clock,
   Sparkles,
   PhoneOff,
+  Plug,
 } from 'lucide-react';
 import ManualSettings from '@/components/v2/settings/ManualSettings';
 import RecallSettings from '@/components/v2/settings/RecallSettings';
 import AIChatAdminPanel from '@/components/v2/settings/AIChat-AdminPanel';
+import CTIIntegrationSettings from '@/components/v2/settings/CTI-IntegrationSettings';
+import SMSIntegrationSettings from '@/components/v2/settings/SMS-IntegrationSettings';
+import ChannelChatIntegrationSettings from '@/components/v2/settings/ChannelChat-IntegrationSettings';
 import { useAppSelector } from '@/hooks/reduxHooks';
 import { ROLE_CONFIG, INVITATION_STATUS_CONFIG } from '@/types/invitation';
 import type { UserRole, Invitation, InvitationStatus } from '@/types/invitation';
@@ -58,16 +63,24 @@ interface SettingsData {
     schedule: Record<string, { enabled: boolean; time: string }>;
   };
   excludedPhones?: string[];
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  cti?: any;
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  sms?: any;
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  channels?: any;
 }
 
-type TabType = 'general' | 'categories' | 'manuals' | 'recall' | 'users' | 'invitations' | 'ai-chat';
+type TabType = 'general' | 'categories' | 'manuals' | 'recall' | 'users' | 'invitations' | 'ai-chat' | 'integrations';
 
 export default function SettingsPage() {
   const { user: currentUser } = useAppSelector((state) => state.auth);
   const isAdmin = currentUser?.role === 'admin' || currentUser?.role === 'master';
+  const searchParams = useSearchParams();
 
-  // 기본 탭: 관리자는 general, 그 외는 categories
-  const [activeTab, setActiveTab] = useState<TabType>(isAdmin ? 'general' : 'categories');
+  // URL ?tab= 파라미터 또는 기본 탭
+  const initialTab = (searchParams.get('tab') as TabType) || (isAdmin ? 'general' : 'categories');
+  const [activeTab, setActiveTab] = useState<TabType>(initialTab);
   const [settings, setSettings] = useState<SettingsData | null>(null);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
@@ -466,6 +479,7 @@ export default function SettingsPage() {
               <UserPlus className="w-4 h-4" />
               초대 관리
             </button>
+            {isAdmin && (
             <button
               onClick={() => setActiveTab('ai-chat')}
               className={`flex items-center gap-2 px-4 py-2 rounded-t-lg font-medium text-sm transition-colors ${
@@ -476,6 +490,19 @@ export default function SettingsPage() {
             >
               <Sparkles className="w-4 h-4" />
               AI 대화 관리
+            </button>
+            )}
+            <div className="w-px bg-gray-300 mx-2" />
+            <button
+              onClick={() => setActiveTab('integrations')}
+              className={`flex items-center gap-2 px-4 py-2 rounded-t-lg font-medium text-sm transition-colors ${
+                activeTab === 'integrations'
+                  ? 'bg-white border border-b-white border-gray-200 -mb-[3px] text-orange-600'
+                  : 'text-gray-500 hover:text-gray-700 hover:bg-gray-50'
+              }`}
+            >
+              <Plug className="w-4 h-4" />
+              연동 설정
             </button>
           </>
         )}
@@ -836,6 +863,51 @@ export default function SettingsPage() {
         <section className="bg-white rounded-xl border border-gray-100 p-6">
           <AIChatAdminPanel />
         </section>
+      )}
+
+      {/* 연동 설정 탭 (관리자만) */}
+      {activeTab === 'integrations' && isAdmin && (
+        <div className="space-y-6">
+          <section className="bg-white rounded-xl border border-gray-100 p-6">
+            <CTIIntegrationSettings
+              settings={settings.cti || { productType: '', apiId: '', apiPassword: '', phoneNumber: '', isConfigured: false }}
+              onSave={async (data) => {
+                await fetch('/api/v2/settings', {
+                  method: 'PATCH',
+                  headers: { 'Content-Type': 'application/json' },
+                  body: JSON.stringify({ cti: data }),
+                });
+                setSettings({ ...settings, cti: data } as SettingsData);
+              }}
+            />
+          </section>
+          <section className="bg-white rounded-xl border border-gray-100 p-6">
+            <SMSIntegrationSettings
+              settings={settings.sms || { senderNumber: '', senderName: '', approvalStatus: 'none', isConfigured: false }}
+              onSave={async (data) => {
+                await fetch('/api/v2/settings', {
+                  method: 'PATCH',
+                  headers: { 'Content-Type': 'application/json' },
+                  body: JSON.stringify({ sms: data }),
+                });
+                setSettings({ ...settings, sms: data } as SettingsData);
+              }}
+            />
+          </section>
+          <section className="bg-white rounded-xl border border-gray-100 p-6">
+            <ChannelChatIntegrationSettings
+              settings={settings.channels || {}}
+              onSave={async (data) => {
+                await fetch('/api/v2/settings', {
+                  method: 'PATCH',
+                  headers: { 'Content-Type': 'application/json' },
+                  body: JSON.stringify({ channels: data }),
+                });
+                setSettings({ ...settings, channels: data } as SettingsData);
+              }}
+            />
+          </section>
+        </div>
       )}
 
       {/* 일반 설정 탭 (관리자만) */}

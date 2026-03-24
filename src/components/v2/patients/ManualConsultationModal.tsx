@@ -7,12 +7,21 @@ import { X, Phone, Building, MessageCircle, Calendar, Clock, Loader2, User } fro
 import { format } from 'date-fns';
 import { useAppSelector } from '@/hooks/reduxHooks';
 
+interface EditData {
+  id: string;
+  type: ConsultationType;
+  date: string;
+  content: string;
+  consultantName?: string;
+}
+
 interface ManualConsultationModalProps {
   isOpen: boolean;
   onClose: () => void;
   patientId: string;
   patientName: string;
   onSuccess: () => void;
+  editData?: EditData | null;
 }
 
 type ConsultationType = 'phone' | 'visit' | 'other';
@@ -29,10 +38,13 @@ export function ManualConsultationModal({
   patientId,
   patientName,
   onSuccess,
+  editData,
 }: ManualConsultationModalProps) {
   // 로그인 사용자 정보 가져오기
   const { user } = useAppSelector((state) => state.auth);
   const consultantName = user?.name || '미지정';
+
+  const isEditMode = !!editData;
 
   const [type, setType] = useState<ConsultationType>('phone');
   const [date, setDate] = useState('');
@@ -41,17 +53,25 @@ export function ManualConsultationModal({
   const [isSaving, setIsSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
-  // 모달 열릴 때 초기화
+  // 모달 열릴 때 초기화 (신규) 또는 기존 데이터 로드 (수정)
   useEffect(() => {
     if (isOpen) {
-      const now = new Date();
-      setDate(format(now, 'yyyy-MM-dd'));
-      setTime(format(now, 'HH:mm'));
-      setType('phone');
-      setContent('');
       setError(null);
+      if (editData) {
+        const editDate = new Date(editData.date);
+        setType(editData.type || 'phone');
+        setDate(format(editDate, 'yyyy-MM-dd'));
+        setTime(format(editDate, 'HH:mm'));
+        setContent(editData.content || '');
+      } else {
+        const now = new Date();
+        setDate(format(now, 'yyyy-MM-dd'));
+        setTime(format(now, 'HH:mm'));
+        setType('phone');
+        setContent('');
+      }
     }
-  }, [isOpen]);
+  }, [isOpen, editData]);
 
   const handleSubmit = async () => {
     if (!content.trim()) {
@@ -66,9 +86,10 @@ export function ManualConsultationModal({
       const consultationDate = new Date(`${date}T${time}`);
 
       const response = await fetch(`/api/v2/patients/${patientId}/manual-consultations`, {
-        method: 'POST',
+        method: isEditMode ? 'PATCH' : 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
+          ...(isEditMode && { consultationId: editData!.id }),
           type,
           date: consultationDate.toISOString(),
           content: content.trim(),
@@ -101,7 +122,7 @@ export function ManualConsultationModal({
         {/* 헤더 */}
         <div className="flex items-center justify-between p-4 border-b">
           <div>
-            <h2 className="text-lg font-bold text-gray-900">상담 이력 수동 입력</h2>
+            <h2 className="text-lg font-bold text-gray-900">{isEditMode ? '상담 이력 수정' : '상담 이력 수동 입력'}</h2>
             <p className="text-sm text-gray-500">{patientName} 님</p>
           </div>
           <button
@@ -220,7 +241,7 @@ export function ManualConsultationModal({
                 저장 중...
               </>
             ) : (
-              '저장'
+              isEditMode ? '수정' : '저장'
             )}
           </button>
         </div>

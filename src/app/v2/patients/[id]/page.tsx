@@ -1634,6 +1634,43 @@ export default function PatientDetailPage() {
                 onAddResult={(activityId, activityType) => {
                   openConsultationModal(activityType === 'call' ? 'phone' : 'visit', activityId);
                 }}
+                onEditResult={async (resultId, resultData) => {
+                  // 기존 결과 데이터로 수정 모달 열기
+                  setExistingConsultation({
+                    id: resultId,
+                    status: (resultData.resultStatus || 'pending') as any,
+                    treatment: resultData.treatment || '',
+                    originalAmount: resultData.originalAmount || 0,
+                    discountRate: resultData.originalAmount && resultData.finalAmount
+                      ? Math.round((1 - resultData.finalAmount / resultData.originalAmount) * 100)
+                      : 0,
+                    disagreeReasons: resultData.disagreeReasons,
+                    appointmentDate: resultData.appointmentDate,
+                    callbackDate: resultData.callbackDate,
+                    consultantName: resultData.consultantName || user?.name || '',
+                    memo: resultData.memo,
+                  });
+                  setConsultationType(resultData.resultType === 'visit' ? 'visit' : 'phone');
+                  const activities = await buildSourceActivities();
+                  setSourceActivities(activities);
+                  setPreselectedActivityId(undefined);
+                  setConsultationModalOpen(true);
+                }}
+                onDeleteResult={async (resultId) => {
+                  try {
+                    const res = await fetch(`/api/v2/consultations?id=${resultId}`, { method: 'DELETE' });
+                    const data = await res.json();
+                    if (data.success) {
+                      await fetchPatient();
+                      setConsultationHistoryKey(prev => prev + 1);
+                    } else {
+                      alert(data.error || '삭제에 실패했습니다.');
+                    }
+                  } catch (error) {
+                    console.error('상담 결과 삭제 오류:', error);
+                    alert('삭제 중 오류가 발생했습니다.');
+                  }
+                }}
               />
             </div>
           </Card>

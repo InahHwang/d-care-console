@@ -5,12 +5,13 @@ export const dynamic = 'force-dynamic';
 
 import React, { useState, useEffect, useCallback, Suspense, useRef } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
-import { Plus, Search, Sparkles } from 'lucide-react';
+import { Plus, Search } from 'lucide-react';
 import { Pagination } from '@/components/v2/ui/Pagination';
 import { PatientList } from '@/components/v2/patients';
 import { FunnelTabs, PatientFilterType } from '@/components/v2/patients/FunnelTabs';
 import { UrgentSummaryCards, UrgencyFilter, UrgentStats } from '@/components/v2/patients/UrgentSummaryCards';
 import { PeriodFilter, PeriodType, DateRange } from '@/components/v2/patients/PeriodFilter';
+import { PatientAdvancedFilter, AdvancedFilterValues } from '@/components/v2/patients/Patient-AdvancedFilter';
 import { PatientStatus, Temperature } from '@/types/v2';
 
 type PaymentStatus = 'none' | 'partial' | 'completed';
@@ -31,6 +32,10 @@ interface Patient {
   nextActionDate?: string | null;
   daysInStatus?: number;
   urgency?: 'noshow' | 'today' | 'overdue' | 'normal';
+  region?: {
+    province: string;
+    city?: string;
+  };
   // 금액 관련 필드
   estimatedAmount?: number;
   actualAmount?: number;
@@ -71,8 +76,6 @@ function PatientsPageContent() {
   const initialFilter: PatientFilterType = isMultiStatus ? 'all' : (rawStatus as PatientFilterType) || 'all';
   const initialStatusOverride = isMultiStatus ? rawStatus : '';
   const initialPaymentStatus = searchParams.get('paymentStatus') || '';
-  const initialHasEstimate = searchParams.get('hasEstimate') === 'true';
-
   const initialPage = parseInt(searchParams.get('page') || '1');
   const initialSearch = searchParams.get('search') || '';
   const initialUrgency = (searchParams.get('urgency') as UrgencyFilter) || 'all';
@@ -92,10 +95,17 @@ function PatientsPageContent() {
   const [searchQuery, setSearchQuery] = useState(initialSearch);
   const [searchInput, setSearchInput] = useState(initialSearch); // 입력값 (즉시 반영)
   const [statusOverride, setStatusOverride] = useState(initialStatusOverride); // 대시보드 다중 상태
-  const [paymentStatusFilter, setPaymentStatusFilter] = useState(initialPaymentStatus); // 결제상태 필터
-  const [hasEstimateFilter, setHasEstimateFilter] = useState(initialHasEstimate); // 견적 있는 환자만
   const initialHasCoaching = searchParams.get('hasCoaching') === 'true';
-  const [hasCoachingFilter, setHasCoachingFilter] = useState(initialHasCoaching); // AI 코칭 완료 환자만
+  const initialConsultationType = searchParams.get('consultationType') || '';
+  const initialInterest = searchParams.get('interest') || '';
+  const initialRegion = searchParams.get('region') || '';
+  const [advancedFilter, setAdvancedFilter] = useState<AdvancedFilterValues>({
+    consultationType: initialConsultationType,
+    hasCoaching: initialHasCoaching,
+    paymentStatus: initialPaymentStatus,
+    interest: initialInterest,
+    region: initialRegion,
+  });
   const [currentPage, setCurrentPage] = useState(initialPage);
   const searchTimeoutRef = useRef<NodeJS.Timeout | null>(null);
   const abortControllerRef = useRef<AbortController | null>(null);
@@ -107,6 +117,7 @@ function PatientsPageContent() {
     return `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-${String(now.getDate()).padStart(2, '0')}`;
   });
   const [consultationTypeMap, setConsultationTypeMap] = useState<Record<string, string>>({});
+  const [treatmentTypeMap, setTreatmentTypeMap] = useState<Record<string, string>>({});
 
   // 카테고리 조회 (최초 1회)
   useEffect(() => {
@@ -115,12 +126,21 @@ function PatientsPageContent() {
         const response = await fetch('/api/v2/settings/categories');
         if (response.ok) {
           const data = await response.json();
-          if (data.success && data.categories?.consultationTypes) {
-            const typeMap: Record<string, string> = {};
-            data.categories.consultationTypes.forEach((type: { id: string; label: string }) => {
-              typeMap[type.id] = type.label;
-            });
-            setConsultationTypeMap(typeMap);
+          if (data.success && data.categories) {
+            if (data.categories.consultationTypes) {
+              const typeMap: Record<string, string> = {};
+              data.categories.consultationTypes.forEach((type: { id: string; label: string }) => {
+                typeMap[type.id] = type.label;
+              });
+              setConsultationTypeMap(typeMap);
+            }
+            if (data.categories.treatmentTypes) {
+              const tMap: Record<string, string> = {};
+              data.categories.treatmentTypes.forEach((t: { id: string; label: string }) => {
+                tMap[t.id] = t.label;
+              });
+              setTreatmentTypeMap(tMap);
+            }
           }
         }
       } catch (error) {
@@ -157,14 +177,20 @@ function PatientsPageContent() {
       } else if (activeFilter !== 'all') {
         params.set('status', activeFilter);
       }
-      if (paymentStatusFilter) {
-        params.set('paymentStatus', paymentStatusFilter);
+      if (advancedFilter.paymentStatus) {
+        params.set('paymentStatus', advancedFilter.paymentStatus);
       }
-      if (hasEstimateFilter) {
-        params.set('hasEstimate', 'true');
-      }
-      if (hasCoachingFilter) {
+      if (advancedFilter.hasCoaching) {
         params.set('hasCoaching', 'true');
+      }
+      if (advancedFilter.consultationType) {
+        params.set('consultationType', advancedFilter.consultationType);
+      }
+      if (advancedFilter.interest) {
+        params.set('interest', advancedFilter.interest);
+      }
+      if (advancedFilter.region) {
+        params.set('region', advancedFilter.region);
       }
       if (searchQuery) {
         params.set('search', searchQuery);
@@ -203,7 +229,7 @@ function PatientsPageContent() {
     } finally {
       setLoading(false);
     }
-  }, [currentPage, activeFilter, searchQuery, urgencyFilter, period, dateRange, statusOverride, paymentStatusFilter, hasEstimateFilter, hasCoachingFilter, callbackDate]);
+  }, [currentPage, activeFilter, searchQuery, urgencyFilter, period, dateRange, statusOverride, advancedFilter, callbackDate]);
 
   useEffect(() => {
     fetchPatients();
@@ -228,9 +254,11 @@ function PatientsPageContent() {
     } else if (activeFilter !== 'all') {
       params.set('status', activeFilter);
     }
-    if (paymentStatusFilter) params.set('paymentStatus', paymentStatusFilter);
-    if (hasEstimateFilter) params.set('hasEstimate', 'true');
-    if (hasCoachingFilter) params.set('hasCoaching', 'true');
+    if (advancedFilter.paymentStatus) params.set('paymentStatus', advancedFilter.paymentStatus);
+    if (advancedFilter.hasCoaching) params.set('hasCoaching', 'true');
+    if (advancedFilter.consultationType) params.set('consultationType', advancedFilter.consultationType);
+    if (advancedFilter.interest) params.set('interest', advancedFilter.interest);
+    if (advancedFilter.region) params.set('region', advancedFilter.region);
     if (currentPage > 1) params.set('page', currentPage.toString());
     if (searchQuery) params.set('search', searchQuery);
     if (urgencyFilter !== 'all') params.set('urgency', urgencyFilter);
@@ -244,13 +272,11 @@ function PatientsPageContent() {
 
     const newUrl = params.toString() ? `?${params.toString()}` : '/v2/patients';
     window.history.replaceState(null, '', newUrl);
-  }, [activeFilter, currentPage, searchQuery, urgencyFilter, period, dateRange, statusOverride, paymentStatusFilter, hasEstimateFilter, hasCoachingFilter]);
+  }, [activeFilter, currentPage, searchQuery, urgencyFilter, period, dateRange, statusOverride, advancedFilter]);
 
   const handleFilterChange = (filter: PatientFilterType) => {
     setActiveFilter(filter);
     setStatusOverride(''); // 대시보드 다중 상태 해제
-    setPaymentStatusFilter(''); // 결제상태 필터 해제
-    setHasEstimateFilter(false); // 견적 필터 해제
     setUrgencyFilter('all'); // 상태 필터 변경 시 긴급 필터 초기화
     setCurrentPage(1);
   };
@@ -266,8 +292,6 @@ function PatientsPageContent() {
     } else {
       setStatusOverride(''); // 대시보드 다중 상태 해제
     }
-    setPaymentStatusFilter(''); // 결제상태 필터 해제
-    setHasEstimateFilter(false); // 견적 필터 해제
     // 'today' 필터 해제 시 callbackDate를 오늘로 리셋
     if (filter !== 'today') {
       const now = new Date();
@@ -368,17 +392,12 @@ function PatientsPageContent() {
           />
 
           <div className="flex items-center gap-2">
-            <button
-              onClick={() => { setHasCoachingFilter(!hasCoachingFilter); setCurrentPage(1); }}
-              className={`flex items-center gap-1.5 px-3 py-2 rounded-lg text-sm font-medium border transition-colors ${
-                hasCoachingFilter
-                  ? 'bg-violet-50 border-violet-300 text-violet-700'
-                  : 'bg-white border-gray-200 text-gray-500 hover:bg-gray-50'
-              }`}
-            >
-              <Sparkles size={14} />
-              AI 코칭
-            </button>
+            <PatientAdvancedFilter
+              values={advancedFilter}
+              onChange={(v) => { setAdvancedFilter(v); setCurrentPage(1); }}
+              consultationTypeMap={consultationTypeMap}
+              treatmentTypeMap={treatmentTypeMap}
+            />
             <div className="relative">
               <Search size={18} className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" />
               <input

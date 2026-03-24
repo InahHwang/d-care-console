@@ -3,7 +3,7 @@
 // patients_v2의 nextActionDate와 callbacks_v2 모두 조회
 
 import { NextRequest, NextResponse } from 'next/server';
-import { connectToDatabase } from '@/utils/mongodb';
+import { connectToDatabase, getClinicId } from '@/utils/mongodb';
 import { ObjectId } from 'mongodb';
 import type { CallbackV2, CallbackType, CallbackStatus } from '@/types/v2';
 import { z } from 'zod';
@@ -38,8 +38,10 @@ export async function GET(request: NextRequest) {
     // KST(UTC+9) 보정: 클라이언트에서 보내는 date는 KST 날짜
     const KST_OFFSET = 9 * 60 * 60 * 1000;
 
+    const clinicId = getClinicId();
+
     // 1. callbacks_v2 컬렉션에서 조회
-    const callbackFilter: Record<string, unknown> = {};
+    const callbackFilter: Record<string, unknown> = { clinicId };
     if (date) {
       const startOfDay = new Date(new Date(`${date}T00:00:00.000Z`).getTime() - KST_OFFSET);
       const endOfDay = new Date(new Date(`${date}T23:59:59.999Z`).getTime() - KST_OFFSET);
@@ -70,6 +72,7 @@ export async function GET(request: NextRequest) {
 
     // 2. patients_v2의 nextActionDate에서 조회 (기존 데이터 호환)
     const patientFilter: Record<string, unknown> = {
+      clinicId,
       nextActionDate: { $exists: true, $ne: null },
       deletedAt: { $exists: false },
     };
@@ -156,6 +159,7 @@ export async function GET(request: NextRequest) {
     const [callbackStats] = await db.collection('callbacks_v2').aggregate([
       {
         $match: {
+          clinicId,
           scheduledAt: { $gte: today, $lt: tomorrow }
         }
       },
@@ -175,6 +179,7 @@ export async function GET(request: NextRequest) {
 
     // patients_v2 통계 (오늘 nextActionDate인 환자)
     const patientTodayCount = await db.collection('patients_v2').countDocuments({
+      clinicId,
       deletedAt: { $exists: false },
       $or: [
         { nextActionDate: { $gte: today, $lt: tomorrow } },
@@ -245,9 +250,11 @@ export async function POST(request: NextRequest) {
     const { patientId, type, scheduledAt, note } = parsed.data;
 
     const { db } = await connectToDatabase();
+    const clinicId = getClinicId();
     const now = new Date().toISOString();
 
     const newCallback = {
+      clinicId,
       patientId,
       type: type as CallbackType,
       scheduledAt: new Date(scheduledAt),
@@ -267,7 +274,7 @@ export async function POST(request: NextRequest) {
 
     // 환자의 nextAction 업데이트
     await db.collection('patients_v2').updateOne(
-      { _id: new ObjectId(patientId) },
+      { _id: new ObjectId(patientId), clinicId },
       {
         $set: {
           nextAction: type === 'callback' ? '콜백' : type === 'recall' ? '리콜' : '감사전화',
@@ -309,10 +316,11 @@ export async function PATCH(request: NextRequest) {
     const { id, status, note, source } = parsed.data;
 
     const { db } = await connectToDatabase();
+    const clinicId = getClinicId();
     const now = new Date().toISOString();
 
     // 1. 먼저 callbacks_v2에서 찾기
-    let result = await db.collection('callbacks_v2').findOne({ _id: new ObjectId(id) });
+    let result = await db.collection('callbacks_v2').findOne({ _id: new ObjectId(id), clinicId });
 
     if (result) {
       // callbacks_v2에 있는 경우 - 기존 로직
@@ -330,7 +338,7 @@ export async function PATCH(request: NextRequest) {
       }
 
       result = await db.collection('callbacks_v2').findOneAndUpdate(
-        { _id: new ObjectId(id) },
+        { _id: new ObjectId(id), clinicId },
         { $set: updateData },
         { returnDocument: 'after' }
       );
@@ -348,13 +356,14 @@ export async function PATCH(request: NextRequest) {
 
     // 2. callbacks_v2에 없으면 patients_v2의 nextActionDate 기반 콜백일 수 있음
     // id가 실제로 patientId인 경우
-    const patient = await db.collection('patients_v2').findOne({ _id: new ObjectId(id) });
+    const patient = await db.collection('patients_v2').findOne({ _id: new ObjectId(id), clinicId });
 
     if (patient && patient.nextActionDate) {
       // 환자 기반 콜백 완료 처리
       if (status === 'completed') {
         // callbacks_v2에 완료 레코드 생성
         const newCallback = {
+          clinicId,
           patientId: id,
           type: patient.nextAction === '리콜' ? 'recall' :
                 patient.nextAction === '감사전화' ? 'thanks' : 'callback',
@@ -369,7 +378,7 @@ export async function PATCH(request: NextRequest) {
 
         // 환자의 nextActionDate 클리어
         await db.collection('patients_v2').updateOne(
-          { _id: new ObjectId(id) },
+          { _id: new ObjectId(id), clinicId },
           {
             $unset: { nextActionDate: '', nextAction: '' },
             $set: { updatedAt: now },
@@ -386,6 +395,7 @@ export async function PATCH(request: NextRequest) {
       } else if (status === 'missed') {
         // 미연결 처리 - callbacks_v2에 레코드 생성
         const newCallback = {
+          clinicId,
           patientId: id,
           type: patient.nextAction === '리콜' ? 'recall' :
                 patient.nextAction === '감사전화' ? 'thanks' : 'callback',
@@ -435,9 +445,11 @@ export async function DELETE(request: NextRequest) {
     }
 
     const { db } = await connectToDatabase();
+    const clinicId = getClinicId();
 
     const result = await db.collection('callbacks_v2').deleteOne({
       _id: new ObjectId(id),
+      clinicId,
     });
 
     if (result.deletedCount === 0) {
