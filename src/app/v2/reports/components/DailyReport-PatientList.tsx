@@ -135,6 +135,15 @@ function PatientListItem({
               상담 {patient.consultations.length}건
             </span>
           )}
+          {patient.callbackCoaching && (
+            <span className={`px-1.5 py-0.5 text-xs rounded font-medium ${
+              patient.status === 'agreed'
+                ? 'bg-emerald-100 text-emerald-600'
+                : 'bg-violet-100 text-violet-600'
+            }`}>
+              ✨ {patient.status === 'agreed' ? 'AI 내원전략' : 'AI 코칭'}
+            </span>
+          )}
         </div>
         <span className="text-xs text-gray-400 flex-shrink-0">{patient.time}</span>
       </div>

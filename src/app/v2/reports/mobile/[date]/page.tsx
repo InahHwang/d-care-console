@@ -133,6 +133,18 @@ interface DailyReportPatient {
   source?: 'manual' | 'auto';
   closedReason?: string;
   consultations?: ConsultationEntry[];
+  callLogId?: string;
+  callbackCoaching?: {
+    nextCallStrategy: string;
+    overallScore: number;
+    overallComment: string;
+    keyImprovements?: string[];
+    nextCallScript?: {
+      opening: string;
+      keyPoints: string[];
+      closing: string;
+    };
+  };
 }
 
 interface DailyReportSummary {
@@ -664,6 +676,78 @@ function MobileDailyReportPage() {
             </div>
           )}
 
+          {/* AI 코칭 (동의: 내원 전략 / 그 외: 콜백 전략) */}
+          {selectedPatient.callbackCoaching && (() => {
+            const isAgreed = selectedPatient.status === 'agreed';
+            const cc = selectedPatient.callbackCoaching!;
+            return (
+            <div className={`rounded-xl p-4 shadow-sm border-2 ${
+              isAgreed ? 'bg-emerald-50 border-emerald-300' : 'bg-violet-50 border-violet-300'
+            }`}>
+              <div className="flex items-center justify-between mb-3">
+                <div className="flex items-center gap-2">
+                  <span className="text-lg">{isAgreed ? '🏥' : '📞'}</span>
+                  <h2 className={`font-semibold ${isAgreed ? 'text-emerald-900' : 'text-violet-900'}`}>
+                    {isAgreed ? '내원 상담 전략' : '다음 콜백 코칭'}
+                  </h2>
+                </div>
+                <span className={`text-sm font-bold px-2 py-0.5 rounded ${
+                  cc.overallScore >= 80 ? 'text-emerald-600 bg-emerald-100' :
+                  cc.overallScore >= 60 ? 'text-amber-600 bg-amber-100' :
+                  'text-rose-600 bg-rose-100'
+                }`}>
+                  {cc.overallScore}점
+                </span>
+              </div>
+              <div className={`bg-white rounded-lg p-3 mb-3 border ${isAgreed ? 'border-emerald-200' : 'border-violet-200'}`}>
+                <p className={`text-xs font-bold mb-1 ${isAgreed ? 'text-emerald-600' : 'text-violet-600'}`}>
+                  💡 {isAgreed ? '내원 시 이렇게 상담하세요' : '다음 전화 시 이렇게 하세요'}
+                </p>
+                <p className="text-sm text-gray-800 leading-relaxed">
+                  {cc.nextCallStrategy}
+                </p>
+              </div>
+              {/* 예시 멘트 */}
+              {cc.nextCallScript && (
+                <div className="space-y-1.5 mb-3">
+                  <p className={`text-xs font-bold ${isAgreed ? 'text-emerald-600' : 'text-violet-600'}`}>
+                    🎙️ {isAgreed ? '내원 상담 예시 멘트' : '콜백 예시 멘트'}
+                  </p>
+                  <div className={`bg-white rounded-lg p-3 border ${isAgreed ? 'border-emerald-100' : 'border-violet-100'}`}>
+                    <p className={`text-xs font-medium mb-1 ${isAgreed ? 'text-emerald-500' : 'text-violet-500'}`}>오프닝</p>
+                    <p className="text-xs text-gray-800 italic">&ldquo;{cc.nextCallScript.opening}&rdquo;</p>
+                  </div>
+                  {cc.nextCallScript.keyPoints.map((point: string, idx: number) => (
+                    <div key={idx} className={`bg-white rounded-lg p-3 border ${isAgreed ? 'border-emerald-100' : 'border-violet-100'}`}>
+                      <p className={`text-xs font-medium mb-1 ${isAgreed ? 'text-emerald-500' : 'text-violet-500'}`}>핵심 포인트 {idx + 1}</p>
+                      <p className="text-xs text-gray-800 italic">&ldquo;{point}&rdquo;</p>
+                    </div>
+                  ))}
+                  <div className={`bg-white rounded-lg p-3 border ${isAgreed ? 'border-emerald-100' : 'border-violet-100'}`}>
+                    <p className={`text-xs font-medium mb-1 ${isAgreed ? 'text-emerald-500' : 'text-violet-500'}`}>마무리</p>
+                    <p className="text-xs text-gray-800 italic">&ldquo;{cc.nextCallScript.closing}&rdquo;</p>
+                  </div>
+                </div>
+              )}
+              {/* 추천 화법 (nextCallScript 없을 때 fallback) */}
+              {!cc.nextCallScript && cc.keyImprovements && cc.keyImprovements.length > 0 && (
+                <div className="space-y-1.5">
+                  <p className={`text-xs font-medium ${isAgreed ? 'text-emerald-600' : 'text-violet-600'}`}>추천 화법</p>
+                  {cc.keyImprovements.map((imp: string, idx: number) => (
+                    <div key={idx} className={`bg-white rounded-lg px-3 py-2 text-xs text-gray-700 border ${isAgreed ? 'border-emerald-100' : 'border-violet-100'}`}>
+                      &ldquo;{imp}&rdquo;
+                    </div>
+                  ))}
+                </div>
+              )}
+              {/* 전반적 코멘트 */}
+              <p className={`text-xs mt-2 leading-relaxed ${isAgreed ? 'text-emerald-600' : 'text-violet-600'}`}>
+                {cc.overallComment}
+              </p>
+            </div>
+            );
+          })()}
+
           {/* 예약 정보 */}
           {selectedPatient.status === 'agreed' && selectedPatient.appointmentDate && (
             <div className="bg-emerald-50 rounded-xl p-4 shadow-sm border border-emerald-200">
@@ -976,6 +1060,15 @@ function MobileDailyReportPage() {
                       {patient.consultations && patient.consultations.length > 1 && (
                         <span className="px-1.5 py-0.5 bg-violet-100 text-violet-700 text-xs rounded font-medium">
                           상담 {patient.consultations.length}건
+                        </span>
+                      )}
+                      {patient.callbackCoaching && (
+                        <span className={`px-1.5 py-0.5 text-xs rounded font-medium ${
+                          patient.status === 'agreed'
+                            ? 'bg-emerald-100 text-emerald-600'
+                            : 'bg-violet-100 text-violet-600'
+                        }`}>
+                          ✨ {patient.status === 'agreed' ? 'AI 내원전략' : 'AI 코칭'}
                         </span>
                       )}
                     </div>

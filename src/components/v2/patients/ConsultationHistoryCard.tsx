@@ -61,6 +61,7 @@ interface ConsultationItem {
   };
   duration?: number;
   status?: string;
+  hasCoaching?: boolean;  // AI 코칭 완료 여부
   // 상담 결과 전용 필드
   resultType?: 'phone' | 'visit';
   resultStatus?: 'agreed' | 'disagreed' | 'pending' | 'no_answer' | 'closed';
@@ -766,6 +767,13 @@ export function ConsultationHistoryCard({ patientId, patientName = '', className
                     {/* 통화 상태 */}
                     {item.type === 'call' && item.status === 'missed' && (
                       <span className="text-xs text-red-500">부재중</span>
+                    )}
+
+                    {/* AI 코칭 완료 뱃지 */}
+                    {item.type === 'call' && item.hasCoaching && (
+                      <span className="px-1.5 py-0.5 rounded text-xs bg-violet-100 text-violet-600 font-medium">
+                        ✨ AI 코칭
+                      </span>
                     )}
 
                     {/* 상담 결과 담당자 */}

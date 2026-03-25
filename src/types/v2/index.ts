@@ -261,6 +261,11 @@ export interface AICoachingResult {
   improvements: AICoachingImprovement[]; // 개선 필요 포인트
   missedOpportunities: string[];     // 놓친 기회
   nextCallStrategy: string;          // 다음 콜백 전략
+  nextCallScript?: {                 // 다음 콜백 예시 멘트
+    opening: string;                 // 오프닝 멘트
+    keyPoints: string[];             // 핵심 설득 포인트별 화법
+    closing: string;                 // 마무리 멘트
+  };
   generatedAt: string;               // 생성 시각
   model: string;                     // 사용된 모델
 }

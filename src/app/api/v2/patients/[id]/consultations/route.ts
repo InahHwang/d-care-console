@@ -31,6 +31,7 @@ interface ConsultationItem {
   };
   duration?: number;        // 통화 시간 (초)
   status?: string;          // 통화 상태 (connected, missed)
+  hasCoaching?: boolean;    // AI 코칭 완료 여부
 }
 
 export async function GET(request: NextRequest, { params }: RouteParams) {
@@ -90,6 +91,7 @@ export async function GET(request: NextRequest, { params }: RouteParams) {
             : undefined,
           duration: call.duration,
           status: call.status,
+          hasCoaching: !!call.aiCoaching,
         });
       }
     }

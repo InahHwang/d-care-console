@@ -2,9 +2,9 @@
 // 일별 리포트 환자 상세 패널 컴포넌트
 'use client';
 
-import React, { useState, useEffect } from 'react';
+import React, { useState, useCallback } from 'react';
 import Link from 'next/link';
-import { ExternalLink, Sparkles, Loader2 } from 'lucide-react';
+import { ExternalLink, Sparkles, Loader2, PhoneForwarded } from 'lucide-react';
 import {
   DailyReportPatient,
   DISAGREE_REASON_CATEGORIES,
@@ -26,50 +26,69 @@ interface DailyReportPatientDetailPanelProps {
   patient: DailyReportPatient | null;
 }
 
-// AI 코칭 요약 데이터
-interface CoachingSummary {
+// AI 코칭 전체 데이터 (생성 시 사용)
+interface FullCoachingData {
   overallScore: number;
   overallComment: string;
   nextCallStrategy: string;
+  keyImprovements: string[];
+  nextCallScript?: {
+    opening: string;
+    keyPoints: string[];
+    closing: string;
+  };
 }
 
 export function DailyReportPatientDetailPanel({
   patient,
 }: DailyReportPatientDetailPanelProps) {
-  const [coachingSummary, setCoachingSummary] = useState<CoachingSummary | null>(null);
-  const [coachingLoading, setCoachingLoading] = useState(false);
+  // 코칭 생성 상태 (API에서 미리 포함된 callbackCoaching가 없을 때만 사용)
+  const [generatedCoaching, setGeneratedCoaching] = useState<FullCoachingData | null>(null);
+  const [coachingGenerating, setCoachingGenerating] = useState(false);
+  const [generatingCallLogId, setGeneratingCallLogId] = useState<string | null>(null);
 
-  // callLogId가 있고 미동의/보류/종결이면 코칭 캐시 조회
-  useEffect(() => {
-    setCoachingSummary(null);
-    if (!patient?.callLogId) return;
-    if (!['disagreed', 'pending', 'closed'].includes(patient.status)) return;
-
-    const fetchCoaching = async () => {
-      setCoachingLoading(true);
-      try {
-        const res = await fetch('/api/v2/call-analysis/coaching', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ callLogId: patient.callLogId }),
+  // 코칭 생성 핸들러
+  const handleGenerateCoaching = useCallback(async () => {
+    if (!patient?.callLogId || coachingGenerating) return;
+    setCoachingGenerating(true);
+    setGeneratingCallLogId(patient.callLogId);
+    try {
+      const res = await fetch('/api/v2/call-analysis/coaching', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ callLogId: patient.callLogId }),
+      });
+      if (!res.ok) return;
+      const data = await res.json();
+      if (data.coaching) {
+        setGeneratedCoaching({
+          overallScore: data.coaching.overallScore,
+          overallComment: data.coaching.overallComment,
+          nextCallStrategy: data.coaching.nextCallStrategy,
+          keyImprovements: (data.coaching.improvements || [])
+            .slice(0, 2)
+            .map((imp: any) => imp.suggestedApproach || imp.point)
+            .filter(Boolean),
+          nextCallScript: data.coaching.nextCallScript || undefined,
         });
-        if (!res.ok) return;
-        const data = await res.json();
-        if (data.cached && data.coaching) {
-          setCoachingSummary({
-            overallScore: data.coaching.overallScore,
-            overallComment: data.coaching.overallComment,
-            nextCallStrategy: data.coaching.nextCallStrategy,
-          });
-        }
-      } catch {
-        // 코칭 로드 실패는 무시 (보조 기능)
-      } finally {
-        setCoachingLoading(false);
       }
-    };
-    fetchCoaching();
-  }, [patient?.callLogId, patient?.status]);
+    } catch {
+      // 코칭 생성 실패는 무시
+    } finally {
+      setCoachingGenerating(false);
+    }
+  }, [patient?.callLogId, coachingGenerating]);
+
+  // 현재 표시할 코칭 데이터 결정 (API 포함 > 생성된 것)
+  const callbackCoaching = patient?.callbackCoaching
+    || (generatingCallLogId === patient?.callLogId ? generatedCoaching : null);
+  // 코칭 생성 가능 조건: 종결 제외, 상담내용 있음, callLogId 있음
+  const needsCoachingGeneration = !callbackCoaching
+    && patient?.callLogId
+    && patient?.status !== 'closed'
+    && patient?.aiSummary // 상담 내용이 있어야 코칭 가능
+    && !(patient?.status === 'no_answer' && !patient?.aiSummary); // 부재중+내용없음 제외
+  const isAgreedCoaching = patient?.status === 'agreed';
 
   if (!patient) {
     return (
@@ -363,35 +382,95 @@ export function DailyReportPatientDetailPanel({
             </div>
           )}
 
-        {/* AI 코칭 요약 (캐시된 결과가 있을 때만 표시) */}
-        {coachingLoading && (
-          <div className="flex items-center gap-2 py-2 text-violet-500 text-sm">
-            <Loader2 size={14} className="animate-spin" />
-            AI 코칭 확인 중...
-          </div>
-        )}
-        {coachingSummary && (
-          <div className="bg-violet-50 rounded-xl p-5 border border-violet-200">
-            <h3 className="font-semibold text-violet-900 mb-3 flex items-center gap-2">
-              <Sparkles size={16} />
-              AI 상담 코칭
+        {/* AI 코칭 (동의: 내원 전략 / 그 외: 콜백 전략) */}
+        {callbackCoaching && (
+          <div className={`rounded-xl p-5 border-2 ${
+            isAgreedCoaching ? 'bg-emerald-50 border-emerald-300' : 'bg-violet-50 border-violet-300'
+          }`}>
+            <h3 className={`font-semibold mb-3 flex items-center gap-2 ${
+              isAgreedCoaching ? 'text-emerald-900' : 'text-violet-900'
+            }`}>
+              <PhoneForwarded size={16} />
+              {isAgreedCoaching ? '내원 상담 전략' : '다음 콜백 코칭'}
               <span className={`ml-auto text-lg font-bold px-2 py-0.5 rounded ${
-                coachingSummary.overallScore >= 80 ? 'text-emerald-600 bg-emerald-100' :
-                coachingSummary.overallScore >= 60 ? 'text-amber-600 bg-amber-100' :
+                callbackCoaching.overallScore >= 80 ? 'text-emerald-600 bg-emerald-100' :
+                callbackCoaching.overallScore >= 60 ? 'text-amber-600 bg-amber-100' :
                 'text-rose-600 bg-rose-100'
               }`}>
-                {coachingSummary.overallScore}점
+                {callbackCoaching.overallScore}점
               </span>
             </h3>
-            <p className="text-sm text-violet-800 leading-relaxed mb-3">
-              {coachingSummary.overallComment}
-            </p>
-            {coachingSummary.nextCallStrategy && (
-              <div className="bg-white rounded-lg p-3">
-                <p className="text-xs text-violet-600 font-medium mb-1">다음 콜백 전략</p>
-                <p className="text-sm text-gray-700">{coachingSummary.nextCallStrategy}</p>
+            {/* 핵심 전략 */}
+            <div className={`bg-white rounded-lg p-4 mb-3 border ${isAgreedCoaching ? 'border-emerald-200' : 'border-violet-200'}`}>
+              <p className={`text-xs font-bold mb-2 flex items-center gap-1 ${isAgreedCoaching ? 'text-emerald-600' : 'text-violet-600'}`}>
+                <Sparkles size={12} />
+                {isAgreedCoaching ? '내원 시 이렇게 상담하세요' : '다음 전화 시 이렇게 하세요'}
+              </p>
+              <p className="text-sm text-gray-800 leading-relaxed">
+                {callbackCoaching.nextCallStrategy}
+              </p>
+            </div>
+            {/* 예시 멘트 (nextCallScript) */}
+            {callbackCoaching.nextCallScript && (
+              <div className="space-y-2 mb-3">
+                <p className={`text-xs font-bold flex items-center gap-1 ${isAgreedCoaching ? 'text-emerald-600' : 'text-violet-600'}`}>
+                  🎙️ {isAgreedCoaching ? '내원 상담 예시 멘트' : '콜백 예시 멘트'}
+                </p>
+                {/* 오프닝 */}
+                <div className={`bg-white rounded-lg p-3 border ${isAgreedCoaching ? 'border-emerald-100' : 'border-violet-100'}`}>
+                  <p className={`text-xs font-medium mb-1 ${isAgreedCoaching ? 'text-emerald-500' : 'text-violet-500'}`}>오프닝</p>
+                  <p className="text-sm text-gray-800 italic">&ldquo;{callbackCoaching.nextCallScript.opening}&rdquo;</p>
+                </div>
+                {/* 핵심 포인트 */}
+                {callbackCoaching.nextCallScript.keyPoints.map((point, idx) => (
+                  <div key={idx} className={`bg-white rounded-lg p-3 border ${isAgreedCoaching ? 'border-emerald-100' : 'border-violet-100'}`}>
+                    <p className={`text-xs font-medium mb-1 ${isAgreedCoaching ? 'text-emerald-500' : 'text-violet-500'}`}>핵심 포인트 {idx + 1}</p>
+                    <p className="text-sm text-gray-800 italic">&ldquo;{point}&rdquo;</p>
+                  </div>
+                ))}
+                {/* 마무리 */}
+                <div className={`bg-white rounded-lg p-3 border ${isAgreedCoaching ? 'border-emerald-100' : 'border-violet-100'}`}>
+                  <p className={`text-xs font-medium mb-1 ${isAgreedCoaching ? 'text-emerald-500' : 'text-violet-500'}`}>마무리</p>
+                  <p className="text-sm text-gray-800 italic">&ldquo;{callbackCoaching.nextCallScript.closing}&rdquo;</p>
+                </div>
               </div>
             )}
+            {/* 추천 화법 (nextCallScript 없을 때 fallback) */}
+            {!callbackCoaching.nextCallScript && callbackCoaching.keyImprovements && callbackCoaching.keyImprovements.length > 0 && (
+              <div className="space-y-2 mb-3">
+                <p className={`text-xs font-medium ${isAgreedCoaching ? 'text-emerald-600' : 'text-violet-600'}`}>추천 화법</p>
+                {callbackCoaching.keyImprovements.map((imp, idx) => (
+                  <div key={idx} className={`bg-white rounded-lg px-3 py-2 text-sm text-gray-700 border ${isAgreedCoaching ? 'border-emerald-100' : 'border-violet-100'}`}>
+                    &ldquo;{imp}&rdquo;
+                  </div>
+                ))}
+              </div>
+            )}
+            {/* 전반적 코멘트 */}
+            <p className={`text-xs mt-1 leading-relaxed ${isAgreedCoaching ? 'text-emerald-600' : 'text-violet-600'}`}>
+              {callbackCoaching.overallComment}
+            </p>
+          </div>
+        )}
+
+        {/* 코칭 미생성 시 생성 버튼 */}
+        {needsCoachingGeneration && !coachingGenerating && (
+          <button
+            onClick={handleGenerateCoaching}
+            className={`w-full flex items-center justify-center gap-2 py-3 rounded-xl border-2 border-dashed transition-colors text-sm font-medium ${
+              isAgreedCoaching
+                ? 'border-emerald-300 text-emerald-600 hover:bg-emerald-50'
+                : 'border-violet-300 text-violet-600 hover:bg-violet-50'
+            }`}
+          >
+            <Sparkles size={16} />
+            {isAgreedCoaching ? 'AI 내원 상담 전략 생성하기' : 'AI 콜백 코칭 생성하기'}
+          </button>
+        )}
+        {coachingGenerating && (
+          <div className="flex items-center justify-center gap-2 py-4 text-violet-500 text-sm">
+            <Loader2 size={16} className="animate-spin" />
+            AI가 통화 내용을 분석하고 있습니다... (1~2분 소요)
           </div>
         )}
 

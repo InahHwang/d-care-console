@@ -41,6 +41,19 @@ interface DailyReportPatient {
   direction?: 'inbound' | 'outbound';  // 수신/발신
   source?: 'manual' | 'auto';          // 수동입력 여부
   closedReason?: string;               // 종결 사유
+  callLogId?: string;                  // 대표 callLog ID (AI 코칭 연동용)
+  // 콜백 코칭 (미동의/보류 환자의 다음 콜백 전략)
+  callbackCoaching?: {
+    nextCallStrategy: string;
+    overallScore: number;
+    overallComment: string;
+    keyImprovements?: string[];  // 핵심 개선 포인트 (1~2개)
+    nextCallScript?: {           // 예시 멘트
+      opening: string;
+      keyPoints: string[];
+      closing: string;
+    };
+  };
   // 해당 날짜의 모든 상담 기록 (시간순)
   consultations?: { type: 'phone' | 'visit' | 'other'; time: string; content?: string; consultantName?: string; duration?: number; direction?: 'inbound' | 'outbound'; source?: 'manual' | 'auto' }[];
 }
@@ -289,6 +302,9 @@ export async function GET(
             source: 'auto',
           });
         } else {
+          const consultCallLogId = consultation.callLogId
+            ? String(consultation.callLogId)
+            : callLog?._id?.toString();
           const entry: DailyReportPatient = {
             id: consultation._id?.toString() || '',
             patientId: consultation.patientId,
@@ -328,6 +344,7 @@ export async function GET(
                 ? `기타: ${(consultation as any).closedReasonCustom}`
                 : (consultation as any).closedReason)
               : undefined,
+            callLogId: consultCallLogId,
             consultations: [{
               type: consultation.type || 'phone',
               time,
@@ -439,6 +456,7 @@ export async function GET(
             consultationType: (patient as any)?.consultationType,
             direction: call.direction as 'inbound' | 'outbound' | undefined,
             source: 'auto',
+            callLogId: call._id?.toString(),
             consultations: call.aiAnalysis?.summary ? [{
               type: 'phone' as const,
               time: callTime,
@@ -746,6 +764,93 @@ export async function GET(
         }
       }
     });
+
+    // ★ AI 코칭 대상 선정:
+    // - 종결(closed) 제외
+    // - 부재중/미입력은 상담내용(aiSummary) 있을 때만
+    // - 동의(agreed)도 포함 (내원 상담 전략)
+    const coachingTargets = reportPatients.filter((rp) => {
+      if (rp.status === 'closed') return false;
+      if (!rp.callLogId) return false;
+      // 부재중/미입력은 상담내용 있을 때만
+      if ((rp.status === 'no_answer' || rp.status === 'no_consultation') && !rp.aiSummary) return false;
+      return true;
+    });
+    if (coachingTargets.length > 0) {
+      const coachingCallLogIds = coachingTargets
+        .map((rp) => rp.callLogId!)
+        .filter((id) => {
+          try { new (require('mongodb').ObjectId)(id); return true; } catch { return false; }
+        });
+      if (coachingCallLogIds.length > 0) {
+        const ObjectIdCls = require('mongodb').ObjectId;
+        const coachingLogIds = coachingCallLogIds.map((id) => new ObjectIdCls(id));
+
+        // 이미 코칭이 있는 것 조회
+        const coachingLogs = await db.collection('callLogs_v2').find(
+          {
+            _id: { $in: coachingLogIds },
+            aiCoaching: { $exists: true },
+          },
+          { projection: { _id: 1, aiCoaching: 1 } }
+        ).toArray();
+
+        const coachingMap = new Map(
+          coachingLogs.map((cl) => [cl._id?.toString(), cl.aiCoaching])
+        );
+
+        // 코칭 결과 매핑
+        coachingTargets.forEach((rp) => {
+          const coaching = coachingMap.get(rp.callLogId!);
+          if (coaching?.nextCallStrategy) {
+            rp.callbackCoaching = {
+              nextCallStrategy: coaching.nextCallStrategy,
+              overallScore: coaching.overallScore ?? 0,
+              overallComment: coaching.overallComment || '',
+              keyImprovements: (coaching.improvements || [])
+                .slice(0, 2)
+                .map((imp: any) => imp.suggestedApproach || imp.point)
+                .filter(Boolean),
+              nextCallScript: coaching.nextCallScript || undefined,
+            };
+          }
+        });
+
+        // ★ 코칭 미생성 환자 → 백그라운드 자동 생성 트리거
+        const uncoachedIds = coachingTargets
+          .filter((rp) => !coachingMap.has(rp.callLogId!))
+          .map((rp) => rp.callLogId!);
+
+        if (uncoachedIds.length > 0) {
+          // transcript 있는지 확인
+          const transcriptLogs = await db.collection('callLogs_v2').find(
+            {
+              _id: { $in: uncoachedIds.map((id) => new ObjectIdCls(id)) },
+              'aiAnalysis.transcript': { $exists: true, $ne: '' },
+              aiCoaching: { $exists: false },
+            },
+            { projection: { _id: 1 } }
+          ).toArray();
+
+          if (transcriptLogs.length > 0) {
+            const baseUrl = process.env.VERCEL_URL
+              ? `https://${process.env.VERCEL_URL}`
+              : process.env.NEXTAUTH_URL || 'http://localhost:3000';
+            // fire-and-forget: 각 환자에 대해 코칭 생성
+            for (const log of transcriptLogs) {
+              fetch(`${baseUrl}/api/v2/call-analysis/coaching`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ callLogId: log._id?.toString() }),
+              }).catch((err) => {
+                console.error('[DailyReport] 자동 코칭 트리거 실패:', err);
+              });
+            }
+            console.log(`[DailyReport] 자동 AI 코칭 트리거: ${transcriptLogs.length}건`);
+          }
+        }
+      }
+    }
 
     // 통계 계산
     const agreed = reportPatients.filter((p) => p.status === 'agreed');

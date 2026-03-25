@@ -157,6 +157,18 @@ export interface DailyReportPatient {
   consultations?: ConsultationEntry[];  // 해당 날짜의 모든 상담 기록 (시간순)
   closedReason?: string;              // 종결 사유
   callLogId?: string;  // 대표 callLog ID (AI 코칭 연동용)
+  // AI 코칭 (콜백 전략 또는 내원 상담 전략 — API에서 미리 포함)
+  callbackCoaching?: {
+    nextCallStrategy: string;
+    overallScore: number;
+    overallComment: string;
+    keyImprovements?: string[];  // 핵심 개선 포인트 (1~2개)
+    nextCallScript?: {           // 예시 멘트
+      opening: string;
+      keyPoints: string[];
+      closing: string;
+    };
+  };
 }
 
 // 일별 리포트 요약

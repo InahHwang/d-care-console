@@ -75,7 +75,14 @@ ${transcript}
   "missedOpportunities": [
     "놓친 기회 설명"
   ],
-  "nextCallStrategy": "다음 콜백 시 추천 전략 (2-3문장)"
+  "nextCallStrategy": "다음 콜백 시 추천 전략 (2-3문장)",
+  "nextCallScript": {
+    "opening": "오프닝 멘트 예시 (환자 이름 부분은 '환자분'으로 대체)",
+    "keyPoints": [
+      "핵심 설득 포인트별 예시 화법 (1~3개)"
+    ],
+    "closing": "마무리 멘트 예시 (다음 약속 잡기)"
+  }
 }
 
 ## 코칭 작성 가이드라인
@@ -117,7 +124,15 @@ ${transcript}
 - 통화에서 다루지 않았지만 다뤘으면 좋았을 포인트
 
 ### nextCallStrategy
-- 이 환자에게 다시 전화할 때의 구체적 전략 (오프닝 멘트, 핵심 포인트)
+- 이 환자에게 다시 전화할 때의 구체적 전략 (2-3문장)
+
+### nextCallScript (가장 실전적인 부분!)
+- **opening**: 콜백 전화 시작 멘트. 이전 통화를 자연스럽게 연결하는 오프닝.
+  예: "안녕하세요 환자분, 지난번 임플란트 상담 관련해서 연락드렸습니다. 혹시 고민하셨던 부분 좀 정리가 되셨을까요?"
+- **keyPoints**: 이번 통화에서 미진했던 포인트를 보완하는 구체적 화법 1~3개.
+  미동의 사유에 맞춘 설득 멘트여야 함. 추상적인 "공감하세요" 대신 실제로 말할 수 있는 문장을 제공.
+- **closing**: 통화 마무리 + 다음 약속 잡기 멘트.
+  예: "그러면 한번 내원하셔서 원장님이랑 직접 상담 받아보시는 건 어떨까요? 이번 주 수요일이나 목요일 중에 편하신 시간 있으세요?"
 
 반드시 유효한 JSON만 출력하세요.`;
 }
@@ -193,6 +208,7 @@ async function analyzeCoachingWithGPT(
     improvements: result.improvements || [],
     missedOpportunities: result.missedOpportunities || [],
     nextCallStrategy: result.nextCallStrategy || '',
+    nextCallScript: result.nextCallScript || undefined,
     generatedAt: new Date().toISOString(),
     model: 'gpt-5.2',
   };

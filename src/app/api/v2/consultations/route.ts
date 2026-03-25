@@ -424,6 +424,49 @@ export async function POST(request: NextRequest) {
       { $set: patientUpdate }
     );
 
+    // ★ 종결 제외, 상담내용 있는 환자 → AI 코칭 자동 생성 (fire-and-forget)
+    // 동의: 내원 상담 전략 / 미동의·보류·부재중: 콜백 전략
+    if (
+      status !== 'closed' &&
+      callLogId
+    ) {
+      // 환자가 오늘 등록된 신환인지 확인
+      const patient = await db.collection('patients_v2').findOne(
+        { _id: new ObjectId(patientId) },
+        { projection: { createdAt: 1 } }
+      );
+      if (patient?.createdAt) {
+        const kstOffset = 9 * 60 * 60 * 1000;
+        const createdKST = new Date(new Date(patient.createdAt).getTime() + kstOffset);
+        const todayKST = new Date(Date.now() + kstOffset);
+        const isToday = createdKST.getUTCFullYear() === todayKST.getUTCFullYear()
+          && createdKST.getUTCMonth() === todayKST.getUTCMonth()
+          && createdKST.getUTCDate() === todayKST.getUTCDate();
+
+        if (isToday) {
+          // callLog에 transcript가 있고, 아직 코칭이 없는 경우에만 생성
+          const callLog = await db.collection('callLogs_v2').findOne(
+            { _id: new ObjectId(callLogId) },
+            { projection: { 'aiAnalysis.transcript': 1, aiCoaching: 1 } }
+          );
+          if (callLog?.aiAnalysis?.transcript && !callLog.aiCoaching) {
+            // fire-and-forget: 코칭 API를 내부 호출 (응답 기다리지 않음)
+            const baseUrl = process.env.VERCEL_URL
+              ? `https://${process.env.VERCEL_URL}`
+              : process.env.NEXTAUTH_URL || 'http://localhost:3000';
+            fetch(`${baseUrl}/api/v2/call-analysis/coaching`, {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({ callLogId }),
+            }).catch((err) => {
+              console.error('[Consultations] 자동 코칭 트리거 실패:', err);
+            });
+            console.log(`[Consultations] 자동 AI 코칭 트리거: callLogId=${callLogId}, patientId=${patientId}`);
+          }
+        }
+      }
+    }
+
     return NextResponse.json({
       success: true,
       data: {
