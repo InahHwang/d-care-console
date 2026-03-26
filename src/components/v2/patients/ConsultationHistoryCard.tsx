@@ -79,6 +79,9 @@ interface ConsultationItem {
   // 연결 ID (결과가 어떤 활동에 속하는지)
   linkedCallLogId?: string;
   linkedManualId?: string;
+  // 내원상담 수동항목 → 상담결과 연결 (수정/삭제 버튼용)
+  consultationResultId?: string;
+  consultationResultData?: ConsultationItem;
 }
 
 // 상담 결과 (consultations_v2에서 가져오는 데이터)
@@ -439,8 +442,11 @@ export function ConsultationHistoryCard({ patientId, patientName = '', className
       const resultsData = await resultsRes.json();
       let resultItems: ConsultationItem[] = [];
       if (resultsData.success && resultsData.data?.consultations) {
-        // 상담 결과를 ConsultationItem 형태로 변환 (visit 포함 — linkedResult로 연결되어 수정/삭제 가능)
+        // 상담 결과를 ConsultationItem 형태로 변환
+        // 내원상담(visit)은 manualConsultations_v2에서 표시하므로 제외 (중복 방지)
+        // → 대신 수동상담 항목에 consultationResultId를 붙여서 수정/삭제 버튼 표시
         resultItems = resultsData.data.consultations
+          .filter((r: ConsultationResult) => r.type !== 'visit')
           .map((r: ConsultationResult) => ({
             id: `result_${r.id}`,
             type: 'result' as const,
@@ -476,36 +482,69 @@ export function ConsultationHistoryCard({ patientId, patientName = '', className
         }
       }
 
-      // 기존 데이터 호환: 연결 안 된 내원상담 결과 → source='consultation_result' 수동상담과 자동 매칭
-      const unmatchedManualItems = callChatItems.filter(
-        (item) => item.type === 'manual' && item.source === 'consultation_result' && !linkedResultMap.has(item.id)
-      );
-      if (unmatchedManualItems.length > 0 && unlinkedResults.length > 0) {
-        const stillUnlinked: ConsultationItem[] = [];
-        for (const result of unlinkedResults) {
-          if (result.resultType === 'visit') {
-            // 같은 날짜(5분 이내)의 수동상담과 매칭
-            const matchIdx = unmatchedManualItems.findIndex((m) => {
-              const timeDiff = Math.abs(new Date(m.date).getTime() - new Date(result.date).getTime());
-              return timeDiff < 5 * 60 * 1000; // 5분 이내
-            });
-            if (matchIdx >= 0) {
-              linkedResultMap.set(unmatchedManualItems[matchIdx].id, result);
-              unmatchedManualItems.splice(matchIdx, 1);
-              continue;
+      // 내원상담 결과 → 수동상담 ID 매핑 (수정/삭제 버튼용)
+      // visit 결과는 resultItems에서 제외했지만, 수동상담 항목에 consultationResultId를 붙여야 함
+      const visitResultMap = new Map<string, { id: string; data: ConsultationItem }>();
+      if (resultsData.success && resultsData.data?.consultations) {
+        for (const r of resultsData.data.consultations) {
+          if (r.type === 'visit') {
+            // manualConsultationId로 매핑 (신규 데이터)
+            if (r.manualConsultationId) {
+              visitResultMap.set(r.manualConsultationId, {
+                id: r.id,
+                data: {
+                  id: `result_${r.id}`, type: 'result', date: r.createdAt,
+                  consultantName: r.consultantName, resultType: r.type,
+                  resultStatus: r.status, treatment: r.treatment,
+                  originalAmount: r.originalAmount, finalAmount: r.finalAmount,
+                  disagreeReasons: r.disagreeReasons, appointmentDate: r.appointmentDate,
+                  callbackDate: r.callbackDate, memo: r.memo,
+                  closedReason: r.closedReason, closedReasonCustom: r.closedReasonCustom,
+                },
+              });
             }
           }
-          stillUnlinked.push(result);
         }
-        unlinkedResults.length = 0;
-        unlinkedResults.push(...stillUnlinked);
       }
 
-      // 활동 항목에 linkedResult 연결
+      // 기존 데이터 호환: manualConsultationId 없는 visit 결과 → 날짜 매칭
+      const unmatchedManualIds = callChatItems
+        .filter((item) => item.type === 'manual' && item.source === 'consultation_result' && !visitResultMap.has(item.id))
+        .map((item) => ({ id: item.id, date: new Date(item.date).getTime() }));
+      if (unmatchedManualIds.length > 0 && resultsData.success && resultsData.data?.consultations) {
+        for (const r of resultsData.data.consultations) {
+          if (r.type === 'visit' && !r.manualConsultationId) {
+            const resultTime = new Date(r.createdAt).getTime();
+            const matchIdx = unmatchedManualIds.findIndex((m) => Math.abs(m.date - resultTime) < 5 * 60 * 1000);
+            if (matchIdx >= 0) {
+              visitResultMap.set(unmatchedManualIds[matchIdx].id, {
+                id: r.id,
+                data: {
+                  id: `result_${r.id}`, type: 'result', date: r.createdAt,
+                  consultantName: r.consultantName, resultType: r.type,
+                  resultStatus: r.status, treatment: r.treatment,
+                  originalAmount: r.originalAmount, finalAmount: r.finalAmount,
+                  disagreeReasons: r.disagreeReasons, appointmentDate: r.appointmentDate,
+                  callbackDate: r.callbackDate, memo: r.memo,
+                  closedReason: r.closedReason, closedReasonCustom: r.closedReasonCustom,
+                },
+              });
+              unmatchedManualIds.splice(matchIdx, 1);
+            }
+          }
+        }
+      }
+
+      // 활동 항목에 linkedResult 연결 + 내원상담 수동항목에 consultationResultId 추가
       const enrichedItems = callChatItems.map((item) => {
         const linkedResult = linkedResultMap.get(item.id);
         if (linkedResult) {
           return { ...item, linkedResult };
+        }
+        // source='consultation_result' 수동상담 → consultationResultId 붙이기
+        const visitResult = visitResultMap.get(item.id);
+        if (visitResult) {
+          return { ...item, consultationResultId: visitResult.id, consultationResultData: visitResult.data };
         }
         return item;
       });
@@ -941,10 +980,35 @@ export function ConsultationHistoryCard({ patientId, patientName = '', className
                     )}
                   </div>
                 )}
-                {/* 상담결과에서 생성된 수동 상담은 상담자만 표시 */}
-                {item.type === 'manual' && item.source === 'consultation_result' && item.consultantName && (
-                  <div className="text-xs text-gray-400 flex-shrink-0 self-center">
-                    {item.consultantName}
+                {/* 상담결과에서 생성된 내원상담: 상담자 + 수정/삭제 버튼 */}
+                {item.type === 'manual' && item.source === 'consultation_result' && (
+                  <div className="flex items-center gap-1 flex-shrink-0 self-center">
+                    {item.consultantName && (
+                      <span className="text-xs text-gray-400 mr-1">{item.consultantName}</span>
+                    )}
+                    {item.consultationResultId && onEditResult && (
+                      <button
+                        onClick={(e) => { e.stopPropagation(); onEditResult(item.consultationResultId!, item.consultationResultData!); }}
+                        className="p-1 text-gray-400 hover:text-blue-600 hover:bg-blue-50 rounded transition-colors"
+                        title="수정"
+                      >
+                        <Pencil size={13} />
+                      </button>
+                    )}
+                    {item.consultationResultId && onDeleteResult && (
+                      <button
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          if (confirm('이 상담 결과를 삭제하시겠습니까?')) {
+                            onDeleteResult(item.consultationResultId!);
+                          }
+                        }}
+                        className="p-1 text-gray-400 hover:text-red-600 hover:bg-red-50 rounded transition-colors"
+                        title="삭제"
+                      >
+                        <Trash2 size={13} />
+                      </button>
+                    )}
                   </div>
                 )}
               </div>
