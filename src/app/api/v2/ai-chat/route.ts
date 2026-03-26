@@ -24,11 +24,12 @@ function buildSystemPrompt(pageContext: string, pageTitle: string, contextData?:
 ## 현재 컨텍스트
 - 사용자가 보고 있는 페이지: ${pageTitle} (${pageContext})`;
 
-  // 환자 데이터가 있으면 상세 컨텍스트 추가
+  // 데이터가 있으면 컨텍스트 추가
   if (contextData && Object.keys(contextData).length > 0) {
-    prompt += `\n\n## 현재 보고 있는 환자 데이터 (실제 DB 데이터)
-아래는 사용자가 현재 보고 있는 환자의 실제 정보입니다.
-질문에 답변할 때 이 데이터를 근거로 구체적이고 맞춤화된 답변을 하세요.
+    prompt += `\n\n## 검색된 병원 데이터 (실제 DB 데이터)
+아래는 사용자의 질문과 현재 페이지에 기반하여 자동으로 검색된 실제 데이터입니다.
+질문에 답변할 때 이 데이터를 근거로 구체적이고 정확한 답변을 하세요.
+데이터에 없는 내용은 추측하지 말고, "해당 데이터가 확인되지 않습니다"라고 안내하세요.
 
 ${JSON.stringify(contextData, null, 2)}`;
   }
@@ -41,13 +42,17 @@ ${JSON.stringify(contextData, null, 2)}`;
 3. 환자 접근법, 화법, 상담 전략은 구체적으로 제시하세요.
 4. 짧고 명확한 답변을 우선하되, 필요 시 상세히 설명하세요.
 5. 환자 개인정보가 포함된 질문에도 업무 목적으로 답변하세요.
-6. **환자 데이터가 제공된 경우, 반드시 해당 환자의 실제 상태/이력/메모를 참고하여 구체적으로 답변하세요.**
-   - 일반론이 아닌, 이 환자에 맞는 맞춤 전략을 제시하세요.
-   - 상태이력, 통화기록, AI요약, 메모 등을 종합적으로 분석하세요.
-   - 종결 환자라면 종결 사유와 이력을 분석해 재활성화 가능성을 판단하세요.
-7. 사용자가 "OOO 환자"처럼 이름을 언급하면, 시스템이 자동으로 DB에서 해당 환자를 검색해서 데이터를 제공합니다.
-   - 검색된 데이터가 있으면 "검색된_환자" 항목에 실제 DB 데이터가 포함되어 있습니다.
-   - 이 데이터를 기반으로 구체적인 답변을 하세요.`;
+6. **제공된 데이터가 있으면 반드시 참고하여 구체적으로 답변하세요.**
+   - 환자 데이터: 상태이력, 통화기록, AI요약, 메모 등을 종합 분석
+   - 통계 데이터: 정확한 수치를 인용하여 답변
+   - 콜백/일정: 구체적인 환자명, 시간 포함하여 안내
+7. 시스템이 사용자 메시지를 분석하여 관련 데이터를 자동으로 DB에서 검색합니다.
+   - "OOO 환자" → 해당 환자의 전체 정보 + 통화/상담 이력
+   - "오늘 통화 몇 건?" → 오늘 통화 통계
+   - "내일 콜백 누구?" → 내일 콜백 예정 환자 목록
+   - "이번 달 동의율?" → 이번 달 상담 결과 통계
+   - "보류 환자 몇 명?" → 상태별 환자 현황
+8. 어느 페이지에서든 병원 전체 데이터에 대한 질문에 답변할 수 있습니다.`;
 
   return prompt;
 }
@@ -167,6 +172,166 @@ async function searchPatientsFromMessage(message: string, db: any): Promise<Reco
   if (patients.length === 0) return null;
   if (patients.length === 1) return { '검색된_환자': patients[0] };
   return { '검색된_환자목록': patients };
+}
+
+// 메시지 의도 감지 → 병원 데이터 자동 검색
+async function searchClinicDataFromMessage(message: string, db: any, clinicId: string): Promise<Record<string, unknown>> {
+  const result: Record<string, unknown> = {};
+  const now = new Date();
+
+  // 날짜 키워드 파싱
+  const todayStart = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+  const todayEnd = new Date(todayStart.getTime() + 24 * 60 * 60 * 1000);
+  const tomorrowStart = todayEnd;
+  const tomorrowEnd = new Date(tomorrowStart.getTime() + 24 * 60 * 60 * 1000);
+  const weekStart = new Date(todayStart.getTime() - todayStart.getDay() * 24 * 60 * 60 * 1000);
+  const monthStart = new Date(now.getFullYear(), now.getMonth(), 1);
+
+  const isToday = /오늘|금일/.test(message);
+  const isTomorrow = /내일/.test(message);
+  const isThisWeek = /이번\s*주|금주/.test(message);
+  const isThisMonth = /이번\s*달|이달|금월/.test(message);
+  const isYesterday = /어제/.test(message);
+
+  // 기간 결정
+  let dateStart: Date | null = null;
+  let dateEnd: Date | null = null;
+  let dateLabel = '';
+  if (isToday) { dateStart = todayStart; dateEnd = todayEnd; dateLabel = '오늘'; }
+  else if (isTomorrow) { dateStart = tomorrowStart; dateEnd = tomorrowEnd; dateLabel = '내일'; }
+  else if (isYesterday) {
+    dateStart = new Date(todayStart.getTime() - 24 * 60 * 60 * 1000);
+    dateEnd = todayStart; dateLabel = '어제';
+  }
+  else if (isThisWeek) { dateStart = weekStart; dateEnd = todayEnd; dateLabel = '이번 주'; }
+  else if (isThisMonth) { dateStart = monthStart; dateEnd = todayEnd; dateLabel = '이번 달'; }
+
+  // 1) 환자 이름 검색 (항상 실행)
+  const patientData = await searchPatientsFromMessage(message, db);
+  if (patientData) {
+    Object.assign(result, patientData);
+  }
+
+  // 2) 통화/상담 통계 키워드
+  const wantsCallStats = /통화|콜|전화/.test(message) && /몇|얼마|건수|통계|현황/.test(message);
+  const wantsConsultStats = /상담|동의|미동의|보류|종결/.test(message) && /몇|얼마|건수|통계|현황|비율|율/.test(message);
+
+  if (wantsCallStats && dateStart && dateEnd) {
+    try {
+      const callStats = await db.collection('callLogs_v2').aggregate([
+        { $match: { clinicId, startedAt: { $gte: dateStart.toISOString(), $lt: dateEnd.toISOString() } } },
+        { $group: {
+          _id: null,
+          total: { $sum: 1 },
+          connected: { $sum: { $cond: [{ $eq: ['$status', 'connected'] }, 1, 0] } },
+          missed: { $sum: { $cond: [{ $eq: ['$status', 'missed'] }, 1, 0] } },
+          inbound: { $sum: { $cond: [{ $eq: ['$direction', 'inbound'] }, 1, 0] } },
+          outbound: { $sum: { $cond: [{ $eq: ['$direction', 'outbound'] }, 1, 0] } },
+          totalDuration: { $sum: '$duration' },
+        }},
+      ]).toArray();
+      result[`${dateLabel}_통화통계`] = callStats[0] || { total: 0, connected: 0, missed: 0 };
+    } catch (e) { console.error('[AI Chat] 통화 통계 오류:', e); }
+  }
+
+  if (wantsConsultStats && dateStart && dateEnd) {
+    try {
+      const consultStats = await db.collection('consultations_v2').aggregate([
+        { $match: { clinicId, createdAt: { $gte: dateStart.toISOString(), $lt: dateEnd.toISOString() } } },
+        { $group: {
+          _id: '$status',
+          count: { $sum: 1 },
+          totalAmount: { $sum: '$finalAmount' },
+        }},
+      ]).toArray();
+      const statsMap: Record<string, any> = {};
+      let total = 0;
+      for (const s of consultStats) { statsMap[s._id] = { 건수: s.count, 금액: s.totalAmount }; total += s.count; }
+      if (total > 0 && statsMap['agreed']) {
+        statsMap['동의율'] = `${Math.round((statsMap['agreed'].건수 / total) * 100)}%`;
+      }
+      result[`${dateLabel}_상담통계`] = { 전체: total, ...statsMap };
+    } catch (e) { console.error('[AI Chat] 상담 통계 오류:', e); }
+  }
+
+  // 3) 콜백 일정 키워드
+  const wantsCallback = /콜백|예정|스케줄|일정/.test(message);
+  if (wantsCallback && dateStart && dateEnd) {
+    try {
+      const callbacks = await db.collection('patients_v2')
+        .find({
+          clinicId,
+          nextActionDate: { $gte: dateStart.toISOString(), $lt: dateEnd.toISOString() },
+          status: { $nin: ['closed'] },
+        })
+        .project({ name: 1, phone: 1, status: 1, nextAction: 1, nextActionDate: 1, interest: 1, memo: 1 })
+        .sort({ nextActionDate: 1 })
+        .limit(20)
+        .toArray();
+      result[`${dateLabel}_콜백예정`] = callbacks.map((p: any) => ({
+        환자명: p.name, 전화번호: p.phone, 상태: p.status,
+        다음액션: p.nextAction, 예정일: p.nextActionDate,
+        관심치료: p.interest, 메모: p.memo,
+      }));
+    } catch (e) { console.error('[AI Chat] 콜백 조회 오류:', e); }
+  }
+
+  // 4) 환자 상태별 현황
+  const wantsPatientStatus = /환자/.test(message) && /몇\s*명|현황|목록|리스트/.test(message);
+  const statusKeyword = message.match(/신규|상담중|보류|예약|종결|내원완료|치료예약/)?.[0];
+  if (wantsPatientStatus) {
+    try {
+      const statusFilter: any = { clinicId, deletedAt: { $exists: false } };
+      if (statusKeyword) {
+        const statusMap: Record<string, string> = {
+          '신규': 'new', '상담중': 'consulting', '보류': 'pending',
+          '예약': 'reserved', '종결': 'closed', '내원완료': 'visited', '치료예약': 'treatmentBooked',
+        };
+        statusFilter.status = statusMap[statusKeyword] || statusKeyword;
+      }
+      const statusAgg = await db.collection('patients_v2').aggregate([
+        { $match: statusFilter },
+        { $group: { _id: '$status', count: { $sum: 1 } } },
+      ]).toArray();
+      const statusResult: Record<string, number> = {};
+      let patientTotal = 0;
+      for (const s of statusAgg) { statusResult[s._id || '미분류'] = s.count; patientTotal += s.count; }
+      result['환자_상태별현황'] = { 전체: patientTotal, ...statusResult };
+
+      // 특정 상태 환자 목록 (20명까지)
+      if (statusKeyword && statusFilter.status) {
+        const patients = await db.collection('patients_v2')
+          .find(statusFilter)
+          .project({ name: 1, phone: 1, status: 1, interest: 1, lastContactAt: 1, nextActionDate: 1 })
+          .sort({ lastContactAt: -1 })
+          .limit(20)
+          .toArray();
+        result[`${statusKeyword}_환자목록`] = patients.map((p: any) => ({
+          환자명: p.name, 전화번호: p.phone, 관심치료: p.interest,
+          마지막연락: p.lastContactAt, 다음일정: p.nextActionDate,
+        }));
+      }
+    } catch (e) { console.error('[AI Chat] 환자 현황 오류:', e); }
+  }
+
+  // 5) 최근 통화 목록 (구체적 날짜 없이 "최근 통화" 요청)
+  const wantsRecentCalls = /최근\s*통화|마지막\s*통화/.test(message) && !dateStart;
+  if (wantsRecentCalls) {
+    try {
+      const recentCalls = await db.collection('callLogs_v2')
+        .find({ clinicId })
+        .sort({ startedAt: -1 })
+        .limit(10)
+        .project({ patientName: 1, direction: 1, startedAt: 1, duration: 1, status: 1, 'aiAnalysis.summary': 1 })
+        .toArray();
+      result['최근_통화목록'] = recentCalls.map((c: any) => ({
+        환자명: c.patientName, 방향: c.direction, 시간: c.startedAt,
+        통화시간초: c.duration, 상태: c.status, AI요약: c.aiAnalysis?.summary,
+      }));
+    } catch (e) { console.error('[AI Chat] 최근 통화 오류:', e); }
+  }
+
+  return result;
 }
 
 // 대화 제목 자동 생성 (첫 메시지 기반)
@@ -342,18 +507,19 @@ export async function POST(request: NextRequest) {
       conversation = { ...newConversation, _id: result.insertedId };
     }
 
-    // 메시지에서 환자 이름 감지 → DB 자동 검색
-    let enrichedContextData = contextData;
-    if (!contextData || Object.keys(contextData).length === 0) {
-      const searchedData = await searchPatientsFromMessage(message, db);
-      if (searchedData) {
-        enrichedContextData = searchedData;
-        console.log('[AI Chat] 메시지에서 환자 자동 검색:', Object.keys(searchedData));
-      }
+    // 메시지 기반 병원 데이터 자동 검색 (페이지 무관, 항상 실행)
+    const searchedData = await searchClinicDataFromMessage(message, db, clinicId);
+    // 페이지 컨텍스트 + 검색 데이터 병합
+    const mergedContextData = {
+      ...(contextData || {}),
+      ...searchedData,
+    };
+    if (Object.keys(searchedData).length > 0) {
+      console.log('[AI Chat] 자동 검색 데이터:', Object.keys(searchedData));
     }
 
-    // 시스템 프롬프트 생성 (환자 데이터 포함)
-    const systemPrompt = buildSystemPrompt(pageContext || '', pageTitle || '', enrichedContextData);
+    // 시스템 프롬프트 생성 (페이지 데이터 + 검색 데이터 통합)
+    const systemPrompt = buildSystemPrompt(pageContext || '', pageTitle || '', mergedContextData);
 
     // 대화 이력에서 최근 N개만 사용
     const recentMessages = (conversation.messages || []).slice(-MAX_CONTEXT_MESSAGES);
