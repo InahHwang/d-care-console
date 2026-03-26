@@ -4,7 +4,7 @@
 'use client';
 
 import React, { useState, useCallback, useEffect } from 'react';
-import { Sparkles, Search, ChevronDown, ChevronRight, User, MessageSquare } from 'lucide-react';
+import { Sparkles, Search, ChevronDown, ChevronRight, User, MessageSquare, ChevronUp } from 'lucide-react';
 import type { AIChatConversation, AIChatMessage } from '@/types/aiChat';
 
 interface UserOption {
@@ -12,6 +12,8 @@ interface UserOption {
   name: string;
   username: string;
 }
+
+const MESSAGES_PER_PAGE = 30;
 
 export default function AIChatAdminPanel() {
   const [users, setUsers] = useState<UserOption[]>([]);
@@ -21,6 +23,9 @@ export default function AIChatAdminPanel() {
   const [expandedMessages, setExpandedMessages] = useState<AIChatMessage[]>([]);
   const [loading, setLoading] = useState(false);
   const [messagesLoading, setMessagesLoading] = useState(false);
+  const [loadingMore, setLoadingMore] = useState(false);
+  const [hasMore, setHasMore] = useState(false);
+  const [totalMessages, setTotalMessages] = useState(0);
 
   // 사용자 목록 로드
   useEffect(() => {
@@ -69,23 +74,28 @@ export default function AIChatAdminPanel() {
     }
   }, []);
 
-  // 대화 펼치기 — 상세 메시지 로드
+  // 대화 펼치기 — 최근 메시지 로드
   const toggleConversation = useCallback(async (convId: string) => {
     if (expandedId === convId) {
       setExpandedId(null);
       setExpandedMessages([]);
+      setHasMore(false);
+      setTotalMessages(0);
       return;
     }
     setExpandedId(convId);
     setMessagesLoading(true);
+    setExpandedMessages([]);
     try {
       const token = localStorage.getItem('token');
-      const res = await fetch(`/api/v2/ai-chat/${convId}`, {
+      const res = await fetch(`/api/v2/ai-chat/${convId}?limit=${MESSAGES_PER_PAGE}`, {
         headers: { 'Authorization': `Bearer ${token}` },
       });
       const data = await res.json();
       if (data.success && data.conversation) {
         setExpandedMessages(data.conversation.messages || []);
+        setHasMore(data.hasMore || false);
+        setTotalMessages(data.totalMessages || 0);
       }
     } catch (err) {
       console.error('[AI Chat Admin] 대화 상세 오류:', err);
@@ -93,6 +103,31 @@ export default function AIChatAdminPanel() {
       setMessagesLoading(false);
     }
   }, [expandedId]);
+
+  // 이전 메시지 더 불러오기
+  const loadMoreMessages = useCallback(async () => {
+    if (!expandedId || loadingMore || !hasMore) return;
+    setLoadingMore(true);
+    try {
+      const token = localStorage.getItem('token');
+      const before = expandedMessages.length;
+      const res = await fetch(`/api/v2/ai-chat/${expandedId}?limit=${MESSAGES_PER_PAGE}&before=${before}`, {
+        headers: { 'Authorization': `Bearer ${token}` },
+      });
+      const data = await res.json();
+      if (data.success && data.conversation?.messages?.length > 0) {
+        // 이전 메시지를 앞에 추가
+        setExpandedMessages(prev => [...data.conversation.messages, ...prev]);
+        setHasMore(data.hasMore || false);
+      } else {
+        setHasMore(false);
+      }
+    } catch (err) {
+      console.error('[AI Chat Admin] 이전 메시지 로드 오류:', err);
+    } finally {
+      setLoadingMore(false);
+    }
+  }, [expandedId, expandedMessages.length, loadingMore, hasMore]);
 
   const handleUserChange = (userId: string) => {
     setSelectedUserId(userId);
@@ -166,6 +201,17 @@ export default function AIChatAdminPanel() {
                     <div className="text-center text-sm text-gray-400 py-4">메시지 로딩 중...</div>
                   ) : (
                     <div className="space-y-3">
+                      {/* 이전 대화 더 보기 */}
+                      {hasMore && (
+                        <button
+                          onClick={loadMoreMessages}
+                          disabled={loadingMore}
+                          className="w-full flex items-center justify-center gap-1.5 py-2 text-xs text-purple-600 hover:bg-purple-50 rounded-lg transition-colors disabled:opacity-50"
+                        >
+                          <ChevronUp className="w-3.5 h-3.5" />
+                          {loadingMore ? '불러오는 중...' : `이전 대화 더 보기 (${expandedMessages.length}/${totalMessages})`}
+                        </button>
+                      )}
                       {expandedMessages.map((msg, i) => (
                         <div key={i} className="flex gap-2">
                           <div className={`flex-shrink-0 w-6 h-6 rounded-full flex items-center justify-center ${

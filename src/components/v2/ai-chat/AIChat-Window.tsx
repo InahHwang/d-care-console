@@ -143,7 +143,7 @@ export default function AIChatWindow({ onClose }: Props) {
     setIsLoading(true);
     try {
       const token = localStorage.getItem('token');
-      const res = await fetch(`/api/v2/ai-chat/${id}`, {
+      const res = await fetch(`/api/v2/ai-chat/${id}?limit=200`, {
         headers: { 'Authorization': `Bearer ${token}` },
       });
       const data = await res.json();
