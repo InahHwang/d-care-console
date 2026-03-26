@@ -439,10 +439,8 @@ export function ConsultationHistoryCard({ patientId, patientName = '', className
       const resultsData = await resultsRes.json();
       let resultItems: ConsultationItem[] = [];
       if (resultsData.success && resultsData.data?.consultations) {
-        // 상담 결과를 ConsultationItem 형태로 변환
-        // 내원상담(visit)은 manualConsultations_v2에서 표시하므로 제외 (중복 방지)
+        // 상담 결과를 ConsultationItem 형태로 변환 (visit 포함 — linkedResult로 연결되어 수정/삭제 가능)
         resultItems = resultsData.data.consultations
-          .filter((r: ConsultationResult) => r.type !== 'visit')
           .map((r: ConsultationResult) => ({
             id: `result_${r.id}`,
             type: 'result' as const,
