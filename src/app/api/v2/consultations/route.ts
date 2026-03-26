@@ -361,9 +361,8 @@ export async function POST(request: NextRequest) {
       console.log(`[내원상담] 상담이력 자동 등록: 환자ID=${patientId}, 결과=${statusLabel}`);
     }
 
-    // 전화상담의 미동의/보류/부재중 시: 콜백 설정 및 콜백 이력 기록
-    // (내원상담은 콜백이력 불필요)
-    if (type === 'phone' && (status === 'disagreed' || status === 'pending' || status === 'no_answer') && callbackDate) {
+    // 미동의/보류/부재중 시: 콜백 설정 및 콜백 이력 기록 (전화상담 + 내원상담 모두)
+    if ((status === 'disagreed' || status === 'pending' || status === 'no_answer') && callbackDate) {
       const currentPatient = await db.collection('patients_v2').findOne(
         { _id: new ObjectId(patientId) }
       );
@@ -406,6 +405,18 @@ export async function POST(request: NextRequest) {
 
       patientUpdate.nextAction = '콜백';
       patientUpdate.nextActionDate = callbackDate;
+
+      // 활성 여정의 nextActionDate도 동기화
+      if (currentPatient?.activeJourneyId) {
+        await db.collection('patients_v2').updateOne(
+          { _id: new ObjectId(patientId) },
+          { $set: {
+            'journeys.$[journey].nextActionDate': callbackDate,
+            'journeys.$[journey].nextActionNote': fullNote,
+          } },
+          { arrayFilters: [{ 'journey.id': currentPatient.activeJourneyId }] }
+        );
+      }
 
       // callbacks_v2에도 추가
       await db.collection('callbacks_v2').insertOne({
@@ -575,6 +586,24 @@ export async function PATCH(request: NextRequest) {
           { _id: new ObjectId(patientId) },
           { $set: patientUpdate }
         );
+
+        // 활성 여정의 nextActionDate도 동기화
+        if (patientUpdate.nextActionDate) {
+          const currentPatient = await db.collection('patients_v2').findOne(
+            { _id: new ObjectId(patientId) },
+            { projection: { activeJourneyId: 1 } }
+          );
+          if (currentPatient?.activeJourneyId) {
+            await db.collection('patients_v2').updateOne(
+              { _id: new ObjectId(patientId) },
+              { $set: {
+                'journeys.$[journey].nextActionDate': patientUpdate.nextActionDate,
+                'journeys.$[journey].nextActionNote': patientUpdate.nextAction || '콜백',
+              } },
+              { arrayFilters: [{ 'journey.id': currentPatient.activeJourneyId }] }
+            );
+          }
+        }
       }
     }
 
