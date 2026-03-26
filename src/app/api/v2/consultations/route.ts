@@ -344,7 +344,7 @@ export async function POST(request: NextRequest) {
       const consultationContent = contentParts.join('\n') || statusLabel;
 
       // manualConsultations_v2에 저장
-      await db.collection('manualConsultations_v2').insertOne({
+      const manualResult = await db.collection('manualConsultations_v2').insertOne({
         patientId,
         type: 'visit',  // 내원상담
         date: now,
@@ -358,7 +358,13 @@ export async function POST(request: NextRequest) {
         updatedAt: now,
       });
 
-      console.log(`[내원상담] 상담이력 자동 등록: 환자ID=${patientId}, 결과=${statusLabel}`);
+      // 상담 결과 ↔ 수동상담 서로 연결 (수정/삭제 버튼 표시용)
+      await db.collection('consultations_v2').updateOne(
+        { _id: result.insertedId },
+        { $set: { manualConsultationId: manualResult.insertedId.toString() } }
+      );
+
+      console.log(`[내원상담] 상담이력 자동 등록 및 연결: 환자ID=${patientId}, 결과=${statusLabel}`);
     }
 
     // 미동의/보류/부재중 시: 콜백 설정 및 콜백 이력 기록 (전화상담 + 내원상담 모두)

@@ -476,6 +476,31 @@ export function ConsultationHistoryCard({ patientId, patientName = '', className
         }
       }
 
+      // 기존 데이터 호환: 연결 안 된 내원상담 결과 → source='consultation_result' 수동상담과 자동 매칭
+      const unmatchedManualItems = callChatItems.filter(
+        (item) => item.type === 'manual' && item.source === 'consultation_result' && !linkedResultMap.has(item.id)
+      );
+      if (unmatchedManualItems.length > 0 && unlinkedResults.length > 0) {
+        const stillUnlinked: ConsultationItem[] = [];
+        for (const result of unlinkedResults) {
+          if (result.resultType === 'visit') {
+            // 같은 날짜(5분 이내)의 수동상담과 매칭
+            const matchIdx = unmatchedManualItems.findIndex((m) => {
+              const timeDiff = Math.abs(new Date(m.date).getTime() - new Date(result.date).getTime());
+              return timeDiff < 5 * 60 * 1000; // 5분 이내
+            });
+            if (matchIdx >= 0) {
+              linkedResultMap.set(unmatchedManualItems[matchIdx].id, result);
+              unmatchedManualItems.splice(matchIdx, 1);
+              continue;
+            }
+          }
+          stillUnlinked.push(result);
+        }
+        unlinkedResults.length = 0;
+        unlinkedResults.push(...stillUnlinked);
+      }
+
       // 활동 항목에 linkedResult 연결
       const enrichedItems = callChatItems.map((item) => {
         const linkedResult = linkedResultMap.get(item.id);
