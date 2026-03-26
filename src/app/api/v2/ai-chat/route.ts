@@ -246,7 +246,8 @@ export async function GET(request: NextRequest) {
       userIdFilter = { userId: user.userId };
     }
 
-    const query = { clinicId, ...userIdFilter, isArchived: { $ne: true } };
+    // clinicId가 없는 기존 데이터도 포함 (마이그레이션 누락 호환)
+    const query = { $or: [{ clinicId }, { clinicId: { $exists: false } }], ...userIdFilter, isArchived: { $ne: true } };
     const total = await db.collection('ai_chats_v2').countDocuments(query);
 
     const conversations = await db.collection('ai_chats_v2')
