@@ -3,7 +3,7 @@
 // 전화상담(phone) / 내원상담(visit) 결과 기록
 
 import { NextRequest, NextResponse } from 'next/server';
-import { connectToDatabase } from '@/utils/mongodb';
+import { connectToDatabase, getClinicId } from '@/utils/mongodb';
 import { ObjectId } from 'mongodb';
 import type { ConsultationV2, ConsultationType, ConsultationStatus, ClosedReason } from '@/types/v2';
 import { z } from 'zod';
@@ -47,8 +47,9 @@ export async function GET(request: NextRequest) {
     const limit = parseInt(searchParams.get('limit') || '50');
 
     const { db } = await connectToDatabase();
+    const clinicId = getClinicId();
 
-    const filter: Record<string, unknown> = {};
+    const filter: Record<string, unknown> = { clinicId };
 
     // 특정 환자의 상담 이력
     if (patientId) {
@@ -187,6 +188,7 @@ export async function POST(request: NextRequest) {
     } = parsed.data;
 
     const { db } = await connectToDatabase();
+    const clinicId = getClinicId();
     const now = new Date();
     const nowISO = now.toISOString();
 
@@ -198,6 +200,7 @@ export async function POST(request: NextRequest) {
 
     // 상담 기록 생성
     const newConsultation: Omit<ConsultationV2, '_id'> = {
+      clinicId,
       patientId,
       callLogId: callLogId || undefined,
       manualConsultationId: manualConsultationId || undefined,
@@ -390,6 +393,7 @@ export async function POST(request: NextRequest) {
 
       // manualConsultations_v2에 저장
       const manualResult = await db.collection('manualConsultations_v2').insertOne({
+        clinicId,
         patientId,
         type: 'visit',  // 내원상담
         date: now,
@@ -471,6 +475,7 @@ export async function POST(request: NextRequest) {
 
       // callbacks_v2에도 추가
       await db.collection('callbacks_v2').insertOne({
+        clinicId,
         patientId,
         type: 'callback',
         scheduledAt: new Date(callbackDate),
@@ -562,11 +567,12 @@ export async function PATCH(request: NextRequest) {
     const { id, editedBy, ...updateData } = body as Record<string, any>;
 
     const { db } = await connectToDatabase();
+    const clinicId = getClinicId();
     const now = new Date();
     const nowISO = now.toISOString();
 
     // 기존 데이터 조회 (금액 재계산 및 수정 추적용)
-    const existing = await db.collection('consultations_v2').findOne({ _id: new ObjectId(id) });
+    const existing = await db.collection('consultations_v2').findOne({ _id: new ObjectId(id), clinicId });
     if (!existing) {
       return NextResponse.json(
         { success: false, error: 'Consultation not found' },
@@ -590,7 +596,7 @@ export async function PATCH(request: NextRequest) {
     };
 
     const result = await db.collection('consultations_v2').findOneAndUpdate(
-      { _id: new ObjectId(id) },
+      { _id: new ObjectId(id), clinicId },
       { $set: updateFields },
       { returnDocument: 'after' }
     );
@@ -734,9 +740,11 @@ export async function DELETE(request: NextRequest) {
     }
 
     const { db } = await connectToDatabase();
+    const clinicId = getClinicId();
 
     const result = await db.collection('consultations_v2').deleteOne({
       _id: new ObjectId(id),
+      clinicId,
     });
 
     if (result.deletedCount === 0) {
