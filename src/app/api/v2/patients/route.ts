@@ -339,6 +339,7 @@ export async function GET(request: NextRequest) {
     // 기간 필터가 적용된 환자들의 긴급 통계 계산 (종결 환자만 제외)
     const periodQuery: Record<string, unknown> = {
       clinicId,
+      deletedAt: { $exists: false },
       status: { $nin: ['closed'] }
     };
     const periodStartDate = getPeriodStartDate(period);
