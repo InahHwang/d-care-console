@@ -225,15 +225,19 @@ export async function POST(request: NextRequest) {
 
     const result = await db.collection('consultations_v2').insertOne(newConsultation);
 
+    // 환자 상태 업데이트
+    const currentPatientForStatus = await db.collection('patients_v2').findOne(
+      { _id: new ObjectId(patientId) },
+      { projection: { status: 1, activeJourneyId: 1, name: 1 } }
+    );
+
     // 감사 로그
     logAudit(request, 'consultation.create', 'consultations_v2', result.insertedId.toString(), [
       { field: 'patientId', oldValue: null, newValue: patientId },
       { field: 'status', oldValue: null, newValue: status },
       { field: 'treatment', oldValue: null, newValue: treatment || '' },
       { field: 'finalAmount', oldValue: null, newValue: finalAmount },
-    ], { changedBy: consultantName });
-
-    // 환자 상태 업데이트
+    ], { documentName: currentPatientForStatus?.name || patientId, changedBy: consultantName });
     const patientUpdate: Record<string, unknown> = {
       updatedAt: nowISO,
     };
@@ -243,8 +247,49 @@ export async function POST(request: NextRequest) {
       // 전화상담 동의 → reserved (내원예약)
       // 내원상담 동의 → treatmentBooked (치료예약)
       const newStatus = type === 'phone' ? 'reserved' : 'treatmentBooked';
-      patientUpdate.status = newStatus;
-      patientUpdate.statusChangedAt = nowISO;
+
+      // 상태 진행도 순서 — 이미 더 진행된 상태면 되돌리지 않음
+      const STATUS_ORDER: Record<string, number> = {
+        consulting: 0, reserved: 1, visited: 2, treatmentBooked: 3,
+        treatment: 4, completed: 5, followup: 6, closed: 7,
+      };
+      const currentOrder = STATUS_ORDER[currentPatientForStatus?.status || 'consulting'] ?? 0;
+      const newOrder = STATUS_ORDER[newStatus] ?? 0;
+
+      if (newOrder > currentOrder) {
+        patientUpdate.status = newStatus;
+        patientUpdate.statusChangedAt = nowISO;
+
+        // statusHistory 기록
+        const statusHistoryEntry = {
+          from: currentPatientForStatus?.status || 'consulting',
+          to: newStatus,
+          eventDate: appointmentDate ? new Date(appointmentDate) : now,
+          changedAt: now,
+          changedBy: consultantName,
+        };
+        await db.collection('patients_v2').updateOne(
+          { _id: new ObjectId(patientId) },
+          { $push: { statusHistory: statusHistoryEntry } as any }
+        );
+
+        // 여정 상태 동기화
+        if (currentPatientForStatus?.activeJourneyId) {
+          await db.collection('patients_v2').updateOne(
+            { _id: new ObjectId(patientId) },
+            { $set: {
+              'journeys.$[journey].status': newStatus,
+              'journeys.$[journey].updatedAt': now,
+            } },
+            { arrayFilters: [{ 'journey.id': currentPatientForStatus.activeJourneyId }] }
+          );
+          await db.collection('patients_v2').updateOne(
+            { _id: new ObjectId(patientId) },
+            { $push: { 'journeys.$[journey].statusHistory': statusHistoryEntry } as any },
+            { arrayFilters: [{ 'journey.id': currentPatientForStatus.activeJourneyId }] }
+          );
+        }
+      }
 
       if (appointmentDate) {
         patientUpdate.nextAction = type === 'phone' ? '내원예약' : '치료예약';
@@ -517,7 +562,8 @@ export async function PATCH(request: NextRequest) {
     const { id, editedBy, ...updateData } = body as Record<string, any>;
 
     const { db } = await connectToDatabase();
-    const nowISO = new Date().toISOString();
+    const now = new Date();
+    const nowISO = now.toISOString();
 
     // 기존 데이터 조회 (금액 재계산 및 수정 추적용)
     const existing = await db.collection('consultations_v2').findOne({ _id: new ObjectId(id) });
@@ -561,10 +607,58 @@ export async function PATCH(request: NextRequest) {
       if (finalStatus === 'agreed') {
         const consultationType = existing.type;
         const newPatientStatus = consultationType === 'phone' ? 'reserved' : 'treatmentBooked';
-        patientUpdate.status = newPatientStatus;
-        patientUpdate.statusChangedAt = nowISO;
+
+        // 현재 환자 상태 조회
+        const currentPatientForStatus = await db.collection('patients_v2').findOne(
+          { _id: new ObjectId(patientId) },
+          { projection: { status: 1, activeJourneyId: 1 } }
+        );
+
+        // 상태 진행도 순서 — 이미 더 진행된 상태면 되돌리지 않음
+        const STATUS_ORDER: Record<string, number> = {
+          consulting: 0, reserved: 1, visited: 2, treatmentBooked: 3,
+          treatment: 4, completed: 5, followup: 6, closed: 7,
+        };
+        const currentOrder = STATUS_ORDER[currentPatientForStatus?.status || 'consulting'] ?? 0;
+        const newOrder = STATUS_ORDER[newPatientStatus] ?? 0;
 
         const appointmentDate = updateData.appointmentDate ?? existing.appointmentDate;
+
+        if (newOrder > currentOrder) {
+          patientUpdate.status = newPatientStatus;
+          patientUpdate.statusChangedAt = nowISO;
+
+          // statusHistory 기록
+          const statusHistoryEntry = {
+            from: currentPatientForStatus?.status || 'consulting',
+            to: newPatientStatus,
+            eventDate: appointmentDate ? new Date(appointmentDate) : now,
+            changedAt: now,
+            changedBy: existing.consultantName,
+          };
+          await db.collection('patients_v2').updateOne(
+            { _id: new ObjectId(patientId) },
+            { $push: { statusHistory: statusHistoryEntry } as any }
+          );
+
+          // 여정 상태 동기화
+          if (currentPatientForStatus?.activeJourneyId) {
+            await db.collection('patients_v2').updateOne(
+              { _id: new ObjectId(patientId) },
+              { $set: {
+                'journeys.$[journey].status': newPatientStatus,
+                'journeys.$[journey].updatedAt': now,
+              } },
+              { arrayFilters: [{ 'journey.id': currentPatientForStatus.activeJourneyId }] }
+            );
+            await db.collection('patients_v2').updateOne(
+              { _id: new ObjectId(patientId) },
+              { $push: { 'journeys.$[journey].statusHistory': statusHistoryEntry } as any },
+              { arrayFilters: [{ 'journey.id': currentPatientForStatus.activeJourneyId }] }
+            );
+          }
+        }
+
         if (appointmentDate) {
           patientUpdate.nextAction = consultationType === 'phone' ? '내원예약' : '치료예약';
           patientUpdate.nextActionDate = appointmentDate;

@@ -1058,7 +1058,7 @@ function MobileDailyReportPage() {
                         </span>
                       )}
                       {patient.consultations && patient.consultations.length > 1 && (
-                        <span className="px-1.5 py-0.5 bg-violet-100 text-violet-700 text-xs rounded font-medium">
+                        <span className="px-1.5 py-0.5 bg-amber-100 text-amber-700 text-xs rounded font-medium">
                           상담 {patient.consultations.length}건
                         </span>
                       )}

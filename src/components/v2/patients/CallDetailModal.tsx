@@ -231,7 +231,7 @@ export function CallDetailModal({
       const response = await fetch('/api/v2/call-analysis/coaching', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ callLogId, force, preview: usePreview }),
+        body: JSON.stringify({ callLogId, force, preview: usePreview, requestedBy: user?.name }),
       });
       if (!response.ok) {
         const errData = await response.json().catch(() => ({}));
@@ -257,7 +257,7 @@ export function CallDetailModal({
       await fetch('/api/v2/call-analysis/coaching', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ callLogId, apply: true, coachingData: coachingPreview }),
+        body: JSON.stringify({ callLogId, apply: true, coachingData: coachingPreview, requestedBy: user?.name }),
       });
       setCoaching(coachingPreview);
       setCoachingPreview(null);

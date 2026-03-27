@@ -39,6 +39,8 @@ const ACTION_LABELS: Record<string, string> = {
   'consultation.create': '상담 등록',
   'consultation.update': '상담 수정',
   'consultation.delete': '상담 삭제',
+  'coaching.run': 'AI 코칭 실행',
+  'coaching.apply': 'AI 코칭 적용',
 };
 
 const ACTION_COLORS: Record<string, string> = {
@@ -50,6 +52,8 @@ const ACTION_COLORS: Record<string, string> = {
   'callback.update': 'bg-purple-100 text-purple-700',
   'consultation.create': 'bg-teal-100 text-teal-700',
   'consultation.update': 'bg-teal-100 text-teal-700',
+  'coaching.run': 'bg-violet-100 text-violet-700',
+  'coaching.apply': 'bg-violet-100 text-violet-700',
 };
 
 const VALUE_LABELS: Record<string, string> = {
@@ -166,6 +170,7 @@ export default function AuditPage() {
           <option value="patient.update">환자 수정</option>
           <option value="callback">콜백</option>
           <option value="consultation">상담</option>
+          <option value="coaching">AI 코칭</option>
         </select>
         {(actionFilter || userFilter) && (
           <button

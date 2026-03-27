@@ -5,6 +5,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { connectToDatabase } from '@/utils/mongodb';
 import { ObjectId } from 'mongodb';
 import type { AICoachingResult } from '@/types/v2';
+import { logAudit } from '@/utils/auditLog';
 
 // Vercel Function 타임아웃 설정 (gpt-5.2는 응답이 느릴 수 있음)
 export const maxDuration = 120;
@@ -75,13 +76,13 @@ ${transcript}
   "missedOpportunities": [
     "놓친 기회 설명"
   ],
-  "nextCallStrategy": "다음 콜백 시 추천 전략 (2-3문장)",
+  "nextCallStrategy": "${consultationStatus === 'agreed' ? '내원 시 상담 전략 — 치료 동의를 이끌어내기 위한 구체적 접근법 (2-3문장)' : '다음 콜백 시 추천 전략 (2-3문장)'}",
   "nextCallScript": {
-    "opening": "오프닝 멘트 예시 (환자 이름 부분은 '환자분'으로 대체)",
+    "opening": "${consultationStatus === 'agreed' ? '내원 맞이 멘트 예시 — 전화 상담 내용을 자연스럽게 연결하며 환자를 안심시키는 오프닝' : '오프닝 멘트 예시 (환자 이름 부분은 환자분으로 대체)'}",
     "keyPoints": [
-      "핵심 설득 포인트별 예시 화법 (1~3개)"
+      "${consultationStatus === 'agreed' ? '내원 상담 시 치료 동의를 이끌어내기 위한 핵심 화법 (1~3개)' : '핵심 설득 포인트별 예시 화법 (1~3개)'}"
     ],
-    "closing": "마무리 멘트 예시 (다음 약속 잡기)"
+    "closing": "${consultationStatus === 'agreed' ? '치료 동의 유도 마무리 멘트 — 결제/일정 확정으로 자연스럽게 연결' : '마무리 멘트 예시 (다음 약속 잡기)'}"
   }
 }
 
@@ -123,16 +124,28 @@ ${transcript}
 ### missedOpportunities (0~2개)
 - 통화에서 다루지 않았지만 다뤘으면 좋았을 포인트
 
-### nextCallStrategy
-- 이 환자에게 다시 전화할 때의 구체적 전략 (2-3문장)
+### nextCallStrategy & nextCallScript
+${consultationStatus === 'agreed' ? `
+**⚠️ 이 환자는 내원예약에 동의했습니다. "다시 전화할 전략"이 아니라 "내원 시 상담 전략"을 작성하세요.**
 
-### nextCallScript (가장 실전적인 부분!)
-- **opening**: 콜백 전화 시작 멘트. 이전 통화를 자연스럽게 연결하는 오프닝.
-  예: "안녕하세요 환자분, 지난번 임플란트 상담 관련해서 연락드렸습니다. 혹시 고민하셨던 부분 좀 정리가 되셨을까요?"
-- **keyPoints**: 이번 통화에서 미진했던 포인트를 보완하는 구체적 화법 1~3개.
-  미동의 사유에 맞춘 설득 멘트여야 함. 추상적인 "공감하세요" 대신 실제로 말할 수 있는 문장을 제공.
-- **closing**: 통화 마무리 + 다음 약속 잡기 멘트.
-  예: "그러면 한번 내원하셔서 원장님이랑 직접 상담 받아보시는 건 어떨까요? 이번 주 수요일이나 목요일 중에 편하신 시간 있으세요?"
+- **nextCallStrategy**: 이 환자가 내원했을 때, 원장님 상담 전/후로 상담사가 어떻게 응대하면 치료 동의(결제)까지 이끌 수 있는지 전략을 작성하세요. (2-3문장)
+- **nextCallScript**: 내원 상담 시나리오 기준으로 작성하세요.
+  - **opening**: 내원 맞이 멘트. 전화 상담에서 나왔던 내용을 자연스럽게 연결하여 환자를 안심시키는 오프닝.
+    예: "환자분, 어서오세요! 전에 전화로 말씀하셨던 임플란트 관련해서 오늘 원장님이 직접 봐주실 거예요. 궁금하셨던 부분 편하게 여쭤보세요."
+  - **keyPoints**: 전화 상담에서 환자가 걱정/우려했던 포인트를 내원 상담에서 해소하기 위한 구체적 화법 1~3개.
+    예: 가격 걱정 → 분할납부 안내, 치료 두려움 → 무통/최소 침습 강조, 시간 부담 → 치료 기간/횟수 명확히 안내
+  - **closing**: 치료 동의 후 결제/일정 확정으로 자연스럽게 연결하는 마무리 멘트.
+    예: "원장님 상담 어떠셨어요? 오늘 바로 진행하시면 이번 달 안에 1차 시술까지 가능하세요. 일정 잡아드릴까요?"
+` : `
+- **nextCallStrategy**: 이 환자에게 다시 전화할 때의 구체적 전략 (2-3문장)
+- **nextCallScript** (가장 실전적인 부분!):
+  - **opening**: 콜백 전화 시작 멘트. 이전 통화를 자연스럽게 연결하는 오프닝.
+    예: "안녕하세요 환자분, 지난번 임플란트 상담 관련해서 연락드렸습니다. 혹시 고민하셨던 부분 좀 정리가 되셨을까요?"
+  - **keyPoints**: 이번 통화에서 미진했던 포인트를 보완하는 구체적 화법 1~3개.
+    미동의 사유에 맞춘 설득 멘트여야 함. 추상적인 "공감하세요" 대신 실제로 말할 수 있는 문장을 제공.
+  - **closing**: 통화 마무리 + 다음 약속 잡기 멘트.
+    예: "그러면 한번 내원하셔서 원장님이랑 직접 상담 받아보시는 건 어떨까요? 이번 주 수요일이나 목요일 중에 편하신 시간 있으세요?"
+`}
 
 반드시 유효한 JSON만 출력하세요.`;
 }
@@ -217,7 +230,7 @@ async function analyzeCoachingWithGPT(
 export async function POST(request: NextRequest) {
   try {
     const body = await request.json();
-    const { callLogId, force, preview, apply, coachingData } = body;
+    const { callLogId, force, preview, apply, coachingData, requestedBy } = body;
 
     console.log(`[Coaching] 코칭 분석 요청: ${callLogId}, force: ${force}, preview: ${preview}, apply: ${apply}`);
 
@@ -234,7 +247,7 @@ export async function POST(request: NextRequest) {
     if (apply && coachingData) {
       const callLog = await db.collection('callLogs_v2').findOne(
         { _id: new ObjectId(callLogId) },
-        { projection: { patientId: 1 } }
+        { projection: { patientId: 1, patientName: 1 } }
       );
 
       await db.collection('callLogs_v2').updateOne(
@@ -247,6 +260,34 @@ export async function POST(request: NextRequest) {
           { _id: new ObjectId(callLog.patientId) },
           { $set: { lastCoachingScore: coachingData.overallScore, lastCoachingAt: coachingData.generatedAt } }
         );
+      }
+
+      // 감사 로그: AI 코칭 적용
+      try {
+        let docName = callLog?.patientName;
+        if (!docName && callLog?.patientId && ObjectId.isValid(callLog.patientId)) {
+          const patient = await db.collection('patients_v2').findOne(
+            { _id: new ObjectId(callLog.patientId) },
+            { projection: { name: 1 } }
+          );
+          docName = patient?.name;
+        }
+        if (!docName) docName = callLog?.callerName || callLog?.phone;
+        await db.collection('auditLogs_v2').insertOne({
+          userId: requestedBy || 'unknown',
+          userName: requestedBy || 'unknown',
+          userRole: 'staff',
+          action: 'coaching.apply',
+          collection: 'callLogs_v2',
+          documentId: callLogId,
+          documentName: docName || callLogId,
+          changes: [{ field: 'aiCoaching.overallScore', oldValue: null, newValue: coachingData.overallScore }],
+          ipAddress: request.headers.get('x-forwarded-for')?.split(',')[0]?.trim() || 'unknown',
+          userAgent: request.headers.get('user-agent') || '',
+          timestamp: new Date(),
+        });
+      } catch (auditErr) {
+        console.error('[Coaching] 감사 로그 기록 실패:', auditErr);
       }
 
       console.log(`[Coaching] 미리보기 결과 적용: ${callLogId}, score: ${coachingData.overallScore}`);
@@ -352,6 +393,34 @@ export async function POST(request: NextRequest) {
       } catch (patientErr) {
         console.error('[Coaching] 환자 업데이트 오류:', patientErr);
       }
+    }
+
+    // 감사 로그: AI 코칭 실행
+    try {
+      let coachingDocName = callLog.patientName;
+      if (!coachingDocName && callLog.patientId && ObjectId.isValid(callLog.patientId)) {
+        const patientForAudit = await db.collection('patients_v2').findOne(
+          { _id: new ObjectId(callLog.patientId) },
+          { projection: { name: 1 } }
+        );
+        coachingDocName = patientForAudit?.name;
+      }
+      if (!coachingDocName) coachingDocName = callLog.callerName || callLog.phone;
+      await db.collection('auditLogs_v2').insertOne({
+        userId: requestedBy || 'unknown',
+        userName: requestedBy || 'unknown',
+        userRole: 'staff',
+        action: 'coaching.run',
+        collection: 'callLogs_v2',
+        documentId: callLogId,
+        documentName: coachingDocName || callLogId,
+        changes: [{ field: 'aiCoaching.overallScore', oldValue: null, newValue: coaching.overallScore }],
+        ipAddress: request.headers.get('x-forwarded-for')?.split(',')[0]?.trim() || 'unknown',
+        userAgent: request.headers.get('user-agent') || '',
+        timestamp: new Date(),
+      });
+    } catch (auditErr) {
+      console.error('[Coaching] 감사 로그 기록 실패:', auditErr);
     }
 
     console.log(`[Coaching] 코칭 분석 완료: ${callLogId}, score: ${coaching.overallScore}`);
