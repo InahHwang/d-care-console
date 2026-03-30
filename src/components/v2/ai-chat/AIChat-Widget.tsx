@@ -19,7 +19,7 @@ export default function AIChatWidget() {
         className={`fixed bottom-5 right-5 w-12 h-12 rounded-full shadow-lg flex items-center justify-center transition-all duration-300 z-[60] ${
           isOpen
             ? 'bg-gray-600 hover:bg-gray-700 rotate-45 scale-90'
-            : 'bg-gradient-to-r from-purple-600 to-blue-600 hover:from-purple-700 hover:to-blue-700 scale-100 hover:scale-110'
+            : 'bg-gradient-to-r from-purple-600 to-orange-600 hover:from-purple-700 hover:to-orange-700 scale-100 hover:scale-110'
         }`}
         title="AI 어시스턴트"
       >

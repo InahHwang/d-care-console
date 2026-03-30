@@ -45,7 +45,7 @@ const STATUS_LABELS: Record<PatientStatus, string> = {
 };
 
 const STATUS_COLORS: Record<PatientStatus, string> = {
-  consulting: 'bg-blue-100 text-blue-700',
+  consulting: 'bg-orange-100 text-orange-700',
   reserved: 'bg-purple-100 text-purple-700',
   visited: 'bg-amber-100 text-amber-700',
   treatmentBooked: 'bg-teal-100 text-teal-700',
@@ -141,7 +141,7 @@ export function StatusChangeModal({
     actual.setHours(0, 0, 0, 0);
     const diff = Math.round((scheduled.getTime() - actual.getTime()) / (1000 * 60 * 60 * 24));
     if (diff === 0) return { text: '예정대로', style: 'text-green-600' };
-    if (diff > 0) return { text: `예정보다 ${diff}일 빠름`, style: 'text-blue-600' };
+    if (diff > 0) return { text: `예정보다 ${diff}일 빠름`, style: 'text-orange-600' };
     return { text: `예정보다 ${Math.abs(diff)}일 늦음`, style: 'text-orange-600' };
   };
 
@@ -202,7 +202,7 @@ export function StatusChangeModal({
               type="date"
               value={eventDate}
               onChange={(e) => setEventDate(e.target.value)}
-              className="w-full px-3 py-2 border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+              className="w-full px-3 py-2 border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-orange-500"
             />
             {daysDiff && (
               <p className={`mt-2 text-sm ${daysDiff.style}`}>※ {daysDiff.text}</p>
@@ -211,12 +211,12 @@ export function StatusChangeModal({
 
           {/* 사후관리: 리콜 설정 영역 */}
           {isFollowup && (
-            <div className="rounded-xl border border-blue-200 bg-blue-50/50 p-4 space-y-3">
+            <div className="rounded-xl border border-orange-200 bg-orange-50/50 p-4 space-y-3">
               {/* 리콜 토글 */}
               <div className="flex items-center justify-between">
                 <div className="flex items-center gap-2">
                   {recallEnabled ? (
-                    <Bell size={16} className="text-blue-600" />
+                    <Bell size={16} className="text-orange-600" />
                   ) : (
                     <BellOff size={16} className="text-gray-400" />
                   )}
@@ -229,7 +229,7 @@ export function StatusChangeModal({
                     onChange={(e) => setRecallEnabled(e.target.checked)}
                     className="sr-only peer"
                   />
-                  <div className="w-9 h-5 bg-gray-200 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-4 after:w-4 after:transition-all peer-checked:bg-blue-600" />
+                  <div className="w-9 h-5 bg-gray-200 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-4 after:w-4 after:transition-all peer-checked:bg-orange-600" />
                 </label>
               </div>
 
@@ -244,11 +244,11 @@ export function StatusChangeModal({
                           type="date"
                           value={recallBaseDate}
                           onChange={(e) => setRecallBaseDate(e.target.value)}
-                          className="text-sm border border-blue-300 rounded px-2 py-0.5"
+                          className="text-sm border border-orange-300 rounded px-2 py-0.5"
                         />
                         <button
                           onClick={() => setShowDateEdit(false)}
-                          className="text-xs text-blue-600 hover:underline ml-1"
+                          className="text-xs text-orange-600 hover:underline ml-1"
                         >
                           확인
                         </button>
@@ -256,7 +256,7 @@ export function StatusChangeModal({
                     ) : (
                       <button
                         onClick={() => setShowDateEdit(true)}
-                        className="text-blue-600 hover:underline"
+                        className="text-orange-600 hover:underline"
                       >
                         {formatDate(recallBaseDate)} ✎
                       </button>
@@ -312,7 +312,7 @@ export function StatusChangeModal({
           </button>
           <button
             onClick={handleConfirm}
-            className="flex-1 px-4 py-2.5 bg-blue-500 text-white rounded-lg hover:bg-blue-600 transition-colors"
+            className="flex-1 px-4 py-2.5 bg-orange-500 text-white rounded-lg hover:bg-orange-600 transition-colors"
           >
             변경 완료
           </button>

@@ -124,7 +124,7 @@ export default function ManualSidePanel({
       {/* 헤더 */}
       <div className="flex items-center justify-between p-4 border-b">
         <div className="flex items-center gap-2">
-          <BookOpen className="w-5 h-5 text-blue-500" />
+          <BookOpen className="w-5 h-5 text-orange-500" />
           <h3 className="font-semibold text-gray-900">상담 매뉴얼</h3>
         </div>
         <button
@@ -245,10 +245,10 @@ function ManualListItem({
   return (
     <button
       onClick={onClick}
-      className="w-full px-4 py-2.5 text-left hover:bg-blue-50 transition-colors"
+      className="w-full px-4 py-2.5 text-left hover:bg-orange-50 transition-colors"
     >
       <div className="flex items-start gap-2">
-        <FileText className="w-4 h-4 text-blue-500 mt-0.5 flex-shrink-0" />
+        <FileText className="w-4 h-4 text-orange-500 mt-0.5 flex-shrink-0" />
         <div className="min-w-0">
           <div className="text-sm font-medium text-gray-800 truncate">{manual.title}</div>
           {manual.keywords.length > 0 && (
@@ -291,7 +291,7 @@ function ManualDetail({
       <div className="px-4 py-3 border-b bg-gray-50">
         <button
           onClick={onBack}
-          className="text-sm text-blue-500 hover:text-blue-600 mb-2"
+          className="text-sm text-orange-500 hover:text-orange-600 mb-2"
         >
           ← 목록으로
         </button>
@@ -310,7 +310,7 @@ function ManualDetail({
         {manual.shortScript && mode === 'chat' && (
           <div className="mt-4 pt-4 border-t">
             <div className="text-xs font-medium text-gray-500 mb-2">채팅용 짧은 버전</div>
-            <div className="text-sm text-gray-700 whitespace-pre-wrap bg-blue-50 p-3 rounded-lg">
+            <div className="text-sm text-gray-700 whitespace-pre-wrap bg-orange-50 p-3 rounded-lg">
               {manual.shortScript}
             </div>
           </div>
@@ -330,7 +330,7 @@ function ManualDetail({
             </button>
             <button
               onClick={onInsert}
-              className="flex-1 flex items-center justify-center gap-2 px-3 py-2 text-sm bg-blue-500 text-white rounded-lg hover:bg-blue-600"
+              className="flex-1 flex items-center justify-center gap-2 px-3 py-2 text-sm bg-orange-500 text-white rounded-lg hover:bg-orange-600"
             >
               입력창에 삽입
             </button>

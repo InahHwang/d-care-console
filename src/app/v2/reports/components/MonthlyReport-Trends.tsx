@@ -35,7 +35,7 @@ function DailyTooltip({ active, payload, label }: any) {
   return (
     <div className="bg-white border rounded-lg shadow-lg p-3 text-sm">
       <p className="font-semibold text-gray-900 mb-1">{label}일</p>
-      <p className="text-blue-600">통화건수: {data?.통화건수}건</p>
+      <p className="text-orange-600">통화건수: {data?.통화건수}건</p>
       <p className="text-orange-600">신규환자: {data?.신규환자}명</p>
       <p className="text-green-600">동의: {data?.동의}명</p>
       {data?.revenue > 0 && (
@@ -51,7 +51,7 @@ function WeeklyTooltip({ active, payload, label }: any) {
   return (
     <div className="bg-white border rounded-lg shadow-lg p-3 text-sm">
       <p className="font-semibold text-gray-900 mb-1">{label}</p>
-      <p className="text-blue-600">평균 통화: {data?.평균통화}건</p>
+      <p className="text-orange-600">평균 통화: {data?.평균통화}건</p>
       <p className="text-orange-600">평균 신규: {data?.평균신규}명</p>
       <p className="text-green-600">평균 동의: {data?.평균동의}명</p>
     </div>

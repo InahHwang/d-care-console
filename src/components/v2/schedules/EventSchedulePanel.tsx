@@ -148,7 +148,7 @@ export function EventSchedulePanel({ selectedDate }: EventSchedulePanelProps) {
   const filterButtons = [
     { id: 'all' as const, label: '전체', count: stats.total, color: 'bg-gray-900' },
     { id: 'overdue' as const, label: '지남', count: stats.overdue, color: 'bg-red-500', icon: AlertTriangle },
-    { id: 'today' as const, label: '오늘', count: stats.today, color: 'bg-blue-500', icon: Clock },
+    { id: 'today' as const, label: '오늘', count: stats.today, color: 'bg-orange-500', icon: Clock },
     { id: 'upcoming' as const, label: '예정', count: stats.upcoming, color: 'bg-emerald-500', icon: Calendar },
   ];
 
@@ -215,7 +215,7 @@ export function EventSchedulePanel({ selectedDate }: EventSchedulePanelProps) {
                       <div className="flex flex-col items-center">
                         <div className={`w-3 h-3 rounded-full ${
                           overdue ? 'bg-red-500' :
-                          today ? 'bg-blue-500' : 'bg-emerald-500'
+                          today ? 'bg-orange-500' : 'bg-emerald-500'
                         }`} />
                         {idx < filteredPatients.length - 1 && (
                           <div className="w-0.5 h-12 bg-gray-200 mt-1" />
@@ -227,7 +227,7 @@ export function EventSchedulePanel({ selectedDate }: EventSchedulePanelProps) {
                           <span className="font-medium text-gray-900 truncate">{patient.name}</span>
                           <span className={`px-1.5 py-0.5 rounded text-xs font-medium ${
                             overdue ? 'bg-red-100 text-red-700' :
-                            today ? 'bg-blue-100 text-blue-700' :
+                            today ? 'bg-orange-100 text-orange-700' :
                             'bg-emerald-100 text-emerald-700'
                           }`}>
                             {overdue ? '지남' : today ? '오늘' : formatDate(schedDate)}
@@ -313,7 +313,7 @@ function EventDetailPanel({
               <h2 className="text-2xl font-bold text-gray-900">{patient.name}</h2>
               <span className={`px-2.5 py-1 rounded-full text-sm font-medium ${
                 overdue ? 'bg-red-100 text-red-700' :
-                today ? 'bg-blue-100 text-blue-700' :
+                today ? 'bg-orange-100 text-orange-700' :
                 'bg-emerald-100 text-emerald-700'
               }`}>
                 {overdue ? '지난 일정' : today ? '오늘 예정' : '예정됨'}
@@ -323,7 +323,7 @@ function EventDetailPanel({
           </div>
           <button
             onClick={() => onPatientClick(patient.id)}
-            className="text-sm text-blue-600 hover:text-blue-700 hover:underline"
+            className="text-sm text-orange-600 hover:text-orange-700 hover:underline"
           >
             환자 상세 →
           </button>
@@ -333,7 +333,7 @@ function EventDetailPanel({
         <div className="flex items-center gap-3">
           <button
             onClick={() => onCall(patient.phone)}
-            className="flex-1 flex items-center justify-center gap-2 px-4 py-3 bg-blue-600 text-white rounded-xl font-medium hover:bg-blue-700 transition-colors"
+            className="flex-1 flex items-center justify-center gap-2 px-4 py-3 bg-orange-600 text-white rounded-xl font-medium hover:bg-orange-700 transition-colors"
           >
             <Phone size={20} />
             전화하기
@@ -360,20 +360,20 @@ function EventDetailPanel({
         <div className="space-y-6">
           {/* 발송 예정일 */}
           {marketingInfo.scheduledDate && (
-            <div className={`rounded-xl p-4 ${overdue ? 'bg-red-50' : today ? 'bg-blue-50' : 'bg-emerald-50'}`}>
+            <div className={`rounded-xl p-4 ${overdue ? 'bg-red-50' : today ? 'bg-orange-50' : 'bg-emerald-50'}`}>
               <div className="flex items-center gap-3">
                 {overdue ? (
                   <AlertTriangle className="text-red-600" size={24} />
                 ) : today ? (
-                  <Clock className="text-blue-600" size={24} />
+                  <Clock className="text-orange-600" size={24} />
                 ) : (
                   <Calendar className="text-emerald-600" size={24} />
                 )}
                 <div>
-                  <div className={`text-sm ${overdue ? 'text-red-600' : today ? 'text-blue-600' : 'text-emerald-600'}`}>
+                  <div className={`text-sm ${overdue ? 'text-red-600' : today ? 'text-orange-600' : 'text-emerald-600'}`}>
                     발송 예정일
                   </div>
-                  <div className={`text-lg font-bold ${overdue ? 'text-red-700' : today ? 'text-blue-700' : 'text-emerald-700'}`}>
+                  <div className={`text-lg font-bold ${overdue ? 'text-red-700' : today ? 'text-orange-700' : 'text-emerald-700'}`}>
                     {new Date(marketingInfo.scheduledDate).toLocaleDateString('ko-KR', {
                       year: 'numeric',
                       month: 'long',
@@ -405,7 +405,7 @@ function EventDetailPanel({
                 {marketingInfo.categories.map((cat) => (
                   <span
                     key={cat}
-                    className="px-3 py-1.5 bg-blue-100 text-blue-700 rounded-lg text-sm font-medium"
+                    className="px-3 py-1.5 bg-orange-100 text-orange-700 rounded-lg text-sm font-medium"
                   >
                     {cat}
                   </span>

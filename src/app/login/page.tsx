@@ -124,11 +124,11 @@ export default function LoginPage() {
   };
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-blue-50 to-indigo-100 flex items-center justify-center p-4">
+    <div className="min-h-screen bg-gradient-to-br from-orange-50 to-indigo-100 flex items-center justify-center p-4">
       <div className="bg-white rounded-2xl shadow-xl w-full max-w-md p-8">
         {/* 로고 및 타이틀 */}
         <div className="text-center mb-8">
-          <div className="mx-auto w-16 h-16 bg-blue-600 rounded-full flex items-center justify-center mb-4">
+          <div className="mx-auto w-16 h-16 bg-orange-600 rounded-full flex items-center justify-center mb-4">
             <FiUser className="w-8 h-8 text-white" />
           </div>
           <h1 className="text-2xl font-bold text-gray-900 mb-2">D-Care Console</h1>
@@ -159,7 +159,7 @@ export default function LoginPage() {
                 name="username"
                 value={formData.username}
                 onChange={handleInputChange}
-                className={`block w-full pl-10 pr-3 py-3 border rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-colors ${
+                className={`block w-full pl-10 pr-3 py-3 border rounded-lg focus:ring-2 focus:ring-orange-500 focus:border-orange-500 transition-colors ${
                   errors.username 
                     ? 'border-red-300 bg-red-50' 
                     : 'border-gray-300 bg-white hover:border-gray-400'
@@ -188,7 +188,7 @@ export default function LoginPage() {
                 name="password"
                 value={formData.password}
                 onChange={handleInputChange}
-                className={`block w-full pl-10 pr-12 py-3 border rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-colors ${
+                className={`block w-full pl-10 pr-12 py-3 border rounded-lg focus:ring-2 focus:ring-orange-500 focus:border-orange-500 transition-colors ${
                   errors.password 
                     ? 'border-red-300 bg-red-50' 
                     : 'border-gray-300 bg-white hover:border-gray-400'
@@ -220,7 +220,7 @@ export default function LoginPage() {
             className={`w-full py-3 px-4 rounded-lg text-white font-medium transition-all duration-200 ${
               isLoading
                 ? 'bg-gray-400 cursor-not-allowed'
-                : 'bg-blue-600 hover:bg-blue-700 active:bg-blue-800 shadow-lg hover:shadow-xl'
+                : 'bg-orange-600 hover:bg-orange-700 active:bg-orange-800 shadow-lg hover:shadow-xl'
             }`}
           >
             {isLoading ? (
@@ -238,7 +238,7 @@ export default function LoginPage() {
         <div className="mt-8 text-center">
           <p className="text-sm text-gray-500">
             관리자 계정이 필요하신가요?{' '}
-            <span className="text-blue-600 font-medium cursor-pointer hover:text-blue-700">
+            <span className="text-orange-600 font-medium cursor-pointer hover:text-orange-700">
               마스터 관리자에게 문의하세요
             </span>
           </p>

@@ -105,7 +105,7 @@ const PatientListModal: React.FC<PatientListModalProps> = ({
       case '치료동의':
         return 'bg-green-100 text-green-800';
       case '치료시작':
-        return 'bg-blue-100 text-blue-800';
+        return 'bg-orange-100 text-orange-800';
       case '종결':
         return 'bg-gray-100 text-gray-800';
       default:
@@ -181,7 +181,7 @@ const PatientListModal: React.FC<PatientListModalProps> = ({
     } else if (callback >= todayStart && callback < tomorrowStart) {
       return { type: 'today', text: '오늘', color: 'text-orange-600 bg-orange-50' };
     } else {
-      return { type: 'scheduled', text: '예정', color: 'text-blue-600 bg-blue-50' };
+      return { type: 'scheduled', text: '예정', color: 'text-orange-600 bg-orange-50' };
     }
   };
 
@@ -237,7 +237,7 @@ const PatientListModal: React.FC<PatientListModalProps> = ({
               <button
                 onClick={handleRefresh}
                 disabled={isLoading}
-                className="px-3 py-1 bg-blue-100 text-blue-600 rounded-md hover:bg-blue-200 disabled:opacity-50 text-sm"
+                className="px-3 py-1 bg-orange-100 text-orange-600 rounded-md hover:bg-orange-200 disabled:opacity-50 text-sm"
               >
                 {isLoading ? '새로고침...' : '🔄 새로고침'}
               </button>
@@ -256,7 +256,7 @@ const PatientListModal: React.FC<PatientListModalProps> = ({
           <div className="p-6 overflow-y-auto max-h-[60vh]">
             {isLoading && (
               <div className="flex items-center justify-center py-8">
-                <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600"></div>
+                <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-orange-600"></div>
                 <span className="ml-2 text-gray-600">로딩 중...</span>
               </div>
             )}
@@ -283,7 +283,7 @@ const PatientListModal: React.FC<PatientListModalProps> = ({
             {!isLoading && !error && patients.length > 0 && (
               <div className="space-y-3">
                 <div className="text-sm text-gray-600 mb-4">
-                  총 <span className="font-semibold text-blue-600">{patients.length}명</span>의 환자가 있습니다.
+                  총 <span className="font-semibold text-orange-600">{patients.length}명</span>의 환자가 있습니다.
                   <div className="text-xs text-gray-400 mt-1">
                     필터: {filterType} | 마지막 조회: {new Date().toLocaleTimeString()}
                   </div>
@@ -374,9 +374,9 @@ const PatientListModal: React.FC<PatientListModalProps> = ({
                       {/* 🔥 일반 콜백 정보 표시 */}
                       {shouldShowCallbackInfo() && nextCallback && (
                         <div className="mb-3">
-                          <div className="flex items-center justify-between p-3 bg-gray-50 rounded-lg border-l-4 border-blue-400">
+                          <div className="flex items-center justify-between p-3 bg-gray-50 rounded-lg border-l-4 border-orange-400">
                             <div className="flex items-center">
-                              <svg className="w-5 h-5 mr-2 text-blue-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                              <svg className="w-5 h-5 mr-2 text-orange-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
                               </svg>
                               <div>
@@ -439,7 +439,7 @@ const PatientListModal: React.FC<PatientListModalProps> = ({
                         <div className="mb-2">
                           <div className="flex flex-wrap gap-1">
                             {patient.interestedServices.slice(0, 3).map((service, index) => (
-                              <span key={index} className="px-2 py-1 bg-blue-50 text-blue-600 text-xs rounded">
+                              <span key={index} className="px-2 py-1 bg-orange-50 text-orange-600 text-xs rounded">
                                 {service}
                               </span>
                             ))}

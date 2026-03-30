@@ -178,14 +178,14 @@ const QuickPatientForm: React.FC<QuickPatientFormProps> = ({ onSuccess }) => {
   return (
     <div className="space-y-4">
       <div className="text-center">
-        <div className="inline-flex items-center justify-center w-12 h-12 bg-blue-100 rounded-full mb-2">
-          <FiPhoneCall className="w-6 h-6 text-blue-600" />
+        <div className="inline-flex items-center justify-center w-12 h-12 bg-orange-100 rounded-full mb-2">
+          <FiPhoneCall className="w-6 h-6 text-orange-600" />
         </div>
         <h3 className="text-lg font-semibold text-gray-800">인바운드 상담 등록</h3>
         <p className="text-sm text-gray-600 mt-1">전화번호를 입력하고 엔터를 눌러주세요</p>
-        <p className="text-xs text-blue-600 mt-1 font-medium">📞 자동으로 인바운드 상담으로 등록됩니다</p>
+        <p className="text-xs text-orange-600 mt-1 font-medium">📞 자동으로 인바운드 상담으로 등록됩니다</p>
         {currentUser && (
-          <p className="text-xs text-blue-600 mt-1">
+          <p className="text-xs text-orange-600 mt-1">
             담당자: {currentUser.name || currentUser.id}
           </p>
         )}
@@ -204,7 +204,7 @@ const QuickPatientForm: React.FC<QuickPatientFormProps> = ({ onSuccess }) => {
               onChange={handlePhoneNumberChange}
               onKeyPress={handleKeyPress}
               placeholder="010-1234-5678"
-              className={`w-full px-3 py-2 pr-10 border rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent text-sm ${
+              className={`w-full px-3 py-2 pr-10 border rounded-md focus:outline-none focus:ring-2 focus:ring-orange-500 focus:border-transparent text-sm ${
                 phoneCheckStatus.isDuplicate ? 'border-red-500' :
                 phoneCheckStatus.message && !phoneCheckStatus.isDuplicate ? 'border-green-500' : 
                 'border-gray-300'
@@ -215,7 +215,7 @@ const QuickPatientForm: React.FC<QuickPatientFormProps> = ({ onSuccess }) => {
             {/* 🔥 중복 체크 상태 표시 */}
             {phoneCheckStatus.isChecking && (
               <span className="absolute right-3 top-1/2 transform -translate-y-1/2">
-                <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-blue-600"></div>
+                <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-orange-600"></div>
               </span>
             )}
             {!phoneCheckStatus.isChecking && phoneCheckStatus.message && (
@@ -259,10 +259,10 @@ const QuickPatientForm: React.FC<QuickPatientFormProps> = ({ onSuccess }) => {
             phoneCheckStatus.isDuplicate ||
             phoneCheckStatus.isChecking
           }
-          className={`w-full flex items-center justify-center px-4 py-2 text-white text-sm font-medium rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 transition-colors ${
+          className={`w-full flex items-center justify-center px-4 py-2 text-white text-sm font-medium rounded-md focus:outline-none focus:ring-2 focus:ring-orange-500 focus:ring-offset-2 transition-colors ${
             phoneCheckStatus.isDuplicate || phoneCheckStatus.isChecking
               ? 'bg-gray-400 cursor-not-allowed'
-              : 'bg-blue-600 hover:bg-blue-700'
+              : 'bg-orange-600 hover:bg-orange-700'
           }`}
         >
           {isLoading ? (
@@ -310,7 +310,7 @@ const QuickPatientForm: React.FC<QuickPatientFormProps> = ({ onSuccess }) => {
         <p>💡 <strong>사용법:</strong></p>
         <ul className="list-disc list-inside space-y-0.5 ml-2">
           <li>전화번호 입력 후 엔터 또는 등록 버튼 클릭</li>
-          <li><span className="text-blue-600 font-medium">자동으로 인바운드 상담으로 분류됩니다</span></li>
+          <li><span className="text-orange-600 font-medium">자동으로 인바운드 상담으로 분류됩니다</span></li>
           <li><span className="text-orange-600 font-medium">중복 전화번호는 자동으로 체크됩니다</span></li>
           <li>상세 정보는 환자 관리에서 수정 가능</li>
           <li>담당자는 현재 로그인한 사용자로 자동 설정</li>

@@ -143,9 +143,9 @@ export function MarketingTargetModal({
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50">
       <div className="bg-white rounded-lg shadow-xl w-full max-w-lg max-h-[90vh] overflow-hidden">
         {/* 헤더 */}
-        <div className="px-6 py-4 border-b flex items-center justify-between bg-blue-50">
+        <div className="px-6 py-4 border-b flex items-center justify-between bg-orange-50">
           <div className="flex items-center gap-2">
-            <Target className="w-5 h-5 text-blue-600" />
+            <Target className="w-5 h-5 text-orange-600" />
             <div>
               <h2 className="text-lg font-semibold text-gray-900">
                 이벤트 타겟 {isEditMode ? '수정' : '지정'}
@@ -155,7 +155,7 @@ export function MarketingTargetModal({
           </div>
           <button
             onClick={onClose}
-            className="p-1 hover:bg-blue-100 rounded transition-colors"
+            className="p-1 hover:bg-orange-100 rounded transition-colors"
           >
             <X className="w-5 h-5 text-gray-500" />
           </button>
@@ -176,8 +176,8 @@ export function MarketingTargetModal({
                   onClick={() => setReason(option.value)}
                   className={`px-3 py-2.5 text-sm rounded-lg border transition-colors text-left ${
                     reason === option.value
-                      ? 'bg-blue-600 text-white border-blue-600'
-                      : 'bg-white text-gray-700 border-gray-300 hover:border-blue-400'
+                      ? 'bg-orange-600 text-white border-orange-600'
+                      : 'bg-white text-gray-700 border-gray-300 hover:border-orange-400'
                   }`}
                 >
                   {option.label}
@@ -191,7 +191,7 @@ export function MarketingTargetModal({
                 value={customReason}
                 onChange={(e) => setCustomReason(e.target.value)}
                 placeholder="기타 사유를 입력하세요"
-                className="mt-2 w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+                className="mt-2 w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-orange-500"
               />
             )}
           </div>
@@ -209,8 +209,8 @@ export function MarketingTargetModal({
                   onClick={() => handleCategoryToggle(category)}
                   className={`px-3 py-1.5 text-sm rounded-full border transition-colors ${
                     categories.includes(category)
-                      ? 'bg-blue-100 text-blue-700 border-blue-300'
-                      : 'bg-white text-gray-600 border-gray-300 hover:border-blue-400'
+                      ? 'bg-orange-100 text-orange-700 border-orange-300'
+                      : 'bg-white text-gray-600 border-gray-300 hover:border-orange-400'
                   }`}
                 >
                   {category}
@@ -228,7 +228,7 @@ export function MarketingTargetModal({
               type="date"
               value={scheduledDate}
               onChange={(e) => setScheduledDate(e.target.value)}
-              className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+              className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-orange-500"
             />
           </div>
 
@@ -242,7 +242,7 @@ export function MarketingTargetModal({
               onChange={(e) => setNote(e.target.value)}
               placeholder="추가 메모를 입력하세요"
               rows={3}
-              className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 resize-none"
+              className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-orange-500 resize-none"
             />
           </div>
         </div>
@@ -271,7 +271,7 @@ export function MarketingTargetModal({
             <button
               onClick={handleSubmit}
               disabled={submitting}
-              className="px-6 py-2 bg-blue-500 text-white rounded-lg hover:bg-blue-600 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+              className="px-6 py-2 bg-orange-500 text-white rounded-lg hover:bg-orange-600 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
             >
               {submitting ? '저장 중...' : isEditMode ? '수정' : '저장'}
             </button>

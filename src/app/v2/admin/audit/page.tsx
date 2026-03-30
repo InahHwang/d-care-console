@@ -46,7 +46,7 @@ const ACTION_LABELS: Record<string, string> = {
 const ACTION_COLORS: Record<string, string> = {
   'patient.delete': 'bg-red-100 text-red-700',
   'patient.status_change': 'bg-amber-100 text-amber-700',
-  'patient.update': 'bg-blue-100 text-blue-700',
+  'patient.update': 'bg-orange-100 text-orange-700',
   'patient.create': 'bg-green-100 text-green-700',
   'callback.create': 'bg-purple-100 text-purple-700',
   'callback.update': 'bg-purple-100 text-purple-700',

@@ -25,7 +25,7 @@ const DEFAULT_CATEGORIES: MessageCategory[] = [
     id: 'new_treatment',
     name: 'new_treatment', 
     displayName: '신규 치료',
-    color: 'bg-blue-100 text-blue-800',
+    color: 'bg-orange-100 text-orange-800',
     isDefault: true,
     isActive: true,
     createdAt: new Date().toISOString(),

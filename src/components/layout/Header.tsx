@@ -138,7 +138,7 @@ export default function Header() {
                   className="w-full flex items-center gap-3 px-4 py-2 text-sm text-text-primary hover:bg-gray-50 transition-colors"
                   onClick={() => setShowQuickActions(false)}
                 >
-                  <Icon icon={HiOutlinePhone} size={18} className="text-blue-600" />
+                  <Icon icon={HiOutlinePhone} size={18} className="text-orange-600" />
                   콜백 스케줄 등록
                 </button>
               </Link>
@@ -287,9 +287,9 @@ export default function Header() {
                         {user.role === 'master' ? (
                           <Icon icon={HiOutlineShieldCheck} size={12} className="text-red-500" />
                         ) : (
-                          <Icon icon={HiOutlineUser} size={12} className="text-blue-500" />
+                          <Icon icon={HiOutlineUser} size={12} className="text-orange-500" />
                         )}
-                        <span className={user.role === 'master' ? 'text-red-600' : 'text-blue-600'}>
+                        <span className={user.role === 'master' ? 'text-red-600' : 'text-orange-600'}>
                           {getRoleDisplayName(user.role || 'staff')}
                         </span>
                       </div>

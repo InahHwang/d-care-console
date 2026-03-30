@@ -130,20 +130,20 @@ export function TodayTasksCard({ tasks, loading }: TodayTasksCardProps) {
         )}
 
         {/* 오늘 예정 */}
-        <div className={`rounded-xl p-4 ${todayTotal > 0 ? 'bg-blue-50 border border-blue-200' : 'bg-gray-50 border border-gray-200'}`}>
+        <div className={`rounded-xl p-4 ${todayTotal > 0 ? 'bg-orange-50 border border-orange-200' : 'bg-gray-50 border border-gray-200'}`}>
           <button
             onClick={() => todayTotal > 0 && handleNavigate('today')}
             className={`w-full flex items-center justify-between mb-2 ${todayTotal > 0 ? 'hover:opacity-80 transition-opacity cursor-pointer' : 'cursor-default'}`}
           >
             <div className="flex items-center gap-2">
-              <div className={`p-1.5 rounded-lg ${todayTotal > 0 ? 'bg-blue-100' : 'bg-gray-100'}`}>
-                <Clock size={16} className={todayTotal > 0 ? 'text-blue-600' : 'text-gray-400'} />
+              <div className={`p-1.5 rounded-lg ${todayTotal > 0 ? 'bg-orange-100' : 'bg-gray-100'}`}>
+                <Clock size={16} className={todayTotal > 0 ? 'text-orange-600' : 'text-gray-400'} />
               </div>
-              <span className={`font-medium ${todayTotal > 0 ? 'text-blue-700' : 'text-gray-500'}`}>오늘 예정</span>
+              <span className={`font-medium ${todayTotal > 0 ? 'text-orange-700' : 'text-gray-500'}`}>오늘 예정</span>
             </div>
             <div className="flex items-center gap-1">
-              <span className={`text-xl font-bold ${todayTotal > 0 ? 'text-blue-600' : 'text-gray-400'}`}>{todayTotal}명</span>
-              {todayTotal > 0 && <ChevronRight size={16} className="text-blue-400" />}
+              <span className={`text-xl font-bold ${todayTotal > 0 ? 'text-orange-600' : 'text-gray-400'}`}>{todayTotal}명</span>
+              {todayTotal > 0 && <ChevronRight size={16} className="text-orange-400" />}
             </div>
           </button>
           {todayTotal > 0 && (
@@ -151,10 +151,10 @@ export function TodayTasksCard({ tasks, loading }: TodayTasksCardProps) {
               {(tasks?.today.callback ?? 0) > 0 && (
                 <button
                   onClick={() => handleNavigate('today', 'consulting,visited')}
-                  className="w-full flex items-center justify-between py-1 px-2 rounded hover:bg-blue-100 transition-colors"
+                  className="w-full flex items-center justify-between py-1 px-2 rounded hover:bg-orange-100 transition-colors"
                 >
-                  <span className="text-blue-600">콜백 예정</span>
-                  <div className="flex items-center gap-1 text-blue-600 font-medium">
+                  <span className="text-orange-600">콜백 예정</span>
+                  <div className="flex items-center gap-1 text-orange-600 font-medium">
                     {tasks?.today.callback}명
                     <ChevronRight size={14} />
                   </div>
@@ -163,10 +163,10 @@ export function TodayTasksCard({ tasks, loading }: TodayTasksCardProps) {
               {(tasks?.today.appointment ?? 0) > 0 && (
                 <button
                   onClick={() => handleNavigate('today', 'reserved')}
-                  className="w-full flex items-center justify-between py-1 px-2 rounded hover:bg-blue-100 transition-colors"
+                  className="w-full flex items-center justify-between py-1 px-2 rounded hover:bg-orange-100 transition-colors"
                 >
-                  <span className="text-blue-600">내원 예정</span>
-                  <div className="flex items-center gap-1 text-blue-600 font-medium">
+                  <span className="text-orange-600">내원 예정</span>
+                  <div className="flex items-center gap-1 text-orange-600 font-medium">
                     {tasks?.today.appointment}명
                     <ChevronRight size={14} />
                   </div>
@@ -175,10 +175,10 @@ export function TodayTasksCard({ tasks, loading }: TodayTasksCardProps) {
               {(tasks?.today.treatment ?? 0) > 0 && (
                 <button
                   onClick={() => handleNavigate('today', 'treatmentBooked')}
-                  className="w-full flex items-center justify-between py-1 px-2 rounded hover:bg-blue-100 transition-colors"
+                  className="w-full flex items-center justify-between py-1 px-2 rounded hover:bg-orange-100 transition-colors"
                 >
-                  <span className="text-blue-600">치료 예정</span>
-                  <div className="flex items-center gap-1 text-blue-600 font-medium">
+                  <span className="text-orange-600">치료 예정</span>
+                  <div className="flex items-center gap-1 text-orange-600 font-medium">
                     {tasks?.today.treatment}명
                     <ChevronRight size={14} />
                   </div>

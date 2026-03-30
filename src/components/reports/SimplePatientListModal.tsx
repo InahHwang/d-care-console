@@ -70,7 +70,7 @@ const SimplePatientListModal: React.FC<SimplePatientListModalProps> = ({
       case '치료동의':
         return 'bg-green-100 text-green-800';
       case '치료시작':
-        return 'bg-blue-100 text-blue-800';
+        return 'bg-orange-100 text-orange-800';
       case '종결':
         return 'bg-gray-100 text-gray-800';
       default:
@@ -103,7 +103,7 @@ const SimplePatientListModal: React.FC<SimplePatientListModalProps> = ({
         <div className="flex items-center justify-between p-6 border-b">
           <div className="flex items-center gap-3">
             <h2 className="text-xl font-semibold text-gray-900">{title}</h2>
-            <span className="bg-blue-100 text-blue-800 px-3 py-1 rounded-full text-sm font-medium">
+            <span className="bg-orange-100 text-orange-800 px-3 py-1 rounded-full text-sm font-medium">
               {patients.length}명
             </span>
             {totalEstimatedAmount > 0 && (
@@ -179,7 +179,7 @@ const SimplePatientListModal: React.FC<SimplePatientListModalProps> = ({
                       <div className="mb-2">
                         <div className="flex flex-wrap gap-1">
                           {patient.interestedServices.slice(0, 3).map((service, index) => (
-                            <span key={index} className="px-2 py-1 bg-blue-50 text-blue-600 text-xs rounded">
+                            <span key={index} className="px-2 py-1 bg-orange-50 text-orange-600 text-xs rounded">
                               {service}
                             </span>
                           ))}

@@ -27,7 +27,7 @@ class MobileReportErrorBoundary extends React.Component<
             <p className="text-sm text-gray-500 mb-4">{this.state.error?.message}</p>
             <button
               onClick={() => window.location.reload()}
-              className="px-4 py-2 bg-blue-500 text-white rounded-lg text-sm"
+              className="px-4 py-2 bg-orange-500 text-white rounded-lg text-sm"
             >
               새로고침
             </button>
@@ -372,7 +372,7 @@ function MobileDailyReportPage() {
     return (
       <div className="min-h-screen bg-gray-50 flex items-center justify-center">
         <div className="text-center">
-          <div className="w-8 h-8 border-2 border-blue-500 border-t-transparent rounded-full animate-spin mx-auto mb-2"></div>
+          <div className="w-8 h-8 border-2 border-orange-500 border-t-transparent rounded-full animate-spin mx-auto mb-2"></div>
           <p className="text-gray-500 text-sm">보고서 로딩 중...</p>
         </div>
       </div>
@@ -387,7 +387,7 @@ function MobileDailyReportPage() {
           <p className="text-gray-700 font-medium">{error}</p>
           <button
             onClick={() => fetchReport(dateParam)}
-            className="mt-4 px-4 py-2 bg-blue-500 text-white rounded-lg text-sm"
+            className="mt-4 px-4 py-2 bg-orange-500 text-white rounded-lg text-sm"
           >
             다시 시도
           </button>
@@ -428,7 +428,7 @@ function MobileDailyReportPage() {
                 {selectedPatient.consultationType && (
                   <span className={`px-1.5 py-0.5 rounded-full text-[11px] font-medium ${
                     selectedPatient.consultationType === 'inbound'
-                      ? 'bg-blue-100 text-blue-700'
+                      ? 'bg-orange-100 text-orange-700'
                       : selectedPatient.consultationType === 'outbound'
                         ? 'bg-purple-100 text-purple-700'
                         : 'bg-teal-100 text-teal-700'
@@ -458,12 +458,12 @@ function MobileDailyReportPage() {
                       <span className="text-gray-400 line-through text-xs mr-1">
                         {selectedPatient.originalAmount.toLocaleString()}만
                       </span>
-                      <span className="font-medium text-blue-600">
+                      <span className="font-medium text-orange-600">
                         {selectedPatient.finalAmount.toLocaleString()}만원
                       </span>
                     </div>
                   ) : (
-                    <div className="font-medium text-blue-600">
+                    <div className="font-medium text-orange-600">
                       {selectedPatient.originalAmount > 0 ? `${selectedPatient.originalAmount.toLocaleString()}만원` : '-'}
                     </div>
                   )}
@@ -542,7 +542,7 @@ function MobileDailyReportPage() {
                         {entry.direction && (
                           <span className={`px-1.5 py-0.5 rounded text-xs font-medium ${
                             entry.direction === 'inbound'
-                              ? 'bg-blue-100 text-blue-700'
+                              ? 'bg-orange-100 text-orange-700'
                               : 'bg-purple-100 text-purple-700'
                           }`}>
                             {entry.direction === 'inbound' ? '수신' : '발신'}
@@ -567,7 +567,7 @@ function MobileDailyReportPage() {
                     <ul className="space-y-1.5">
                       {entry.content.split('\n').filter(line => line.trim()).map((line, lineIdx) => (
                         <li key={lineIdx} className="flex items-start gap-2 text-sm text-gray-700">
-                          <span className="text-blue-500 mt-0.5">•</span>
+                          <span className="text-orange-500 mt-0.5">•</span>
                           <span>{line.trim()}</span>
                         </li>
                       ))}
@@ -588,7 +588,7 @@ function MobileDailyReportPage() {
               <ul className="space-y-1.5">
                 {selectedPatient.aiSummary.split('\n').filter(line => line.trim()).map((line, idx) => (
                   <li key={idx} className="flex items-start gap-2 text-sm text-gray-700">
-                    <span className="text-blue-500 mt-0.5">•</span>
+                    <span className="text-orange-500 mt-0.5">•</span>
                     <span>{line.trim()}</span>
                   </li>
                 ))}
@@ -665,12 +665,12 @@ function MobileDailyReportPage() {
 
           {/* 시정 계획 */}
           {selectedPatient.correctionPlan && (
-            <div className="bg-blue-50 rounded-xl p-4 shadow-sm border border-blue-200">
+            <div className="bg-orange-50 rounded-xl p-4 shadow-sm border border-orange-200">
               <div className="flex items-center gap-2 mb-3">
                 <span className="text-lg">📝</span>
-                <h2 className="font-semibold text-blue-900">시정 계획</h2>
+                <h2 className="font-semibold text-orange-900">시정 계획</h2>
               </div>
-              <p className="text-sm text-blue-800 leading-relaxed">
+              <p className="text-sm text-orange-800 leading-relaxed">
                 "{selectedPatient.correctionPlan}"
               </p>
             </div>
@@ -818,7 +818,7 @@ function MobileDailyReportPage() {
                 {selectedExistingCall.direction && (
                   <span className={`px-1.5 py-0.5 rounded text-xs font-medium ${
                     selectedExistingCall.direction === 'inbound'
-                      ? 'bg-blue-100 text-blue-700'
+                      ? 'bg-orange-100 text-orange-700'
                       : 'bg-purple-100 text-purple-700'
                   }`}>
                     {selectedExistingCall.direction === 'inbound' ? '수신' : '발신'}
@@ -868,7 +868,7 @@ function MobileDailyReportPage() {
               <ul className="space-y-1.5">
                 {selectedExistingCall.aiSummary.split('\n').filter(line => line.trim()).map((line, idx) => (
                   <li key={idx} className="flex items-start gap-2 text-sm text-gray-700">
-                    <span className="text-blue-500 mt-0.5">•</span>
+                    <span className="text-orange-500 mt-0.5">•</span>
                     <span>{line.trim()}</span>
                   </li>
                 ))}
@@ -937,7 +937,7 @@ function MobileDailyReportPage() {
             {!isToday && (
               <button
                 onClick={() => router.push(`/v2/reports/mobile/${todayStr}`)}
-                className="ml-1 px-2 py-0.5 text-xs bg-blue-100 text-blue-700 rounded-full font-medium"
+                className="ml-1 px-2 py-0.5 text-xs bg-orange-100 text-orange-700 rounded-full font-medium"
               >
                 오늘
               </button>
@@ -947,27 +947,27 @@ function MobileDailyReportPage() {
 
         {/* 요약 카드 (압축) */}
         <div className="px-4 pb-3">
-          <div className="bg-gradient-to-r from-blue-500 to-blue-600 rounded-xl px-4 py-3 text-white">
+          <div className="bg-gradient-to-r from-orange-500 to-orange-600 rounded-xl px-4 py-3 text-white">
             <div className="flex justify-between items-center">
               <div className="flex items-baseline gap-1.5">
                 <span className="text-lg font-bold">{data.summary.total}건</span>
-                <span className="text-blue-200 text-xs">상담</span>
+                <span className="text-orange-200 text-xs">상담</span>
               </div>
               <div className="flex items-baseline gap-1">
                 <span className="text-lg font-bold">
                   {data.summary.total > 0 ? Math.round((data.summary.agreed / data.summary.total) * 100) : 0}%
                 </span>
-                <span className="text-blue-200 text-xs">동의율</span>
+                <span className="text-orange-200 text-xs">동의율</span>
               </div>
             </div>
             <div className="mt-2 pt-2 border-t border-white/20 space-y-1 text-sm">
               <div className="flex justify-between items-center">
-                <span className="text-blue-200">확정 매출 (동의 {data.summary.agreed}건)</span>
+                <span className="text-orange-200">확정 매출 (동의 {data.summary.agreed}건)</span>
                 <span className="font-bold">{data.summary.actualRevenue.toLocaleString()}만원</span>
               </div>
               {data.summary.expectedRevenue > 0 && (
                 <div className="flex justify-between items-center text-xs">
-                  <span className="text-blue-200">
+                  <span className="text-orange-200">
                     정가 {data.summary.expectedRevenue.toLocaleString()}만
                     {data.summary.totalDiscount > 0 && (
                       <span className="text-yellow-300">
@@ -1018,7 +1018,7 @@ function MobileDailyReportPage() {
               onClick={() => setFilter(tab.key)}
               className={`px-3 py-1.5 rounded-full text-sm font-medium transition-colors ${
                 filter === tab.key
-                  ? 'bg-blue-500 text-white'
+                  ? 'bg-orange-500 text-white'
                   : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
               }`}
             >
@@ -1135,7 +1135,7 @@ function MobileDailyReportPage() {
                           <span className="text-sm text-gray-400 line-through">
                             {patient.originalAmount.toLocaleString()}만
                           </span>
-                          <span className="text-sm font-medium text-blue-600">
+                          <span className="text-sm font-medium text-orange-600">
                             {patient.finalAmount.toLocaleString()}만원
                           </span>
                           <span className="px-1.5 py-0.5 bg-rose-100 text-rose-600 text-xs rounded font-medium">
@@ -1186,7 +1186,7 @@ function MobileDailyReportPage() {
                     <span className="text-gray-500 text-xs">
                       {call.treatment || call.patientStatus}
                     </span>
-                    <span className="text-xs text-blue-500">
+                    <span className="text-xs text-orange-500">
                       상세보기 →
                     </span>
                   </div>

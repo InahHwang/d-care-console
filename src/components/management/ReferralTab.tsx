@@ -196,7 +196,7 @@ export default function ReferralTab({ patient }: ReferralTabProps) {
   const getStatusBadge = (status: Referral['referredStatus']) => {
     switch (status) {
       case 'registered':
-        return <span className="px-2 py-1 text-xs rounded-full bg-blue-100 text-blue-800">등록</span>
+        return <span className="px-2 py-1 text-xs rounded-full bg-orange-100 text-orange-800">등록</span>
       case 'visited':
         return <span className="px-2 py-1 text-xs rounded-full bg-green-100 text-green-800">내원</span>
       case 'treating':
@@ -244,9 +244,9 @@ export default function ReferralTab({ patient }: ReferralTabProps) {
 
       {/* 통계 요약 */}
       <div className="grid grid-cols-3 gap-4">
-        <div className="bg-blue-50 border border-blue-200 rounded-lg p-4 text-center">
-          <div className="text-2xl font-bold text-blue-600">{referralsAsReferrer.length}</div>
-          <div className="text-sm text-blue-800">소개해준 환자</div>
+        <div className="bg-orange-50 border border-orange-200 rounded-lg p-4 text-center">
+          <div className="text-2xl font-bold text-orange-600">{referralsAsReferrer.length}</div>
+          <div className="text-sm text-orange-800">소개해준 환자</div>
         </div>
         <div className="bg-green-50 border border-green-200 rounded-lg p-4 text-center">
           <div className="text-2xl font-bold text-green-600">{referralsAsReferred.length}</div>
@@ -423,8 +423,8 @@ export default function ReferralTab({ patient }: ReferralTabProps) {
               </button>
             </div>
 
-            <div className="bg-blue-50 border border-blue-200 rounded-lg p-3">
-              <p className="text-sm text-blue-800">
+            <div className="bg-orange-50 border border-orange-200 rounded-lg p-3">
+              <p className="text-sm text-orange-800">
                 <strong>{patient.name}</strong> 님이 소개해준 환자를 등록합니다.
               </p>
             </div>

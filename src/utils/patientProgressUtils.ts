@@ -55,8 +55,8 @@ export function calculatePatientProgress(patient: {
         // 4. 치료동의
         return {
           stage: '치료동의',
-          color: 'text-blue-800',
-          bgColor: 'bg-blue-100'
+          color: 'text-orange-800',
+          bgColor: 'bg-orange-100'
         };
       
       case '재콜백':

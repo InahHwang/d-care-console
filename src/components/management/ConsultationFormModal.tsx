@@ -304,7 +304,7 @@ export default function ConsultationFormModal({
               </h2>
               <p className="text-sm text-gray-500">환자: {patientName}</p>
               {isEditMode && (
-                <p className="text-xs text-blue-600">
+                <p className="text-xs text-orange-600">
                   💡 수정 모드: 기존 콜백이 업데이트됩니다 (중복 추가되지 않음)
                 </p>
               )}
@@ -347,7 +347,7 @@ export default function ConsultationFormModal({
                   type="date"
                   value={formData.consultationDate || ''}
                   onChange={(e) => handleInputChange('consultationDate', e.target.value)}
-                  className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-orange-500"
                 />
               </div>
               
@@ -362,7 +362,7 @@ export default function ConsultationFormModal({
                     step="1000"
                     value={formData.estimatedAmount || ''}
                     onChange={(e) => handleInputChange('estimatedAmount', parseInt(e.target.value) || 0)}
-                    className="w-full px-3 py-2 pr-8 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                    className="w-full px-3 py-2 pr-8 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-orange-500"
                     placeholder="0"
                   />
                   <span className="absolute right-3 top-2 text-gray-500 text-sm">원</span>
@@ -378,7 +378,7 @@ export default function ConsultationFormModal({
                 value={formData.treatmentPlan || ''}
                 onChange={(e) => handleInputChange('treatmentPlan', e.target.value)}
                 rows={3}
-                className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-orange-500"
                 placeholder="환자의 불편한 부분을 입력해주세요 (ex. 치료할 치아 개수, 부위, 증상, 통증정도)"
                 required
               />
@@ -392,7 +392,7 @@ export default function ConsultationFormModal({
                 value={formData.consultationNotes || ''}
                 onChange={(e) => handleInputChange('consultationNotes', e.target.value)}
                 rows={3}
-                className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-orange-500"
                 placeholder="상담 내용이나 특이사항을 입력해주세요..."
                 required
               />
@@ -604,7 +604,7 @@ export default function ConsultationFormModal({
           <button
             onClick={handleSave}
             disabled={isLoading}
-            className="px-6 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 transition-colors disabled:opacity-50"
+            className="px-6 py-2 bg-orange-600 text-white rounded-md hover:bg-orange-700 transition-colors disabled:opacity-50"
           >
             {isLoading ? '저장 중...' : '저장'}
           </button>

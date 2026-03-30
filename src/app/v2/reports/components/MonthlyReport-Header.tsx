@@ -14,7 +14,7 @@ interface MonthlyReportHeaderProps {
 
 const STATUS_CONFIG = {
   draft: { label: '임시저장', className: 'bg-yellow-100 text-yellow-800' },
-  submitted: { label: '최종제출', className: 'bg-blue-100 text-blue-800' },
+  submitted: { label: '최종제출', className: 'bg-orange-100 text-orange-800' },
   approved: { label: '승인완료', className: 'bg-green-100 text-green-800' },
 } as const;
 
@@ -38,7 +38,7 @@ const MonthlyReportHeader: React.FC<MonthlyReportHeaderProps> = ({
               <button
                 onClick={onRefresh}
                 disabled={isRefreshing}
-                className="flex items-center gap-1 px-3 py-1 text-sm text-blue-600 border border-blue-200 rounded-lg hover:bg-blue-50 disabled:opacity-50 disabled:cursor-not-allowed no-print"
+                className="flex items-center gap-1 px-3 py-1 text-sm text-orange-600 border border-orange-200 rounded-lg hover:bg-orange-50 disabled:opacity-50 disabled:cursor-not-allowed no-print"
                 title="최신 데이터로 통계 새로고침"
               >
                 <RefreshCw className={`w-3 h-3 ${isRefreshing ? 'animate-spin' : ''}`} />
@@ -60,7 +60,7 @@ const MonthlyReportHeader: React.FC<MonthlyReportHeaderProps> = ({
 
           {/* 새로고침 안내 메시지 */}
           {!isReadOnly && (
-            <div className="mt-3 p-3 bg-blue-50 border border-blue-200 rounded-lg text-sm text-blue-800 no-print">
+            <div className="mt-3 p-3 bg-orange-50 border border-orange-200 rounded-lg text-sm text-orange-800 no-print">
               <div className="flex items-start gap-2">
                 <RefreshCw className="w-4 h-4 mt-0.5 flex-shrink-0" />
                 <div>
@@ -77,7 +77,7 @@ const MonthlyReportHeader: React.FC<MonthlyReportHeaderProps> = ({
 
           {/* 제출 완료 안내 */}
           {report.status === 'submitted' && (
-            <div className="mt-3 p-3 bg-blue-50 border border-blue-200 rounded-lg text-sm text-blue-800 no-print">
+            <div className="mt-3 p-3 bg-orange-50 border border-orange-200 rounded-lg text-sm text-orange-800 no-print">
               <div className="flex items-center gap-2">
                 <Send className="w-4 h-4" />
                 <span className="font-medium">이 보고서는 최종 제출되었습니다.</span>

@@ -239,7 +239,7 @@ export default function PatientTooltip({
       case 'patient_create':
         return { icon: FiUserPlus, label: '환자 최초 등록', color: 'text-green-600' };
       case 'patient_update':
-        return { icon: FiEdit, label: '환자 정보 수정', color: 'text-blue-600' };
+        return { icon: FiEdit, label: '환자 정보 수정', color: 'text-orange-600' };
       case 'patient_delete':
         return { icon: FiTrash, label: '환자 삭제', color: 'text-red-600' };
       case 'patient_complete':
@@ -249,7 +249,7 @@ export default function PatientTooltip({
       case 'callback_create':
         return { icon: FiPhone, label: '콜백 등록', color: 'text-purple-600' };
       case 'callback_update':
-        return { icon: FiEdit, label: '콜백 수정', color: 'text-blue-600' };
+        return { icon: FiEdit, label: '콜백 수정', color: 'text-orange-600' };
       case 'callback_complete':
         return { icon: FiCheckCircle, label: '콜백 완료', color: 'text-green-600' };
       case 'callback_cancel':
@@ -257,19 +257,19 @@ export default function PatientTooltip({
       case 'callback_delete':
         return { icon: FiTrash, label: '콜백 삭제', color: 'text-red-600' };
       case 'callback_reschedule':
-        return { icon: FiClock, label: '콜백 일정변경', color: 'text-blue-600' };
+        return { icon: FiClock, label: '콜백 일정변경', color: 'text-orange-600' };
       case 'message_send':
         return { icon: FiMessageSquare, label: '메시지 발송', color: 'text-cyan-600' };
       case 'message_template_used':
         return { icon: FiMessageSquare, label: '템플릿 메시지', color: 'text-cyan-500' };
       case 'patient_status_change':
-        return { icon: FiEdit, label: '환자 상태 변경', color: 'text-blue-600' };
+        return { icon: FiEdit, label: '환자 상태 변경', color: 'text-orange-600' };
       case 'visit_confirmation_toggle':
         return { icon: FiUserCheck, label: '내원 확정', color: 'text-indigo-600' };
       case 'event_target_create':
         return { icon: FiTarget, label: '이벤트 타겟 등록', color: 'text-purple-600' };
       case 'event_target_update':
-        return { icon: FiEdit, label: '이벤트 타겟 수정', color: 'text-blue-600' };
+        return { icon: FiEdit, label: '이벤트 타겟 수정', color: 'text-orange-600' };
       case 'event_target_delete':
         return { icon: FiTrash, label: '이벤트 타겟 삭제', color: 'text-red-600' };
       default:
@@ -442,8 +442,8 @@ export default function PatientTooltip({
                }}>
             {/* 툴팁 헤더 */}
             <div className="flex items-center gap-2 mb-2 pb-2 border-b border-gray-100">
-              <div className="w-6 h-6 bg-blue-100 rounded-full flex items-center justify-center">
-                <FiUser className="w-3 h-3 text-blue-600" />
+              <div className="w-6 h-6 bg-orange-100 rounded-full flex items-center justify-center">
+                <FiUser className="w-3 h-3 text-orange-600" />
               </div>
               <div>
                 <div className="text-sm font-medium text-gray-900">{patientName}</div>
@@ -460,7 +460,7 @@ export default function PatientTooltip({
             <div>
               {historyData.isLoading ? (
                 <div className="flex items-center justify-center py-4">
-                  <div className="w-4 h-4 border-2 border-blue-500 border-t-transparent rounded-full animate-spin"></div>
+                  <div className="w-4 h-4 border-2 border-orange-500 border-t-transparent rounded-full animate-spin"></div>
                   <span className="ml-2 text-xs text-gray-500">불러오는 중...</span>
                 </div>
               ) : historyData.error ? (
@@ -492,7 +492,7 @@ export default function PatientTooltip({
                               <span className="break-words">
                                 {actionInfo.label}
                                 {additionalInfo && (
-                                  <span className="text-blue-600 font-medium">{additionalInfo}</span>
+                                  <span className="text-orange-600 font-medium">{additionalInfo}</span>
                                 )}
                               </span>
                             </div>
@@ -508,7 +508,7 @@ export default function PatientTooltip({
                   {historyData.hasMore && (
                     <div className="mt-2 pt-2 border-t border-gray-100 text-center">
                       <button 
-                        className="text-xs text-blue-600 hover:text-blue-800 hover:underline cursor-pointer disabled:text-gray-400 disabled:cursor-not-allowed"
+                        className="text-xs text-orange-600 hover:text-orange-800 hover:underline cursor-pointer disabled:text-gray-400 disabled:cursor-not-allowed"
                         onClick={loadMoreHistory}
                         disabled={historyData.isLoading}
                       >

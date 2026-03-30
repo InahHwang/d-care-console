@@ -37,7 +37,7 @@ const MonthlyReportPatientStats: React.FC<MonthlyReportPatientStatsProps> = ({ s
               {stats.regionStats.map((region, index) => (
                 <div key={region.region} className="flex items-center justify-between">
                   <div className="flex items-center gap-2">
-                    <span className="w-6 h-6 bg-blue-100 text-blue-800 rounded-full flex items-center justify-center text-xs font-medium">
+                    <span className="w-6 h-6 bg-orange-100 text-orange-800 rounded-full flex items-center justify-center text-xs font-medium">
                       {index + 1}
                     </span>
                     <span className="text-sm">{region.region}</span>
@@ -45,7 +45,7 @@ const MonthlyReportPatientStats: React.FC<MonthlyReportPatientStatsProps> = ({ s
                   <div className="flex items-center gap-3">
                     <div className="w-24 bg-gray-200 rounded-full h-2">
                       <div
-                        className="bg-blue-600 h-2 rounded-full"
+                        className="bg-orange-600 h-2 rounded-full"
                         style={{ width: `${Math.min((region.percentage / 30) * 100, 100)}%` }}
                       />
                     </div>

@@ -8,21 +8,21 @@ import { ChatWidget } from '@/components/widget/ChatWidget';
 
 export default function WidgetDemoPage() {
   return (
-    <div className="min-h-screen bg-gradient-to-br from-blue-50 to-indigo-100">
+    <div className="min-h-screen bg-gradient-to-br from-orange-50 to-indigo-100">
       {/* 가상의 치과 홈페이지 */}
       <header className="bg-white shadow-sm">
         <div className="max-w-6xl mx-auto px-6 py-4 flex items-center justify-between">
           <div className="flex items-center gap-3">
-            <div className="w-10 h-10 bg-blue-500 rounded-lg flex items-center justify-center text-white font-bold">
+            <div className="w-10 h-10 bg-orange-500 rounded-lg flex items-center justify-center text-white font-bold">
               D
             </div>
             <span className="text-xl font-bold text-gray-800">디케어 치과</span>
           </div>
           <nav className="hidden md:flex items-center gap-8 text-gray-600">
-            <a href="#" className="hover:text-blue-500">진료안내</a>
-            <a href="#" className="hover:text-blue-500">의료진</a>
-            <a href="#" className="hover:text-blue-500">오시는 길</a>
-            <a href="#" className="hover:text-blue-500">상담예약</a>
+            <a href="#" className="hover:text-orange-500">진료안내</a>
+            <a href="#" className="hover:text-orange-500">의료진</a>
+            <a href="#" className="hover:text-orange-500">오시는 길</a>
+            <a href="#" className="hover:text-orange-500">상담예약</a>
           </nav>
         </div>
       </header>
@@ -32,14 +32,14 @@ export default function WidgetDemoPage() {
         <section className="text-center mb-16">
           <h1 className="text-4xl md:text-5xl font-bold text-gray-900 mb-6">
             건강한 미소를 위한<br />
-            <span className="text-blue-500">프리미엄 치과 서비스</span>
+            <span className="text-orange-500">프리미엄 치과 서비스</span>
           </h1>
           <p className="text-lg text-gray-600 mb-8 max-w-2xl mx-auto">
             최신 장비와 전문 의료진이 여러분의 구강 건강을 책임집니다.
             임플란트, 교정, 미백 등 다양한 진료를 제공합니다.
           </p>
           <div className="flex justify-center gap-4">
-            <button className="px-8 py-3 bg-blue-500 text-white rounded-lg font-medium hover:bg-blue-600 transition-colors">
+            <button className="px-8 py-3 bg-orange-500 text-white rounded-lg font-medium hover:bg-orange-600 transition-colors">
               온라인 예약
             </button>
             <button className="px-8 py-3 border border-gray-300 text-gray-700 rounded-lg font-medium hover:bg-gray-50 transition-colors">
@@ -71,7 +71,7 @@ export default function WidgetDemoPage() {
           <p className="text-gray-600 mb-4">
             오른쪽 하단의 채팅 버튼을 클릭하여 실시간으로 상담받으세요!
           </p>
-          <div className="inline-flex items-center gap-2 px-4 py-2 bg-blue-50 rounded-full text-blue-600 text-sm">
+          <div className="inline-flex items-center gap-2 px-4 py-2 bg-orange-50 rounded-full text-orange-600 text-sm">
             <span className="w-2 h-2 bg-green-500 rounded-full animate-pulse" />
             상담사 대기중
           </div>

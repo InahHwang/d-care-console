@@ -69,7 +69,7 @@ const CLASSIFICATION_OPTIONS = [
 const TEMPERATURE_OPTIONS = [
   { value: 'hot', label: '높음 (Hot)', icon: Flame, color: 'text-red-500' },
   { value: 'warm', label: '중간 (Warm)', icon: Thermometer, color: 'text-amber-500' },
-  { value: 'cold', label: '낮음 (Cold)', icon: Snowflake, color: 'text-blue-400' },
+  { value: 'cold', label: '낮음 (Cold)', icon: Snowflake, color: 'text-orange-400' },
 ];
 
 // 후속조치 옵션
@@ -111,7 +111,7 @@ const filterTabs: Array<{ id: ClassificationFilter; label: string }> = [
 
 function getClassificationStyle(classification: string) {
   switch (classification) {
-    case '환자': return 'bg-blue-100 text-blue-700';
+    case '환자': return 'bg-orange-100 text-orange-700';
     case '거래처': return 'bg-cyan-100 text-cyan-700';
     case '스팸': return 'bg-red-100 text-red-600';
     case '기타': return 'bg-slate-100 text-slate-600';
@@ -121,7 +121,7 @@ function getClassificationStyle(classification: string) {
 
 function getFilterStyle(filterId: ClassificationFilter, isActive: boolean) {
   if (!isActive) return 'bg-gray-100 text-gray-600 hover:bg-gray-200';
-  return 'bg-blue-500 text-white';
+  return 'bg-orange-500 text-white';
 }
 
 function TemperatureDisplay({ temperature }: { temperature: Temperature | string | null }) {
@@ -130,7 +130,7 @@ function TemperatureDisplay({ temperature }: { temperature: Temperature | string
   const config: Record<string, { icon: typeof Flame; color: string; label: string }> = {
     hot: { icon: Flame, color: 'text-red-500', label: '높음' },
     warm: { icon: Thermometer, color: 'text-amber-500', label: '중간' },
-    cold: { icon: Snowflake, color: 'text-blue-400', label: '낮음' },
+    cold: { icon: Snowflake, color: 'text-orange-400', label: '낮음' },
   };
 
   const { icon: Icon, color, label } = config[temperature] || { icon: Thermometer, color: 'text-gray-400', label: '-' };
@@ -313,7 +313,7 @@ function RegisterPatientModal({ call, onClose, onSuccess }: RegisterPatientModal
         {/* 헤더 */}
         <div className="flex items-center justify-between p-4 border-b">
           <div className="flex items-center gap-2">
-            <UserPlus size={18} className="text-blue-500" />
+            <UserPlus size={18} className="text-orange-500" />
             <h3 className="font-bold text-gray-900">환자 등록</h3>
           </div>
           <button onClick={onClose} className="p-1 hover:bg-gray-100 rounded">
@@ -350,7 +350,7 @@ function RegisterPatientModal({ call, onClose, onSuccess }: RegisterPatientModal
               value={name}
               onChange={(e) => setName(e.target.value)}
               placeholder="환자 이름 입력"
-              className="w-full px-3 py-2 border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+              className="w-full px-3 py-2 border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-orange-500"
               autoFocus
             />
           </div>
@@ -366,7 +366,7 @@ function RegisterPatientModal({ call, onClose, onSuccess }: RegisterPatientModal
               <select
                 value={consultationType}
                 onChange={(e) => setConsultationType(e.target.value)}
-                className="w-full px-3 py-2 border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                className="w-full px-3 py-2 border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-orange-500"
               >
                 <option value="">선택하세요</option>
                 {consultationTypes.map((item) => (
@@ -389,7 +389,7 @@ function RegisterPatientModal({ call, onClose, onSuccess }: RegisterPatientModal
               <select
                 value={interest}
                 onChange={(e) => setInterest(e.target.value)}
-                className={`w-full px-3 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 ${
+                className={`w-full px-3 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-orange-500 ${
                   !interest ? 'border-red-300' : 'border-gray-200'
                 }`}
               >
@@ -404,7 +404,7 @@ function RegisterPatientModal({ call, onClose, onSuccess }: RegisterPatientModal
                 value={interest}
                 onChange={(e) => setInterest(e.target.value)}
                 placeholder="예: 임플란트, 교정"
-                className="w-full px-3 py-2 border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                className="w-full px-3 py-2 border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-orange-500"
               />
             )}
           </div>
@@ -420,7 +420,7 @@ function RegisterPatientModal({ call, onClose, onSuccess }: RegisterPatientModal
               <select
                 value={source}
                 onChange={(e) => setSource(e.target.value)}
-                className="w-full px-3 py-2 border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                className="w-full px-3 py-2 border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-orange-500"
               >
                 <option value="">알수없음</option>
                 {referralSources.map((item) => (
@@ -440,7 +440,7 @@ function RegisterPatientModal({ call, onClose, onSuccess }: RegisterPatientModal
               placeholder="나이 입력"
               min="1"
               max="120"
-              className="w-full px-3 py-2 border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+              className="w-full px-3 py-2 border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-orange-500"
             />
           </div>
 
@@ -454,7 +454,7 @@ function RegisterPatientModal({ call, onClose, onSuccess }: RegisterPatientModal
                   setProvince(e.target.value);
                   setCity(''); // 시/도 변경 시 시군구 초기화
                 }}
-                className="px-3 py-2 border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                className="px-3 py-2 border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-orange-500"
               >
                 <option value="">시/도 선택</option>
                 {PROVINCES.map((p) => (
@@ -465,7 +465,7 @@ function RegisterPatientModal({ call, onClose, onSuccess }: RegisterPatientModal
                 value={city}
                 onChange={(e) => setCity(e.target.value)}
                 disabled={!province}
-                className="px-3 py-2 border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 disabled:bg-gray-100 disabled:text-gray-400"
+                className="px-3 py-2 border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-orange-500 disabled:bg-gray-100 disabled:text-gray-400"
               >
                 <option value="">시/군/구 선택</option>
                 {province && REGION_DATA[province]?.map((c) => (
@@ -488,7 +488,7 @@ function RegisterPatientModal({ call, onClose, onSuccess }: RegisterPatientModal
           <button
             onClick={handleSubmit}
             disabled={saving}
-            className="flex-1 py-2.5 bg-blue-500 text-white rounded-lg font-medium hover:bg-blue-600 disabled:opacity-50 flex items-center justify-center gap-2"
+            className="flex-1 py-2.5 bg-orange-500 text-white rounded-lg font-medium hover:bg-orange-600 disabled:opacity-50 flex items-center justify-center gap-2"
           >
             {saving ? (
               <>
@@ -609,7 +609,7 @@ function EditAnalysisModal({ call, onClose, onSave }: EditAnalysisModalProps) {
         {/* 헤더 */}
         <div className="flex items-center justify-between p-4 border-b">
           <div className="flex items-center gap-2">
-            <Pencil size={18} className="text-blue-500" />
+            <Pencil size={18} className="text-orange-500" />
             <h3 className="font-bold text-gray-900">분류 변경</h3>
           </div>
           <button onClick={onClose} className="p-1 hover:bg-gray-100 rounded">
@@ -630,7 +630,7 @@ function EditAnalysisModal({ call, onClose, onSave }: EditAnalysisModalProps) {
                   onClick={() => setClassification(opt.value)}
                   className={`px-3 py-1.5 rounded-full text-sm font-medium transition-all ${
                     classification === opt.value
-                      ? 'bg-blue-500 text-white'
+                      ? 'bg-orange-500 text-white'
                       : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
                   }`}
                 >
@@ -662,7 +662,7 @@ function EditAnalysisModal({ call, onClose, onSave }: EditAnalysisModalProps) {
                 value={patientName}
                 onChange={(e) => setPatientName(e.target.value)}
                 placeholder="거래처 이름 입력"
-                className="w-full px-3 py-2 border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                className="w-full px-3 py-2 border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-orange-500"
               />
             </div>
           )}
@@ -676,7 +676,7 @@ function EditAnalysisModal({ call, onClose, onSave }: EditAnalysisModalProps) {
                 value={patientName}
                 onChange={(e) => setPatientName(e.target.value)}
                 placeholder="환자 이름 입력"
-                className="w-full px-3 py-2 border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                className="w-full px-3 py-2 border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-orange-500"
               />
             </div>
           )}
@@ -692,7 +692,7 @@ function EditAnalysisModal({ call, onClose, onSave }: EditAnalysisModalProps) {
                 value={patientName}
                 onChange={(e) => setPatientName(e.target.value)}
                 placeholder={isSpam ? '예: 대출권유, 보험영업' : '예: 마케팅업체, 배달'}
-                className="w-full px-3 py-2 border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                className="w-full px-3 py-2 border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-orange-500"
               />
             </div>
           )}
@@ -711,7 +711,7 @@ function EditAnalysisModal({ call, onClose, onSave }: EditAnalysisModalProps) {
                 <select
                   value={interest}
                   onChange={(e) => setInterest(e.target.value)}
-                  className={`w-full px-3 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 ${
+                  className={`w-full px-3 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-orange-500 ${
                     !interest ? 'border-red-300' : 'border-gray-200'
                   }`}
                 >
@@ -726,7 +726,7 @@ function EditAnalysisModal({ call, onClose, onSave }: EditAnalysisModalProps) {
                   value={interest}
                   onChange={(e) => setInterest(e.target.value)}
                   placeholder="예: 임플란트, 교정, 충치치료"
-                  className="w-full px-3 py-2 border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  className="w-full px-3 py-2 border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-orange-500"
                 />
               )}
             </div>
@@ -746,7 +746,7 @@ function EditAnalysisModal({ call, onClose, onSave }: EditAnalysisModalProps) {
                       onClick={() => setTemperature(opt.value as Temperature)}
                       className={`flex-1 flex items-center justify-center gap-2 px-3 py-2 rounded-lg text-sm font-medium transition-all ${
                         temperature === opt.value
-                          ? 'bg-blue-50 border-2 border-blue-500 text-blue-700'
+                          ? 'bg-orange-50 border-2 border-orange-500 text-orange-700'
                           : 'bg-gray-50 border border-gray-200 text-gray-600 hover:bg-gray-100'
                       }`}
                     >
@@ -771,7 +771,7 @@ function EditAnalysisModal({ call, onClose, onSave }: EditAnalysisModalProps) {
                     onClick={() => setFollowUp(opt.value)}
                     className={`flex-1 px-3 py-2 rounded-lg text-sm font-medium transition-all ${
                       followUp === opt.value
-                        ? 'bg-blue-500 text-white'
+                        ? 'bg-orange-500 text-white'
                         : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
                     }`}
                   >
@@ -792,7 +792,7 @@ function EditAnalysisModal({ call, onClose, onSave }: EditAnalysisModalProps) {
               onChange={(e) => setSummary(e.target.value)}
               placeholder={isSpam ? '스팸 관련 메모' : isVendor ? '거래처 관련 메모' : '통화 내용 요약'}
               rows={3}
-              className="w-full px-3 py-2 border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 resize-none"
+              className="w-full px-3 py-2 border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-orange-500 resize-none"
             />
           </div>
         </div>
@@ -808,7 +808,7 @@ function EditAnalysisModal({ call, onClose, onSave }: EditAnalysisModalProps) {
           <button
             onClick={handleSave}
             disabled={saving}
-            className="flex-1 py-2.5 bg-blue-500 text-white rounded-lg font-medium hover:bg-blue-600 disabled:opacity-50 flex items-center justify-center gap-2"
+            className="flex-1 py-2.5 bg-orange-500 text-white rounded-lg font-medium hover:bg-orange-600 disabled:opacity-50 flex items-center justify-center gap-2"
           >
             {saving ? (
               <>
@@ -1366,7 +1366,7 @@ function CallLogsPageContent() {
                             setShowDatePicker(false);
                           }}
                           max={formatDateToString(new Date())}
-                          className="w-full px-3 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                          className="w-full px-3 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-orange-500"
                         />
                       </div>
 
@@ -1384,7 +1384,7 @@ function CallLogsPageContent() {
                               }));
                             }}
                             max={formatDateToString(new Date())}
-                            className="flex-1 px-2 py-1.5 text-sm border rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                            className="flex-1 px-2 py-1.5 text-sm border rounded-lg focus:outline-none focus:ring-2 focus:ring-orange-500"
                           />
                           <span className="text-gray-400">~</span>
                           <input
@@ -1397,7 +1397,7 @@ function CallLogsPageContent() {
                               }));
                             }}
                             max={formatDateToString(new Date())}
-                            className="flex-1 px-2 py-1.5 text-sm border rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                            className="flex-1 px-2 py-1.5 text-sm border rounded-lg focus:outline-none focus:ring-2 focus:ring-orange-500"
                           />
                         </div>
                         {dateRange && (
@@ -1406,7 +1406,7 @@ function CallLogsPageContent() {
                               setCurrentPage(1);
                               setShowDatePicker(false);
                             }}
-                            className="w-full mt-2 py-1.5 text-sm bg-blue-500 text-white rounded-lg hover:bg-blue-600"
+                            className="w-full mt-2 py-1.5 text-sm bg-orange-500 text-white rounded-lg hover:bg-orange-600"
                           >
                             기간 적용
                           </button>
@@ -1472,7 +1472,7 @@ function CallLogsPageContent() {
                 {!isToday && (
                   <button
                     onClick={handleToday}
-                    className="px-3 py-1.5 text-sm text-blue-600 hover:bg-blue-50 rounded-lg font-medium"
+                    className="px-3 py-1.5 text-sm text-orange-600 hover:bg-orange-50 rounded-lg font-medium"
                   >
                     오늘
                   </button>
@@ -1495,7 +1495,7 @@ function CallLogsPageContent() {
               </button>
               <button
                 onClick={handleAddPatient}
-                className="flex items-center gap-2 px-4 py-2 bg-blue-500 hover:bg-blue-600 text-white rounded-lg font-medium"
+                className="flex items-center gap-2 px-4 py-2 bg-orange-500 hover:bg-orange-600 text-white rounded-lg font-medium"
               >
                 <Plus size={18} />
                 환자 등록
@@ -1515,7 +1515,7 @@ function CallLogsPageContent() {
                   className={`px-4 py-2 rounded-full text-sm font-medium transition-all ${getFilterStyle(tab.id, filter === tab.id)}`}
                 >
                   {tab.label}
-                  <span className={`ml-1.5 ${filter === tab.id ? 'text-blue-100' : 'text-gray-400'}`}>
+                  <span className={`ml-1.5 ${filter === tab.id ? 'text-orange-100' : 'text-gray-400'}`}>
                     {getStatCount(tab.id)}
                   </span>
                 </button>
@@ -1529,7 +1529,7 @@ function CallLogsPageContent() {
                   onClick={() => handleDirectionChange('all')}
                   className={`px-3 py-1.5 text-sm font-medium transition-colors ${
                     directionFilter === 'all'
-                      ? 'bg-blue-500 text-white'
+                      ? 'bg-orange-500 text-white'
                       : 'bg-white text-gray-600 hover:bg-gray-50'
                   }`}
                 >
@@ -1550,7 +1550,7 @@ function CallLogsPageContent() {
                   onClick={() => handleDirectionChange('outbound')}
                   className={`px-3 py-1.5 text-sm font-medium transition-colors border-l border-gray-200 flex items-center gap-1 ${
                     directionFilter === 'outbound'
-                      ? 'bg-blue-500 text-white'
+                      ? 'bg-orange-500 text-white'
                       : 'bg-white text-gray-600 hover:bg-gray-50'
                   }`}
                 >
@@ -1567,7 +1567,7 @@ function CallLogsPageContent() {
                   placeholder="전화번호, 이름 검색"
                   value={searchInput}
                   onChange={handleSearch}
-                  className="pl-10 pr-4 py-2 border border-gray-200 rounded-lg w-64 focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  className="pl-10 pr-4 py-2 border border-gray-200 rounded-lg w-64 focus:outline-none focus:ring-2 focus:ring-orange-500"
                 />
               </div>
             </div>
@@ -1621,16 +1621,16 @@ function CallLogsPageContent() {
                       key={call.id}
                       onClick={() => handleCallClick(call)}
                       className={`grid grid-cols-12 gap-2 px-5 py-4 hover:bg-gray-50 cursor-pointer items-center transition-colors ${
-                        isSelected ? 'bg-blue-50' : ''
+                        isSelected ? 'bg-orange-50' : ''
                       }`}
                     >
                       {/* 유형 */}
                       <div className="col-span-1">
                         <div className={`w-8 h-8 rounded-full flex items-center justify-center ${
-                          call.callType === 'outbound' ? 'bg-blue-100' : 'bg-green-100'
+                          call.callType === 'outbound' ? 'bg-orange-100' : 'bg-green-100'
                         }`}>
                           {call.callType === 'outbound' ? (
-                            <PhoneOutgoing size={16} className="text-blue-600" />
+                            <PhoneOutgoing size={16} className="text-orange-600" />
                           ) : (
                             <PhoneIncoming size={16} className="text-green-600" />
                           )}
@@ -1643,7 +1643,7 @@ function CallLogsPageContent() {
                           call.calledNumber?.includes('070')
                             ? 'bg-purple-100 text-purple-700'
                             : call.calledNumber?.includes('031')
-                            ? 'bg-blue-100 text-blue-700'
+                            ? 'bg-orange-100 text-orange-700'
                             : 'bg-gray-100 text-gray-600'
                         }`}>
                           {formatCalledNumber(call.calledNumber)}
@@ -1710,7 +1710,7 @@ function CallLogsPageContent() {
                               e.stopPropagation();
                               handleRegisterPatient(call);
                             }}
-                            className="flex items-center gap-1 px-2 py-1 text-xs font-medium text-blue-600 bg-blue-50 hover:bg-blue-100 rounded transition-colors"
+                            className="flex items-center gap-1 px-2 py-1 text-xs font-medium text-orange-600 bg-orange-50 hover:bg-orange-100 rounded transition-colors"
                           >
                             <UserPlus size={12} />
                             등록
@@ -1758,10 +1758,10 @@ function CallLogsPageContent() {
             <div className="bg-gray-50 rounded-xl p-4">
               <div className="flex items-center gap-3 mb-3">
                 <div className={`w-10 h-10 rounded-full flex items-center justify-center ${
-                  selectedCall.callType === 'outbound' ? 'bg-blue-100' : 'bg-green-100'
+                  selectedCall.callType === 'outbound' ? 'bg-orange-100' : 'bg-green-100'
                 }`}>
                   {selectedCall.callType === 'outbound' ? (
-                    <PhoneOutgoing size={20} className="text-blue-600" />
+                    <PhoneOutgoing size={20} className="text-orange-600" />
                   ) : (
                     <PhoneIncoming size={20} className="text-green-600" />
                   )}
@@ -1790,7 +1790,7 @@ function CallLogsPageContent() {
                           ? 'bg-gray-400 text-white cursor-wait'
                           : isPlaying
                             ? 'bg-amber-500 text-white hover:bg-amber-600'
-                            : 'bg-blue-500 text-white hover:bg-blue-600'
+                            : 'bg-orange-500 text-white hover:bg-orange-600'
                       }`}
                     >
                       {audioLoading ? (
@@ -1905,7 +1905,7 @@ function CallLogsPageContent() {
                 <>
                   <button
                     onClick={() => handleViewPatient(selectedCall.patientId!)}
-                    className="w-full py-3 bg-blue-500 hover:bg-blue-600 text-white rounded-xl font-medium flex items-center justify-center gap-2"
+                    className="w-full py-3 bg-orange-500 hover:bg-orange-600 text-white rounded-xl font-medium flex items-center justify-center gap-2"
                   >
                     <Eye size={18} />
                     환자 상세 보기
@@ -1923,7 +1923,7 @@ function CallLogsPageContent() {
                   {/* 환자 미연결 상태: 환자 등록 버튼 항상 표시 */}
                   <button
                     onClick={() => handleRegisterPatient(selectedCall)}
-                    className="w-full py-3 bg-blue-500 hover:bg-blue-600 text-white rounded-xl font-medium flex items-center justify-center gap-2"
+                    className="w-full py-3 bg-orange-500 hover:bg-orange-600 text-white rounded-xl font-medium flex items-center justify-center gap-2"
                   >
                     <UserPlus size={18} />
                     환자로 등록

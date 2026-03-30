@@ -259,45 +259,45 @@ export default function CumulativeStats() {
 
         {/* 결제전환율 & 치료금액 카드 */}
         <div 
-          className="card p-4 bg-gradient-to-br from-blue-50 to-indigo-50 border-2 border-blue-200 cursor-pointer hover:shadow-lg hover:scale-[1.02] hover:border-blue-400 transition-all duration-200"
+          className="card p-4 bg-gradient-to-br from-orange-50 to-indigo-50 border-2 border-orange-200 cursor-pointer hover:shadow-lg hover:scale-[1.02] hover:border-orange-400 transition-all duration-200"
           onClick={() => handleOpenModal('all_treatments', '치료 시작 환자 (전체)')}
         >
           <div className="flex flex-col">
             <div className="flex items-center justify-between mb-2">
-              <h3 className="text-sm font-medium text-blue-700">결제전환율</h3>
-              <span className="text-xs text-blue-600">클릭하여 보기</span>
+              <h3 className="text-sm font-medium text-orange-700">결제전환율</h3>
+              <span className="text-xs text-orange-600">클릭하여 보기</span>
             </div>
             
             {/* 결제전환율 표시 */}
             <div className="flex items-baseline">
-              <span className="text-3xl font-bold text-blue-800">{stats.paymentRate.value}</span>
-              <span className="ml-2 text-sm text-blue-600">%</span>
+              <span className="text-3xl font-bold text-orange-800">{stats.paymentRate.value}</span>
+              <span className="ml-2 text-sm text-orange-600">%</span>
             </div>
             
             {/* 결제전환 환자수 */}
-            <div className="mt-2 text-xs text-blue-600">
+            <div className="mt-2 text-xs text-orange-600">
               {stats.paymentRate.count}명 치료시작
             </div>
             
             {/* 전체 치료금액 표시 */}
-            <div className="mt-3 bg-white/70 rounded-lg p-2 border border-blue-100">
+            <div className="mt-3 bg-white/70 rounded-lg p-2 border border-orange-100">
               <div className="flex items-center justify-between mb-1">
-                <span className="text-xs font-medium text-blue-700">전체 치료금액</span>
+                <span className="text-xs font-medium text-orange-700">전체 치료금액</span>
               </div>
               
               <div className="flex items-baseline">
-                <span className="text-lg font-bold text-blue-900">
+                <span className="text-lg font-bold text-orange-900">
                   {stats.totalTreatmentAmount.amount.toLocaleString()}
                 </span>
-                <span className="ml-1 text-xs text-blue-600">원</span>
+                <span className="ml-1 text-xs text-orange-600">원</span>
               </div>
               
               {/* 평균 치료비 표시 */}
               {stats.totalTreatmentAmount.count > 0 && (
-                <div className="mt-1 pt-1 border-t border-blue-100">
+                <div className="mt-1 pt-1 border-t border-orange-100">
                   <div className="flex items-center justify-between">
-                    <span className="text-xs text-blue-600">평균 치료비</span>
-                    <span className="text-xs font-medium text-blue-800">
+                    <span className="text-xs text-orange-600">평균 치료비</span>
+                    <span className="text-xs font-medium text-orange-800">
                       {Math.round(stats.totalTreatmentAmount.amount / stats.totalTreatmentAmount.count).toLocaleString()}원
                     </span>
                   </div>

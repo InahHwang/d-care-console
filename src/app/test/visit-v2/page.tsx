@@ -200,7 +200,7 @@ export default function VisitV2TestPage() {
 
   const getPhaseColor = (phase: string) => {
     switch (phase) {
-      case '내원완료': return 'bg-blue-100 text-blue-800'
+      case '내원완료': return 'bg-orange-100 text-orange-800'
       case '종결': return 'bg-gray-100 text-gray-800'
       default: return 'bg-gray-100 text-gray-800'
     }
@@ -287,7 +287,7 @@ export default function VisitV2TestPage() {
                 />
                 <button
                   onClick={handleSearch}
-                  className="px-4 py-2 bg-blue-500 text-white rounded-r hover:bg-blue-600 text-sm"
+                  className="px-4 py-2 bg-orange-500 text-white rounded-r hover:bg-orange-600 text-sm"
                 >
                   검색
                 </button>
@@ -388,7 +388,7 @@ export default function VisitV2TestPage() {
                           key={patient._id}
                           onClick={() => setSelectedPatient(patient)}
                           className={`p-3 cursor-pointer hover:bg-gray-50 ${
-                            selectedPatient?._id === patient._id ? 'bg-blue-50' : ''
+                            selectedPatient?._id === patient._id ? 'bg-orange-50' : ''
                           }`}
                         >
                           <div className="flex items-center justify-between">
@@ -448,7 +448,7 @@ export default function VisitV2TestPage() {
                           onClick={() => handlePageChange(pageNum)}
                           className={`px-3 py-1 text-sm rounded ${
                             pageNum === pagination.page
-                              ? 'bg-blue-500 text-white'
+                              ? 'bg-orange-500 text-white'
                               : 'hover:bg-gray-100'
                           }`}
                         >
@@ -499,7 +499,7 @@ export default function VisitV2TestPage() {
                     ) : (
                       <button
                         onClick={handleReopen}
-                        className="px-3 py-1.5 text-sm bg-blue-500 text-white rounded hover:bg-blue-600"
+                        className="px-3 py-1.5 text-sm bg-orange-500 text-white rounded hover:bg-orange-600"
                       >
                         종결 취소
                       </button>
@@ -575,7 +575,7 @@ export default function VisitV2TestPage() {
                     <label className="text-xs text-gray-500">치료 항목</label>
                     <div className="mt-1 flex flex-wrap gap-1">
                       {selectedPatient.consultation?.interestedServices?.map(service => (
-                        <span key={service} className="px-2 py-0.5 bg-blue-100 text-blue-800 text-xs rounded">
+                        <span key={service} className="px-2 py-0.5 bg-orange-100 text-orange-800 text-xs rounded">
                           {service}
                         </span>
                       ))}
@@ -704,7 +704,7 @@ export default function VisitV2TestPage() {
               </button>
               <button
                 onClick={handleComplete}
-                className="px-4 py-2 bg-blue-500 text-white rounded hover:bg-blue-600"
+                className="px-4 py-2 bg-orange-500 text-white rounded hover:bg-orange-600"
               >
                 종결 처리
               </button>

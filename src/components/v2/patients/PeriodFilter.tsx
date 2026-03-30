@@ -82,7 +82,7 @@ export function PeriodFilter({ value, onChange, dateRange, onDateRangeChange }: 
     <div className="relative inline-flex items-center" ref={dropdownRef}>
       <button
         onClick={() => setIsOpen(!isOpen)}
-        className="flex items-center gap-2 pl-3 pr-3 py-2 border border-gray-200 rounded-lg text-sm bg-white hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-blue-500"
+        className="flex items-center gap-2 pl-3 pr-3 py-2 border border-gray-200 rounded-lg text-sm bg-white hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-orange-500"
       >
         <Calendar size={16} className="text-gray-400" />
         <span className="text-gray-700">{getDisplayLabel()}</span>
@@ -100,7 +100,7 @@ export function PeriodFilter({ value, onChange, dateRange, onDateRangeChange }: 
                   onClick={() => handleOptionClick(option.id)}
                   className={`px-3 py-2 text-sm rounded-md text-left transition-colors ${
                     value === option.id
-                      ? 'bg-blue-50 text-blue-600 font-medium'
+                      ? 'bg-orange-50 text-orange-600 font-medium'
                       : 'text-gray-700 hover:bg-gray-50'
                   }`}
                 >
@@ -118,20 +118,20 @@ export function PeriodFilter({ value, onChange, dateRange, onDateRangeChange }: 
                 type="date"
                 value={tempRange.startDate}
                 onChange={(e) => setTempRange(prev => ({ ...prev, startDate: e.target.value }))}
-                className="flex-1 px-2 py-1.5 text-sm border border-gray-200 rounded focus:outline-none focus:ring-2 focus:ring-blue-500"
+                className="flex-1 px-2 py-1.5 text-sm border border-gray-200 rounded focus:outline-none focus:ring-2 focus:ring-orange-500"
               />
               <span className="text-gray-400">~</span>
               <input
                 type="date"
                 value={tempRange.endDate}
                 onChange={(e) => setTempRange(prev => ({ ...prev, endDate: e.target.value }))}
-                className="flex-1 px-2 py-1.5 text-sm border border-gray-200 rounded focus:outline-none focus:ring-2 focus:ring-blue-500"
+                className="flex-1 px-2 py-1.5 text-sm border border-gray-200 rounded focus:outline-none focus:ring-2 focus:ring-orange-500"
               />
             </div>
             <button
               onClick={handleApplyCustomRange}
               disabled={!tempRange.startDate || !tempRange.endDate}
-              className="w-full mt-2 px-3 py-1.5 text-sm bg-blue-500 text-white rounded-md hover:bg-blue-600 disabled:bg-gray-200 disabled:text-gray-400 disabled:cursor-not-allowed transition-colors"
+              className="w-full mt-2 px-3 py-1.5 text-sm bg-orange-500 text-white rounded-md hover:bg-orange-600 disabled:bg-gray-200 disabled:text-gray-400 disabled:cursor-not-allowed transition-colors"
             >
               적용
             </button>

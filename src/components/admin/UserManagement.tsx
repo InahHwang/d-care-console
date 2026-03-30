@@ -316,14 +316,14 @@ export default function UserManagement() {
                     <td className="px-6 py-4">
                       <div className="flex items-center">
                         <div className={`w-10 h-10 rounded-full flex items-center justify-center ${
-                          user.role === 'master' ? 'bg-red-100' : 'bg-blue-100'
+                          user.role === 'master' ? 'bg-red-100' : 'bg-orange-100'
                         }`}>
                           {user.role === 'master' ? (
                             <HiOutlineShieldCheck className={`w-5 h-5 ${
-                              user.role === 'master' ? 'text-red-600' : 'text-blue-600'
+                              user.role === 'master' ? 'text-red-600' : 'text-orange-600'
                             }`} />
                           ) : (
-                            <HiOutlineUser className="w-5 h-5 text-blue-600" />
+                            <HiOutlineUser className="w-5 h-5 text-orange-600" />
                           )}
                         </div>
                         <div className="ml-3">
@@ -343,7 +343,7 @@ export default function UserManagement() {
                       <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${
                         user.role === 'master' 
                           ? 'bg-red-100 text-red-800' 
-                          : 'bg-blue-100 text-blue-800'
+                          : 'bg-orange-100 text-orange-800'
                       }`}>
                         {user.role === 'master' ? '마스터 관리자' : '일반 담당자'}
                       </span>
@@ -364,7 +364,7 @@ export default function UserManagement() {
                       <div className="flex items-center justify-center space-x-2">
                         <button
                           onClick={() => openEditModal(user)}
-                          className="text-blue-600 hover:text-blue-800"
+                          className="text-orange-600 hover:text-orange-800"
                           title="수정"
                         >
                           <HiOutlinePencil className="w-4 h-4" />

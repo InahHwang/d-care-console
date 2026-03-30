@@ -31,8 +31,8 @@ const TEMPERATURE_CONFIG: Record<Temperature, {
   },
   cold: {
     icon: Snowflake,
-    color: 'text-blue-500',
-    bgColor: 'bg-blue-50',
+    color: 'text-orange-500',
+    bgColor: 'bg-orange-50',
     label: 'Cold',
   },
 };

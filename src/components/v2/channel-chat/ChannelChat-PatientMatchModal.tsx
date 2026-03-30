@@ -106,7 +106,7 @@ export function ChannelChatPatientMatchModal({
               placeholder="이름 또는 전화번호로 검색..."
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
-              className="w-full pl-10 pr-4 py-2.5 border rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500"
+              className="w-full pl-10 pr-4 py-2.5 border rounded-xl focus:outline-none focus:ring-2 focus:ring-orange-500"
               autoFocus
             />
           </div>
@@ -131,7 +131,7 @@ export function ChannelChatPatientMatchModal({
                   onClick={() => setSelectedPatientId(patientId || null)}
                   className={`w-full p-3 rounded-xl text-left transition-colors flex items-center gap-3 ${
                     selectedPatientId === patientId
-                      ? 'bg-blue-50 border-2 border-blue-500'
+                      ? 'bg-orange-50 border-2 border-orange-500'
                       : 'bg-gray-50 hover:bg-gray-100 border-2 border-transparent'
                   }`}
                 >
@@ -151,7 +151,7 @@ export function ChannelChatPatientMatchModal({
                     </div>
                   </div>
                   {selectedPatientId === patientId && (
-                    <div className="w-6 h-6 bg-blue-500 rounded-full flex items-center justify-center">
+                    <div className="w-6 h-6 bg-orange-500 rounded-full flex items-center justify-center">
                       <Check size={14} className="text-white" />
                     </div>
                   )}
@@ -173,7 +173,7 @@ export function ChannelChatPatientMatchModal({
           <button
             onClick={handleMatch}
             disabled={!selectedPatientId}
-            className="flex-1 px-4 py-2.5 bg-blue-600 text-white rounded-xl hover:bg-blue-700 disabled:bg-gray-300 disabled:cursor-not-allowed transition-colors"
+            className="flex-1 px-4 py-2.5 bg-orange-600 text-white rounded-xl hover:bg-orange-700 disabled:bg-gray-300 disabled:cursor-not-allowed transition-colors"
           >
             매칭하기
           </button>

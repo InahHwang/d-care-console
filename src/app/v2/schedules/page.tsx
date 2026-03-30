@@ -490,7 +490,7 @@ function SchedulesContent() {
           <h1 className="text-xl font-bold text-gray-900">일정 관리</h1>
           <div className="flex items-center gap-4 text-sm">
             <span className="flex items-center gap-1.5">
-              <Phone size={14} className="text-blue-600" />
+              <Phone size={14} className="text-orange-600" />
               <span className="text-gray-500">콜백</span>
               <span className="font-bold text-gray-900">{todayStats?.callback ?? 0}</span>
               <span className="text-amber-600">({todayStats?.pending ?? 0}대기)</span>
@@ -516,7 +516,7 @@ function SchedulesContent() {
           </div>
           <button
             onClick={() => setShowAddModal(true)}
-            className="flex items-center gap-1.5 px-3 py-1.5 bg-blue-600 text-white rounded-lg text-sm font-medium hover:bg-blue-700"
+            className="flex items-center gap-1.5 px-3 py-1.5 bg-orange-600 text-white rounded-lg text-sm font-medium hover:bg-orange-700"
           >
             <Plus size={16} />
             일정 추가
@@ -531,18 +531,18 @@ function SchedulesContent() {
             key={tab.id}
             onClick={() => { setActiveTab(tab.id); setSelectedItem(null); }}
             className={`flex items-center gap-2 px-4 py-2.5 font-medium transition-colors relative ${
-              activeTab === tab.id ? 'text-blue-600' : 'text-gray-500 hover:text-gray-700'
+              activeTab === tab.id ? 'text-orange-600' : 'text-gray-500 hover:text-gray-700'
             }`}
           >
             {tab.icon}
             {tab.label}
             <span className={`px-1.5 py-0.5 rounded-full text-xs ${
-              activeTab === tab.id ? 'bg-blue-100 text-blue-600' : 'bg-gray-100 text-gray-600'
+              activeTab === tab.id ? 'bg-orange-100 text-orange-600' : 'bg-gray-100 text-gray-600'
             }`}>
               {tab.count}
             </span>
             {activeTab === tab.id && (
-              <div className="absolute bottom-0 left-0 right-0 h-0.5 bg-blue-600" />
+              <div className="absolute bottom-0 left-0 right-0 h-0.5 bg-orange-600" />
             )}
           </button>
         ))}
@@ -589,7 +589,7 @@ function SchedulesContent() {
                       onClick={() => setSelectedItem(callback)}
                       className={`w-full text-left p-3 rounded-lg mb-1 transition-colors ${
                         selectedItem?.id === callback.id
-                          ? 'bg-blue-50 border border-blue-200'
+                          ? 'bg-orange-50 border border-orange-200'
                           : callback.status === 'completed'
                           ? 'bg-gray-50 opacity-60 hover:bg-gray-100'
                           : 'hover:bg-gray-50'
@@ -600,7 +600,7 @@ function SchedulesContent() {
                         <div className="flex flex-col items-center">
                           <div className={`w-3 h-3 rounded-full ${
                             callback.status === 'completed' ? 'bg-emerald-500' :
-                            callback.status === 'missed' ? 'bg-red-500' : 'bg-blue-500'
+                            callback.status === 'missed' ? 'bg-red-500' : 'bg-orange-500'
                           }`} />
                           {idx < callbacks.length - 1 && (
                             <div className="w-0.5 h-12 bg-gray-200 mt-1" />
@@ -867,7 +867,7 @@ function RecallDetailPanel({
           <div className="flex items-center gap-2">
             <button
               onClick={() => onCall(recall.patientPhone)}
-              className="flex items-center gap-2 px-4 py-2 bg-blue-600 text-white rounded-lg text-sm font-medium hover:bg-blue-700 transition-colors"
+              className="flex items-center gap-2 px-4 py-2 bg-orange-600 text-white rounded-lg text-sm font-medium hover:bg-orange-700 transition-colors"
             >
               <Phone size={16} />
               전화하기
@@ -909,7 +909,7 @@ function RecallDetailPanel({
                   {/* 상태 아이콘 */}
                   <div className={`w-7 h-7 rounded-full flex items-center justify-center flex-shrink-0 ${
                     isBooked ? 'bg-emerald-500 text-white' :
-                    isSent ? 'bg-blue-500 text-white' :
+                    isSent ? 'bg-orange-500 text-white' :
                     isCallNeeded ? 'bg-red-500 text-white' :
                     'bg-gray-200 text-gray-500'
                   }`}>
@@ -935,7 +935,7 @@ function RecallDetailPanel({
                   {/* 상태 배지 */}
                   <span className={`text-xs px-2 py-1 rounded-full flex-shrink-0 ${
                     isBooked ? 'bg-emerald-100 text-emerald-700' :
-                    isSent ? 'bg-blue-100 text-blue-700' :
+                    isSent ? 'bg-orange-100 text-orange-700' :
                     isCallNeeded ? 'bg-red-100 text-red-700' :
                     'bg-amber-100 text-amber-700'
                   }`}>
@@ -1107,7 +1107,7 @@ function PatientInfoModal({
         <div className="p-4 border-t">
           <button
             onClick={() => router.push(`/v2/patients/${patientId}`)}
-            className="w-full py-2.5 text-center text-blue-600 hover:bg-blue-50 rounded-lg text-sm font-medium transition-colors"
+            className="w-full py-2.5 text-center text-orange-600 hover:bg-orange-50 rounded-lg text-sm font-medium transition-colors"
           >
             전체 상세 페이지로 이동 →
           </button>
@@ -1185,7 +1185,7 @@ function AddCallbackModal({ onClose, onSuccess }: { onClose: () => void; onSucce
 
   const TYPE_LABELS: Record<'callback' | 'recall', string> = { callback: '콜백', recall: '리콜' };
   const TYPE_COLORS: Record<'callback' | 'recall', string> = {
-    callback: 'bg-blue-100 text-blue-700',
+    callback: 'bg-orange-100 text-orange-700',
     recall: 'bg-purple-100 text-purple-700',
   };
 
@@ -1258,7 +1258,7 @@ function AddCallbackModal({ onClose, onSuccess }: { onClose: () => void; onSucce
             <button type="button" onClick={onClose} className="flex-1 py-2 border border-gray-200 rounded-lg text-gray-700 hover:bg-gray-50 transition-colors">
               취소
             </button>
-            <button type="submit" disabled={submitting} className="flex-1 py-2 bg-blue-500 text-white rounded-lg hover:bg-blue-600 transition-colors disabled:opacity-50">
+            <button type="submit" disabled={submitting} className="flex-1 py-2 bg-orange-500 text-white rounded-lg hover:bg-orange-600 transition-colors disabled:opacity-50">
               {submitting ? '추가 중...' : '추가'}
             </button>
           </div>

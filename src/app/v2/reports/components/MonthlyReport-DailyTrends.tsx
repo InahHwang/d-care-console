@@ -37,7 +37,7 @@ const MonthlyReportDailyTrends: React.FC<MonthlyReportDailyTrendsProps> = ({ sta
                     <div key={day.date} className="flex flex-col items-center flex-1 min-w-[20px]">
                       <div className="text-xs text-gray-500 mb-1">{day.calls}</div>
                       <div
-                        className="w-full bg-blue-400 rounded-t hover:bg-blue-600 transition-colors"
+                        className="w-full bg-orange-400 rounded-t hover:bg-orange-600 transition-colors"
                         style={{ height }}
                         title={`${day.date}: 통화 ${day.calls}건, 신규 ${day.newPatients}명, 동의 ${day.agreed}명`}
                       />
@@ -48,7 +48,7 @@ const MonthlyReportDailyTrends: React.FC<MonthlyReportDailyTrendsProps> = ({ sta
               </div>
               <div className="flex gap-4 mt-4 text-xs text-gray-500">
                 <span className="flex items-center gap-1">
-                  <span className="w-3 h-3 bg-blue-400 rounded" /> 일별 통화 건수
+                  <span className="w-3 h-3 bg-orange-400 rounded" /> 일별 통화 건수
                 </span>
               </div>
             </div>
@@ -76,7 +76,7 @@ const MonthlyReportDailyTrends: React.FC<MonthlyReportDailyTrendsProps> = ({ sta
                     <div className="flex items-center gap-3">
                       <span className="text-gray-500">{item.count}건</span>
                       <span className="text-green-600 font-medium">동의 {item.agreed}건</span>
-                      <span className="text-blue-600 font-medium">
+                      <span className="text-orange-600 font-medium">
                         {item.revenue > 0 ? `${(item.revenue / 10000).toFixed(0)}만원` : '-'}
                       </span>
                     </div>

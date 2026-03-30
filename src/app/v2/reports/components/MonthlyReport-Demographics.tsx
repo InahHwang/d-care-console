@@ -101,7 +101,7 @@ function AgeTooltip({ active, payload, label }: any) {
   return (
     <div className="bg-white border shadow-lg rounded-lg px-3 py-2 text-sm">
       <div className="font-medium text-gray-900">{label}</div>
-      <div className="text-blue-600">
+      <div className="text-orange-600">
         {data.value}명 ({data.payload.percentage}%)
       </div>
     </div>
@@ -216,7 +216,7 @@ function RegionDistribution({ stats }: { stats: MonthlyStatsV2 }) {
     <div className="space-y-3">
       {topRegions.map((region, index) => (
         <div key={region.region} className="flex items-center gap-3">
-          <span className="w-6 h-6 bg-blue-100 text-blue-800 rounded-full flex items-center justify-center text-xs font-medium flex-shrink-0">
+          <span className="w-6 h-6 bg-orange-100 text-orange-800 rounded-full flex items-center justify-center text-xs font-medium flex-shrink-0">
             {index + 1}
           </span>
           <span className="text-sm text-gray-700 w-24 flex-shrink-0">
@@ -225,7 +225,7 @@ function RegionDistribution({ stats }: { stats: MonthlyStatsV2 }) {
           <div className="flex-1">
             <div className="w-full bg-gray-100 rounded-full h-5 overflow-hidden">
               <div
-                className="bg-blue-500 h-5 rounded-full flex items-center px-2 transition-all duration-500"
+                className="bg-orange-500 h-5 rounded-full flex items-center px-2 transition-all duration-500"
                 style={{
                   width: `${Math.max((region.percentage / maxPercentage) * 100, 12)}%`,
                 }}
@@ -296,7 +296,7 @@ function CrossAnalysisTable({
                     key={treatment}
                     className={`text-center px-3 py-2 ${
                       isMax
-                        ? 'bg-blue-100 text-blue-800 font-bold'
+                        ? 'bg-orange-100 text-orange-800 font-bold'
                         : count > 0
                           ? 'text-gray-700'
                           : 'text-gray-300'
@@ -347,7 +347,7 @@ const MonthlyReportDemographics: React.FC<MonthlyReportDemographicsProps> = ({
           {/* 연령 분포 */}
           <div>
             <h3 className="font-medium text-gray-900 mb-4 flex items-center gap-2">
-              <span className="w-2 h-2 bg-blue-500 rounded-full" />
+              <span className="w-2 h-2 bg-orange-500 rounded-full" />
               연령 분포
             </h3>
             <AgeDistributionChart data={stats.ageDistribution || []} />
@@ -368,7 +368,7 @@ const MonthlyReportDemographics: React.FC<MonthlyReportDemographicsProps> = ({
           {/* 지역 분포 */}
           <div>
             <h3 className="font-medium text-gray-900 mb-4 flex items-center gap-2">
-              <MapPin className="w-4 h-4 text-blue-500" />
+              <MapPin className="w-4 h-4 text-orange-500" />
               지역 분포 (Top 5)
             </h3>
             <RegionDistribution stats={stats} />

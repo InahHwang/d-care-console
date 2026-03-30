@@ -83,11 +83,11 @@ export function UrgentSummaryCards({
       tooltip: '오늘 콜백 또는 내원 예약이 잡혀있는 환자',
       icon: Clock,
       count: stats?.today ?? 0,
-      bgColor: 'bg-blue-50',
-      borderColor: 'border-blue-200',
-      activeBorderColor: 'border-blue-500',
-      iconColor: 'text-blue-500',
-      countColor: 'text-blue-600',
+      bgColor: 'bg-orange-50',
+      borderColor: 'border-orange-200',
+      activeBorderColor: 'border-orange-500',
+      iconColor: 'text-orange-500',
+      countColor: 'text-orange-600',
     },
     {
       id: 'overdue' as UrgencyFilter,
@@ -153,7 +153,7 @@ export function UrgentSummaryCards({
                 ${hasItems ? 'cursor-pointer hover:shadow-md' : 'opacity-50 cursor-not-allowed'}
                 ${isActive ? 'ring-2 ring-offset-1 ring-opacity-50' : ''}
                 ${isActive && card.id === 'noshow' ? 'ring-red-300' : ''}
-                ${isActive && card.id === 'today' ? 'ring-blue-300' : ''}
+                ${isActive && card.id === 'today' ? 'ring-orange-300' : ''}
                 ${isActive && card.id === 'overdue' ? 'ring-amber-300' : ''}
                 ${isActive && card.id === 'inTreatment' ? 'ring-emerald-300' : ''}
                 ${isActive && card.id === 'aftercare' ? 'ring-slate-300' : ''}
@@ -197,7 +197,7 @@ export function UrgentSummaryCards({
           {!isToday && (
             <button
               onClick={() => onDateChange(today)}
-              className="px-2 py-0.5 text-xs text-blue-600 bg-blue-50 hover:bg-blue-100 rounded font-medium"
+              className="px-2 py-0.5 text-xs text-orange-600 bg-orange-50 hover:bg-orange-100 rounded font-medium"
             >
               오늘
             </button>

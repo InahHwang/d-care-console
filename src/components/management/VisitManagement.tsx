@@ -646,7 +646,7 @@ const handleCompleteVisitCallback = async (callback: any) => {
  // 상태 옵션 수정 - 순서와 내용 변경
  const statusOptions = [
    { value: '재콜백필요', label: '재콜백 필요', color: 'bg-yellow-100 text-yellow-800' },
-   { value: '치료동의', label: '치료 동의', color: 'bg-blue-100 text-blue-800' },
+   { value: '치료동의', label: '치료 동의', color: 'bg-orange-100 text-orange-800' },
    { value: '치료시작', label: '치료 시작', color: 'bg-green-100 text-green-800' },
    { value: '종결', label: '종결', color: 'bg-red-100 text-red-800' },
  ];
@@ -655,7 +655,7 @@ const handleCompleteVisitCallback = async (callback: any) => {
  const patientReactionOptions = [
    { value: '동의해요(적당)', label: '동의해요(적당)', color: 'bg-green-100 text-green-800' },
    { value: '비싸요', label: '비싸요', color: 'bg-red-100 text-red-800' },
-   { value: '생각보다 저렴해요', label: '생각보다 저렴해요', color: 'bg-blue-100 text-blue-800' },
+   { value: '생각보다 저렴해요', label: '생각보다 저렴해요', color: 'bg-orange-100 text-orange-800' },
    { value: '알 수 없음', label: '알 수 없음', color: 'bg-gray-100 text-gray-800' },
  ];
 
@@ -686,21 +686,21 @@ const hasPendingVisitCallbacks = currentVisitCallbacks.some(cb => cb.status === 
 
        {/* 기존 상담 정보 표시 섹션 */}
        {consultationInfo && (
-         <div className="mb-6 border border-blue-200 rounded-lg p-4 bg-blue-50">
-           <h4 className="text-sm font-medium text-blue-800 mb-3 flex items-center gap-2">
+         <div className="mb-6 border border-orange-200 rounded-lg p-4 bg-orange-50">
+           <h4 className="text-sm font-medium text-orange-800 mb-3 flex items-center gap-2">
              <Icon icon={HiOutlineInformationCircle} size={16} />
              상담 관리에서 입력된 정보
            </h4>
            
            <div className="grid grid-cols-1 md:grid-cols-2 gap-4 text-sm">
              <div>
-               <span className="text-blue-700 font-medium">상담 날짜:</span>
-               <span className="ml-2 text-blue-600">{consultationInfo.consultationDate}</span>
+               <span className="text-orange-700 font-medium">상담 날짜:</span>
+               <span className="ml-2 text-orange-600">{consultationInfo.consultationDate}</span>
              </div>
              
              <div>
-               <span className="text-blue-700 font-medium">견적 금액:</span>
-               <span className="ml-2 text-blue-600">
+               <span className="text-orange-700 font-medium">견적 금액:</span>
+               <span className="ml-2 text-orange-600">
                  {consultationInfo.estimatedAmount > 0 
                    ? `${consultationInfo.estimatedAmount.toLocaleString()}원` 
                    : '미입력'
@@ -709,21 +709,21 @@ const hasPendingVisitCallbacks = currentVisitCallbacks.some(cb => cb.status === 
              </div>
              
              <div className="md:col-span-2">
-               <span className="text-blue-700 font-medium">불편한 부분:</span>
-               <div className="mt-1 p-2 bg-white rounded border text-blue-600 whitespace-pre-line">
+               <span className="text-orange-700 font-medium">불편한 부분:</span>
+               <div className="mt-1 p-2 bg-white rounded border text-orange-600 whitespace-pre-line">
                  {consultationInfo.treatmentPlan}
                </div>
              </div>
              
              <div className="md:col-span-2">
-               <span className="text-blue-700 font-medium">상담 메모:</span>
-               <div className="mt-1 p-2 bg-white rounded border text-blue-600 whitespace-pre-line">
+               <span className="text-orange-700 font-medium">상담 메모:</span>
+               <div className="mt-1 p-2 bg-white rounded border text-orange-600 whitespace-pre-line">
                  {consultationInfo.consultationNotes}
                </div>
              </div>
              
              <div>
-               <span className="text-blue-700 font-medium">견적 동의:</span>
+               <span className="text-orange-700 font-medium">견적 동의:</span>
                <span className={`ml-2 px-2 py-1 rounded-full text-xs font-medium ${
                  consultationInfo.estimateAgreed 
                    ? 'bg-green-100 text-green-800' 
@@ -746,7 +746,7 @@ const hasPendingVisitCallbacks = currentVisitCallbacks.some(cb => cb.status === 
            <select
              value={treatmentContent}
              onChange={(e) => setTreatmentContent(e.target.value)}
-             className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+             className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-orange-500"
            >
              <option value="">치료 내용을 선택해주세요</option>
              <option value="단일 임플란트">단일 임플란트</option>
@@ -769,7 +769,7 @@ const hasPendingVisitCallbacks = currentVisitCallbacks.some(cb => cb.status === 
                  type="number"
                  value={regularPrice === 0 ? '' : regularPrice}
                  onChange={(e) => setRegularPrice(e.target.value === '' ? 0 : Number(e.target.value))}
-                 className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+                 className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-orange-500"
                  placeholder="정가 입력"
                  min="0"
                />
@@ -780,7 +780,7 @@ const hasPendingVisitCallbacks = currentVisitCallbacks.some(cb => cb.status === 
                  type="number"
                  value={discountPrice === 0 ? '' : discountPrice}
                  onChange={(e) => setDiscountPrice(e.target.value === '' ? 0 : Number(e.target.value))}
-                 className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+                 className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-orange-500"
                  placeholder="할인가 입력"
                  min="0"
                />
@@ -791,7 +791,7 @@ const hasPendingVisitCallbacks = currentVisitCallbacks.some(cb => cb.status === 
                  type="text"
                  value={discountEvent}
                  onChange={(e) => setDiscountEvent(e.target.value)}
-                 className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+                 className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-orange-500"
                  placeholder="할인 이벤트명 입력"
                />
              </div>
@@ -807,7 +807,7 @@ const hasPendingVisitCallbacks = currentVisitCallbacks.some(cb => cb.status === 
                      onClick={() => setPatientReaction(option.value as PatientReaction)}
                      className={`p-2 text-xs font-medium rounded-lg border transition-colors ${
                        patientReaction === option.value
-                         ? 'border-blue-500 bg-blue-50'
+                         ? 'border-orange-500 bg-orange-50'
                          : 'border-gray-200 hover:border-gray-300'
                      }`}
                    >
@@ -829,7 +829,7 @@ const hasPendingVisitCallbacks = currentVisitCallbacks.some(cb => cb.status === 
            <textarea
              value={firstVisitConsultationContent}
              onChange={(e) => setFirstVisitConsultationContent(e.target.value)}
-             className="w-full px-3 py-2 border border-gray-300 rounded-lg resize-none text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+             className="w-full px-3 py-2 border border-gray-300 rounded-lg resize-none text-sm focus:outline-none focus:ring-2 focus:ring-orange-500"
              rows={3}
              placeholder="내원 후 첫 상담에서 나눈 대화 내용을 입력하세요..."
            />
@@ -848,7 +848,7 @@ const hasPendingVisitCallbacks = currentVisitCallbacks.some(cb => cb.status === 
                  onClick={() => setSelectedStatus(option.value as PostVisitStatus)}
                  className={`p-3 text-sm font-medium rounded-lg border-2 transition-colors ${
                    selectedStatus === option.value
-                     ? 'border-blue-500 bg-blue-50'
+                     ? 'border-orange-500 bg-orange-50'
                      : 'border-gray-200 hover:border-gray-300'
                  }`}
                >
@@ -880,7 +880,7 @@ const hasPendingVisitCallbacks = currentVisitCallbacks.some(cb => cb.status === 
                         className={`p-2 border rounded text-xs ${
                           callback.status === '완료' 
                             ? 'border-green-200 bg-green-50' 
-                            : 'border-blue-200 bg-blue-50'
+                            : 'border-orange-200 bg-orange-50'
                         }`}
                       >
                         <div className="flex items-center justify-between mb-1">
@@ -893,7 +893,7 @@ const hasPendingVisitCallbacks = currentVisitCallbacks.some(cb => cb.status === 
                               callback.type === '내원5차' ? 'bg-indigo-100 text-indigo-800' :
                               callback.type === '내원6차' ? 'bg-pink-100 text-pink-800' :
                               callback.type === '내원재콜백필요' ? 'bg-yellow-200 text-yellow-900' :      // 🔥 추가
-                              callback.type === '내원치료동의' ? 'bg-blue-200 text-blue-900' :           // 🔥 추가  
+                              callback.type === '내원치료동의' ? 'bg-orange-200 text-orange-900' :           // 🔥 추가  
                               callback.type === '내원치료시작' ? 'bg-green-200 text-green-900' :         // 🔥 추가
                               callback.type === '내원종결' ? 'bg-gray-200 text-gray-900' :              // 🔥 추가
                               'bg-gray-100 text-gray-800'
@@ -904,7 +904,7 @@ const hasPendingVisitCallbacks = currentVisitCallbacks.some(cb => cb.status === 
                             <span className={`text-xs px-2 py-0.5 rounded ${
                               callback.status === '완료' ? 'bg-green-100 text-green-800' :
                               callback.status === '부재중' ? 'bg-red-100 text-red-800' :  // 🔥 부재중 상태 추가
-                              'bg-blue-100 text-blue-800'
+                              'bg-orange-100 text-orange-800'
                             }`}>
                               {callback.status}
                             </span>
@@ -929,7 +929,7 @@ const hasPendingVisitCallbacks = currentVisitCallbacks.some(cb => cb.status === 
                               </button>
                               <button
                                 onClick={() => handleEditVisitCallback(callback)}
-                                className="p-1 text-blue-600 hover:bg-blue-100 rounded"
+                                className="p-1 text-orange-600 hover:bg-orange-100 rounded"
                                 title="수정"
                               >
                                 <Icon icon={HiOutlinePencil} size={12} />
@@ -996,7 +996,7 @@ const hasPendingVisitCallbacks = currentVisitCallbacks.some(cb => cb.status === 
                       <select
                         value={visitCallbackType}
                         onChange={(e) => setVisitCallbackType(e.target.value as any)}
-                        className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+                        className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-orange-500"
                         disabled={isEditingVisitCallback}
                       >
                         <option value="내원1차">내원1차</option>
@@ -1013,7 +1013,7 @@ const hasPendingVisitCallbacks = currentVisitCallbacks.some(cb => cb.status === 
                         type="date"
                         value={visitCallbackDate}
                         onChange={(e) => setVisitCallbackDate(e.target.value)}
-                        className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+                        className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-orange-500"
                       />
                     </div>
                   </div>
@@ -1023,7 +1023,7 @@ const hasPendingVisitCallbacks = currentVisitCallbacks.some(cb => cb.status === 
                     <select
                       value={visitCallbackReason}
                       onChange={(e) => setVisitCallbackReason(e.target.value)}
-                      className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+                      className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-orange-500"
                     >
                       <option value="">사유를 선택해주세요</option>
                       <option value="추가 상담 필요">추가 상담 필요</option>
@@ -1041,7 +1041,7 @@ const hasPendingVisitCallbacks = currentVisitCallbacks.some(cb => cb.status === 
                     <textarea
                       value={visitCallbackNotes}
                       onChange={(e) => setVisitCallbackNotes(e.target.value)}
-                      className="w-full px-3 py-2 border border-gray-300 rounded-lg resize-none text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+                      className="w-full px-3 py-2 border border-gray-300 rounded-lg resize-none text-sm focus:outline-none focus:ring-2 focus:ring-orange-500"
                       rows={2}
                       placeholder="콜백 시 진행할 상담 내용을 입력하세요..."
                     />
@@ -1072,7 +1072,7 @@ const hasPendingVisitCallbacks = currentVisitCallbacks.some(cb => cb.status === 
                       </button>
                       <button
                         onClick={handleSaveVisitCallbackEdit}
-                        className="px-3 py-1 text-sm text-white bg-blue-600 rounded hover:bg-blue-700"
+                        className="px-3 py-1 text-sm text-white bg-orange-600 rounded hover:bg-orange-700"
                         disabled={!visitCallbackReason || !visitCallbackNotes.trim()}
                       >
                         수정 저장
@@ -1087,7 +1087,7 @@ const hasPendingVisitCallbacks = currentVisitCallbacks.some(cb => cb.status === 
 
          {/* 치료 동의 시 추가 필드 */}
          {selectedStatus === '치료동의' && (
-           <div className="border border-blue-200 rounded-lg p-4 bg-blue-50">
+           <div className="border border-orange-200 rounded-lg p-4 bg-orange-50">
              <h4 className="text-sm font-medium text-gray-700 mb-3">치료 동의 정보</h4>
              <div className="space-y-3">
                <div>
@@ -1096,7 +1096,7 @@ const hasPendingVisitCallbacks = currentVisitCallbacks.some(cb => cb.status === 
                    type="date"
                    value={treatmentStartDate}
                    onChange={(e) => setTreatmentStartDate(e.target.value)}
-                   className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+                   className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-orange-500"
                  />
                </div>
                <div>
@@ -1105,7 +1105,7 @@ const hasPendingVisitCallbacks = currentVisitCallbacks.some(cb => cb.status === 
                    type="text"
                    value={estimatedTreatmentPeriod}
                    onChange={(e) => setEstimatedTreatmentPeriod(e.target.value)}
-                   className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+                   className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-orange-500"
                    placeholder="예: 3개월, 6개월, 1년"
                  />
                </div>
@@ -1114,7 +1114,7 @@ const hasPendingVisitCallbacks = currentVisitCallbacks.some(cb => cb.status === 
                  <textarea
                    value={consentNotes}
                    onChange={(e) => setConsentNotes(e.target.value)}
-                   className="w-full px-3 py-2 border border-gray-300 rounded-lg resize-none text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+                   className="w-full px-3 py-2 border border-gray-300 rounded-lg resize-none text-sm focus:outline-none focus:ring-2 focus:ring-orange-500"
                    rows={2}
                    placeholder="치료 동의와 관련된 특이사항이나 메모를 입력하세요"
                  />
@@ -1162,7 +1162,7 @@ const hasPendingVisitCallbacks = currentVisitCallbacks.some(cb => cb.status === 
                        type="number"
                        value={downPayment === 0 ? '' : downPayment} 
                        onChange={(e) => setDownPayment(e.target.value === '' ? 0 : Number(e.target.value))}
-                       className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+                       className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-orange-500"
                        placeholder="선입금 금액"
                        min="0"
                      />
@@ -1173,7 +1173,7 @@ const hasPendingVisitCallbacks = currentVisitCallbacks.some(cb => cb.status === 
                        type="text"
                        value={installmentPlan}
                        onChange={(e) => setInstallmentPlan(e.target.value)}
-                       className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+                       className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-orange-500"
                        placeholder="예: 6개월 분할, 월 50만원"
                      />
                    </div>
@@ -1186,7 +1186,7 @@ const hasPendingVisitCallbacks = currentVisitCallbacks.some(cb => cb.status === 
                    type="date"
                    value={nextVisitDate}
                    onChange={(e) => setNextVisitDate(e.target.value)}
-                   className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+                   className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-orange-500"
                  />
                </div>
              </div>
@@ -1205,7 +1205,7 @@ const hasPendingVisitCallbacks = currentVisitCallbacks.some(cb => cb.status === 
                  <textarea
                    value={completionReason}
                    onChange={(e) => setCompletionReason(e.target.value)}
-                   className="w-full px-3 py-2 border border-gray-300 rounded-lg resize-none text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+                   className="w-full px-3 py-2 border border-gray-300 rounded-lg resize-none text-sm focus:outline-none focus:ring-2 focus:ring-orange-500"
                    rows={3}
                    placeholder="종결 사유를 상세히 기록해주세요 (예: 치료 완료, 환자 요청으로 중단, 타 병원 이전 등)"
                    required
@@ -1227,7 +1227,7 @@ const hasPendingVisitCallbacks = currentVisitCallbacks.some(cb => cb.status === 
          <button
            onClick={handleConfirm}
            disabled={isLoading || !selectedStatus || !treatmentContent || (selectedStatus === '종결' && !completionReason.trim())}
-           className="px-4 py-2 text-sm font-medium text-white bg-blue-600 rounded-lg hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed"
+           className="px-4 py-2 text-sm font-medium text-white bg-orange-600 rounded-lg hover:bg-orange-700 disabled:opacity-50 disabled:cursor-not-allowed"
          >
            {isLoading ? '처리중...' : '확인'}
          </button>
@@ -1266,7 +1266,7 @@ const ConsultationTypeBadge = ({ type, label, inboundPhoneNumber }: {
   // 아웃바운드 타입
   if (type === 'outbound' || !type) {
     return (
-      <span className="inline-flex items-center px-2 py-1 rounded-full text-xs font-medium bg-blue-100 text-blue-800">
+      <span className="inline-flex items-center px-2 py-1 rounded-full text-xs font-medium bg-orange-100 text-orange-800">
         <FiPhoneCall className="w-3 h-3 mr-1" />
         {label || '아웃바운드'}
       </span>
@@ -1292,7 +1292,7 @@ const EventTargetBadge = ({ patient }: { patient: Patient }) => {
   // 내원관리에서는 내원완료 후 이벤트 타겟과 동일한 색상 사용
   return (
     <span 
-      className="inline-flex items-center justify-center w-4 h-4 ml-1 text-blue-600"
+      className="inline-flex items-center justify-center w-4 h-4 ml-1 text-orange-600"
       title="이벤트 타겟 관리 대상"
     >
       <HiOutlineTag size={14} />
@@ -1348,7 +1348,7 @@ const TreatmentContentBadge = ({ patient }: { patient: Patient }) => {
  const getColorClass = (content: string) => {
    switch (content) {
      case '단일 임플란트':
-       return 'bg-blue-100 text-blue-800';
+       return 'bg-orange-100 text-orange-800';
      case '다수 임플란트':
        return 'bg-indigo-100 text-indigo-800';
      case '무치악 임플란트':
@@ -1478,7 +1478,7 @@ const NextAppointmentBadge = ({ patient }: { patient: Patient }) => {
     return (
       <div className="flex items-center space-x-1">
         <Icon icon={HiOutlineCalendar} size={14} />
-        <span className="inline-flex items-center px-2 py-1 rounded-full text-xs font-medium bg-blue-100 text-blue-800 mr-1">
+        <span className="inline-flex items-center px-2 py-1 rounded-full text-xs font-medium bg-orange-100 text-orange-800 mr-1">
           치료시작
         </span>
         <span className="text-sm text-gray-600">{treatmentStartDate}</span>
@@ -1525,7 +1525,7 @@ const PostVisitStatusBadge = ({ status }: { status?: string }) => {
 
  const statusColors: Record<string, string> = {
    '재콜백필요': 'bg-yellow-100 text-yellow-800',
-   '치료동의': 'bg-blue-100 text-blue-800',
+   '치료동의': 'bg-orange-100 text-orange-800',
    '치료시작': 'bg-green-100 text-green-800',
    '종결': 'bg-red-100 text-red-800',
  };
@@ -2199,7 +2199,7 @@ const handlePatientUpdate = useCallback((updatedPatient: Patient) => {
                onClick={() => handleDateFilterTypeChange('all')}
                className={`px-4 py-2 rounded-full text-sm font-medium transition-colors ${
                  dateFilterType === 'all'
-                   ? 'bg-blue-500 text-white'
+                   ? 'bg-orange-500 text-white'
                    : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
                }`}
              >
@@ -2209,7 +2209,7 @@ const handlePatientUpdate = useCallback((updatedPatient: Patient) => {
                onClick={() => handleDateFilterTypeChange('daily')}
                className={`px-4 py-2 rounded-full text-sm font-medium transition-colors ${
                  dateFilterType === 'daily'
-                   ? 'bg-blue-500 text-white'
+                   ? 'bg-orange-500 text-white'
                    : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
                }`}
              >
@@ -2219,7 +2219,7 @@ const handlePatientUpdate = useCallback((updatedPatient: Patient) => {
                onClick={() => handleDateFilterTypeChange('monthly')}
                className={`px-4 py-2 rounded-full text-sm font-medium transition-colors ${
                  dateFilterType === 'monthly'
-                   ? 'bg-blue-500 text-white'
+                   ? 'bg-orange-500 text-white'
                    : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
                }`}
              >
@@ -2274,19 +2274,19 @@ const handlePatientUpdate = useCallback((updatedPatient: Patient) => {
 
        {/* 필터 결과 요약 표시 */}
        {(consultationTypeFilter !== 'all' || dateFilterType !== 'all' || searchTerm || selectedFilter !== 'all') && (
-         <div className="mt-4 p-3 bg-blue-50 rounded-lg">
+         <div className="mt-4 p-3 bg-orange-50 rounded-lg">
            <div className="flex items-center justify-between">
-             <div className="flex items-center space-x-2 text-sm text-blue-800 flex-wrap">
+             <div className="flex items-center space-x-2 text-sm text-orange-800 flex-wrap">
                <span>🔍 필터링 결과: <strong>{stats.filtered}명</strong></span>
                
                {getDateFilterDisplayText() && (
-                 <span className="inline-flex items-center px-2 py-1 rounded-full text-xs bg-blue-200 text-blue-800">
+                 <span className="inline-flex items-center px-2 py-1 rounded-full text-xs bg-orange-200 text-orange-800">
                    {getDateFilterDisplayText()}
                  </span>
                )}
                
                {consultationTypeFilter !== 'all' && (
-                 <span className="inline-flex items-center px-2 py-1 rounded-full text-xs bg-blue-200 text-blue-800">
+                 <span className="inline-flex items-center px-2 py-1 rounded-full text-xs bg-orange-200 text-orange-800">
                    {consultationTypeFilter === 'inbound' ? '🟢 인바운드' : 
                    consultationTypeFilter === 'outbound' ? '🔵 아웃바운드' : 
                    consultationTypeFilter === 'returning' ? '🟣 구신환' : ''}
@@ -2294,7 +2294,7 @@ const handlePatientUpdate = useCallback((updatedPatient: Patient) => {
                )}
                
                {selectedFilter !== 'all' && (
-                <span className="inline-flex items-center px-2 py-1 rounded-full text-xs bg-blue-200 text-blue-800">
+                <span className="inline-flex items-center px-2 py-1 rounded-full text-xs bg-orange-200 text-orange-800">
                   {selectedFilter === 'unprocessed_callback' ? '미처리 콜백' : 
                   selectedFilter === 'treatment_consent_not_started' ? '치료동의 후 미시작' :
                   selectedFilter === 'in_treatment' ? '치료 시작' :
@@ -2304,14 +2304,14 @@ const handlePatientUpdate = useCallback((updatedPatient: Patient) => {
                )}
                
                {searchTerm && (
-                 <span className="inline-flex items-center px-2 py-1 rounded-full text-xs bg-blue-200 text-blue-800">
+                 <span className="inline-flex items-center px-2 py-1 rounded-full text-xs bg-orange-200 text-orange-800">
                    "{searchTerm}"
                  </span>
                )}
              </div>
              <button
                onClick={handleResetFilters}
-               className="text-xs text-blue-600 hover:text-blue-800 underline"
+               className="text-xs text-orange-600 hover:text-orange-800 underline"
              >
                전체 보기
              </button>
@@ -2339,10 +2339,10 @@ const handlePatientUpdate = useCallback((updatedPatient: Patient) => {
       </div>
       
       <div 
-        className="bg-white p-4 rounded-lg border cursor-pointer hover:shadow-lg transition-shadow hover:bg-blue-50"
+        className="bg-white p-4 rounded-lg border cursor-pointer hover:shadow-lg transition-shadow hover:bg-orange-50"
         onClick={() => handleStatsCardClick('treatment_consent_not_started')}
       >
-        <div className="text-2xl font-bold text-blue-600">{stats.treatmentConsentNotStarted}</div>
+        <div className="text-2xl font-bold text-orange-600">{stats.treatmentConsentNotStarted}</div>
         <div className="text-sm text-gray-600">치료동의 후 미시작</div>
       </div>
       
@@ -2430,7 +2430,7 @@ const handlePatientUpdate = useCallback((updatedPatient: Patient) => {
                         <div className="flex items-center gap-2">
                           <button
                             onClick={() => handleViewDetails(patient)}
-                            className="text-sm font-medium text-blue-600 hover:text-blue-800 hover:underline flex items-center"
+                            className="text-sm font-medium text-orange-600 hover:text-orange-800 hover:underline flex items-center"
                           >
                             <span>{patient.name}</span>
                             {/* 🔥 이벤트 타겟 표시 추가 */}

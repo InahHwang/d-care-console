@@ -41,9 +41,9 @@ const ProgressGuideSection: React.FC = () => {
       stage: '치료동의',
       description: '내원 상담 후 치료에 동의한 상태',
       detail: '치료 계획에 동의했지만 아직 치료를 시작하지 않은 단계',
-      color: 'text-blue-800',
-      bgColor: 'bg-blue-100',
-      borderColor: 'border-blue-300'
+      color: 'text-orange-800',
+      bgColor: 'bg-orange-100',
+      borderColor: 'border-orange-300'
     },
     {
       stage: '치료시작',
@@ -201,13 +201,13 @@ const DirectorFeedbackSection: React.FC<{
   }
 
   return (
-    <div className="mt-4 p-4 bg-blue-50 border border-blue-200 rounded-lg">
+    <div className="mt-4 p-4 bg-orange-50 border border-orange-200 rounded-lg">
       <div className="flex items-center justify-between mb-3">
-        <h4 className="font-medium text-blue-900 flex items-center gap-2">
+        <h4 className="font-medium text-orange-900 flex items-center gap-2">
           <MessageCircle className="w-4 h-4" />
           원장님 피드백 ({sectionTitle})
           {sectionFeedbacks.length > 0 && (
-            <span className="text-xs bg-blue-100 text-blue-700 px-2 py-1 rounded-full">
+            <span className="text-xs bg-orange-100 text-orange-700 px-2 py-1 rounded-full">
               {sectionFeedbacks.length}개
             </span>
           )}
@@ -216,7 +216,7 @@ const DirectorFeedbackSection: React.FC<{
         {canWriteFeedback && !showFeedbackForm && !editingFeedbackId && (
           <button
             onClick={() => setShowFeedbackForm(true)}
-            className="flex items-center gap-1 px-2 py-1 text-xs text-blue-600 border border-blue-300 rounded hover:bg-blue-100 no-print"
+            className="flex items-center gap-1 px-2 py-1 text-xs text-orange-600 border border-orange-300 rounded hover:bg-orange-100 no-print"
           >
             <Plus className="w-3 h-3" />
             피드백 추가
@@ -227,21 +227,21 @@ const DirectorFeedbackSection: React.FC<{
       {/* 기존 피드백 목록 */}
       <div className="space-y-3">
         {sectionFeedbacks.map((feedback) => (
-          <div key={feedback.feedbackId} className="bg-white border border-blue-200 rounded p-3">
+          <div key={feedback.feedbackId} className="bg-white border border-orange-200 rounded p-3">
             {editingFeedbackId === feedback.feedbackId ? (
               // 수정 모드
               <div className="space-y-2">
                 <textarea
                   value={feedbackContent}
                   onChange={(e) => setFeedbackContent(e.target.value)}
-                  className="w-full h-20 p-2 text-sm border rounded focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                  className="w-full h-20 p-2 text-sm border rounded focus:ring-2 focus:ring-orange-500 focus:border-orange-500"
                   placeholder="피드백 내용을 입력하세요..."
                 />
                 <div className="flex gap-2">
                   <button
                     onClick={() => handleUpdateFeedback(feedback.feedbackId)}
                     disabled={isFeedbackSubmitting || !feedbackContent.trim()}
-                    className="px-3 py-1 text-xs bg-blue-600 text-white rounded hover:bg-blue-700 disabled:opacity-50"
+                    className="px-3 py-1 text-xs bg-orange-600 text-white rounded hover:bg-orange-700 disabled:opacity-50"
                   >
                     {isFeedbackSubmitting ? '저장 중...' : '저장'}
                   </button>
@@ -279,7 +279,7 @@ const DirectorFeedbackSection: React.FC<{
                     <div className="flex gap-1 ml-2 no-print">
                       <button
                         onClick={() => startEdit(feedback)}
-                        className="p-1 text-gray-400 hover:text-blue-600"
+                        className="p-1 text-gray-400 hover:text-orange-600"
                         title="수정"
                       >
                         <Edit className="w-3 h-3" />
@@ -302,18 +302,18 @@ const DirectorFeedbackSection: React.FC<{
 
       {/* 새 피드백 작성 폼 */}
       {showFeedbackForm && canWriteFeedback && (
-        <div className="mt-3 p-3 bg-white border border-blue-200 rounded">
+        <div className="mt-3 p-3 bg-white border border-orange-200 rounded">
           <textarea
             value={feedbackContent}
             onChange={(e) => setFeedbackContent(e.target.value)}
-            className="w-full h-20 p-2 text-sm border rounded focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+            className="w-full h-20 p-2 text-sm border rounded focus:ring-2 focus:ring-orange-500 focus:border-orange-500"
             placeholder="피드백 내용을 입력하세요..."
           />
           <div className="flex gap-2 mt-2">
             <button
               onClick={handleAddFeedback}
               disabled={isFeedbackSubmitting || !feedbackContent.trim()}
-              className="px-3 py-1 text-xs bg-blue-600 text-white rounded hover:bg-blue-700 disabled:opacity-50"
+              className="px-3 py-1 text-xs bg-orange-600 text-white rounded hover:bg-orange-700 disabled:opacity-50"
             >
               {isFeedbackSubmitting ? '추가 중...' : '피드백 추가'}
             </button>
@@ -560,7 +560,7 @@ const MonthlyReport: React.FC<MonthlyReportProps> = ({ reportData }) => {
                   <button
                     onClick={handleRefreshData}
                     disabled={isRefreshing}
-                    className="flex items-center gap-1 px-3 py-1 text-sm text-blue-600 border border-blue-200 rounded-lg hover:bg-blue-50 disabled:opacity-50 disabled:cursor-not-allowed no-print"
+                    className="flex items-center gap-1 px-3 py-1 text-sm text-orange-600 border border-orange-200 rounded-lg hover:bg-orange-50 disabled:opacity-50 disabled:cursor-not-allowed no-print"
                     title="최신 데이터로 통계 새로고침"
                   >
                     <RefreshCw className={`w-3 h-3 ${isRefreshing ? 'animate-spin' : ''}`} />
@@ -577,7 +577,7 @@ const MonthlyReport: React.FC<MonthlyReportProps> = ({ reportData }) => {
                 <span>최근 업데이트: {new Date(reportData.updatedAt).toLocaleDateString()}</span>
                 <span className={`px-2 py-1 rounded-full text-xs ${
                   reportData.status === 'draft' ? 'bg-yellow-100 text-yellow-800' :
-                  reportData.status === 'submitted' ? 'bg-blue-100 text-blue-800' :
+                  reportData.status === 'submitted' ? 'bg-orange-100 text-orange-800' :
                   'bg-green-100 text-green-800'
                 }`}>
                   {reportData.status === 'draft' ? '임시저장' :
@@ -586,7 +586,7 @@ const MonthlyReport: React.FC<MonthlyReportProps> = ({ reportData }) => {
               </div>
               {/* 새로고침 안내 메시지 */}
               {!isReadOnly && (
-                <div className="mt-3 p-3 bg-blue-50 border border-blue-200 rounded-lg text-sm text-blue-800 no-print">
+                <div className="mt-3 p-3 bg-orange-50 border border-orange-200 rounded-lg text-sm text-orange-800 no-print">
                   <div className="flex items-start gap-2">
                     <RefreshCw className="w-4 h-4 mt-0.5 flex-shrink-0" />
                     <div>
@@ -603,7 +603,7 @@ const MonthlyReport: React.FC<MonthlyReportProps> = ({ reportData }) => {
               
               {/* 🔥 새로 추가: 제출 완료 안내 */}
               {reportData.status === 'submitted' && (
-                <div className="mt-3 p-3 bg-blue-50 border border-blue-200 rounded-lg text-sm text-blue-800 no-print">
+                <div className="mt-3 p-3 bg-orange-50 border border-orange-200 rounded-lg text-sm text-orange-800 no-print">
                   <div className="flex items-center gap-2">
                     <Send className="w-4 h-4" />
                     <span className="font-medium">이 보고서는 최종 제출되었습니다.</span>
@@ -626,9 +626,9 @@ const MonthlyReport: React.FC<MonthlyReportProps> = ({ reportData }) => {
 
         {/* 상담 실적 요약 */}
         <div className="bg-white rounded-lg shadow-sm border mb-6">
-          <div className="p-6 border-b bg-blue-50">
+          <div className="p-6 border-b bg-orange-50">
             <h2 className="text-lg font-bold text-gray-900 flex items-center gap-2">
-              <MessageSquare className="w-5 h-5 text-blue-600" />
+              <MessageSquare className="w-5 h-5 text-orange-600" />
               상담 실적 요약
             </h2>
           </div>
@@ -653,7 +653,7 @@ const MonthlyReport: React.FC<MonthlyReportProps> = ({ reportData }) => {
                   인바운드 {reportData.inboundCalls}건
                 </span>
                 <span className="flex items-center gap-2">
-                  <PhoneCall className="w-4 h-4 text-blue-600" />
+                  <PhoneCall className="w-4 h-4 text-orange-600" />
                   아웃바운드 {reportData.outboundCalls}건
                 </span>
                 {/* 🔥 구신환 정보 추가 */}
@@ -697,13 +697,13 @@ const MonthlyReport: React.FC<MonthlyReportProps> = ({ reportData }) => {
                 </div>
               </div>
 
-              <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
+              <div className="bg-orange-50 border border-orange-200 rounded-lg p-4">
                 <div className="flex items-center gap-2 mb-2">
-                  <TrendingUp className="w-5 h-5 text-blue-600" />
-                  <span className="font-medium text-blue-800">내원 환자수</span>
+                  <TrendingUp className="w-5 h-5 text-orange-600" />
+                  <span className="font-medium text-orange-800">내원 환자수</span>
                 </div>
                 <div className="flex items-center gap-2 mb-1">
-                  <div className="text-2xl font-bold text-blue-900">{reportData.visitedPatients}명</div>
+                  <div className="text-2xl font-bold text-orange-900">{reportData.visitedPatients}명</div>
                   {reportData.changes.visitedPatients && (
                     <span className={`text-xs px-2 py-1 rounded-full ${
                       reportData.changes.visitedPatients.type === 'increase' 
@@ -714,7 +714,7 @@ const MonthlyReport: React.FC<MonthlyReportProps> = ({ reportData }) => {
                     </span>
                   )}
                 </div>
-                <div className="text-sm text-blue-700">
+                <div className="text-sm text-orange-700">
                   내원전환율 {reportData.visitRate}%
                   {reportData.changes.visitRate && (
                     <span className={`ml-1 ${
@@ -804,7 +804,7 @@ const MonthlyReport: React.FC<MonthlyReportProps> = ({ reportData }) => {
                   {reportData.regionStats.map((region, index) => (
                     <div key={index} className="flex items-center justify-between">
                       <div className="flex items-center gap-2">
-                        <span className="w-6 h-6 bg-blue-100 text-blue-800 rounded-full flex items-center justify-center text-xs font-medium">
+                        <span className="w-6 h-6 bg-orange-100 text-orange-800 rounded-full flex items-center justify-center text-xs font-medium">
                           {index + 1}
                         </span>
                         <span className="text-sm">{region.region}</span>
@@ -812,7 +812,7 @@ const MonthlyReport: React.FC<MonthlyReportProps> = ({ reportData }) => {
                       <div className="flex items-center gap-3">
                         <div className="w-24 bg-gray-200 rounded-full h-2">
                           <div 
-                            className="bg-blue-600 h-2 rounded-full" 
+                            className="bg-orange-600 h-2 rounded-full" 
                             style={{ width: `${Math.min((region.percentage / 30) * 100, 100)}%` }}
                           ></div>
                         </div>
@@ -1223,7 +1223,7 @@ const MonthlyReport: React.FC<MonthlyReportProps> = ({ reportData }) => {
             <button 
               onClick={handleShowSubmitModal}
               disabled={isSubmitting || isRefreshing}
-              className="flex items-center gap-2 px-6 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 disabled:opacity-50"
+              className="flex items-center gap-2 px-6 py-2 bg-orange-600 text-white rounded-lg hover:bg-orange-700 disabled:opacity-50"
             >
               <Send className="w-4 h-4" />
               제출하기
@@ -1297,7 +1297,7 @@ const MonthlyReport: React.FC<MonthlyReportProps> = ({ reportData }) => {
               <button
                 onClick={handleFinalSubmit}
                 disabled={isSubmitting}
-                className="flex-1 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 disabled:opacity-50"
+                className="flex-1 px-4 py-2 bg-orange-600 text-white rounded-lg hover:bg-orange-700 disabled:opacity-50"
               >
                 {isSubmitting ? '제출 중...' : '최종 제출'}
               </button>
@@ -1344,8 +1344,8 @@ const PatientConsultationSection: React.FC<{
           // 4. 치료동의
           return {
             stage: '치료동의',
-            color: 'text-blue-800',
-            bgColor: 'bg-blue-100'
+            color: 'text-orange-800',
+            bgColor: 'bg-orange-100'
           };
         
         case '재콜백':
@@ -1451,7 +1451,7 @@ const PatientConsultationSection: React.FC<{
                 <div className="text-gray-600">내원완료</div>
               </div>
               <div className="text-center">
-                <div className="text-2xl font-bold text-blue-600">
+                <div className="text-2xl font-bold text-orange-600">
                   {progressStats['치료동의'] || 0}명
                 </div>
                 <div className="text-gray-600">치료동의</div>
@@ -1561,7 +1561,7 @@ const PatientConsultationSection: React.FC<{
                                 {patient.interestedServices.slice(0, 2).map((service, index) => (
                                   <span 
                                     key={index}
-                                    className="inline-flex items-center px-2 py-0.5 rounded-full text-xs bg-blue-100 text-blue-800 whitespace-nowrap"
+                                    className="inline-flex items-center px-2 py-0.5 rounded-full text-xs bg-orange-100 text-orange-800 whitespace-nowrap"
                                   >
                                     {service}
                                   </span>
@@ -1585,7 +1585,7 @@ const PatientConsultationSection: React.FC<{
                               <>
                                 {patient.consultationSummary.length > 120 ? (
                                   <details className="cursor-pointer">
-                                    <summary className="font-medium text-blue-600 hover:text-blue-800">
+                                    <summary className="font-medium text-orange-600 hover:text-orange-800">
                                       {patient.consultationSummary.substring(0, 120)}... (더보기)
                                     </summary>
                                     <div className="mt-2 p-3 bg-gray-50 rounded-lg whitespace-pre-line text-xs">
@@ -1601,7 +1601,7 @@ const PatientConsultationSection: React.FC<{
                                 {/* 상담 단계 표시 */}
                                 <div className="flex items-center gap-1 mt-2">
                                   {patient.hasPhoneConsultation && (
-                                    <span className="text-xs bg-blue-100 text-blue-700 px-2 py-0.5 rounded whitespace-nowrap">
+                                    <span className="text-xs bg-orange-100 text-orange-700 px-2 py-0.5 rounded whitespace-nowrap">
                                       📞 전화
                                     </span>
                                   )}
@@ -1630,7 +1630,7 @@ const PatientConsultationSection: React.FC<{
                                 {patient.visitAmount && patient.visitAmount > 0 ? (
                                   <div className="text-xs text-green-600 whitespace-nowrap">내원견적</div>
                                 ) : patient.phoneAmount && patient.phoneAmount > 0 ? (
-                                  <div className="text-xs text-blue-600 whitespace-nowrap">전화견적</div>
+                                  <div className="text-xs text-orange-600 whitespace-nowrap">전화견적</div>
                                 ) : null}
                               </div>
                             ) : (
@@ -1696,8 +1696,8 @@ const PatientConsultationDetailModal: React.FC<{
           // 4. 치료동의
           return {
             stage: '치료동의',
-            color: 'text-blue-800',
-            bgColor: 'bg-blue-100'
+            color: 'text-orange-800',
+            bgColor: 'bg-orange-100'
           };
         
         case '재콜백':
@@ -1761,7 +1761,7 @@ const PatientConsultationDetailModal: React.FC<{
 
     if (type === 'outbound') {
       return (
-        <span className="inline-flex items-center px-2 py-1 rounded-full text-xs font-medium bg-blue-100 text-blue-800">
+        <span className="inline-flex items-center px-2 py-1 rounded-full text-xs font-medium bg-orange-100 text-orange-800">
           <FiPhoneCall className="w-3 h-3 mr-1" />
           아웃바운드
         </span>
@@ -1802,20 +1802,20 @@ const PatientConsultationDetailModal: React.FC<{
         
         <div className="space-y-6">
           {/* 관심분야 정보 */}
-          <div className="bg-blue-50 p-4 rounded-lg">
-            <h4 className="font-medium text-blue-900 mb-2">관심분야</h4>
+          <div className="bg-orange-50 p-4 rounded-lg">
+            <h4 className="font-medium text-orange-900 mb-2">관심분야</h4>
             <div className="flex flex-wrap gap-2">
               {patient.interestedServices && patient.interestedServices.length > 0 ? (
                 patient.interestedServices.map((service, index) => (
                   <span 
                     key={index}
-                    className="inline-flex items-center px-3 py-1 rounded-full text-sm bg-blue-100 text-blue-800"
+                    className="inline-flex items-center px-3 py-1 rounded-full text-sm bg-orange-100 text-orange-800"
                   >
                     {service}
                   </span>
                 ))
               ) : (
-                <span className="text-blue-600 italic">관심분야 정보가 없습니다.</span>
+                <span className="text-orange-600 italic">관심분야 정보가 없습니다.</span>
               )}
             </div>
           </div>

@@ -297,7 +297,7 @@ export default function GuidePage() {
                   </section>
 
                   {/* 지원 문의 */}
-                  <section className="bg-blue-50 p-6 rounded-lg">
+                  <section className="bg-orange-50 p-6 rounded-lg">
                     <h2 className="text-xl font-bold text-text-primary mb-4">📞 지원 문의</h2>
                     <div className="grid grid-cols-1 md:grid-cols-3 gap-4 text-sm">
                       <div>

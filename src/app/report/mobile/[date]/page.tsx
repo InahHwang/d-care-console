@@ -125,35 +125,35 @@ function Dashboard({
 
         {/* 요약 카드 */}
         <div className="px-4 pb-3">
-          <div className="bg-gradient-to-r from-blue-500 to-blue-600 rounded-xl p-4 text-white">
+          <div className="bg-gradient-to-r from-orange-500 to-orange-600 rounded-xl p-4 text-white">
             <div className="flex justify-between items-center mb-3">
-              <span className="text-blue-100 text-sm">총 상담</span>
+              <span className="text-orange-100 text-sm">총 상담</span>
               <span className="text-2xl font-bold">{data.summary.total}건</span>
             </div>
             <div className="grid grid-cols-3 gap-2 text-center">
               <div className="bg-white/20 rounded-lg py-2">
                 <div className="text-lg font-bold">{data.summary.agreed}</div>
-                <div className="text-xs text-blue-100">동의</div>
+                <div className="text-xs text-orange-100">동의</div>
               </div>
               <div className="bg-white/20 rounded-lg py-2">
                 <div className="text-lg font-bold">{data.summary.disagreed}</div>
-                <div className="text-xs text-blue-100">미동의</div>
+                <div className="text-xs text-orange-100">미동의</div>
               </div>
               <div className="bg-white/20 rounded-lg py-2">
                 <div className="text-lg font-bold">{data.summary.pending}</div>
-                <div className="text-xs text-blue-100">보류</div>
+                <div className="text-xs text-orange-100">보류</div>
               </div>
             </div>
 
             {/* 매출 정보 */}
             <div className="mt-3 pt-3 border-t border-white/20">
               <div className="flex justify-between items-center">
-                <span className="text-blue-100 text-sm">예상 매출</span>
+                <span className="text-orange-100 text-sm">예상 매출</span>
                 <span className="text-xl font-bold">{data.summary.actualRevenue.toLocaleString()}만원</span>
               </div>
               {data.summary.totalDiscount > 0 && (
                 <div className="flex justify-between items-center mt-1 text-sm">
-                  <span className="text-blue-200">정가 {data.summary.expectedRevenue.toLocaleString()}만원</span>
+                  <span className="text-orange-200">정가 {data.summary.expectedRevenue.toLocaleString()}만원</span>
                   <span className="text-yellow-300">
                     할인 -{data.summary.totalDiscount.toLocaleString()}만원
                   </span>
@@ -176,7 +176,7 @@ function Dashboard({
               onClick={() => setFilter(tab.key)}
               className={`px-3 py-1.5 rounded-full text-sm font-medium transition-colors whitespace-nowrap ${
                 filter === tab.key
-                  ? 'bg-blue-500 text-white'
+                  ? 'bg-orange-500 text-white'
                   : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
               }`}
             >
@@ -261,7 +261,7 @@ function Dashboard({
                           <span className="text-sm text-gray-400 line-through">
                             {patient.originalAmount.toLocaleString()}만
                           </span>
-                          <span className="text-sm font-medium text-blue-600">
+                          <span className="text-sm font-medium text-orange-600">
                             {patient.finalAmount.toLocaleString()}만원
                           </span>
                           <span className="px-1.5 py-0.5 bg-rose-100 text-rose-600 text-xs rounded font-medium">
@@ -357,12 +357,12 @@ function PatientDetail({
                     <span className="text-gray-400 line-through text-xs mr-1">
                       {patient.originalAmount.toLocaleString()}만
                     </span>
-                    <span className="font-medium text-blue-600">
+                    <span className="font-medium text-orange-600">
                       {patient.finalAmount.toLocaleString()}만원
                     </span>
                   </div>
                 ) : patient.originalAmount > 0 ? (
-                  <div className="font-medium text-blue-600">
+                  <div className="font-medium text-orange-600">
                     {patient.originalAmount.toLocaleString()}만원
                   </div>
                 ) : (
@@ -468,11 +468,11 @@ function PatientDetail({
 
         {/* 시정 계획 */}
         {(patient.status === 'disagreed' || patient.status === 'pending') && patient.correctionPlan && (
-          <div className="bg-blue-50 rounded-xl p-4 shadow-sm border border-blue-200">
+          <div className="bg-orange-50 rounded-xl p-4 shadow-sm border border-orange-200">
             <div className="flex items-center gap-2 mb-3">
-              <h2 className="font-semibold text-blue-900">시정 계획</h2>
+              <h2 className="font-semibold text-orange-900">시정 계획</h2>
             </div>
-            <p className="text-sm text-blue-800 leading-relaxed">
+            <p className="text-sm text-orange-800 leading-relaxed">
               {patient.correctionPlan}
             </p>
           </div>
@@ -508,7 +508,7 @@ function PatientDetail({
         <div className="flex gap-3 max-w-lg mx-auto">
           <button
             onClick={handleCall}
-            className="flex-1 py-3 bg-blue-500 hover:bg-blue-600 rounded-xl font-medium text-white transition-colors flex items-center justify-center gap-2"
+            className="flex-1 py-3 bg-orange-500 hover:bg-orange-600 rounded-xl font-medium text-white transition-colors flex items-center justify-center gap-2"
           >
             전화 걸기
           </button>
@@ -523,7 +523,7 @@ function Loading() {
   return (
     <div className="min-h-screen bg-gray-50 flex items-center justify-center">
       <div className="text-center">
-        <div className="animate-spin rounded-full h-12 w-12 border-4 border-blue-500 border-t-transparent mx-auto mb-4" />
+        <div className="animate-spin rounded-full h-12 w-12 border-4 border-orange-500 border-t-transparent mx-auto mb-4" />
         <p className="text-gray-600">리포트를 불러오는 중...</p>
       </div>
     </div>

@@ -196,16 +196,16 @@ const PatientStatusCards: React.FC<PatientStatusCardsProps> = ({ statusCounts })
         </div>
 
         {/* 🔥 두 번째: 오늘 예정된 콜백 */}
-        <div className="card p-6 border-l-4 border-blue-500 hover:shadow-lg transition-shadow duration-200">
+        <div className="card p-6 border-l-4 border-orange-500 hover:shadow-lg transition-shadow duration-200">
           <div className="flex items-center mb-4">
-            <div className="w-10 h-10 bg-blue-100 rounded-full flex items-center justify-center mr-3">
-              <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5 text-blue-600" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+            <div className="w-10 h-10 bg-orange-100 rounded-full flex items-center justify-center mr-3">
+              <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5 text-orange-600" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" />
               </svg>
             </div>
             <div>
-              <p className="text-sm font-medium text-blue-700">📅 오늘 예정된 콜백</p>
-              <p className="text-xs text-blue-600">오늘 스케줄된 콜백 업무량</p>
+              <p className="text-sm font-medium text-orange-700">📅 오늘 예정된 콜백</p>
+              <p className="text-xs text-orange-600">오늘 스케줄된 콜백 업무량</p>
             </div>
           </div>
           
@@ -219,18 +219,18 @@ const PatientStatusCards: React.FC<PatientStatusCardsProps> = ({ statusCounts })
             <div className="border-t border-gray-200">
               <div className="grid grid-cols-2 gap-4 p-4">
                 <div 
-                  className="text-center cursor-pointer hover:bg-blue-50 rounded p-2 transition-colors"
+                  className="text-center cursor-pointer hover:bg-orange-50 rounded p-2 transition-colors"
                   onClick={() => handleCardClick('todayScheduled_consultation')}
                 >
-                  <span className="text-2xl font-bold text-blue-600 hover:text-blue-700">
+                  <span className="text-2xl font-bold text-orange-600 hover:text-orange-700">
                     {statusCounts.todayScheduled.consultation}건
                   </span>
                 </div>
                 <div 
-                  className="text-center cursor-pointer hover:bg-blue-50 rounded p-2 transition-colors"
+                  className="text-center cursor-pointer hover:bg-orange-50 rounded p-2 transition-colors"
                   onClick={() => handleCardClick('todayScheduled_visit')}
                 >
-                  <span className="text-2xl font-bold text-blue-600 hover:text-blue-700">
+                  <span className="text-2xl font-bold text-orange-600 hover:text-orange-700">
                     {statusCounts.todayScheduled.visit}건
                   </span>
                 </div>
@@ -238,7 +238,7 @@ const PatientStatusCards: React.FC<PatientStatusCardsProps> = ({ statusCounts })
             </div>
           </div>
           
-          <div className="mt-3 text-xs text-blue-600">
+          <div className="mt-3 text-xs text-orange-600">
             <div>상담환자: 오늘 날짜로 콜백이 등록된 환자</div>
             <div>내원환자: 오늘 날짜로 재콜백이 등록된 환자</div>
           </div>

@@ -113,8 +113,8 @@ export const CHANNEL_CONFIG = {
     label: '홈페이지',
     icon: '💬',
     color: 'blue',
-    bgColor: 'bg-blue-100 text-blue-700',
-    borderColor: 'border-blue-300',
+    bgColor: 'bg-orange-100 text-orange-700',
+    borderColor: 'border-orange-300',
   },
   instagram: {
     label: '인스타그램',

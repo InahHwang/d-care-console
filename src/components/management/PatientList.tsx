@@ -35,7 +35,7 @@ const EventTargetBadge = ({ patient, context = 'management' }: {
       // 내원완료 후 이벤트 타겟 - 파란색
       return (
         <span 
-          className="inline-flex items-center justify-center w-4 h-4 ml-1 text-blue-600"
+          className="inline-flex items-center justify-center w-4 h-4 ml-1 text-orange-600"
           title="내원완료 후 이벤트 타겟 관리 대상"
         >
           <HiOutlineTag size={14} />
@@ -58,7 +58,7 @@ const EventTargetBadge = ({ patient, context = 'management' }: {
   if (context === 'visit-management') {
     return (
       <span 
-        className="inline-flex items-center justify-center w-4 h-4 ml-1 text-blue-600"
+        className="inline-flex items-center justify-center w-4 h-4 ml-1 text-orange-600"
         title="이벤트 타겟 관리 대상"
       >
         <HiOutlineTag size={14} />
@@ -81,7 +81,7 @@ const PatientStatusBadge = ({ status, patient }: {
   patient?: Patient
 }) => {
   const colorMap: Record<string, string> = {
-    '잠재고객': 'bg-blue-100 text-blue-800',
+    '잠재고객': 'bg-orange-100 text-orange-800',
     '콜백필요': 'bg-yellow-100 text-yellow-800',
     '부재중': 'bg-red-100 text-red-800',
     '예약확정': 'bg-indigo-100 text-indigo-800',
@@ -240,7 +240,7 @@ const ConsultationTypeBadge = ({
     : type === 'returning'
     ? 'bg-purple-100 text-purple-800'
     : type === 'outbound'
-    ? 'bg-blue-100 text-blue-800'
+    ? 'bg-orange-100 text-orange-800'
     : 'bg-gray-100 text-gray-800'; // 커스텀 카테고리
 
   // 아이콘 결정
@@ -304,7 +304,7 @@ const VisitDateBadge = ({ patient }: { patient: Patient }) => {
   
   if (patient.visitConfirmed && patient.reservationDate) {
     return (
-      <span className="text-sm text-blue-600">
+      <span className="text-sm text-orange-600">
         {patient.reservationDate}
         {patient.reservationTime && ` ${patient.reservationTime}`}
       </span>
@@ -369,11 +369,11 @@ const CallbackCountBadge = ({ patient }: { patient: Patient }) => {
   
   return (
     <div className="flex items-center gap-1">
-      <span className="inline-flex items-center justify-center w-6 h-6 rounded-full text-xs font-medium bg-blue-100 text-blue-800">
+      <span className="inline-flex items-center justify-center w-6 h-6 rounded-full text-xs font-medium bg-orange-100 text-orange-800">
         {finalCount.length}
       </span>
       {scheduledCallbacks > 0 && (
-        <span className="text-xs text-blue-600">
+        <span className="text-xs text-orange-600">
           (+{scheduledCallbacks})
         </span>
       )}

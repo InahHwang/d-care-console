@@ -44,7 +44,7 @@ function CustomBarTooltip({ active, payload, label }: any) {
       <p className="font-semibold text-gray-900 mb-1">{label}</p>
       <p className="text-gray-600">전체 문의: {item?.전체문의}건</p>
       <p className="text-green-600">동의: {item?.동의}건</p>
-      <p className="text-blue-600">전환율: {item?.conversionRate}%</p>
+      <p className="text-orange-600">전환율: {item?.conversionRate}%</p>
       {item?.revenue > 0 && (
         <p className="text-purple-600">매출: {formatAmount(item.revenue)}</p>
       )}
@@ -275,7 +275,7 @@ const MonthlyReportTreatmentAnalysis: React.FC<MonthlyReportTreatmentAnalysisPro
                         <td className="text-right py-2 px-2 font-semibold text-green-700">
                           {row.conversionRate}%
                         </td>
-                        <td className="text-right py-2 px-2 text-blue-700">
+                        <td className="text-right py-2 px-2 text-orange-700">
                           {row.revenue > 0 ? formatAmount(row.revenue) : '-'}
                         </td>
                         <td className="text-right py-2 px-2 text-gray-600">

@@ -62,7 +62,7 @@ export function DailyReportPatientList({
               onClick={() => onFilterChange(btn.key)}
               className={`px-3 md:px-4 py-2 rounded-lg text-sm font-medium transition-colors whitespace-nowrap ${
                 filter === btn.key
-                  ? 'bg-blue-500 text-white'
+                  ? 'bg-orange-500 text-white'
                   : 'bg-white text-gray-600 hover:bg-gray-100 border border-gray-200'
               }`}
             >
@@ -110,7 +110,7 @@ function PatientListItem({
     <button
       onClick={() => onSelect(patient)}
       className={`w-full text-left p-4 border-b border-gray-100 hover:bg-gray-50 transition-colors ${
-        isSelected ? 'bg-blue-50 border-l-4 border-l-blue-500' : ''
+        isSelected ? 'bg-orange-50 border-l-4 border-l-orange-500' : ''
       }`}
     >
       {/* 1행: 상태뱃지 + 이름 + 성별/나이 + 회차 + 시간 */}
@@ -126,7 +126,7 @@ function PatientListItem({
             </span>
           )}
           {patient.consultationNumber && patient.consultationNumber > 1 && (
-            <span className="px-1.5 py-0.5 bg-blue-100 text-blue-700 text-xs rounded font-medium">
+            <span className="px-1.5 py-0.5 bg-orange-100 text-orange-700 text-xs rounded font-medium">
               {patient.consultationNumber}차
             </span>
           )}
@@ -203,7 +203,7 @@ function PatientListItem({
             <span className="text-sm text-gray-400 line-through">
               {patient.originalAmount}만
             </span>
-            <span className="text-sm font-semibold text-blue-600">
+            <span className="text-sm font-semibold text-orange-600">
               {patient.finalAmount}만원
             </span>
             <span className="px-1.5 py-0.5 bg-rose-100 text-rose-600 text-xs rounded font-medium">

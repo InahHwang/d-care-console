@@ -105,12 +105,12 @@ export function DailyReportSummaryCards({ summary }: DailyReportSummaryCardsProp
       </div>
 
       {/* 확정 매출 (동의 환자 - 강조) */}
-      <div className="bg-blue-50 rounded-xl border-2 border-blue-300 p-4">
-        <div className="text-sm text-blue-600 font-medium mb-1">확정 매출</div>
-        <div className="text-3xl font-bold text-blue-700">
+      <div className="bg-orange-50 rounded-xl border-2 border-orange-300 p-4">
+        <div className="text-sm text-orange-600 font-medium mb-1">확정 매출</div>
+        <div className="text-3xl font-bold text-orange-700">
           {summary.actualRevenue.toLocaleString()}만원
         </div>
-        <div className="text-sm text-blue-500 mt-1">
+        <div className="text-sm text-orange-500 mt-1">
           동의 {summary.agreed}건 기준
         </div>
       </div>

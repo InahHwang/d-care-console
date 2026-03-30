@@ -214,7 +214,7 @@ export default function NewPatientPage() {
               value={name}
               onChange={(e) => setName(e.target.value)}
               placeholder="환자 이름 입력"
-              className="w-full px-4 py-3 border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+              className="w-full px-4 py-3 border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-orange-500"
               autoFocus
             />
           </div>
@@ -230,7 +230,7 @@ export default function NewPatientPage() {
               onChange={handlePhoneChange}
               placeholder="010-0000-0000"
               maxLength={13}
-              className="w-full px-4 py-3 border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+              className="w-full px-4 py-3 border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-orange-500"
             />
           </div>
         </div>
@@ -250,7 +250,7 @@ export default function NewPatientPage() {
               <select
                 value={consultationType}
                 onChange={(e) => setConsultationType(e.target.value)}
-                className="w-full px-4 py-3 border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                className="w-full px-4 py-3 border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-orange-500"
               >
                 <option value="">선택하세요</option>
                 {consultationTypes.map((item) => (
@@ -271,7 +271,7 @@ export default function NewPatientPage() {
               <select
                 value={interest}
                 onChange={(e) => setInterest(e.target.value)}
-                className="w-full px-4 py-3 border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                className="w-full px-4 py-3 border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-orange-500"
               >
                 <option value="">선택하세요</option>
                 {treatmentTypes.map((item) => (
@@ -284,7 +284,7 @@ export default function NewPatientPage() {
                 value={interest}
                 onChange={(e) => setInterest(e.target.value)}
                 placeholder="예: 임플란트, 교정"
-                className="w-full px-4 py-3 border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                className="w-full px-4 py-3 border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-orange-500"
               />
             )}
           </div>
@@ -300,7 +300,7 @@ export default function NewPatientPage() {
               <select
                 value={source}
                 onChange={(e) => setSource(e.target.value)}
-                className="w-full px-4 py-3 border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                className="w-full px-4 py-3 border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-orange-500"
               >
                 <option value="">알수없음</option>
                 {referralSources.map((item) => (
@@ -321,7 +321,7 @@ export default function NewPatientPage() {
               value={firstConsultDate}
               onChange={(e) => setFirstConsultDate(e.target.value)}
               max={new Date().toISOString().split('T')[0]}
-              className="w-full px-4 py-3 border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+              className="w-full px-4 py-3 border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-orange-500"
             />
             <p className="text-xs text-gray-400 mt-1">
               비워두면 통화기록에서 자동으로 가져옵니다
@@ -343,7 +343,7 @@ export default function NewPatientPage() {
               placeholder="나이 입력"
               min="1"
               max="120"
-              className="w-full px-4 py-3 border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+              className="w-full px-4 py-3 border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-orange-500"
             />
           </div>
 
@@ -357,7 +357,7 @@ export default function NewPatientPage() {
                   setProvince(e.target.value);
                   setCity('');
                 }}
-                className="px-4 py-3 border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                className="px-4 py-3 border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-orange-500"
               >
                 <option value="">시/도 선택</option>
                 {PROVINCES.map((p) => (
@@ -368,7 +368,7 @@ export default function NewPatientPage() {
                 value={city}
                 onChange={(e) => setCity(e.target.value)}
                 disabled={!province}
-                className="px-4 py-3 border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 disabled:bg-gray-100 disabled:text-gray-400"
+                className="px-4 py-3 border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-orange-500 disabled:bg-gray-100 disabled:text-gray-400"
               >
                 <option value="">시/군/구 선택</option>
                 {province && REGION_DATA[province]?.map((c) => (
@@ -386,7 +386,7 @@ export default function NewPatientPage() {
               onChange={(e) => setMemo(e.target.value)}
               placeholder="환자에 대한 메모를 입력하세요"
               rows={4}
-              className="w-full px-4 py-3 border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 resize-none"
+              className="w-full px-4 py-3 border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-orange-500 resize-none"
             />
           </div>
         </div>
@@ -403,7 +403,7 @@ export default function NewPatientPage() {
           <button
             type="submit"
             disabled={saving}
-            className="flex-1 py-3 bg-blue-500 text-white rounded-lg font-medium hover:bg-blue-600 disabled:opacity-50 flex items-center justify-center gap-2"
+            className="flex-1 py-3 bg-orange-500 text-white rounded-lg font-medium hover:bg-orange-600 disabled:opacity-50 flex items-center justify-center gap-2"
           >
             {saving ? (
               <>

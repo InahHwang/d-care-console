@@ -290,7 +290,7 @@ export default function AdminDashboard() {
               <button
                 onClick={fetchDataCounts}
                 disabled={isClearLoading}
-                className="px-4 py-2 bg-blue-500 text-white rounded hover:bg-blue-600 disabled:opacity-50 flex items-center space-x-2"
+                className="px-4 py-2 bg-orange-500 text-white rounded hover:bg-orange-600 disabled:opacity-50 flex items-center space-x-2"
               >
                 <HiOutlineRefresh className={`w-4 h-4 ${isClearLoading ? 'animate-spin' : ''}`} />
                 <span>{isClearLoading ? '확인 중...' : '현재 데이터 개수 확인'}</span>
@@ -300,7 +300,7 @@ export default function AdminDashboard() {
             {dataCounts && (
               <div className="grid grid-cols-2 md:grid-cols-4 gap-4 p-4 bg-white rounded border border-yellow-200">
                 <div className="text-center">
-                  <div className="text-2xl font-bold text-blue-600">{dataCounts.patients}</div>
+                  <div className="text-2xl font-bold text-orange-600">{dataCounts.patients}</div>
                   <div className="text-sm text-gray-600">환자</div>
                 </div>
                 <div className="text-center">
@@ -382,8 +382,8 @@ export default function AdminDashboard() {
         <div className="bg-white rounded-lg p-6 shadow-sm border border-gray-200">
           <div className="flex items-center">
             <div className="flex-shrink-0">
-              <div className="w-10 h-10 bg-blue-100 rounded-full flex items-center justify-center">
-                <HiOutlineUsers className="w-6 h-6 text-blue-600" />
+              <div className="w-10 h-10 bg-orange-100 rounded-full flex items-center justify-center">
+                <HiOutlineUsers className="w-6 h-6 text-orange-600" />
               </div>
             </div>
             <div className="ml-4">
@@ -492,8 +492,8 @@ export default function AdminDashboard() {
                 <div className="flex items-center justify-between">
                   <div className="flex items-center space-x-3">
                     <div className="flex-shrink-0">
-                      <div className="w-8 h-8 bg-blue-100 rounded-full flex items-center justify-center">
-                        <span className="text-xs font-medium text-blue-600">
+                      <div className="w-8 h-8 bg-orange-100 rounded-full flex items-center justify-center">
+                        <span className="text-xs font-medium text-orange-600">
                           {activity.userName?.charAt(0).toUpperCase() || 'U'}
                         </span>
                       </div>

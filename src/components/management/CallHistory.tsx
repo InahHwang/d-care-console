@@ -26,7 +26,7 @@ const StatusBadge = ({ status }: { status: MessageStatus }) => {
 // 메시지 타입 뱃지 컴포넌트
 const MessageTypeBadge = ({ type }: { type: MessageType }) => {
   const colorMap = {
-    SMS: 'bg-blue-100 text-blue-800',
+    SMS: 'bg-orange-100 text-orange-800',
     LMS: 'bg-purple-100 text-purple-800',
     MMS: 'bg-indigo-100 text-indigo-800',
     RCS: 'bg-teal-100 text-teal-800'
@@ -225,7 +225,7 @@ export default function CallHistory() {
                 onClick={() => handleMessageTypeFilterChange('SMS')}
                 className={`px-3 py-1 text-xs rounded-full ${
                   filters.messageTypes.includes('SMS') 
-                    ? 'bg-blue-500 text-white' 
+                    ? 'bg-orange-500 text-white' 
                     : 'bg-gray-200 text-gray-700'
                 }`}
               >

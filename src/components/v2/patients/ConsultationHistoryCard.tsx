@@ -299,13 +299,13 @@ function ChatDetailModal({ isOpen, onClose, chatId }: ChatDetailModalProps) {
                     <div
                       className={`max-w-[75%] px-3 py-2 rounded-xl text-sm ${
                         msg.senderType === 'agent'
-                          ? 'bg-blue-500 text-white'
+                          ? 'bg-orange-500 text-white'
                           : 'bg-gray-100 text-gray-900'
                       }`}
                     >
                       <p>{msg.content}</p>
                       <p className={`text-xs mt-1 ${
-                        msg.senderType === 'agent' ? 'text-blue-200' : 'text-gray-400'
+                        msg.senderType === 'agent' ? 'text-orange-200' : 'text-gray-400'
                       }`}>
                         {format(new Date(msg.createdAt), 'M/d HH:mm', { locale: ko })}
                       </p>
@@ -641,7 +641,7 @@ export function ConsultationHistoryCard({ patientId, patientName = '', className
           </h3>
           <button
             onClick={() => setManualModalOpen(true)}
-            className="flex items-center gap-1 px-3 py-1.5 text-xs font-medium text-blue-600 bg-blue-50 rounded-lg hover:bg-blue-100 transition-colors"
+            className="flex items-center gap-1 px-3 py-1.5 text-xs font-medium text-orange-600 bg-orange-50 rounded-lg hover:bg-orange-100 transition-colors"
           >
             <Plus size={14} />
             수동 입력
@@ -662,7 +662,7 @@ export function ConsultationHistoryCard({ patientId, patientName = '', className
               onClick={() => setFilter(tab.value)}
               className={`px-3 py-1.5 text-xs font-medium rounded-lg transition-colors ${
                 filter === tab.value
-                  ? 'bg-blue-100 text-blue-700'
+                  ? 'bg-orange-100 text-orange-700'
                   : 'text-gray-500 hover:bg-gray-100'
               }`}
             >
@@ -697,7 +697,7 @@ export function ConsultationHistoryCard({ patientId, patientName = '', className
                 {/* 아이콘 */}
                 <div
                   className={`w-8 h-8 rounded-full flex items-center justify-center flex-shrink-0 ${
-                    item.type === 'call' ? 'bg-blue-100'
+                    item.type === 'call' ? 'bg-orange-100'
                     : item.type === 'manual' ? 'bg-amber-100'
                     : item.type === 'result' ? (
                       item.resultStatus === 'agreed' ? 'bg-emerald-100'
@@ -710,7 +710,7 @@ export function ConsultationHistoryCard({ patientId, patientName = '', className
                   }`}
                 >
                   {item.type === 'call' ? (
-                    <Phone size={14} className="text-blue-600" />
+                    <Phone size={14} className="text-orange-600" />
                   ) : item.type === 'manual' ? (
                     item.manualType === 'phone' ? (
                       <Phone size={14} className="text-amber-600" />
@@ -746,7 +746,7 @@ export function ConsultationHistoryCard({ patientId, patientName = '', className
                       <span
                         className={`px-1.5 py-0.5 rounded text-xs ${
                           item.direction === 'inbound'
-                            ? 'bg-blue-100 text-blue-700'
+                            ? 'bg-orange-100 text-orange-700'
                             : 'bg-purple-100 text-purple-700'
                         }`}
                       >
@@ -788,7 +788,7 @@ export function ConsultationHistoryCard({ patientId, patientName = '', className
                     ) : item.type === 'result' ? (
                       <>
                         <span className={`px-1.5 py-0.5 rounded text-xs ${
-                          item.resultType === 'phone' ? 'bg-blue-100 text-blue-700' : 'bg-purple-100 text-purple-700'
+                          item.resultType === 'phone' ? 'bg-orange-100 text-orange-700' : 'bg-purple-100 text-purple-700'
                         }`}>
                           {item.resultType === 'phone' ? '전화상담' : '내원상담'}
                         </span>
@@ -923,7 +923,7 @@ export function ConsultationHistoryCard({ patientId, patientName = '', className
 
                 {/* 상세보기 안내 (수동, 상담결과 제외) */}
                 {item.type !== 'manual' && item.type !== 'result' && (
-                  <div className="text-xs text-blue-500 flex-shrink-0 self-center">
+                  <div className="text-xs text-orange-500 flex-shrink-0 self-center">
                     상세보기
                   </div>
                 )}
@@ -935,7 +935,7 @@ export function ConsultationHistoryCard({ patientId, patientName = '', className
                     )}
                     <button
                       onClick={(e) => handleEditManual(item, e)}
-                      className="p-1 text-gray-400 hover:text-blue-600 hover:bg-blue-50 rounded transition-colors"
+                      className="p-1 text-gray-400 hover:text-orange-600 hover:bg-orange-50 rounded transition-colors"
                       title="수정"
                     >
                       <Pencil size={13} />
@@ -958,7 +958,7 @@ export function ConsultationHistoryCard({ patientId, patientName = '', className
                     {onEditResult && (
                       <button
                         onClick={(e) => { e.stopPropagation(); onEditResult(item.id.replace('result_', ''), item); }}
-                        className="p-1 text-gray-400 hover:text-blue-600 hover:bg-blue-50 rounded transition-colors"
+                        className="p-1 text-gray-400 hover:text-orange-600 hover:bg-orange-50 rounded transition-colors"
                         title="수정"
                       >
                         <Pencil size={13} />
@@ -989,7 +989,7 @@ export function ConsultationHistoryCard({ patientId, patientName = '', className
                     {item.consultationResultId && onEditResult && (
                       <button
                         onClick={(e) => { e.stopPropagation(); onEditResult(item.consultationResultId!, item.consultationResultData!); }}
-                        className="p-1 text-gray-400 hover:text-blue-600 hover:bg-blue-50 rounded transition-colors"
+                        className="p-1 text-gray-400 hover:text-orange-600 hover:bg-orange-50 rounded transition-colors"
                         title="수정"
                       >
                         <Pencil size={13} />
@@ -1054,7 +1054,7 @@ export function ConsultationHistoryCard({ patientId, patientName = '', className
                         {onEditResult && (
                           <button
                             onClick={(e) => { e.stopPropagation(); onEditResult(item.linkedResult!.id.replace('result_', ''), item.linkedResult!); }}
-                            className="p-1 text-gray-400 hover:text-blue-600 hover:bg-blue-50 rounded transition-colors"
+                            className="p-1 text-gray-400 hover:text-orange-600 hover:bg-orange-50 rounded transition-colors"
                             title="수정"
                           >
                             <Pencil size={12} />
@@ -1091,7 +1091,7 @@ export function ConsultationHistoryCard({ patientId, patientName = '', className
                       e.stopPropagation();
                       onAddResult(item.id, item.type as 'call' | 'manual');
                     }}
-                    className="flex items-center gap-1.5 px-2.5 py-1 text-xs text-blue-600 bg-blue-50 rounded-lg hover:bg-blue-100 transition-colors"
+                    className="flex items-center gap-1.5 px-2.5 py-1 text-xs text-orange-600 bg-orange-50 rounded-lg hover:bg-orange-100 transition-colors"
                   >
                     <ClipboardList size={12} />
                     결과 입력
@@ -1107,7 +1107,7 @@ export function ConsultationHistoryCard({ patientId, patientName = '', className
       {consultations.length > 5 && (
         <button
           onClick={() => setIsExpanded(!isExpanded)}
-          className="w-full p-3 text-sm text-blue-600 hover:bg-gray-50 flex items-center justify-center gap-1 border-t"
+          className="w-full p-3 text-sm text-orange-600 hover:bg-gray-50 flex items-center justify-center gap-1 border-t"
         >
           <span>{isExpanded ? '접기' : `더보기 (${consultations.length - 5}건)`}</span>
           <ChevronDown size={16} className={`transition-transform ${isExpanded ? 'rotate-180' : ''}`} />

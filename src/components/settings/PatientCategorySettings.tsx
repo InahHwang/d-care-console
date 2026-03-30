@@ -421,7 +421,7 @@ export default function PatientCategorySettings() {
 
                 {/* 기본 항목 뱃지 */}
                 {item.isDefault && (
-                  <span className="px-2 py-0.5 text-xs bg-blue-100 text-blue-600 rounded">
+                  <span className="px-2 py-0.5 text-xs bg-orange-100 text-orange-600 rounded">
                     기본
                   </span>
                 )}
@@ -488,9 +488,9 @@ export default function PatientCategorySettings() {
       </div>
 
       {/* 안내 메시지 */}
-      <div className="p-4 bg-blue-50 rounded-lg text-sm text-blue-700">
+      <div className="p-4 bg-orange-50 rounded-lg text-sm text-orange-700">
         <p className="font-medium mb-1">사용 안내</p>
-        <ul className="list-disc list-inside space-y-1 text-blue-600">
+        <ul className="list-disc list-inside space-y-1 text-orange-600">
           <li>항목을 자유롭게 <strong>추가, 수정, 삭제</strong>할 수 있습니다.</li>
           <li>삭제된 항목은 환자 등록 시 선택 목록에서 사라집니다.</li>
           <li>연필 아이콘을 클릭하면 항목 이름을 수정할 수 있습니다.</li>

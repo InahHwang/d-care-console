@@ -174,7 +174,7 @@ export default function TemplateManagement() {
           <button
             className={`px-3 py-1.5 rounded-md text-sm font-medium transition-colors ${
               activeCategory === 'all'
-                ? 'bg-blue-100 text-blue-800'
+                ? 'bg-orange-100 text-orange-800'
                 : 'bg-gray-100 text-text-secondary hover:bg-gray-200'
             }`}
             onClick={() => setActiveCategory('all')}
@@ -186,7 +186,7 @@ export default function TemplateManagement() {
               key={category.value}
               className={`px-3 py-1.5 rounded-md text-sm font-medium transition-colors ${
                 activeCategory === category.value
-                  ? 'bg-blue-100 text-blue-800'
+                  ? 'bg-orange-100 text-orange-800'
                   : 'bg-gray-100 text-text-secondary hover:bg-gray-200'
               }`}
               onClick={() => setActiveCategory(category.value as EventCategory)}
@@ -205,7 +205,7 @@ export default function TemplateManagement() {
       {/* 템플릿 목록 */}
       {isLoading ? (
         <div className="text-center py-12">
-          <div className="w-12 h-12 border-4 border-t-blue-500 border-blue-200 rounded-full animate-spin mx-auto"></div>
+          <div className="w-12 h-12 border-4 border-t-orange-500 border-orange-200 rounded-full animate-spin mx-auto"></div>
           <p className="mt-4 text-text-secondary">템플릿을 불러오는 중...</p>
         </div>
       ) : (
@@ -216,7 +216,7 @@ export default function TemplateManagement() {
                 {searchTerm ? '검색 결과가 없습니다.' : '등록된 템플릿이 없습니다.'}
               </p>
               <button
-                className="mt-4 px-4 py-2 bg-blue-100 text-blue-800 rounded-md hover:bg-blue-200 transition-colors"
+                className="mt-4 px-4 py-2 bg-orange-100 text-orange-800 rounded-md hover:bg-orange-200 transition-colors"
                 onClick={handleAddTemplate}
               >
                 새 템플릿 추가하기
@@ -232,7 +232,7 @@ export default function TemplateManagement() {
                 <div className="px-4 py-3 bg-gray-50 border-b border-border flex justify-between items-center">
                   <div className="flex items-center gap-2">
                     <span className={`inline-block w-2 h-2 rounded-full ${
-                      template.type === 'SMS' ? 'bg-blue-500' : 
+                      template.type === 'SMS' ? 'bg-orange-500' : 
                       template.type === 'LMS' ? 'bg-purple-500' :
                       template.type === 'MMS' ? 'bg-green-500' : 'bg-orange-500'
                     }`}></span>
@@ -242,7 +242,7 @@ export default function TemplateManagement() {
                   </div>
                   <div className="flex items-center gap-1">
                     <button
-                      className="p-1.5 text-text-secondary hover:text-blue-600 hover:bg-blue-50 rounded-md"
+                      className="p-1.5 text-text-secondary hover:text-orange-600 hover:bg-orange-50 rounded-md"
                       onClick={() => handleEditTemplate(template)}
                       title="템플릿 수정"
                     >
@@ -265,7 +265,7 @@ export default function TemplateManagement() {
                       {template.type}
                     </span>
                     {template.category && (
-                      <span className="px-2 py-0.5 bg-blue-100 text-blue-800 text-xs rounded">
+                      <span className="px-2 py-0.5 bg-orange-100 text-orange-800 text-xs rounded">
                         {getCategoryLabel(template.category)}
                       </span>
                     )}

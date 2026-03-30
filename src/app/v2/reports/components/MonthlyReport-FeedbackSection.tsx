@@ -93,13 +93,13 @@ const MonthlyReportFeedbackSection: React.FC<MonthlyReportFeedbackSectionProps> 
   }
 
   return (
-    <div className="mt-4 p-4 bg-blue-50 border border-blue-200 rounded-lg">
+    <div className="mt-4 p-4 bg-orange-50 border border-orange-200 rounded-lg">
       <div className="flex items-center justify-between mb-3">
-        <h4 className="font-medium text-blue-900 flex items-center gap-2">
+        <h4 className="font-medium text-orange-900 flex items-center gap-2">
           <MessageCircle className="w-4 h-4" />
           피드백 ({sectionTitle})
           {sectionFeedbacks.length > 0 && (
-            <span className="text-xs bg-blue-100 text-blue-700 px-2 py-1 rounded-full">
+            <span className="text-xs bg-orange-100 text-orange-700 px-2 py-1 rounded-full">
               {sectionFeedbacks.length}개
             </span>
           )}
@@ -108,7 +108,7 @@ const MonthlyReportFeedbackSection: React.FC<MonthlyReportFeedbackSectionProps> 
         {canWriteFeedback && !showFeedbackForm && !editingFeedbackId && (
           <button
             onClick={() => setShowFeedbackForm(true)}
-            className="flex items-center gap-1 px-2 py-1 text-xs text-blue-600 border border-blue-300 rounded hover:bg-blue-100 no-print"
+            className="flex items-center gap-1 px-2 py-1 text-xs text-orange-600 border border-orange-300 rounded hover:bg-orange-100 no-print"
           >
             <Plus className="w-3 h-3" />
             피드백 추가
@@ -119,20 +119,20 @@ const MonthlyReportFeedbackSection: React.FC<MonthlyReportFeedbackSectionProps> 
       {/* 기존 피드백 목록 */}
       <div className="space-y-3">
         {sectionFeedbacks.map((feedback) => (
-          <div key={feedback.feedbackId} className="bg-white border border-blue-200 rounded p-3">
+          <div key={feedback.feedbackId} className="bg-white border border-orange-200 rounded p-3">
             {editingFeedbackId === feedback.feedbackId ? (
               <div className="space-y-2">
                 <textarea
                   value={feedbackContent}
                   onChange={(e) => setFeedbackContent(e.target.value)}
-                  className="w-full h-20 p-2 text-sm border rounded focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                  className="w-full h-20 p-2 text-sm border rounded focus:ring-2 focus:ring-orange-500 focus:border-orange-500"
                   placeholder="피드백 내용을 입력하세요..."
                 />
                 <div className="flex gap-2">
                   <button
                     onClick={() => handleUpdateFeedback(feedback.feedbackId)}
                     disabled={isSubmitting || !feedbackContent.trim()}
-                    className="px-3 py-1 text-xs bg-blue-600 text-white rounded hover:bg-blue-700 disabled:opacity-50"
+                    className="px-3 py-1 text-xs bg-orange-600 text-white rounded hover:bg-orange-700 disabled:opacity-50"
                   >
                     {isSubmitting ? '저장 중...' : '저장'}
                   </button>
@@ -168,7 +168,7 @@ const MonthlyReportFeedbackSection: React.FC<MonthlyReportFeedbackSectionProps> 
                     <div className="flex gap-1 ml-2 no-print">
                       <button
                         onClick={() => startEdit(feedback)}
-                        className="p-1 text-gray-400 hover:text-blue-600"
+                        className="p-1 text-gray-400 hover:text-orange-600"
                         title="수정"
                       >
                         <Edit className="w-3 h-3" />
@@ -191,18 +191,18 @@ const MonthlyReportFeedbackSection: React.FC<MonthlyReportFeedbackSectionProps> 
 
       {/* 새 피드백 작성 폼 */}
       {showFeedbackForm && canWriteFeedback && (
-        <div className="mt-3 p-3 bg-white border border-blue-200 rounded">
+        <div className="mt-3 p-3 bg-white border border-orange-200 rounded">
           <textarea
             value={feedbackContent}
             onChange={(e) => setFeedbackContent(e.target.value)}
-            className="w-full h-20 p-2 text-sm border rounded focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+            className="w-full h-20 p-2 text-sm border rounded focus:ring-2 focus:ring-orange-500 focus:border-orange-500"
             placeholder="피드백 내용을 입력하세요..."
           />
           <div className="flex gap-2 mt-2">
             <button
               onClick={handleAddFeedback}
               disabled={isSubmitting || !feedbackContent.trim()}
-              className="px-3 py-1 text-xs bg-blue-600 text-white rounded hover:bg-blue-700 disabled:opacity-50"
+              className="px-3 py-1 text-xs bg-orange-600 text-white rounded hover:bg-orange-700 disabled:opacity-50"
             >
               {isSubmitting ? '추가 중...' : '피드백 추가'}
             </button>

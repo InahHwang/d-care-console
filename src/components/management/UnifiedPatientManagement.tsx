@@ -242,7 +242,7 @@ export default function UnifiedPatientManagement() {
           }}
           className={`p-4 rounded-lg border cursor-pointer transition-all duration-200 ${
             selectedFunnel === 'all' && selectedUrgent === 'all'
-              ? 'ring-2 ring-blue-500 shadow-lg bg-white'
+              ? 'ring-2 ring-orange-500 shadow-lg bg-white'
               : 'bg-white hover:shadow-lg hover:bg-gray-50'
           }`}
         >
@@ -262,7 +262,7 @@ export default function UnifiedPatientManagement() {
               }}
               className={`p-4 rounded-lg border cursor-pointer transition-all duration-200 ${
                 selectedFunnel === key
-                  ? 'ring-2 ring-blue-500 shadow-lg ' + info.bgColor
+                  ? 'ring-2 ring-orange-500 shadow-lg ' + info.bgColor
                   : 'bg-white ' + info.hoverColor + ' hover:shadow-lg'
               }`}
             >
@@ -310,7 +310,7 @@ export default function UnifiedPatientManagement() {
           <button
             onClick={() => setShowFilters(!showFilters)}
             className={`flex items-center gap-2 px-4 py-2 rounded-full text-sm transition-colors ${
-              showFilters ? 'bg-blue-100 text-blue-700' : 'bg-light-bg text-text-secondary hover:bg-gray-200'
+              showFilters ? 'bg-orange-100 text-orange-700' : 'bg-light-bg text-text-secondary hover:bg-gray-200'
             }`}
           >
             <Icon icon={HiOutlineFilter} size={16} />
@@ -362,13 +362,13 @@ export default function UnifiedPatientManagement() {
 
         {/* 필터 결과 요약 */}
         {hasActiveFilters && (
-          <div className="mt-4 p-3 bg-blue-50 rounded-lg">
+          <div className="mt-4 p-3 bg-orange-50 rounded-lg">
             <div className="flex items-center justify-between">
-              <div className="flex items-center gap-2 text-sm text-blue-800 flex-wrap">
+              <div className="flex items-center gap-2 text-sm text-orange-800 flex-wrap">
                 <span>필터링 결과: <strong>{filteredPatients.length}명</strong></span>
 
                 {selectedFunnel !== 'all' && (
-                  <span className="inline-flex items-center px-2 py-1 rounded-full text-xs bg-blue-200 text-blue-800">
+                  <span className="inline-flex items-center px-2 py-1 rounded-full text-xs bg-orange-200 text-orange-800">
                     {FUNNEL_STAGES[selectedFunnel].icon} {FUNNEL_STAGES[selectedFunnel].label}
                   </span>
                 )}
@@ -380,20 +380,20 @@ export default function UnifiedPatientManagement() {
                 )}
 
                 {consultationTypeFilter !== 'all' && (
-                  <span className="inline-flex items-center px-2 py-1 rounded-full text-xs bg-blue-200 text-blue-800">
+                  <span className="inline-flex items-center px-2 py-1 rounded-full text-xs bg-orange-200 text-orange-800">
                     {consultationTypeFilter === 'inbound' ? '인바운드' : '아웃바운드'}
                   </span>
                 )}
 
                 {searchTerm && (
-                  <span className="inline-flex items-center px-2 py-1 rounded-full text-xs bg-blue-200 text-blue-800">
+                  <span className="inline-flex items-center px-2 py-1 rounded-full text-xs bg-orange-200 text-orange-800">
                     "{searchTerm}"
                   </span>
                 )}
               </div>
               <button
                 onClick={handleResetFilters}
-                className="text-xs text-blue-600 hover:text-blue-800 underline"
+                className="text-xs text-orange-600 hover:text-orange-800 underline"
               >
                 필터 초기화
               </button>

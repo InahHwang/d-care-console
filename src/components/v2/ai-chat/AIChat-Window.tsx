@@ -267,7 +267,7 @@ export default function AIChatWindow({ onClose }: Props) {
   return (
     <div className="fixed bottom-20 right-5 w-[380px] h-[520px] bg-white rounded-2xl shadow-2xl border border-gray-200 flex flex-col overflow-hidden z-[60]">
       {/* 헤더 */}
-      <div className="flex items-center justify-between px-4 py-3 bg-gradient-to-r from-purple-600 to-blue-600 text-white">
+      <div className="flex items-center justify-between px-4 py-3 bg-gradient-to-r from-purple-600 to-orange-600 text-white">
         <div className="flex items-center gap-2">
           <Sparkles className="w-4 h-4" />
           <div>

@@ -471,7 +471,7 @@ export default function TemplateFormModal({
                       {isImageUploading && (
                         <div className="absolute inset-0 bg-black/50 flex items-center justify-center rounded-md">
                           <div className="bg-white p-3 rounded-md flex items-center gap-2">
-                            <div className="w-4 h-4 border-2 border-t-blue-500 border-blue-200 rounded-full animate-spin"></div>
+                            <div className="w-4 h-4 border-2 border-t-orange-500 border-orange-200 rounded-full animate-spin"></div>
                             <span className="text-sm">최적화 중...</span>
                           </div>
                         </div>
@@ -606,7 +606,7 @@ export default function TemplateFormModal({
                         {rcsButtons.map((btn, idx) => (
                           <button
                             key={idx}
-                            className="w-full py-2 text-center bg-blue-50 text-blue-700 rounded-md text-sm"
+                            className="w-full py-2 text-center bg-orange-50 text-orange-700 rounded-md text-sm"
                           >
                             {btn.buttonName || '버튼 이름'}
                           </button>
@@ -642,7 +642,7 @@ export default function TemplateFormModal({
             className={`px-4 py-2 rounded-md transition-colors flex items-center gap-1.5 ${
               isImageUploading || isSaving
                 ? 'bg-gray-400 text-gray-200 cursor-not-allowed' 
-                : 'bg-blue-600 text-white hover:bg-blue-700'
+                : 'bg-orange-600 text-white hover:bg-orange-700'
             }`}
             onClick={handleSubmit}
             disabled={isImageUploading || isSaving}

@@ -39,7 +39,7 @@ export function FilterTabs({
         }
         // 컬러별 스타일
         const colorStyles: Record<string, string> = {
-          blue: 'bg-blue-100 text-blue-700',
+          blue: 'bg-orange-100 text-orange-700',
           purple: 'bg-purple-100 text-purple-700',
           amber: 'bg-amber-100 text-amber-700',
           emerald: 'bg-emerald-100 text-emerald-700',
@@ -54,12 +54,12 @@ export function FilterTabs({
 
     if (variant === 'underline') {
       return isActive
-        ? 'text-blue-600 border-b-2 border-blue-600'
+        ? 'text-orange-600 border-b-2 border-orange-600'
         : 'text-gray-500 hover:text-gray-700';
     }
 
     return isActive
-      ? 'bg-blue-500 text-white'
+      ? 'bg-orange-500 text-white'
       : 'bg-gray-100 text-gray-600 hover:bg-gray-200';
   };
 

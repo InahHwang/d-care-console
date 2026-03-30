@@ -126,7 +126,7 @@ export function PatientAdvancedFilter({ values, onChange, consultationTypeMap, t
         onClick={() => setOpen(!open)}
         className={`flex items-center gap-1.5 px-3 py-2 rounded-lg text-sm font-medium border transition-colors ${
           activeCount > 0
-            ? 'bg-blue-50 border-blue-300 text-blue-700'
+            ? 'bg-orange-50 border-orange-300 text-orange-700'
             : 'bg-white border-gray-200 text-gray-500 hover:bg-gray-50'
         }`}
       >
@@ -169,7 +169,7 @@ export function PatientAdvancedFilter({ values, onChange, consultationTypeMap, t
                   onClick={() => handleChipToggle('interest', type.label)}
                   className={`px-2.5 py-1 rounded-full text-xs font-medium border transition-colors ${
                     local.interest === type.label
-                      ? 'bg-blue-100 border-blue-300 text-blue-700'
+                      ? 'bg-orange-100 border-orange-300 text-orange-700'
                       : 'bg-gray-50 border-gray-200 text-gray-600 hover:bg-gray-100'
                   }`}
                 >
@@ -245,7 +245,7 @@ export function PatientAdvancedFilter({ values, onChange, consultationTypeMap, t
             </button>
             <button
               onClick={handleApply}
-              className="px-4 py-1.5 bg-blue-500 hover:bg-blue-600 text-white rounded-lg text-xs font-medium"
+              className="px-4 py-1.5 bg-orange-500 hover:bg-orange-600 text-white rounded-lg text-xs font-medium"
             >
               적용
             </button>

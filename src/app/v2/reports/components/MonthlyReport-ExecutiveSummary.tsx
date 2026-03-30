@@ -169,7 +169,7 @@ const MonthlyReportExecutiveSummary: React.FC<MonthlyReportExecutiveSummaryProps
             value={`${stats.totalInquiries}건`}
             change={stats.changes.totalInquiries}
             unit="건"
-            accentColor="text-blue-600"
+            accentColor="text-orange-600"
           />
           <BigMetricCard
             label="확정매출"
@@ -235,7 +235,7 @@ const MonthlyReportExecutiveSummary: React.FC<MonthlyReportExecutiveSummaryProps
                     </p>
                   )}
                   {item.action && (
-                    <p className="text-sm text-blue-700 bg-blue-50 rounded px-3 py-1.5 ml-6">
+                    <p className="text-sm text-orange-700 bg-orange-50 rounded px-3 py-1.5 ml-6">
                       <span className="font-medium">Action:</span> {item.action}
                     </p>
                   )}

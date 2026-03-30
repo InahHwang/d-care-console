@@ -14,7 +14,7 @@ interface CallbackHistoryV2Props {
 }
 
 const CALLBACK_RESULTS: { value: CallbackResult; label: string; color: string }[] = [
-  { value: '통화완료', label: '통화완료', color: 'bg-blue-100 text-blue-800' },
+  { value: '통화완료', label: '통화완료', color: 'bg-orange-100 text-orange-800' },
   { value: '부재중', label: '부재중', color: 'bg-gray-100 text-gray-800' },
   { value: '콜백재요청', label: '콜백 재요청', color: 'bg-yellow-100 text-yellow-800' },
   { value: '예약확정', label: '예약확정', color: 'bg-green-100 text-green-800' },
@@ -79,7 +79,7 @@ export default function CallbackHistoryV2({
         {!readonly && onAddCallback && (
           <button
             onClick={() => setIsAdding(!isAdding)}
-            className="text-xs px-2 py-1 bg-blue-500 text-white rounded hover:bg-blue-600"
+            className="text-xs px-2 py-1 bg-orange-500 text-white rounded hover:bg-orange-600"
           >
             {isAdding ? '취소' : '+ 콜백 추가'}
           </button>
@@ -88,8 +88,8 @@ export default function CallbackHistoryV2({
 
       {/* 콜백 추가 폼 */}
       {isAdding && (
-        <div className="p-3 bg-blue-50 rounded-lg space-y-2 border border-blue-200">
-          <div className="text-xs font-medium text-blue-700">
+        <div className="p-3 bg-orange-50 rounded-lg space-y-2 border border-orange-200">
+          <div className="text-xs font-medium text-orange-700">
             {getAttemptLabel(callbacks.length + 1)} 콜백 등록
           </div>
 
@@ -100,7 +100,7 @@ export default function CallbackHistoryV2({
                 onClick={() => setNewCallback({ ...newCallback, result: r.value })}
                 className={`text-xs px-2 py-1 rounded ${
                   newCallback.result === r.value
-                    ? 'ring-2 ring-blue-500 ' + r.color
+                    ? 'ring-2 ring-orange-500 ' + r.color
                     : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
                 }`}
               >
@@ -126,7 +126,7 @@ export default function CallbackHistoryV2({
             </button>
             <button
               onClick={handleSubmit}
-              className="text-xs px-3 py-1 bg-blue-500 text-white rounded hover:bg-blue-600"
+              className="text-xs px-3 py-1 bg-orange-500 text-white rounded hover:bg-orange-600"
             >
               등록
             </button>

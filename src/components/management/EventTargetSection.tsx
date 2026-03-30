@@ -315,15 +315,15 @@ export default function EventTargetSection({ patient }: EventTargetSectionProps)
   }
   
   return (
-    <div className={`border rounded-lg transition-colors ${isEventTarget ? 'bg-blue-50/30 border-blue-200' : 'bg-gray-50 border-gray-200'}`}>
+    <div className={`border rounded-lg transition-colors ${isEventTarget ? 'bg-orange-50/30 border-orange-200' : 'bg-gray-50 border-gray-200'}`}>
       {/* 헤더 영역 */}
       <div className="px-5 py-4 flex items-center justify-between">
         <div className="flex items-center gap-3">
-          <div className={`w-10 h-10 rounded-full flex items-center justify-center ${isEventTarget ? 'bg-blue-100 text-blue-600' : 'bg-gray-200 text-gray-600'}`}>
+          <div className={`w-10 h-10 rounded-full flex items-center justify-center ${isEventTarget ? 'bg-orange-100 text-orange-600' : 'bg-gray-200 text-gray-600'}`}>
             <Icon icon={HiOutlineVolumeUp} size={20} />
           </div>
           <div>
-            <h3 className={`text-md font-semibold ${isEventTarget ? 'text-blue-800' : 'text-text-primary'}`}>이벤트 타겟 관리</h3>
+            <h3 className={`text-md font-semibold ${isEventTarget ? 'text-orange-800' : 'text-text-primary'}`}>이벤트 타겟 관리</h3>
             <p className="text-sm text-text-secondary">특별 프로모션이나 이벤트에 적합한 환자로 관리합니다</p>
           </div>
         </div>
@@ -334,7 +334,7 @@ export default function EventTargetSection({ patient }: EventTargetSectionProps)
             <>
               <button 
                 onClick={() => setIsEditing(true)}
-                className="text-blue-600 hover:text-blue-800"
+                className="text-orange-600 hover:text-orange-800"
                 title="수정"
               >
                 <Icon icon={HiOutlinePencil} size={18} />
@@ -354,7 +354,7 @@ export default function EventTargetSection({ patient }: EventTargetSectionProps)
           {isEventTarget && !isEditing && (
             <button 
               onClick={() => setIsEditing(!isEditing)} 
-              className="text-blue-600 hover:text-blue-800 ml-1"
+              className="text-orange-600 hover:text-orange-800 ml-1"
               title={isEditing ? "접기" : "펼치기"}
             >
               <Icon icon={isEditing ? HiOutlineChevronUp : HiOutlineChevronDown} size={18} />
@@ -366,7 +366,7 @@ export default function EventTargetSection({ patient }: EventTargetSectionProps)
           <button 
             onClick={handleToggleEventTarget}
             disabled={isLoading}
-            className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors focus:outline-none ${isEventTarget ? 'bg-blue-600' : 'bg-gray-300'}`}
+            className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors focus:outline-none ${isEventTarget ? 'bg-orange-600' : 'bg-gray-300'}`}
           >
             <span
               className={`${isEventTarget ? 'translate-x-6' : 'translate-x-1'} inline-block h-4 w-4 transform rounded-full bg-white transition-transform`}
@@ -377,7 +377,7 @@ export default function EventTargetSection({ patient }: EventTargetSectionProps)
       
       {/* 편집 모드 - 확장된 폼 */}
       {isEventTarget && isEditing && (
-        <div className="px-5 py-4 border-t border-blue-200 space-y-4">
+        <div className="px-5 py-4 border-t border-orange-200 space-y-4">
           {showSuccessMessage && (
             <div className="bg-green-50 border border-green-200 rounded-md p-3 mb-4 flex items-center gap-2 text-green-800">
               <Icon icon={HiOutlineCheck} size={20} />
@@ -448,7 +448,7 @@ export default function EventTargetSection({ patient }: EventTargetSectionProps)
                   disabled={isLoading}
                   className={`px-3 py-1.5 rounded-full text-sm flex items-center gap-1 transition-colors ${
                     selectedCategories.includes(category.value as EventCategory)
-                      ? 'bg-blue-100 text-blue-800 border border-blue-300'
+                      ? 'bg-orange-100 text-orange-800 border border-orange-300'
                       : 'bg-light-bg text-text-primary border border-border hover:bg-gray-200'
                   }`}
                 >
@@ -487,7 +487,7 @@ export default function EventTargetSection({ patient }: EventTargetSectionProps)
               onClick={handleSaveEventTarget}
               disabled={isLoading}
               className={`px-4 py-2 rounded-md text-sm font-medium text-white transition-colors flex items-center gap-2 ${
-                isLoading ? 'bg-blue-400 cursor-not-allowed' : 'bg-blue-600 hover:bg-blue-700'
+                isLoading ? 'bg-orange-400 cursor-not-allowed' : 'bg-orange-600 hover:bg-orange-700'
               }`}
             >
               {isLoading ? (
@@ -511,26 +511,26 @@ export default function EventTargetSection({ patient }: EventTargetSectionProps)
       
       {/* 요약 정보 모드 - 축소된 정보 표시 */}
       {isEventTarget && !isEditing && (
-        <div className="px-5 py-4 border-t border-blue-200">
+        <div className="px-5 py-4 border-t border-orange-200">
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-            <div className="bg-white p-3 rounded-md border border-blue-100">
-              <p className="text-sm text-blue-700 font-medium">타겟 사유</p>
+            <div className="bg-white p-3 rounded-md border border-orange-100">
+              <p className="text-sm text-orange-700 font-medium">타겟 사유</p>
               <p className="text-text-primary mt-1">{getReasonText()}</p>
             </div>
             
-            <div className="bg-white p-3 rounded-md border border-blue-100">
-              <p className="text-sm text-blue-700 font-medium">발송 가능 시기</p>
+            <div className="bg-white p-3 rounded-md border border-orange-100">
+              <p className="text-sm text-orange-700 font-medium">발송 가능 시기</p>
               <p className="text-text-primary mt-1">{scheduledDate || '-'}</p>
             </div>
             
-            <div className="bg-white p-3 rounded-md border border-blue-100 md:col-span-2">
-              <p className="text-sm text-blue-700 font-medium">이벤트 카테고리</p>
+            <div className="bg-white p-3 rounded-md border border-orange-100 md:col-span-2">
+              <p className="text-sm text-orange-700 font-medium">이벤트 카테고리</p>
               <div className="flex flex-wrap gap-1 mt-1">
                 {selectedCategories.length > 0 ? (
                   selectedCategories.map((category, idx) => (
                     <span 
                       key={idx}
-                      className="inline-block px-2 py-1 rounded-full text-xs bg-blue-50 text-blue-700"
+                      className="inline-block px-2 py-1 rounded-full text-xs bg-orange-50 text-orange-700"
                     >
                       {getCategoryLabel(category)}
                     </span>
@@ -542,8 +542,8 @@ export default function EventTargetSection({ patient }: EventTargetSectionProps)
             </div>
             
             {notes && (
-              <div className="bg-white p-3 rounded-md border border-blue-100 md:col-span-2">
-                <p className="text-sm text-blue-700 font-medium">메모</p>
+              <div className="bg-white p-3 rounded-md border border-orange-100 md:col-span-2">
+                <p className="text-sm text-orange-700 font-medium">메모</p>
                 <p className="text-text-primary mt-1 text-sm whitespace-pre-line">{notes}</p>
               </div>
             )}
@@ -551,7 +551,7 @@ export default function EventTargetSection({ patient }: EventTargetSectionProps)
           
           {/* 생성일/수정일 정보 */}
           {patient.eventTargetInfo?.createdAt && (
-            <div className="mt-3 text-xs text-blue-600 flex justify-between">
+            <div className="mt-3 text-xs text-orange-600 flex justify-between">
               <span>생성: {new Date(patient.eventTargetInfo.createdAt).toLocaleDateString()}</span>
               {patient.eventTargetInfo?.updatedAt && (
                 <span>수정: {new Date(patient.eventTargetInfo.updatedAt).toLocaleDateString()}</span>

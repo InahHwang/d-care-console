@@ -203,7 +203,7 @@ function ReportsPageContent() {
             onClick={() => setActiveTab('daily')}
             className={`flex-1 py-3 text-center font-medium transition-colors ${
               activeTab === 'daily'
-                ? 'text-blue-600 border-b-2 border-blue-600'
+                ? 'text-orange-600 border-b-2 border-orange-600'
                 : 'text-gray-500 hover:text-gray-700'
             }`}
           >
@@ -216,7 +216,7 @@ function ReportsPageContent() {
             onClick={() => setActiveTab('monthly')}
             className={`flex-1 py-3 text-center font-medium transition-colors ${
               activeTab === 'monthly'
-                ? 'text-blue-600 border-b-2 border-blue-600'
+                ? 'text-orange-600 border-b-2 border-orange-600'
                 : 'text-gray-500 hover:text-gray-700'
             }`}
           >
@@ -266,7 +266,7 @@ function ReportsPageContent() {
       {/* 콘텐츠 */}
       {loading ? (
         <div className="bg-white rounded-xl p-12 text-center">
-          <div className="animate-spin w-8 h-8 border-4 border-blue-200 border-t-blue-600 rounded-full mx-auto mb-4" />
+          <div className="animate-spin w-8 h-8 border-4 border-orange-200 border-t-orange-600 rounded-full mx-auto mb-4" />
           <p className="text-gray-500">로딩 중...</p>
         </div>
       ) : activeTab === 'daily' && dailyData ? (
@@ -311,7 +311,7 @@ function ReportsPageContent() {
                 <button
                   onClick={handleCreateReport}
                   disabled={isCreating}
-                  className="inline-flex items-center gap-2 px-6 py-3 bg-blue-600 text-white rounded-lg hover:bg-blue-700 disabled:opacity-50 transition-colors"
+                  className="inline-flex items-center gap-2 px-6 py-3 bg-orange-600 text-white rounded-lg hover:bg-orange-700 disabled:opacity-50 transition-colors"
                 >
                   <Plus className="w-5 h-5" />
                   {isCreating ? '생성 중...' : '보고서 생성'}
@@ -330,7 +330,7 @@ function ReportsPageContent() {
                       onClick={() => setSelectedYearMonth(r.yearMonth)}
                       className={`flex items-center justify-between px-4 py-2 rounded-lg border cursor-pointer transition-colors ${
                         r.yearMonth === selectedYearMonth
-                          ? 'border-blue-300 bg-blue-50'
+                          ? 'border-orange-300 bg-orange-50'
                           : 'border-gray-200 hover:bg-gray-50'
                       }`}
                     >
@@ -340,7 +340,7 @@ function ReportsPageContent() {
                         </span>
                         <span className={`px-2 py-0.5 rounded-full text-xs ${
                           r.status === 'draft' ? 'bg-yellow-100 text-yellow-800' :
-                          r.status === 'submitted' ? 'bg-blue-100 text-blue-800' :
+                          r.status === 'submitted' ? 'bg-orange-100 text-orange-800' :
                           'bg-green-100 text-green-800'
                         }`}>
                           {r.status === 'draft' ? '임시저장' :

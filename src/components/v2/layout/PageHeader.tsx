@@ -54,7 +54,7 @@ export function PageHeader({
             typeof action === 'object' && 'onClick' in action ? (
               <button
                 onClick={action.onClick}
-                className="flex items-center gap-2 px-4 py-2 bg-blue-500 text-white rounded-lg hover:bg-blue-600 transition-colors"
+                className="flex items-center gap-2 px-4 py-2 bg-orange-500 text-white rounded-lg hover:bg-orange-600 transition-colors"
               >
                 {action.icon}
                 <span>{action.label}</span>

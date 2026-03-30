@@ -28,7 +28,7 @@ export function ChannelChatRoomItem({ chat, isSelected, onClick }: ChannelChatRo
       onClick={onClick}
       className={`w-full p-3 rounded-lg text-left transition-colors ${
         isSelected
-          ? 'bg-blue-50 border border-blue-200'
+          ? 'bg-orange-50 border border-orange-200'
           : 'hover:bg-gray-50 border border-transparent'
       }`}
     >

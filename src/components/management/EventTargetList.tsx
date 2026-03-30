@@ -374,7 +374,7 @@ export default function EventTargetList() {
             className={`px-4 py-2 rounded-full text-sm font-medium transition-colors flex items-center gap-2 ${
               refreshing 
                 ? 'bg-gray-200 text-gray-500 cursor-not-allowed'
-                : 'bg-blue-500 text-white hover:bg-blue-600'
+                : 'bg-orange-500 text-white hover:bg-orange-600'
             }`}
             onClick={handleRefresh}
             disabled={refreshing}
@@ -405,9 +405,9 @@ export default function EventTargetList() {
       
       {/* 상태 표시 영역 */}
       {eventTargetPatients && (
-        <div className="card mb-4 bg-blue-50 border-blue-200">
+        <div className="card mb-4 bg-orange-50 border-orange-200">
           <div className="flex items-center justify-between">
-            <div className="text-sm text-blue-700">
+            <div className="text-sm text-orange-700">
               총 <span className="font-medium">{eventTargetPatients.length}</span>명의 이벤트 타겟 환자가 등록되어 있습니다.
               {filteredPatients.length !== eventTargetPatients.length && (
                 <span className="ml-2">
@@ -415,7 +415,7 @@ export default function EventTargetList() {
                 </span>
               )}
             </div>
-            <div className="text-xs text-blue-600">
+            <div className="text-xs text-orange-600">
               {refreshing ? '데이터 업데이트 중...' : `마지막 업데이트: ${new Date().toLocaleTimeString()}`}
             </div>
           </div>
@@ -479,7 +479,7 @@ export default function EventTargetList() {
                       onClick={() => handleReasonToggle(reason.value as EventTargetReason)}
                       className={`px-3 py-1.5 rounded-full text-sm flex items-center gap-1 transition-colors ${
                         selectedReasons.includes(reason.value as EventTargetReason)
-                          ? 'bg-blue-100 text-blue-800 border border-blue-300'
+                          ? 'bg-orange-100 text-orange-800 border border-orange-300'
                           : 'bg-light-bg text-text-primary border border-border hover:bg-gray-200'
                       }`}
                     >
@@ -502,7 +502,7 @@ export default function EventTargetList() {
                       onClick={() => handleCategoryToggle(category.value as EventCategory)}
                       className={`px-3 py-1.5 rounded-full text-sm flex items-center gap-1 transition-colors ${
                         selectedCategories.includes(category.value as EventCategory)
-                          ? 'bg-blue-100 text-blue-800 border border-blue-300'
+                          ? 'bg-orange-100 text-orange-800 border border-orange-300'
                           : 'bg-light-bg text-text-primary border border-border hover:bg-gray-200'
                       }`}
                     >
@@ -535,27 +535,27 @@ export default function EventTargetList() {
       
       {/* 선택된 환자 정보 표시 영역 */}
       {selectedPatients.length > 0 && (
-        <div className="card mb-4 bg-blue-50 border-blue-200">
+        <div className="card mb-4 bg-orange-50 border-orange-200">
           <div className="flex flex-col md:flex-row items-start md:items-center justify-between gap-2">
             <div className="flex items-center gap-2">
-              <div className="w-8 h-8 rounded-full bg-blue-100 text-blue-600 flex items-center justify-center">
+              <div className="w-8 h-8 rounded-full bg-orange-100 text-orange-600 flex items-center justify-center">
                 <Icon icon={HiOutlineCheck} size={16} />
               </div>
               <div>
-                <p className="text-blue-800 font-medium">
+                <p className="text-orange-800 font-medium">
                   {selectedPatients.length}명의 환자 선택됨
                 </p>
                 <div className="flex flex-wrap gap-1 mt-1">
                   {selectedPatients.slice(0, 3).map(patient => (
                     <span 
                       key={patient.id}
-                      className="inline-block px-2 py-0.5 rounded-full text-xs bg-blue-100 text-blue-700"
+                      className="inline-block px-2 py-0.5 rounded-full text-xs bg-orange-100 text-orange-700"
                     >
                       {patient.name}
                     </span>
                   ))}
                   {selectedPatients.length > 3 && (
-                    <span className="inline-block px-2 py-0.5 rounded-full text-xs bg-blue-100 text-blue-700">
+                    <span className="inline-block px-2 py-0.5 rounded-full text-xs bg-orange-100 text-orange-700">
                       +{selectedPatients.length - 3}명
                     </span>
                   )}
@@ -564,14 +564,14 @@ export default function EventTargetList() {
             </div>
             <div className="flex items-center gap-2">
               <button
-                className="px-3 py-1.5 rounded-md text-sm bg-blue-500 text-white hover:bg-blue-600 transition-colors"
+                className="px-3 py-1.5 rounded-md text-sm bg-orange-500 text-white hover:bg-orange-600 transition-colors"
                 onClick={handleOpenMessageSendModal}
               >
                 <Icon icon={HiOutlinePaperAirplane} size={14} className="mr-1 inline-block" />
                 메시지 발송
               </button>
               <button
-                className="px-3 py-1.5 rounded-md text-sm bg-white text-blue-700 hover:bg-blue-50 transition-colors border border-blue-300"
+                className="px-3 py-1.5 rounded-md text-sm bg-white text-orange-700 hover:bg-orange-50 transition-colors border border-orange-300"
                 onClick={() => {
                   setSelectedPatients([])
                 }}
@@ -626,7 +626,7 @@ export default function EventTargetList() {
                       <>
                         검색 결과가 없습니다. 다른 검색어나 필터를 사용해보세요.
                         <div className="mt-2 text-xs text-gray-500">
-                          또는 <button onClick={handleRefresh} className="text-blue-600 hover:underline">새로고침</button>을 눌러주세요.
+                          또는 <button onClick={handleRefresh} className="text-orange-600 hover:underline">새로고침</button>을 눌러주세요.
                         </div>
                       </>
                     ) : (
@@ -649,7 +649,7 @@ export default function EventTargetList() {
                     <tr 
                       key={patient.id} 
                       className={`border-b border-border last:border-0 ${rowColor} ${
-                        isSelected ? 'bg-blue-50/50' : ''
+                        isSelected ? 'bg-orange-50/50' : ''
                       } hover:bg-light-bg/50 transition-colors duration-150`}
                     >
                       {/* 체크박스 셀 */}
@@ -684,7 +684,7 @@ export default function EventTargetList() {
                           <Icon 
                             icon={HiOutlineTag} 
                             size={16} 
-                            className="text-blue-600" 
+                            className="text-orange-600" 
                           />
                           {getReasonLabel(patient)}
                         </div>
@@ -694,7 +694,7 @@ export default function EventTargetList() {
                           {patient.eventTargetInfo?.categories?.map((category, idx) => (
                             <span 
                               key={idx}
-                              className="inline-block px-2 py-1 rounded-full text-xs bg-blue-100 text-blue-800"
+                              className="inline-block px-2 py-1 rounded-full text-xs bg-orange-100 text-orange-800"
                             >
                               {getCategoryLabel(category)}
                             </span>
@@ -706,7 +706,7 @@ export default function EventTargetList() {
                           <Icon 
                             icon={HiOutlineCalendar} 
                             size={16} 
-                            className="text-blue-600" 
+                            className="text-orange-600" 
                           />
                           {patient.eventTargetInfo?.scheduledDate || '-'}
                         </div>
@@ -761,7 +761,7 @@ export default function EventTargetList() {
             <div className="text-sm text-text-secondary mb-4 sm:mb-0">
               총 {filteredPatients.length}개 항목 중 {Math.min((currentPage - 1) * itemsPerPage + 1, filteredPatients.length)}-{Math.min(currentPage * itemsPerPage, filteredPatients.length)} 표시
               {selectedPatients.length > 0 && (
-                <span className="ml-2 text-blue-600">
+                <span className="ml-2 text-orange-600">
                   ({selectedPatients.length}명 선택됨)
                 </span>
               )}

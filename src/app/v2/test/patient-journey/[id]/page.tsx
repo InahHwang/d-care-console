@@ -32,7 +32,7 @@ interface Journey {
 
 // 상태 진행 단계 정의
 const statusSteps: Array<{ id: PatientStatus; label: string; color: string }> = [
-  { id: 'consulting', label: '전화상담', color: 'bg-blue-500' },
+  { id: 'consulting', label: '전화상담', color: 'bg-orange-500' },
   { id: 'reserved', label: '내원예약', color: 'bg-purple-500' },
   { id: 'visited', label: '내원완료', color: 'bg-amber-500' },
   { id: 'treatmentBooked', label: '치료예약', color: 'bg-teal-500' },
@@ -123,7 +123,7 @@ export default function PatientJourneyTestPage() {
       {/* ============================================ */}
       {/* 🆕 여정 선택 영역 - 새로 추가되는 UI */}
       {/* ============================================ */}
-      <Card className="p-4 mb-6 border-2 border-blue-200 bg-blue-50/30">
+      <Card className="p-4 mb-6 border-2 border-orange-200 bg-orange-50/30">
         <div className="flex items-center justify-between">
           <div className="flex items-center gap-4">
             {/* 환자 기본 정보 */}
@@ -165,7 +165,7 @@ export default function PatientJourneyTestPage() {
                           setIsJourneyDropdownOpen(false);
                         }}
                         className={`w-full px-4 py-3 flex items-center justify-between hover:bg-gray-50 transition-colors ${
-                          selectedJourneyId === journey.id ? 'bg-blue-50' : ''
+                          selectedJourneyId === journey.id ? 'bg-orange-50' : ''
                         }`}
                       >
                         <div className="flex items-center gap-3">
@@ -203,7 +203,7 @@ export default function PatientJourneyTestPage() {
                         setIsNewJourneyModalOpen(true);
                         setIsJourneyDropdownOpen(false);
                       }}
-                      className="w-full flex items-center justify-center gap-2 px-4 py-2 text-blue-600 hover:bg-blue-50 rounded-lg transition-colors"
+                      className="w-full flex items-center justify-center gap-2 px-4 py-2 text-orange-600 hover:bg-orange-50 rounded-lg transition-colors"
                     >
                       <Plus size={16} />
                       새 여정 시작 (구신환)
@@ -228,7 +228,7 @@ export default function PatientJourneyTestPage() {
             </div>
             <div className="text-center">
               <p className="text-gray-500">진행중</p>
-              <p className="text-xl font-bold text-blue-600">
+              <p className="text-xl font-bold text-orange-600">
                 {journeys.filter(j => j.isActive).length}개
               </p>
             </div>
@@ -414,11 +414,11 @@ function NewJourneyModal({ onClose, patientName }: NewJourneyModalProps) {
 
         <div className="p-6 space-y-4">
           {/* 안내 메시지 */}
-          <div className="flex items-start gap-3 p-3 bg-blue-50 rounded-lg">
-            <AlertCircle size={18} className="text-blue-500 mt-0.5" />
-            <div className="text-sm text-blue-700">
+          <div className="flex items-start gap-3 p-3 bg-orange-50 rounded-lg">
+            <AlertCircle size={18} className="text-orange-500 mt-0.5" />
+            <div className="text-sm text-orange-700">
               <p className="font-medium">구신환 등록</p>
-              <p className="text-blue-600 mt-1">
+              <p className="text-orange-600 mt-1">
                 기존 치료가 완료된 환자가 새로운 치료를 시작할 때 사용합니다.
                 이전 여정 기록은 그대로 유지됩니다.
               </p>
@@ -437,7 +437,7 @@ function NewJourneyModal({ onClose, patientName }: NewJourneyModalProps) {
                   onClick={() => setTreatmentType(type)}
                   className={`px-4 py-2 rounded-lg text-sm transition-colors ${
                     treatmentType === type
-                      ? 'bg-blue-500 text-white'
+                      ? 'bg-orange-500 text-white'
                       : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
                   }`}
                 >
@@ -452,7 +452,7 @@ function NewJourneyModal({ onClose, patientName }: NewJourneyModalProps) {
                 value={customType}
                 onChange={(e) => setCustomType(e.target.value)}
                 placeholder="치료 유형 직접 입력"
-                className="w-full mt-2 px-4 py-2 border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                className="w-full mt-2 px-4 py-2 border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-orange-500"
               />
             )}
           </div>
@@ -477,7 +477,7 @@ function NewJourneyModal({ onClose, patientName }: NewJourneyModalProps) {
           </button>
           <button
             onClick={handleSubmit}
-            className="px-4 py-2 bg-blue-500 text-white rounded-lg hover:bg-blue-600 transition-colors"
+            className="px-4 py-2 bg-orange-500 text-white rounded-lg hover:bg-orange-600 transition-colors"
           >
             여정 시작
           </button>

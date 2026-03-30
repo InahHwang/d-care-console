@@ -295,7 +295,7 @@ export default function ManualSettings() {
           </button>
           <button
             onClick={() => openManualModal()}
-            className="flex items-center gap-1.5 px-3 py-2 text-sm bg-blue-500 text-white rounded-lg hover:bg-blue-600"
+            className="flex items-center gap-1.5 px-3 py-2 text-sm bg-orange-500 text-white rounded-lg hover:bg-orange-600"
           >
             <Plus className="w-4 h-4" />
             매뉴얼 추가
@@ -361,7 +361,7 @@ export default function ManualSettings() {
                   <div className="flex items-center gap-1" onClick={e => e.stopPropagation()}>
                     <button
                       onClick={() => openManualModal(undefined, category._id?.toString())}
-                      className="p-1.5 text-gray-400 hover:text-blue-500 hover:bg-blue-50 rounded"
+                      className="p-1.5 text-gray-400 hover:text-orange-500 hover:bg-orange-50 rounded"
                       title="매뉴얼 추가"
                     >
                       <Plus className="w-4 h-4" />
@@ -453,7 +453,7 @@ export default function ManualSettings() {
                 <button
                   onClick={handleSaveCategory}
                   disabled={saving || !categoryForm.name.trim()}
-                  className="flex items-center gap-2 px-4 py-2 bg-blue-500 text-white rounded-lg hover:bg-blue-600 disabled:opacity-50"
+                  className="flex items-center gap-2 px-4 py-2 bg-orange-500 text-white rounded-lg hover:bg-orange-600 disabled:opacity-50"
                 >
                   <Save className="w-4 h-4" />
                   {saving ? '저장 중...' : '저장'}
@@ -564,7 +564,7 @@ export default function ManualSettings() {
               <button
                 onClick={handleSaveManual}
                 disabled={saving || !manualForm.categoryId || !manualForm.title.trim() || !manualForm.script.trim()}
-                className="flex items-center gap-2 px-4 py-2 bg-blue-500 text-white rounded-lg hover:bg-blue-600 disabled:opacity-50"
+                className="flex items-center gap-2 px-4 py-2 bg-orange-500 text-white rounded-lg hover:bg-orange-600 disabled:opacity-50"
               >
                 <Save className="w-4 h-4" />
                 {saving ? '저장 중...' : '저장'}
@@ -597,7 +597,7 @@ function ManualItem({
           onClick={() => setExpanded(!expanded)}
         >
           <div className="flex items-center gap-2">
-            <FileText className="w-4 h-4 text-blue-500" />
+            <FileText className="w-4 h-4 text-orange-500" />
             <span className="font-medium text-gray-800">{manual.title}</span>
             {manual.categoryName && (
               <span className="text-xs px-1.5 py-0.5 bg-gray-100 text-gray-500 rounded">
@@ -610,7 +610,7 @@ function ManualItem({
               {manual.keywords.slice(0, 5).map((keyword, idx) => (
                 <span
                   key={idx}
-                  className="text-xs px-1.5 py-0.5 bg-blue-50 text-blue-600 rounded"
+                  className="text-xs px-1.5 py-0.5 bg-orange-50 text-orange-600 rounded"
                 >
                   {keyword}
                 </span>
@@ -627,7 +627,7 @@ function ManualItem({
         <div className="flex items-center gap-1 ml-2">
           <button
             onClick={onEdit}
-            className="p-1.5 text-gray-400 hover:text-blue-500 hover:bg-blue-50 rounded"
+            className="p-1.5 text-gray-400 hover:text-orange-500 hover:bg-orange-50 rounded"
             title="수정"
           >
             <Edit2 className="w-4 h-4" />

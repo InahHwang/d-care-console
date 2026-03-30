@@ -256,7 +256,7 @@ function PatientDetailModal({
   const getPhaseColor = (phase: string) => {
     switch (phase) {
       case '전화상담': return 'bg-purple-100 text-purple-800'
-      case '예약확정': return 'bg-blue-100 text-blue-800'
+      case '예약확정': return 'bg-orange-100 text-orange-800'
       case '내원완료': return 'bg-green-100 text-green-800'
       case '종결': return 'bg-gray-100 text-gray-800'
       default: return 'bg-gray-100 text-gray-800'
@@ -265,7 +265,7 @@ function PatientDetailModal({
 
   const getStatusColor = (status: string | null) => {
     switch (status) {
-      case '신규': return 'bg-blue-100 text-blue-800'
+      case '신규': return 'bg-orange-100 text-orange-800'
       case '재콜백필요': return 'bg-yellow-100 text-yellow-800'
       case '부재중': return 'bg-gray-200 text-gray-700'
       case '동의': return 'bg-green-100 text-green-800'
@@ -286,7 +286,7 @@ function PatientDetailModal({
 
   const renderCallbackResult = (result: string) => {
     const colors: Record<string, string> = {
-      '통화완료': 'bg-blue-100 text-blue-800',
+      '통화완료': 'bg-orange-100 text-orange-800',
       '부재중': 'bg-gray-200 text-gray-700',
       '콜백재요청': 'bg-yellow-100 text-yellow-800',
       '예약확정': 'bg-green-100 text-green-800',
@@ -338,13 +338,13 @@ function PatientDetailModal({
                 onClick={() => setActiveTab(tab.id)}
                 className={`px-4 py-3 text-sm font-medium border-b-2 transition-colors relative ${
                   activeTab === tab.id
-                    ? 'border-blue-500 text-blue-600'
+                    ? 'border-orange-500 text-orange-600'
                     : 'border-transparent text-gray-500 hover:text-gray-700'
                 }`}
               >
                 {tab.label}
                 {tab.badge !== undefined && tab.badge > 0 && (
-                  <span className="absolute -top-1 -right-1 w-5 h-5 flex items-center justify-center rounded-full text-xs bg-blue-500 text-white">
+                  <span className="absolute -top-1 -right-1 w-5 h-5 flex items-center justify-center rounded-full text-xs bg-orange-500 text-white">
                     {tab.badge}
                   </span>
                 )}
@@ -374,7 +374,7 @@ function PatientDetailModal({
                     <div className="flex"><span className="text-gray-500 w-20">유입일</span><span>{patient.callInDate}</span></div>
                     <div className="flex"><span className="text-gray-500 w-20">유입경로</span><span>{patient.source || '-'}</span></div>
                     <div className="flex"><span className="text-gray-500 w-20">상담유형</span><span>{patient.consultationType || '-'}</span></div>
-                    <div className="flex"><span className="text-gray-500 w-20">첫 내원일</span><span className="text-blue-600 font-medium">{patient.firstVisitDate || '-'}</span></div>
+                    <div className="flex"><span className="text-gray-500 w-20">첫 내원일</span><span className="text-orange-600 font-medium">{patient.firstVisitDate || '-'}</span></div>
                   </div>
                 </div>
               </div>
@@ -408,7 +408,7 @@ function PatientDetailModal({
                     <div className="flex flex-wrap gap-1 mt-1">
                       {patient.consultation?.interestedServices?.length ? (
                         patient.consultation.interestedServices.map(service => (
-                          <span key={service} className="px-2 py-0.5 bg-blue-100 text-blue-800 text-xs rounded">{service}</span>
+                          <span key={service} className="px-2 py-0.5 bg-orange-100 text-orange-800 text-xs rounded">{service}</span>
                         ))
                       ) : (
                         <span className="text-gray-400">-</span>
@@ -440,9 +440,9 @@ function PatientDetailModal({
 
               {/* 예약 정보 */}
               {patient.reservation && (
-                <div className="p-4 bg-blue-50 rounded-lg border border-blue-200">
-                  <h3 className="font-medium text-blue-800 mb-2">예약 정보</h3>
-                  <div className="text-sm text-blue-700">
+                <div className="p-4 bg-orange-50 rounded-lg border border-orange-200">
+                  <h3 className="font-medium text-orange-800 mb-2">예약 정보</h3>
+                  <div className="text-sm text-orange-700">
                     {patient.reservation.date} {patient.reservation.time}
                   </div>
                 </div>
@@ -456,7 +456,7 @@ function PatientDetailModal({
                     {[...patient.preVisitCallbacks].reverse().map((cb, idx) => (
                       <div key={idx} className="p-3 bg-gray-50 rounded-lg text-sm">
                         <div className="flex items-center gap-2">
-                          <span className="font-medium text-blue-600">{cb.attempt}차</span>
+                          <span className="font-medium text-orange-600">{cb.attempt}차</span>
                           <span className="text-gray-500">{cb.date} {cb.time}</span>
                           <span className={`px-2 py-0.5 rounded text-xs ${renderCallbackResult(cb.result)}`}>
                             {cb.result}
@@ -538,7 +538,7 @@ function PatientDetailModal({
                     </div>
                     <button
                       onClick={openTeethForm}
-                      className="text-xs text-blue-600 hover:text-blue-800"
+                      className="text-xs text-orange-600 hover:text-orange-800"
                     >
                       수정
                     </button>
@@ -561,7 +561,7 @@ function PatientDetailModal({
                         <button
                           onClick={handleConfirmTeeth}
                           disabled={isSavingTeeth}
-                          className="px-4 py-2 text-sm bg-blue-500 text-white rounded hover:bg-blue-600 disabled:opacity-50"
+                          className="px-4 py-2 text-sm bg-orange-500 text-white rounded hover:bg-orange-600 disabled:opacity-50"
                         >
                           {isSavingTeeth ? '저장중...' : '저장'}
                         </button>
@@ -572,16 +572,16 @@ function PatientDetailModal({
               ) : null}
 
               {/* 내원 상담 결과 */}
-              <div className="p-4 bg-blue-50 rounded-lg border border-blue-200">
+              <div className="p-4 bg-orange-50 rounded-lg border border-orange-200">
                 <div className="flex items-center justify-between mb-3">
-                  <h3 className="font-medium text-blue-800">내원 상담 결과</h3>
+                  <h3 className="font-medium text-orange-800">내원 상담 결과</h3>
                   {!showConsultationForm && (
                     <button
                       onClick={openConsultationForm}
                       className={`px-3 py-1 text-sm rounded ${
                         patient.postVisitConsultation
-                          ? 'bg-blue-100 text-blue-700 hover:bg-blue-200'
-                          : 'bg-blue-500 text-white hover:bg-blue-600'
+                          ? 'bg-orange-100 text-orange-700 hover:bg-orange-200'
+                          : 'bg-orange-500 text-white hover:bg-orange-600'
                       }`}
                     >
                       {patient.postVisitConsultation ? '수정' : '+ 상담기록 등록'}
@@ -595,7 +595,7 @@ function PatientDetailModal({
                     {/* 금액 입력 */}
                     <div className="grid grid-cols-2 gap-3">
                       <div>
-                        <label className="block text-xs text-blue-600 mb-1">정가 (원)</label>
+                        <label className="block text-xs text-orange-600 mb-1">정가 (원)</label>
                         <input
                           type="number"
                           value={consultationForm.regularPrice || ''}
@@ -605,7 +605,7 @@ function PatientDetailModal({
                         />
                       </div>
                       <div>
-                        <label className="block text-xs text-blue-600 mb-1">할인가 (원)</label>
+                        <label className="block text-xs text-orange-600 mb-1">할인가 (원)</label>
                         <input
                           type="number"
                           value={consultationForm.discountPrice || ''}
@@ -626,7 +626,7 @@ function PatientDetailModal({
 
                     {/* 할인 사유 */}
                     <div>
-                      <label className="block text-xs text-blue-600 mb-1">할인 사유</label>
+                      <label className="block text-xs text-orange-600 mb-1">할인 사유</label>
                       <input
                         type="text"
                         value={consultationForm.discountReason}
@@ -638,7 +638,7 @@ function PatientDetailModal({
 
                     {/* 담당 의사 */}
                     <div>
-                      <label className="block text-xs text-blue-600 mb-1">담당 의사</label>
+                      <label className="block text-xs text-orange-600 mb-1">담당 의사</label>
                       <input
                         type="text"
                         value={consultationForm.doctorName}
@@ -650,7 +650,7 @@ function PatientDetailModal({
 
                     {/* 진단 내용 */}
                     <div>
-                      <label className="block text-xs text-blue-600 mb-1">진단 내용 / 상담 메모</label>
+                      <label className="block text-xs text-orange-600 mb-1">진단 내용 / 상담 메모</label>
                       <textarea
                         value={consultationForm.diagnosisNotes}
                         onChange={(e) => setConsultationForm({ ...consultationForm, diagnosisNotes: e.target.value })}
@@ -662,7 +662,7 @@ function PatientDetailModal({
 
                     {/* 권장 치료 */}
                     <div>
-                      <label className="block text-xs text-blue-600 mb-1">권장 치료</label>
+                      <label className="block text-xs text-orange-600 mb-1">권장 치료</label>
                       <input
                         type="text"
                         value={consultationForm.treatmentRecommendation}
@@ -683,7 +683,7 @@ function PatientDetailModal({
                       <button
                         onClick={handleSaveConsultation}
                         disabled={isSavingConsultation || !consultationForm.regularPrice}
-                        className="px-4 py-2 text-sm bg-blue-500 text-white rounded hover:bg-blue-600 disabled:opacity-50"
+                        className="px-4 py-2 text-sm bg-orange-500 text-white rounded hover:bg-orange-600 disabled:opacity-50"
                       >
                         {isSavingConsultation ? '저장중...' : '저장'}
                       </button>
@@ -694,11 +694,11 @@ function PatientDetailModal({
                   <div className="space-y-3 text-sm">
                     <div className="grid grid-cols-2 gap-4">
                       <div>
-                        <span className="text-blue-600">정가</span>
+                        <span className="text-orange-600">정가</span>
                         <div className="font-medium text-lg">{patient.postVisitConsultation.estimateInfo?.regularPrice?.toLocaleString() || 0}원</div>
                       </div>
                       <div>
-                        <span className="text-blue-600">할인가</span>
+                        <span className="text-orange-600">할인가</span>
                         <div className="font-medium text-lg text-green-600">{patient.postVisitConsultation.estimateInfo?.discountPrice?.toLocaleString() || 0}원</div>
                         {patient.postVisitConsultation.estimateInfo?.discountRate > 0 && (
                           <span className="text-xs text-gray-500">({patient.postVisitConsultation.estimateInfo.discountRate}% 할인)</span>
@@ -707,25 +707,25 @@ function PatientDetailModal({
                     </div>
                     {patient.postVisitConsultation.estimateInfo?.discountReason && (
                       <div>
-                        <span className="text-blue-600">할인 사유</span>
+                        <span className="text-orange-600">할인 사유</span>
                         <div className="mt-1">{patient.postVisitConsultation.estimateInfo.discountReason}</div>
                       </div>
                     )}
                     {patient.postVisitConsultation.doctorName && (
                       <div>
-                        <span className="text-blue-600">담당 의사</span>
+                        <span className="text-orange-600">담당 의사</span>
                         <div className="mt-1">{patient.postVisitConsultation.doctorName}</div>
                       </div>
                     )}
                     {patient.postVisitConsultation.diagnosisNotes && (
                       <div>
-                        <span className="text-blue-600">진단 내용</span>
+                        <span className="text-orange-600">진단 내용</span>
                         <div className="mt-1">{patient.postVisitConsultation.diagnosisNotes}</div>
                       </div>
                     )}
                     {patient.postVisitConsultation.treatmentRecommendation && (
                       <div>
-                        <span className="text-blue-600">권장 치료</span>
+                        <span className="text-orange-600">권장 치료</span>
                         <div className="mt-1">{patient.postVisitConsultation.treatmentRecommendation}</div>
                       </div>
                     )}
@@ -773,7 +773,7 @@ function PatientDetailModal({
                 {patient.postVisitStatusInfo && !selectedPostVisitStatus && (
                   <div className={`mb-3 p-3 rounded-lg border ${
                     patient.postVisitStatusInfo.status === '치료진행' ? 'bg-green-50 border-green-300' :
-                    patient.postVisitStatusInfo.status === '치료예정' ? 'bg-blue-50 border-blue-300' :
+                    patient.postVisitStatusInfo.status === '치료예정' ? 'bg-orange-50 border-orange-300' :
                     patient.postVisitStatusInfo.status === '결정대기' ? 'bg-yellow-50 border-yellow-300' :
                     patient.postVisitStatusInfo.status === '장기보류' ? 'bg-orange-50 border-orange-300' :
                     'bg-red-50 border-red-300'
@@ -782,7 +782,7 @@ function PatientDetailModal({
                       <div className="flex items-center gap-2">
                         <span className={`px-2 py-1 rounded text-sm font-medium ${
                           patient.postVisitStatusInfo.status === '치료진행' ? 'bg-green-500 text-white' :
-                          patient.postVisitStatusInfo.status === '치료예정' ? 'bg-blue-500 text-white' :
+                          patient.postVisitStatusInfo.status === '치료예정' ? 'bg-orange-500 text-white' :
                           patient.postVisitStatusInfo.status === '결정대기' ? 'bg-yellow-500 text-white' :
                           patient.postVisitStatusInfo.status === '장기보류' ? 'bg-orange-500 text-white' :
                           'bg-red-500 text-white'
@@ -813,7 +813,7 @@ function PatientDetailModal({
                         return (
                           <button
                             onClick={() => handleSelectPostVisitStatus(patient.postVisitStatusInfo!.status)}
-                            className="text-xs text-blue-600 hover:text-blue-800"
+                            className="text-xs text-orange-600 hover:text-orange-800"
                           >
                             변경
                           </button>
@@ -869,7 +869,7 @@ function PatientDetailModal({
                         className={`px-2 py-2 text-xs rounded font-medium transition-colors ${
                           selectedPostVisitStatus === status
                             ? status === '치료진행' ? 'bg-green-500 text-white' :
-                              status === '치료예정' ? 'bg-blue-500 text-white' :
+                              status === '치료예정' ? 'bg-orange-500 text-white' :
                               status === '결정대기' ? 'bg-yellow-500 text-white' :
                               status === '장기보류' ? 'bg-orange-500 text-white' :
                               'bg-red-500 text-white'
@@ -1184,7 +1184,7 @@ function PatientDetailModal({
                         )}
                         className={`px-4 py-2 text-sm text-white rounded disabled:opacity-50 ${
                           selectedPostVisitStatus === '치료진행' ? 'bg-green-500 hover:bg-green-600' :
-                          selectedPostVisitStatus === '치료예정' ? 'bg-blue-500 hover:bg-blue-600' :
+                          selectedPostVisitStatus === '치료예정' ? 'bg-orange-500 hover:bg-orange-600' :
                           selectedPostVisitStatus === '결정대기' ? 'bg-yellow-500 hover:bg-yellow-600' :
                           selectedPostVisitStatus === '장기보류' ? 'bg-orange-500 hover:bg-orange-600' :
                           'bg-red-500 hover:bg-red-600'
@@ -1202,19 +1202,19 @@ function PatientDetailModal({
                 <h3 className="font-medium">사후 콜백 기록 ({patient.postVisitCallbacks?.length || 0}회)</h3>
                 <button
                   onClick={() => setShowCallbackForm(true)}
-                  className="px-3 py-1 text-sm bg-blue-500 text-white rounded hover:bg-blue-600"
+                  className="px-3 py-1 text-sm bg-orange-500 text-white rounded hover:bg-orange-600"
                 >
                   + 콜백 등록
                 </button>
               </div>
 
               {showCallbackForm && (
-                <div className="p-4 bg-blue-50 rounded-lg space-y-3 border border-blue-200">
-                  <div className="font-medium text-blue-800 text-sm">콜백 결과 기록</div>
+                <div className="p-4 bg-orange-50 rounded-lg space-y-3 border border-orange-200">
+                  <div className="font-medium text-orange-800 text-sm">콜백 결과 기록</div>
 
                   {/* 통화 결과 */}
                   <div>
-                    <label className="block text-xs text-blue-600 mb-1">통화 결과</label>
+                    <label className="block text-xs text-orange-600 mb-1">통화 결과</label>
                     <select
                       value={callbackForm.result}
                       onChange={(e) => {
@@ -1266,7 +1266,7 @@ function PatientDetailModal({
                               onClick={() => setCallbackForm({ ...callbackForm, statusAction: '치료예정' })}
                               className={`flex-1 py-2 text-sm rounded border ${
                                 callbackForm.statusAction === '치료예정'
-                                  ? 'bg-blue-500 text-white border-blue-500'
+                                  ? 'bg-orange-500 text-white border-orange-500'
                                   : 'bg-white text-gray-700 hover:bg-gray-50'
                               }`}
                             >
@@ -1405,7 +1405,7 @@ function PatientDetailModal({
 
                   {/* 메모 */}
                   <div>
-                    <label className="block text-xs text-blue-600 mb-1">상담 메모</label>
+                    <label className="block text-xs text-orange-600 mb-1">상담 메모</label>
                     <textarea
                       value={callbackForm.notes}
                       onChange={(e) => setCallbackForm({ ...callbackForm, notes: e.target.value })}
@@ -1438,7 +1438,7 @@ function PatientDetailModal({
                         (callbackForm.statusAction === '결정대기' || callbackForm.statusAction === '장기보류') &&
                         (!callbackForm.nextCallbackDate || callbackForm.nextCallbackDate <= new Date().toISOString().split('T')[0])
                       )}
-                      className="px-4 py-2 text-sm bg-blue-500 text-white rounded hover:bg-blue-600 disabled:opacity-50"
+                      className="px-4 py-2 text-sm bg-orange-500 text-white rounded hover:bg-orange-600 disabled:opacity-50"
                     >
                       {isSubmitting ? '저장중...' : '콜백 기록 저장'}
                     </button>
@@ -1529,7 +1529,7 @@ function PatientDetailModal({
                 <h3 className="font-medium mb-3">소개 현황</h3>
                 <div className="grid grid-cols-2 gap-4 text-center">
                   <div className="p-4 bg-white rounded border">
-                    <div className="text-2xl font-bold text-blue-600">0</div>
+                    <div className="text-2xl font-bold text-orange-600">0</div>
                     <div className="text-sm text-gray-500">소개한 환자</div>
                   </div>
                   <div className="p-4 bg-white rounded border">
@@ -1686,7 +1686,7 @@ export default function VisitV2TablePage() {
 
   const getPhaseColor = (phase: string) => {
     switch (phase) {
-      case '내원완료': return 'bg-blue-100 text-blue-800'
+      case '내원완료': return 'bg-orange-100 text-orange-800'
       case '종결': return 'bg-green-100 text-green-800'
       default: return 'bg-gray-100 text-gray-800'
     }
@@ -1792,7 +1792,7 @@ export default function VisitV2TablePage() {
                   onKeyDown={(e) => e.key === 'Enter' && setSearch(searchInput)}
                   className="flex-1 border rounded-l px-3 py-2 text-sm"
                 />
-                <button onClick={() => setSearch(searchInput)} className="px-4 py-2 bg-blue-500 text-white rounded-r hover:bg-blue-600 text-sm">
+                <button onClick={() => setSearch(searchInput)} className="px-4 py-2 bg-orange-500 text-white rounded-r hover:bg-orange-600 text-sm">
                   검색
                 </button>
               </div>
@@ -1907,7 +1907,7 @@ export default function VisitV2TablePage() {
                       <td className="px-4 py-3">
                         <div className="flex flex-wrap gap-1">
                           {patient.consultation?.interestedServices?.slice(0, 2).map(s => (
-                            <span key={s} className="px-1.5 py-0.5 bg-blue-50 text-blue-700 text-xs rounded">{s}</span>
+                            <span key={s} className="px-1.5 py-0.5 bg-orange-50 text-orange-700 text-xs rounded">{s}</span>
                           ))}
                           {(patient.consultation?.interestedServices?.length || 0) > 2 && (
                             <span className="text-xs text-gray-400">+{(patient.consultation?.interestedServices?.length || 0) - 2}</span>
@@ -1927,7 +1927,7 @@ export default function VisitV2TablePage() {
                         {patient.postVisitStatusInfo?.status ? (
                           <span className={`px-2 py-0.5 rounded text-xs font-medium ${
                             patient.postVisitStatusInfo.status === '치료진행' ? 'bg-green-500 text-white' :
-                            patient.postVisitStatusInfo.status === '치료예정' ? 'bg-blue-500 text-white' :
+                            patient.postVisitStatusInfo.status === '치료예정' ? 'bg-orange-500 text-white' :
                             patient.postVisitStatusInfo.status === '결정대기' ? 'bg-yellow-500 text-white' :
                             patient.postVisitStatusInfo.status === '장기보류' ? 'bg-orange-500 text-white' :
                             'bg-red-500 text-white'
@@ -1957,7 +1957,7 @@ export default function VisitV2TablePage() {
                       </td>
                       <td className="px-4 py-3 text-center">
                         {(patient.postVisitCallbacks?.length || 0) > 0 ? (
-                          <span className="inline-flex items-center justify-center w-6 h-6 rounded-full text-xs font-medium bg-blue-100 text-blue-800">
+                          <span className="inline-flex items-center justify-center w-6 h-6 rounded-full text-xs font-medium bg-orange-100 text-orange-800">
                             {patient.postVisitCallbacks?.length}
                           </span>
                         ) : (
@@ -1986,7 +1986,7 @@ export default function VisitV2TablePage() {
               <button onClick={() => fetchPatients(1)} disabled={!pagination.hasPrev} className="px-2 py-1 text-sm rounded hover:bg-gray-100 disabled:opacity-30">««</button>
               <button onClick={() => fetchPatients(pagination.page - 1)} disabled={!pagination.hasPrev} className="px-2 py-1 text-sm rounded hover:bg-gray-100 disabled:opacity-30">«</button>
               {getPageNumbers().map(p => (
-                <button key={p} onClick={() => fetchPatients(p)} className={`px-3 py-1 text-sm rounded ${p === pagination.page ? 'bg-blue-500 text-white' : 'hover:bg-gray-100'}`}>{p}</button>
+                <button key={p} onClick={() => fetchPatients(p)} className={`px-3 py-1 text-sm rounded ${p === pagination.page ? 'bg-orange-500 text-white' : 'hover:bg-gray-100'}`}>{p}</button>
               ))}
               <button onClick={() => fetchPatients(pagination.page + 1)} disabled={!pagination.hasNext} className="px-2 py-1 text-sm rounded hover:bg-gray-100 disabled:opacity-30">»</button>
               <button onClick={() => fetchPatients(pagination.totalPages)} disabled={!pagination.hasNext} className="px-2 py-1 text-sm rounded hover:bg-gray-100 disabled:opacity-30">»»</button>

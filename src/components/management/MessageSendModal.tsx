@@ -538,9 +538,9 @@ export default function MessageSendModal({
         {/* 내용 영역 */}
         <div className="flex-1 overflow-y-auto p-6">
           {/* 선택된 환자 정보 표시 */}
-          <div className="mb-4 bg-blue-50 p-3 rounded-md">
-            <p className="text-sm text-blue-800 font-medium">선택된 환자</p>
-            <p className="text-blue-600 mt-1 flex items-center gap-1">
+          <div className="mb-4 bg-orange-50 p-3 rounded-md">
+            <p className="text-sm text-orange-800 font-medium">선택된 환자</p>
+            <p className="text-orange-600 mt-1 flex items-center gap-1">
               <span className="font-medium">{selectedPatients.length}</span>
               <span>명의 환자에게 메시지를 발송합니다</span>
             </p>
@@ -550,13 +550,13 @@ export default function MessageSendModal({
                 {selectedPatients.slice(0, 5).map(patient => (
                   <span 
                     key={patient.id} 
-                    className="inline-flex items-center px-2 py-1 rounded-md text-xs bg-blue-100 text-blue-800"
+                    className="inline-flex items-center px-2 py-1 rounded-md text-xs bg-orange-100 text-orange-800"
                   >
                     {patient.name}
                   </span>
                 ))}
                 {selectedPatients.length > 5 && (
-                  <span className="inline-flex items-center px-2 py-1 rounded-md text-xs bg-blue-100 text-blue-800">
+                  <span className="inline-flex items-center px-2 py-1 rounded-md text-xs bg-orange-100 text-orange-800">
                     +{selectedPatients.length - 5}명
                   </span>
                 )}
@@ -574,7 +574,7 @@ export default function MessageSendModal({
                 <button
                   className={`px-3 py-1.5 rounded-md text-xs font-medium transition-colors ${
                     activeCategory === 'all'
-                      ? 'bg-blue-100 text-blue-800'
+                      ? 'bg-orange-100 text-orange-800'
                       : 'bg-gray-100 text-text-secondary hover:bg-gray-200'
                   }`}
                   onClick={() => setActiveCategory('all')}
@@ -587,7 +587,7 @@ export default function MessageSendModal({
                     key={category.value}
                     className={`px-3 py-1.5 rounded-md text-xs font-medium transition-colors ${
                       activeCategory === category.value
-                        ? 'bg-blue-100 text-blue-800'
+                        ? 'bg-orange-100 text-orange-800'
                         : 'bg-gray-100 text-text-secondary hover:bg-gray-200'
                     }`}
                     onClick={() => setActiveCategory(category.value as EventCategory)}
@@ -616,7 +616,7 @@ export default function MessageSendModal({
                       className="text-left p-4 bg-light-bg hover:bg-gray-100 rounded-md transition-colors border border-border flex gap-3"
                     >
                       <div className={`w-8 h-8 rounded-full flex-shrink-0 flex items-center justify-center
-                        ${template.type === 'SMS' ? 'bg-blue-100 text-blue-600' : 
+                        ${template.type === 'SMS' ? 'bg-orange-100 text-orange-600' : 
                           template.type === 'LMS' ? 'bg-purple-100 text-purple-600' :
                           template.type === 'MMS' ? 'bg-green-100 text-green-600' : 
                           'bg-orange-100 text-orange-600'}`}
@@ -633,7 +633,7 @@ export default function MessageSendModal({
                           <span className="text-xs bg-gray-100 text-gray-600 px-1.5 py-0.5 rounded">
                             {template.type}
                           </span>
-                          <span className="text-xs bg-blue-100 text-blue-800 px-1.5 py-0.5 rounded">
+                          <span className="text-xs bg-orange-100 text-orange-800 px-1.5 py-0.5 rounded">
                             {getCategoryDisplayName(template.category, categories)}
                           </span>
                         </div>
@@ -676,18 +676,18 @@ export default function MessageSendModal({
                 </label>
                 <div className="flex items-center gap-2 text-sm">
                   <span className={`inline-block px-2 py-1 rounded-full text-xs 
-                    ${selectedTemplate.type === 'SMS' ? 'bg-blue-100 text-blue-600' : 
+                    ${selectedTemplate.type === 'SMS' ? 'bg-orange-100 text-orange-600' : 
                       selectedTemplate.type === 'LMS' ? 'bg-purple-100 text-purple-600' :
                       selectedTemplate.type === 'MMS' ? 'bg-green-100 text-green-600' : 
                       'bg-orange-100 text-orange-600'}`}
                   >
                     {selectedTemplate.type}
                   </span>
-                  <span className="inline-block px-2 py-1 rounded-full text-xs bg-blue-100 text-blue-800">
+                  <span className="inline-block px-2 py-1 rounded-full text-xs bg-orange-100 text-orange-800">
                     {getCategoryDisplayName(selectedTemplate.category, categories)}
                   </span>
                   <button 
-                    className="text-blue-600 hover:text-blue-800 underline text-xs"
+                    className="text-orange-600 hover:text-orange-800 underline text-xs"
                     onClick={() => setStep('template')}
                   >
                     다른 템플릿 선택
@@ -829,7 +829,7 @@ export default function MessageSendModal({
           {step === 'confirm' && (
             <div className="text-center">
               <div className="animate-pulse mb-6">
-                <div className="w-16 h-16 mx-auto rounded-full bg-blue-100 text-blue-600 flex items-center justify-center">
+                <div className="w-16 h-16 mx-auto rounded-full bg-orange-100 text-orange-600 flex items-center justify-center">
                   <Icon icon={HiOutlinePaperAirplane} size={32} />
                 </div>
                 <h4 className="text-lg font-medium text-text-primary mt-4">
@@ -841,7 +841,7 @@ export default function MessageSendModal({
               </div>
               
               <div className="w-full max-w-xs mx-auto bg-gray-100 rounded-full h-2.5 mt-8">
-                <div className="bg-blue-600 h-2.5 rounded-full animate-[loadingProgress_1.5s_ease-in-out]"></div>
+                <div className="bg-orange-600 h-2.5 rounded-full animate-[loadingProgress_1.5s_ease-in-out]"></div>
               </div>
             </div>
           )}

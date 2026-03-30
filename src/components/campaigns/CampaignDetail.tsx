@@ -350,7 +350,7 @@ export default function CampaignDetail() {
       case 'draft':
         return 'bg-gray-100 text-gray-800';
       case 'scheduled':
-        return 'bg-blue-100 text-blue-800';
+        return 'bg-orange-100 text-orange-800';
       case 'in_progress':
         return 'bg-yellow-100 text-yellow-800';
       case 'completed':
@@ -509,7 +509,7 @@ export default function CampaignDetail() {
                           return (
                             <span 
                               key={index}
-                              className="inline-block px-2 py-1 rounded-full text-xs bg-blue-100 text-blue-800"
+                              className="inline-block px-2 py-1 rounded-full text-xs bg-orange-100 text-orange-800"
                             >
                               {option?.label || category}
                             </span>
@@ -531,7 +531,7 @@ export default function CampaignDetail() {
                           return (
                             <span 
                               key={index}
-                              className="inline-block px-2 py-1 rounded-full text-xs bg-blue-100 text-blue-800"
+                              className="inline-block px-2 py-1 rounded-full text-xs bg-orange-100 text-orange-800"
                             >
                               {option?.label || reason}
                             </span>
@@ -657,13 +657,13 @@ export default function CampaignDetail() {
                 
                 <div className="space-y-4">
                   {/* 필터 요약 정보 */}
-                  <div className="p-4 bg-blue-50 border border-blue-200 rounded-md flex items-center gap-3">
-                    <div className="w-10 h-10 rounded-full bg-blue-100 text-blue-600 flex items-center justify-center">
+                  <div className="p-4 bg-orange-50 border border-orange-200 rounded-md flex items-center gap-3">
+                    <div className="w-10 h-10 rounded-full bg-orange-100 text-orange-600 flex items-center justify-center">
                       <Icon icon={HiOutlineUsers} size={20} />
                     </div>
                     <div>
-                      <h4 className="text-blue-800 font-medium">현재 대상자 수: {targetCount}명</h4>
-                      <p className="text-sm text-blue-600">
+                      <h4 className="text-orange-800 font-medium">현재 대상자 수: {targetCount}명</h4>
+                      <p className="text-sm text-orange-600">
                         이벤트 타겟으로 지정된 환자 중 아래 필터 조건에 맞는 환자들에게 메시지가 발송됩니다.
                       </p>
                     </div>
@@ -681,7 +681,7 @@ export default function CampaignDetail() {
                           onClick={() => handleCategoryToggle(category.value as EventCategory)}
                           className={`px-3 py-1.5 rounded-full text-sm flex items-center gap-1 transition-colors ${
                             formValues.targetCriteria.category.includes(category.value as EventCategory)
-                              ? 'bg-blue-100 text-blue-800 border border-blue-300'
+                              ? 'bg-orange-100 text-orange-800 border border-orange-300'
                               : 'bg-light-bg text-text-primary border border-border hover:bg-gray-200'
                           }`}
                         >
@@ -709,7 +709,7 @@ export default function CampaignDetail() {
                           onClick={() => handleReasonToggle(reason.value as EventTargetReason)}
                           className={`px-3 py-1.5 rounded-full text-sm flex items-center gap-1 transition-colors ${
                             formValues.targetCriteria.reason.includes(reason.value as EventTargetReason)
-                              ? 'bg-blue-100 text-blue-800 border border-blue-300'
+                              ? 'bg-orange-100 text-orange-800 border border-orange-300'
                               : 'bg-light-bg text-text-primary border border-border hover:bg-gray-200'
                           }`}
                         >

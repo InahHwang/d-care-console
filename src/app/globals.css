@@ -3,8 +3,8 @@
 @tailwind utilities;
 
 :root {
-  --foreground-rgb: 33, 43, 54;
-  --background-rgb: 247, 249, 252;
+  --foreground-rgb: 34, 34, 34;
+  --background-rgb: 249, 250, 251;
 }
 
 body {
@@ -53,8 +53,8 @@ body {
     @apply inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium;
   }
   
-  .badge-blue {
-    @apply bg-blue-100 text-blue-800;
+  .badge-orange {
+    @apply bg-orange-100 text-orange-800;
   }
   
   .badge-green {

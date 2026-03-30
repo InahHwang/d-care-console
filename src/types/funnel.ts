@@ -36,9 +36,9 @@ export const FUNNEL_STAGES: Record<FunnelStage, FunnelStageInfo> = {
     key: 'consulting',
     label: '상담중',
     description: '첫 상담 또는 콜백 진행 중인 환자',
-    color: 'text-blue-600',
-    bgColor: 'bg-blue-50',
-    hoverColor: 'hover:bg-blue-100',
+    color: 'text-orange-600',
+    bgColor: 'bg-orange-50',
+    hoverColor: 'hover:bg-orange-100',
     icon: '📞'
   },
   reserved: {
@@ -103,8 +103,8 @@ export const URGENT_ACTIONS: Record<UrgentActionType, UrgentActionInfo> = {
     key: 'today_reservation',
     label: '오늘 예약',
     description: '오늘 내원 예약이 있는 환자',
-    color: 'text-blue-600',
-    bgColor: 'bg-blue-100',
+    color: 'text-orange-600',
+    bgColor: 'bg-orange-100',
     priority: 2
   },
   post_reservation_no_show: {

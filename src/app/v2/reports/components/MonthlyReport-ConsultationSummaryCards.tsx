@@ -43,9 +43,9 @@ const MonthlyReportConsultationSummaryCards: React.FC<MonthlyReportConsultationS
 }) => {
   return (
     <div className="bg-white rounded-lg shadow-sm border mb-6">
-      <div className="p-6 border-b bg-blue-50">
+      <div className="p-6 border-b bg-orange-50">
         <h2 className="text-lg font-bold text-gray-900 flex items-center gap-2">
-          <MessageSquare className="w-5 h-5 text-blue-600" />
+          <MessageSquare className="w-5 h-5 text-orange-600" />
           상담 실적 요약
         </h2>
       </div>
@@ -64,7 +64,7 @@ const MonthlyReportConsultationSummaryCards: React.FC<MonthlyReportConsultationS
               인바운드 {stats.inquiryBreakdown.inbound}건
             </span>
             <span className="flex items-center gap-2">
-              <PhoneCall className="w-4 h-4 text-blue-600" />
+              <PhoneCall className="w-4 h-4 text-orange-600" />
               아웃바운드 {stats.inquiryBreakdown.outbound}건
             </span>
             <span className="flex items-center gap-2">
@@ -93,16 +93,16 @@ const MonthlyReportConsultationSummaryCards: React.FC<MonthlyReportConsultationS
           </div>
 
           {/* 내원 환자수 */}
-          <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
+          <div className="bg-orange-50 border border-orange-200 rounded-lg p-4">
             <div className="flex items-center gap-2 mb-2">
-              <TrendingUp className="w-5 h-5 text-blue-600" />
-              <span className="font-medium text-blue-800">내원 환자수</span>
+              <TrendingUp className="w-5 h-5 text-orange-600" />
+              <span className="font-medium text-orange-800">내원 환자수</span>
             </div>
             <div className="flex items-center gap-2 mb-1">
-              <div className="text-2xl font-bold text-blue-900">{stats.visitedPatients}명</div>
+              <div className="text-2xl font-bold text-orange-900">{stats.visitedPatients}명</div>
               <ChangeIndicatorBadge change={stats.changes.visitedPatients} unit="명" />
             </div>
-            <div className="text-sm text-blue-700">
+            <div className="text-sm text-orange-700">
               내원전환율 {stats.visitedRate}%
               <ChangeIndicatorInline change={stats.changes.visitedRate} />
             </div>

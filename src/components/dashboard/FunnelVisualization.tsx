@@ -51,7 +51,7 @@ export default function FunnelVisualization() {
     
     if (totalCount === 0) {
       return [
-        { id: 'inquiry', name: '신규 문의', count: 0, percentage: 0, color: 'bg-blue-500', filterType: 'new_inquiry' },
+        { id: 'inquiry', name: '신규 문의', count: 0, percentage: 0, color: 'bg-orange-500', filterType: 'new_inquiry' },
         { id: 'reservation', name: '예약 전환', count: 0, percentage: 0, color: 'bg-green-500', filterType: 'reservation_rate' },
         { id: 'visit', name: '내원 완료', count: 0, percentage: 0, color: 'bg-purple-500', filterType: 'visit_rate' },
         { id: 'treatment', name: '치료 시작', count: 0, percentage: 0, color: 'bg-orange-500', filterType: 'treatment_rate' }
@@ -68,7 +68,7 @@ export default function FunnelVisualization() {
         name: '신규 문의',
         count: totalCount,
         percentage: 100,
-        color: 'bg-blue-500',
+        color: 'bg-orange-500',
         filterType: 'new_inquiry'
       },
       {

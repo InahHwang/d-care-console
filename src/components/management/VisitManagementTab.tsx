@@ -364,7 +364,7 @@ export default function VisitManagementTab({ patient }: VisitManagementTabProps)
       <div className="mb-4 p-3 bg-gray-50 border border-gray-200 rounded-lg">
         <div className="flex items-center justify-between mb-2">
           <h5 className="text-sm font-medium text-gray-800 flex items-center">
-            <Icon icon={HiOutlineDocumentText} size={16} className="mr-2 text-blue-600" />
+            <Icon icon={HiOutlineDocumentText} size={16} className="mr-2 text-orange-600" />
             {record.title}
           </h5>
           <span className="text-xs text-gray-500">
@@ -778,7 +778,7 @@ export default function VisitManagementTab({ patient }: VisitManagementTabProps)
     { 
       value: '치료동의', 
       label: '치료 동의', 
-      color: 'bg-blue-100 text-blue-800', 
+      color: 'bg-orange-100 text-orange-800', 
       description: '치료에 동의했지만 아직 시작하지 않음',
       hasRecord: hasTreatmentConsentRecord(),
       recordSummary: getTreatmentConsentRecordSummary()
@@ -837,7 +837,7 @@ export default function VisitManagementTab({ patient }: VisitManagementTabProps)
                 <button
                   onClick={handleSaveConsultationContent}
                   disabled={isSavingConsultation || !firstConsultationContent.trim()}
-                  className="px-3 py-1 text-xs bg-blue-600 text-white rounded hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed flex items-center"
+                  className="px-3 py-1 text-xs bg-orange-600 text-white rounded hover:bg-orange-700 disabled:opacity-50 disabled:cursor-not-allowed flex items-center"
                 >
                   {isSavingConsultation ? (
                     <>
@@ -856,7 +856,7 @@ export default function VisitManagementTab({ patient }: VisitManagementTabProps)
             <textarea
               value={firstConsultationContent}
               onChange={(e) => setFirstConsultationContent(e.target.value)}
-              className="w-full px-3 py-2 border border-gray-300 rounded-lg resize-none text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+              className="w-full px-3 py-2 border border-gray-300 rounded-lg resize-none text-sm focus:outline-none focus:ring-2 focus:ring-orange-500"
               rows={4}
               placeholder="내원 후 진행된 첫 상담 내용을 자세히 입력하세요..."
               required
@@ -873,7 +873,7 @@ export default function VisitManagementTab({ patient }: VisitManagementTabProps)
                 <button
                   onClick={handleSaveTreatmentCost}
                   disabled={isSavingCost || !treatmentCost || treatmentCost <= 0}
-                  className="px-3 py-1 text-xs bg-blue-600 text-white rounded hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed flex items-center"
+                  className="px-3 py-1 text-xs bg-orange-600 text-white rounded hover:bg-orange-700 disabled:opacity-50 disabled:cursor-not-allowed flex items-center"
                 >
                   {isSavingCost ? (
                     <>
@@ -894,7 +894,7 @@ export default function VisitManagementTab({ patient }: VisitManagementTabProps)
                 type="number"
                 value={treatmentCost === 0 ? '' : treatmentCost}
                 onChange={(e) => setTreatmentCost(e.target.value === '' ? 0 : Number(e.target.value))}
-                className="w-full px-3 py-2 pr-12 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+                className="w-full px-3 py-2 pr-12 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-orange-500"
                 placeholder="최종 확정된 치료 비용을 입력하세요"
                 min="0"
                 required
@@ -913,7 +913,7 @@ export default function VisitManagementTab({ patient }: VisitManagementTabProps)
                 <button
                   onClick={handleSavePostVisitStatusOnly}
                   disabled={isSavingStatus || !postVisitStatus}
-                  className="px-3 py-1 text-xs bg-blue-600 text-white rounded hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed flex items-center"
+                  className="px-3 py-1 text-xs bg-orange-600 text-white rounded hover:bg-orange-700 disabled:opacity-50 disabled:cursor-not-allowed flex items-center"
                 >
                   {isSavingStatus ? (
                     <>
@@ -937,7 +937,7 @@ export default function VisitManagementTab({ patient }: VisitManagementTabProps)
                   onClick={() => setPostVisitStatus(option.value as PostVisitStatus)}
                   className={`p-4 text-left rounded-lg border-2 transition-colors relative ${
                     postVisitStatus === option.value
-                      ? 'border-blue-500 bg-blue-50'
+                      ? 'border-orange-500 bg-orange-50'
                       : 'border-gray-200 hover:border-gray-300 hover:bg-gray-50'
                   }`}
                 >
@@ -951,7 +951,7 @@ export default function VisitManagementTab({ patient }: VisitManagementTabProps)
                       {option.label}
                     </span>
                     {postVisitStatus === option.value && (
-                      <Icon icon={HiOutlineCheck} size={20} className="text-blue-500" />
+                      <Icon icon={HiOutlineCheck} size={20} className="text-orange-500" />
                     )}
                   </div>
                   <p className="text-xs text-gray-600">{option.description}</p>
@@ -994,7 +994,7 @@ export default function VisitManagementTab({ patient }: VisitManagementTabProps)
                               ? 'border-green-200 bg-green-50' 
                               : callback.status === '부재중'
                               ? 'border-red-200 bg-red-50'
-                              : 'border-blue-200 bg-blue-50'
+                              : 'border-orange-200 bg-orange-50'
                           }`}
                         >
                           <div className="flex items-center justify-between mb-2">
@@ -1016,7 +1016,7 @@ export default function VisitManagementTab({ patient }: VisitManagementTabProps)
                               <span className={`text-xs px-2 py-0.5 rounded ${
                                 callback.status === '완료' ? 'bg-green-100 text-green-800' :
                                 callback.status === '부재중' ? 'bg-red-100 text-red-800' :
-                                'bg-blue-100 text-blue-800'
+                                'bg-orange-100 text-orange-800'
                               }`}>
                                 {callback.status}
                               </span>
@@ -1054,7 +1054,7 @@ export default function VisitManagementTab({ patient }: VisitManagementTabProps)
                                 
                                 <button
                                   onClick={() => handleEditCallback(callback)}
-                                  className="p-1 text-blue-600 hover:bg-blue-100 rounded"
+                                  className="p-1 text-orange-600 hover:bg-orange-100 rounded"
                                   title="수정"
                                 >
                                   <Icon icon={HiOutlinePencil} size={12} />
@@ -1308,7 +1308,7 @@ export default function VisitManagementTab({ patient }: VisitManagementTabProps)
                         </button>
                         <button
                           onClick={handleSaveCallbackEdit}
-                          className="px-3 py-1 text-sm text-white bg-blue-600 rounded hover:bg-blue-700"
+                          className="px-3 py-1 text-sm text-white bg-orange-600 rounded hover:bg-orange-700"
                           disabled={!visitCallbackNotes.trim()}
                         >
                           수정 저장
@@ -1323,8 +1323,8 @@ export default function VisitManagementTab({ patient }: VisitManagementTabProps)
           
           {/* 치료동의 상태 추가 필드 */}
           {postVisitStatus === '치료동의' && (
-            <div className="border border-blue-200 rounded-lg p-4 bg-blue-50">
-              <h4 className="text-sm font-medium text-blue-800 mb-3 flex items-center">
+            <div className="border border-orange-200 rounded-lg p-4 bg-orange-50">
+              <h4 className="text-sm font-medium text-orange-800 mb-3 flex items-center">
                 <Icon icon={HiOutlineCheck} size={16} className="mr-2" />
                 치료 동의 정보
               </h4>
@@ -1336,7 +1336,7 @@ export default function VisitManagementTab({ patient }: VisitManagementTabProps)
                     type="date"
                     value={treatmentStartDate}
                     onChange={(e) => setTreatmentStartDate(e.target.value)}
-                    className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+                    className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-orange-500"
                     required
                   />
                 </div>
@@ -1375,7 +1375,7 @@ export default function VisitManagementTab({ patient }: VisitManagementTabProps)
                         type="date"
                         value={reminderCallbackDate}
                         onChange={(e) => setReminderCallbackDate(e.target.value)}
-                        className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+                        className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-orange-500"
                         required
                       />
                     </div>
@@ -1384,7 +1384,7 @@ export default function VisitManagementTab({ patient }: VisitManagementTabProps)
                       <textarea
                         value={reminderNotes}
                         onChange={(e) => setReminderNotes(e.target.value)}
-                        className="w-full px-3 py-2 border border-gray-300 rounded-lg resize-none text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+                        className="w-full px-3 py-2 border border-gray-300 rounded-lg resize-none text-sm focus:outline-none focus:ring-2 focus:ring-orange-500"
                         rows={3}
                         placeholder="치료 시작 전 환자에게 전달할 리마인더 내용을 입력하세요..."
                         required
@@ -1474,7 +1474,7 @@ export default function VisitManagementTab({ patient }: VisitManagementTabProps)
                 <button
                   onClick={handleSaveAllPostVisitData}
                   disabled={isLoading || !isNewModeFormValid()}
-                  className="px-6 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed flex items-center"
+                  className="px-6 py-2 bg-orange-600 text-white rounded-lg hover:bg-orange-700 disabled:opacity-50 disabled:cursor-not-allowed flex items-center"
                 >
                   {isLoading ? (
                     <>

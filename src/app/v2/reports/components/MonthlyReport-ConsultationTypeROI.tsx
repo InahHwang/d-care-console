@@ -227,10 +227,10 @@ const MonthlyReportConsultationTypeROI: React.FC<MonthlyReportConsultationTypeRO
 
             {/* 인사이트 */}
             {best && (
-              <div className="mt-4 bg-blue-50 border border-blue-200 rounded-lg px-4 py-3">
+              <div className="mt-4 bg-orange-50 border border-orange-200 rounded-lg px-4 py-3">
                 <div className="flex items-start gap-2">
-                  <TrendingUp className="w-4 h-4 text-blue-600 mt-0.5 flex-shrink-0" />
-                  <div className="text-sm text-blue-800">
+                  <TrendingUp className="w-4 h-4 text-orange-600 mt-0.5 flex-shrink-0" />
+                  <div className="text-sm text-orange-800">
                     <span className="font-bold text-green-700">{best.type}</span>
                     {' 상담타입이 결제전환율 '}
                     <span className="font-bold">{best.paidRate}%</span>

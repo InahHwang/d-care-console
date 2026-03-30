@@ -70,7 +70,7 @@ const MonthlyReportActionButtons: React.FC<MonthlyReportActionButtonsProps> = ({
         <button
           onClick={handleShowSubmitModal}
           disabled={isSubmitting}
-          className="flex items-center gap-2 px-6 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 disabled:opacity-50"
+          className="flex items-center gap-2 px-6 py-2 bg-orange-600 text-white rounded-lg hover:bg-orange-700 disabled:opacity-50"
         >
           <Send className="w-4 h-4" />
           제출하기
@@ -127,7 +127,7 @@ const MonthlyReportActionButtons: React.FC<MonthlyReportActionButtonsProps> = ({
               <button
                 onClick={handleFinalSubmit}
                 disabled={isSubmitting}
-                className="flex-1 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 disabled:opacity-50"
+                className="flex-1 px-4 py-2 bg-orange-600 text-white rounded-lg hover:bg-orange-700 disabled:opacity-50"
               >
                 {isSubmitting ? '제출 중...' : '최종 제출'}
               </button>

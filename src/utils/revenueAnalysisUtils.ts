@@ -362,10 +362,10 @@ export function getRevenueTypeColorClass(revenueType: 'achieved' | 'potential' |
       };
     case 'potential':
       return {
-        bg: 'bg-blue-50',
-        text: 'text-blue-800',
-        border: 'border-blue-200',
-        icon: 'text-blue-600'
+        bg: 'bg-orange-50',
+        text: 'text-orange-800',
+        border: 'border-orange-200',
+        icon: 'text-orange-600'
       };
     case 'lost':
       return {

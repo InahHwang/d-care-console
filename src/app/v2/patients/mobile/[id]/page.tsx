@@ -7,7 +7,7 @@ import { useParams, useRouter } from 'next/navigation';
 
 // 상태 설정
 const statusConfig: Record<string, { label: string; bgColor: string; textColor: string }> = {
-  consulting: { label: '전화상담', bgColor: 'bg-blue-100', textColor: 'text-blue-700' },
+  consulting: { label: '전화상담', bgColor: 'bg-orange-100', textColor: 'text-orange-700' },
   reserved: { label: '내원예약', bgColor: 'bg-purple-100', textColor: 'text-purple-700' },
   visited: { label: '내원완료', bgColor: 'bg-amber-100', textColor: 'text-amber-700' },
   treatmentBooked: { label: '치료예약', bgColor: 'bg-teal-100', textColor: 'text-teal-700' },
@@ -102,7 +102,7 @@ export default function MobilePatientDetailPage() {
     return (
       <div className="min-h-screen bg-gray-50 flex items-center justify-center">
         <div className="text-center">
-          <div className="w-8 h-8 border-2 border-blue-500 border-t-transparent rounded-full animate-spin mx-auto mb-2"></div>
+          <div className="w-8 h-8 border-2 border-orange-500 border-t-transparent rounded-full animate-spin mx-auto mb-2"></div>
           <p className="text-gray-500 text-sm">환자 정보 로딩 중...</p>
         </div>
       </div>
@@ -117,7 +117,7 @@ export default function MobilePatientDetailPage() {
           <p className="text-gray-700 font-medium">{error || '환자 정보를 찾을 수 없습니다.'}</p>
           <button
             onClick={() => router.back()}
-            className="mt-4 px-4 py-2 bg-blue-500 text-white rounded-lg text-sm"
+            className="mt-4 px-4 py-2 bg-orange-500 text-white rounded-lg text-sm"
           >
             뒤로 가기
           </button>
@@ -176,7 +176,7 @@ export default function MobilePatientDetailPage() {
           </div>
           <div className="text-gray-700">{patient.interest || '미정'}</div>
           {patient.estimatedAmount && patient.estimatedAmount > 0 && (
-            <div className="mt-2 text-blue-600 font-medium">
+            <div className="mt-2 text-orange-600 font-medium">
               💰 예상 금액: {(patient.estimatedAmount / 10000).toLocaleString()}만원
             </div>
           )}
@@ -240,7 +240,7 @@ export default function MobilePatientDetailPage() {
                       <span className={`text-xs px-2 py-0.5 rounded ${
                         call.callType === 'inbound'
                           ? 'bg-green-100 text-green-700'
-                          : 'bg-blue-100 text-blue-700'
+                          : 'bg-orange-100 text-orange-700'
                       }`}>
                         {call.callType === 'inbound' ? '수신' : '발신'}
                       </span>
@@ -297,7 +297,7 @@ export default function MobilePatientDetailPage() {
           </a>
           <a
             href={`sms:${patient.phone}`}
-            className="flex-1 py-3 bg-blue-500 hover:bg-blue-600 rounded-xl font-medium text-white text-center transition-colors"
+            className="flex-1 py-3 bg-orange-500 hover:bg-orange-600 rounded-xl font-medium text-white text-center transition-colors"
           >
             💬 문자 보내기
           </a>

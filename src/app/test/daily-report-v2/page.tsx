@@ -44,7 +44,7 @@ export default function DailyReportV2TestPage() {
 
   const getPhaseColor = (phase: string) => {
     switch (phase) {
-      case '전화상담': return 'bg-blue-100 text-blue-800'
+      case '전화상담': return 'bg-orange-100 text-orange-800'
       case '예약확정': return 'bg-green-100 text-green-800'
       case '내원완료': return 'bg-purple-100 text-purple-800'
       case '종결': return 'bg-gray-100 text-gray-800'
@@ -94,7 +94,7 @@ export default function DailyReportV2TestPage() {
           <div className="flex items-center gap-1">
             <span className={`px-1.5 py-0.5 rounded text-xs font-medium ${
               callbackCount === 0 ? 'bg-gray-100 text-gray-500' :
-              callbackCount === 1 ? 'bg-blue-100 text-blue-800' :
+              callbackCount === 1 ? 'bg-orange-100 text-orange-800' :
               callbackCount === 2 ? 'bg-yellow-100 text-yellow-800' :
               'bg-red-100 text-red-800'
             }`}>
@@ -129,7 +129,7 @@ export default function DailyReportV2TestPage() {
             <span className="text-xs text-orange-600">{patient.resultReason}</span>
           )}
           {patient.correctionPlan && (
-            <div className="text-xs text-blue-600">{patient.correctionPlan}</div>
+            <div className="text-xs text-orange-600">{patient.correctionPlan}</div>
           )}
         </td>
         <td className="px-3 py-2 text-sm text-gray-500">{patient.counselorName}</td>
@@ -184,12 +184,12 @@ export default function DailyReportV2TestPage() {
               <div className="text-2xl font-bold">{reportData.summary.total}명</div>
             </div>
 
-            <div className="bg-blue-50 rounded-lg shadow p-4">
-              <div className="text-sm text-blue-600">상담관리</div>
-              <div className="text-2xl font-bold text-blue-700">
+            <div className="bg-orange-50 rounded-lg shadow p-4">
+              <div className="text-sm text-orange-600">상담관리</div>
+              <div className="text-2xl font-bold text-orange-700">
                 {reportData.summary.consultation.total}명
               </div>
-              <div className="text-xs text-blue-500 mt-1">
+              <div className="text-xs text-orange-500 mt-1">
                 신규 {reportData.summary.consultation.newPatients} |
                 예약 {reportData.summary.consultation.reservationConfirmed}
               </div>
@@ -245,7 +245,7 @@ export default function DailyReportV2TestPage() {
                   onClick={() => setActiveTab('consultation')}
                   className={`px-6 py-3 text-sm font-medium ${
                     activeTab === 'consultation'
-                      ? 'border-b-2 border-blue-500 text-blue-600'
+                      ? 'border-b-2 border-orange-500 text-orange-600'
                       : 'text-gray-500 hover:text-gray-700'
                   }`}
                 >

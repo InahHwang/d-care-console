@@ -61,7 +61,7 @@ const SidebarItem = ({
       )}
       {/* 🔥 AI 배지 표시 */}
       {aiLabel && (
-        <span className="inline-flex items-center justify-center px-2 py-0.5 text-xs font-bold text-white bg-gradient-to-r from-purple-500 to-blue-500 rounded-full">
+        <span className="inline-flex items-center justify-center px-2 py-0.5 text-xs font-bold text-white bg-gradient-to-r from-purple-500 to-orange-500 rounded-full">
           AI
         </span>
       )}

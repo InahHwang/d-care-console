@@ -38,7 +38,7 @@ export function ChannelChatMessageBubble({ message }: ChannelChatMessageBubblePr
           {isOutgoing && (
             <div className="flex items-center gap-0.5 text-xs text-gray-400">
               {message.status === 'read' ? (
-                <CheckCheck size={12} className="text-blue-500" />
+                <CheckCheck size={12} className="text-orange-500" />
               ) : message.status === 'delivered' ? (
                 <CheckCheck size={12} />
               ) : (
@@ -52,7 +52,7 @@ export function ChannelChatMessageBubble({ message }: ChannelChatMessageBubblePr
           <div
             className={`px-3 py-2 rounded-2xl ${
               isOutgoing
-                ? 'bg-blue-600 text-white rounded-br-md'
+                ? 'bg-orange-600 text-white rounded-br-md'
                 : 'bg-gray-100 text-gray-900 rounded-bl-md'
             }`}
           >

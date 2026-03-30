@@ -150,8 +150,8 @@ export default function UsersSettingsPage() {
         </button>
         <div className="flex items-center justify-between">
           <div className="flex items-center gap-3">
-            <div className="w-10 h-10 bg-blue-100 rounded-lg flex items-center justify-center">
-              <FiUsers className="w-5 h-5 text-blue-600" />
+            <div className="w-10 h-10 bg-orange-100 rounded-lg flex items-center justify-center">
+              <FiUsers className="w-5 h-5 text-orange-600" />
             </div>
             <div>
               <h1 className="text-2xl font-bold text-gray-900">사용자 관리</h1>
@@ -160,7 +160,7 @@ export default function UsersSettingsPage() {
           </div>
           <button
             onClick={() => router.push('/v2/settings/invitations')}
-            className="flex items-center gap-2 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors"
+            className="flex items-center gap-2 px-4 py-2 bg-orange-600 text-white rounded-lg hover:bg-orange-700 transition-colors"
           >
             <FiUserPlus className="w-4 h-4" />
             새 사용자 초대
@@ -179,14 +179,14 @@ export default function UsersSettingsPage() {
               value={searchTerm}
               onChange={(e) => setSearchTerm(e.target.value)}
               placeholder="이름, 아이디, 이메일 검색..."
-              className="w-full pl-10 pr-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+              className="w-full pl-10 pr-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-orange-500 focus:border-orange-500"
             />
           </div>
           {/* 역할 필터 */}
           <select
             value={roleFilter}
             onChange={(e) => setRoleFilter(e.target.value)}
-            className="px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+            className="px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-orange-500 focus:border-orange-500"
           >
             <option value="all">모든 역할</option>
             <option value="admin">관리자</option>
@@ -201,7 +201,7 @@ export default function UsersSettingsPage() {
       <div className="bg-white rounded-xl shadow-sm border border-gray-200 overflow-hidden">
         {isLoading ? (
           <div className="p-8 text-center">
-            <div className="w-8 h-8 border-4 border-blue-600 border-t-transparent rounded-full animate-spin mx-auto mb-4"></div>
+            <div className="w-8 h-8 border-4 border-orange-600 border-t-transparent rounded-full animate-spin mx-auto mb-4"></div>
             <p className="text-gray-500">사용자 목록을 불러오는 중...</p>
           </div>
         ) : users.length === 0 ? (

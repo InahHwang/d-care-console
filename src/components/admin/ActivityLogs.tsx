@@ -362,7 +362,7 @@ export default function ActivityLogs() {
         return 'text-gray-600 bg-gray-100';
       case 'patient_create':
       case 'user_create':
-        return 'text-blue-600 bg-blue-100';
+        return 'text-orange-600 bg-orange-100';
       case 'patient_update':
       case 'user_update':
         return 'text-yellow-600 bg-yellow-100';

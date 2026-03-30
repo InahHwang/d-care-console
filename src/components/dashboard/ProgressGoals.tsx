@@ -93,14 +93,14 @@ const ProgressGoals: React.FC = () => {
           
           <div className="relative w-full h-2 bg-gray-100 rounded-full overflow-hidden">
             <div 
-              className="absolute left-0 top-0 h-full bg-blue-500 rounded-full transition-all duration-300" 
+              className="absolute left-0 top-0 h-full bg-orange-500 rounded-full transition-all duration-300" 
               style={{ width: `${Math.min(currentMonth.appointments.percentage, 100)}%` }}
             ></div>
           </div>
           
           <div className="flex justify-between items-center mt-1">
             <span className="text-xs text-text-muted">달성률</span>
-            <span className="text-xs font-medium text-blue-600">
+            <span className="text-xs font-medium text-orange-600">
               {currentMonth.appointments.percentage}%
             </span>
           </div>

@@ -107,7 +107,7 @@ export function ChannelChatRoomList({
           onClick={() => onStatusFilterChange('active')}
           className={`flex-1 py-2.5 text-sm font-medium transition-colors ${
             statusFilter === 'active'
-              ? 'text-blue-600 border-b-2 border-blue-600 bg-blue-50/50'
+              ? 'text-orange-600 border-b-2 border-orange-600 bg-orange-50/50'
               : 'text-gray-500 hover:text-gray-700 hover:bg-gray-50'
           }`}
         >
@@ -134,7 +134,7 @@ export function ChannelChatRoomList({
               onClick={() => onChannelChange(tab.value)}
               className={`px-3 py-1.5 text-xs font-medium rounded-lg transition-colors ${
                 selectedChannel === tab.value
-                  ? 'bg-blue-100 text-blue-700'
+                  ? 'bg-orange-100 text-orange-700'
                   : 'text-gray-500 hover:bg-gray-100'
               }`}
             >
@@ -153,7 +153,7 @@ export function ChannelChatRoomList({
             placeholder="이름, 전화번호 검색..."
             value={searchQuery}
             onChange={(e) => onSearchChange(e.target.value)}
-            className="w-full pl-9 pr-3 py-2 text-sm border rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+            className="w-full pl-9 pr-3 py-2 text-sm border rounded-lg focus:outline-none focus:ring-2 focus:ring-orange-500"
           />
         </div>
         {/* 응답 대기 필터 - 진행중 탭에서만 표시 */}

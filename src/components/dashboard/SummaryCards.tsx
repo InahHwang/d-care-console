@@ -292,7 +292,7 @@ export default function SummaryCards({ summary, isLoading = false }: SummaryCard
               suffix="명"
               icon={HiOutlineUsers}
               progressValue={100}
-              progressColor="bg-blue-500"
+              progressColor="bg-orange-500"
               isLoading={isLoading}
               subtitle="이번달 새로 등록된 환자"
               onClick={() => handleOpenModal('new_inquiry', '이번달 신규 문의 환자')}
@@ -380,7 +380,7 @@ export default function SummaryCards({ summary, isLoading = false }: SummaryCard
               suffix="명"
               icon={FiPhoneCall}
               progressValue={calculateProgress(consultationStats.outboundCount, consultationStats.totalPatients)}
-              progressColor="bg-blue-500"
+              progressColor="bg-orange-500"
               isLoading={isLoading}
               subtitle={`활성: ${consultationStats.outboundActive}명, 완료: ${consultationStats.outboundCompleted}명`}
             />

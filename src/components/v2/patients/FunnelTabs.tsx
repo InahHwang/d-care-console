@@ -43,7 +43,7 @@ const getStatusStyle = (statusId: PatientFilterType, isActive: boolean) => {
 
   switch (statusId) {
     case 'all': return 'bg-gray-900 text-white';
-    case 'consulting': return 'bg-blue-100 text-blue-700';
+    case 'consulting': return 'bg-orange-100 text-orange-700';
     case 'reserved': return 'bg-purple-100 text-purple-700';
     case 'visited': return 'bg-amber-100 text-amber-700';
     case 'treatmentBooked': return 'bg-teal-100 text-teal-700';

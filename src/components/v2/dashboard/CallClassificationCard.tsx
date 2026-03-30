@@ -42,7 +42,7 @@ export function CallClassificationCard({
   }
 
   const classifications = [
-    { label: '신규 환자', count: newPatients, color: 'bg-blue-500' },
+    { label: '신규 환자', count: newPatients, color: 'bg-orange-500' },
     { label: '기존 환자', count: existingPatients, color: 'bg-emerald-500' },
     { label: '부재중', count: missed, color: 'bg-gray-400' },
     { label: '거래처/기타', count: other, color: 'bg-slate-400' },
@@ -55,7 +55,7 @@ export function CallClassificationCard({
         {onViewCallLogs && (
           <button
             onClick={onViewCallLogs}
-            className="text-sm text-blue-500 hover:text-blue-600 flex items-center gap-1"
+            className="text-sm text-orange-500 hover:text-orange-600 flex items-center gap-1"
           >
             통화 기록 보기 <ArrowRight size={14} />
           </button>

@@ -223,7 +223,7 @@ export default function ConsultationV2TestPage() {
 
   const getPhaseColor = (phase: string) => {
     switch (phase) {
-      case '전화상담': return 'bg-blue-100 text-blue-800'
+      case '전화상담': return 'bg-orange-100 text-orange-800'
       case '예약확정': return 'bg-green-100 text-green-800'
       default: return 'bg-gray-100 text-gray-800'
     }
@@ -295,7 +295,7 @@ export default function ConsultationV2TestPage() {
               </a>
               <button
                 onClick={() => setShowAddForm(!showAddForm)}
-                className="px-3 py-2 text-sm bg-blue-500 text-white rounded hover:bg-blue-600"
+                className="px-3 py-2 text-sm bg-orange-500 text-white rounded hover:bg-orange-600"
               >
                 + 환자 등록
               </button>
@@ -321,7 +321,7 @@ export default function ConsultationV2TestPage() {
                 />
                 <button
                   onClick={handleSearch}
-                  className="px-4 py-2 bg-blue-500 text-white rounded-r hover:bg-blue-600 text-sm"
+                  className="px-4 py-2 bg-orange-500 text-white rounded-r hover:bg-orange-600 text-sm"
                 >
                   검색
                 </button>
@@ -449,7 +449,7 @@ export default function ConsultationV2TestPage() {
                     onClick={() => setNewPatient({ ...newPatient, source })}
                     className={`px-3 py-1 text-sm rounded ${
                       newPatient.source === source
-                        ? 'bg-blue-500 text-white'
+                        ? 'bg-orange-500 text-white'
                         : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
                     }`}
                   >
@@ -473,7 +473,7 @@ export default function ConsultationV2TestPage() {
                     }}
                     className={`px-3 py-1 text-sm rounded ${
                       newPatient.interestedServices.includes(service)
-                        ? 'bg-blue-500 text-white'
+                        ? 'bg-orange-500 text-white'
                         : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
                     }`}
                   >
@@ -514,7 +514,7 @@ export default function ConsultationV2TestPage() {
               <button
                 onClick={handleAddPatient}
                 disabled={!newPatient.name || !newPatient.phone}
-                className="px-4 py-2 bg-blue-500 text-white rounded hover:bg-blue-600 disabled:opacity-50"
+                className="px-4 py-2 bg-orange-500 text-white rounded hover:bg-orange-600 disabled:opacity-50"
               >
                 등록
               </button>
@@ -545,7 +545,7 @@ export default function ConsultationV2TestPage() {
                           key={patient._id}
                           onClick={() => setSelectedPatient(patient)}
                           className={`p-3 cursor-pointer hover:bg-gray-50 ${
-                            selectedPatient?._id === patient._id ? 'bg-blue-50' : ''
+                            selectedPatient?._id === patient._id ? 'bg-orange-50' : ''
                           }`}
                         >
                           <div className="flex items-center justify-between">
@@ -598,7 +598,7 @@ export default function ConsultationV2TestPage() {
                           onClick={() => handlePageChange(pageNum)}
                           className={`px-3 py-1 text-sm rounded ${
                             pageNum === pagination.page
-                              ? 'bg-blue-500 text-white'
+                              ? 'bg-orange-500 text-white'
                               : 'hover:bg-gray-100'
                           }`}
                         >
@@ -657,7 +657,7 @@ export default function ConsultationV2TestPage() {
                       <>
                         <button
                           onClick={() => handleStatusChange(selectedPatient._id!, 'confirmVisit')}
-                          className="px-3 py-1.5 text-sm bg-blue-500 text-white rounded hover:bg-blue-600"
+                          className="px-3 py-1.5 text-sm bg-orange-500 text-white rounded hover:bg-orange-600"
                         >
                           내원확인
                         </button>
@@ -712,7 +712,7 @@ export default function ConsultationV2TestPage() {
                     <label className="text-xs text-gray-500">관심 서비스</label>
                     <div className="mt-1 flex flex-wrap gap-1">
                       {selectedPatient.consultation?.interestedServices?.map(service => (
-                        <span key={service} className="px-2 py-0.5 bg-blue-100 text-blue-800 text-xs rounded">
+                        <span key={service} className="px-2 py-0.5 bg-orange-100 text-orange-800 text-xs rounded">
                           {service}
                         </span>
                       ))}

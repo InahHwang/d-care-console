@@ -69,7 +69,7 @@ export function MarketingTargetFilters({
             value={search}
             onChange={(e) => onSearchChange(e.target.value)}
             placeholder="이름, 전화번호, 메모 검색..."
-            className="w-full pl-10 pr-4 py-2 border rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+            className="w-full pl-10 pr-4 py-2 border rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-orange-500"
           />
           {search && (
             <button
@@ -88,7 +88,7 @@ export function MarketingTargetFilters({
             onChange={(e) =>
               onSortByChange(e.target.value as typeof sortBy)
             }
-            className="px-3 py-2 border rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+            className="px-3 py-2 border rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-orange-500"
           >
             {SORT_OPTIONS.map((opt) => (
               <option key={opt.value} value={opt.value}>
@@ -125,15 +125,15 @@ export function MarketingTargetFilters({
               onClick={() => handleReasonToggle(option.value)}
               className={`px-3 py-1.5 text-sm rounded-full border transition-colors flex items-center gap-1.5 ${
                 isSelected
-                  ? 'bg-blue-100 text-blue-700 border-blue-300'
-                  : 'bg-white text-gray-600 border-gray-300 hover:border-blue-400'
+                  ? 'bg-orange-100 text-orange-700 border-orange-300'
+                  : 'bg-white text-gray-600 border-gray-300 hover:border-orange-400'
               }`}
             >
               {option.label}
               {count > 0 && (
                 <span
                   className={`text-xs px-1.5 py-0.5 rounded-full ${
-                    isSelected ? 'bg-blue-200' : 'bg-gray-200'
+                    isSelected ? 'bg-orange-200' : 'bg-gray-200'
                   }`}
                 >
                   {count}
@@ -152,7 +152,7 @@ export function MarketingTargetFilters({
           </span>
           <button
             onClick={clearFilters}
-            className="text-sm text-blue-600 hover:text-blue-700"
+            className="text-sm text-orange-600 hover:text-orange-700"
           >
             필터 초기화
           </button>

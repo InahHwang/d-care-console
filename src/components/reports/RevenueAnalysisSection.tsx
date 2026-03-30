@@ -124,18 +124,18 @@ const RevenueAnalysisSection: React.FC<RevenueAnalysisSectionProps> = ({
 
   return (
     <div className="bg-white rounded-lg shadow-sm border mb-6">
-      <div className="p-6 border-b bg-blue-50">
+      <div className="p-6 border-b bg-orange-50">
         <div className="flex items-center justify-between">
           <h2 className="text-lg font-bold text-gray-900 flex items-center gap-2">
-            <BarChart3 className="w-5 h-5 text-blue-600" />
+            <BarChart3 className="w-5 h-5 text-orange-600" />
             매출 현황 분석
-            <span className="text-sm bg-blue-100 text-blue-700 px-2 py-1 rounded-full">
+            <span className="text-sm bg-orange-100 text-orange-700 px-2 py-1 rounded-full">
               총 {summary.totalInquiries}명 문의
             </span>
           </h2>
           <button
             onClick={() => setShowDetails(!showDetails)}
-            className="flex items-center gap-1 px-3 py-1 text-sm text-blue-600 border border-blue-200 rounded-lg hover:bg-blue-50 no-print"
+            className="flex items-center gap-1 px-3 py-1 text-sm text-orange-600 border border-orange-200 rounded-lg hover:bg-orange-50 no-print"
           >
             {showDetails ? <EyeOff className="w-3 h-3" /> : <Eye className="w-3 h-3" />}
             {showDetails ? '간단히 보기' : '상세히 보기'}
@@ -146,10 +146,10 @@ const RevenueAnalysisSection: React.FC<RevenueAnalysisSectionProps> = ({
       <div className="p-6">
         {/* 📊 핵심 지표 카드 */}
         <div className="mb-6">
-          <div className="bg-gradient-to-r from-blue-50 to-indigo-50 border border-blue-200 rounded-lg p-6">
+          <div className="bg-gradient-to-r from-orange-50 to-indigo-50 border border-orange-200 rounded-lg p-6">
             <div className="text-center mb-4">
               <div className="flex items-center justify-center gap-2 mb-3">
-                <TrendingUp className="w-8 h-8 text-blue-600" />
+                <TrendingUp className="w-8 h-8 text-orange-600" />
                 <h3 className="text-2xl font-bold text-gray-900">
                   이번 달 총 {summary.totalInquiries}명의 환자 문의가 있었습니다
                 </h3>
@@ -220,7 +220,7 @@ const RevenueAnalysisSection: React.FC<RevenueAnalysisSectionProps> = ({
             </div>
 
             {/* 총 잠재매출 표시 */}
-            <div className="text-center pt-4 border-t border-blue-200">
+            <div className="text-center pt-4 border-t border-orange-200">
               <div className="flex items-center justify-center gap-2 mb-2">
                 <DollarSign className="w-6 h-6 text-indigo-600" />
                 <span className="text-lg font-semibold text-indigo-900">
@@ -260,35 +260,35 @@ const RevenueAnalysisSection: React.FC<RevenueAnalysisSectionProps> = ({
         {showDetails && (
           <div className="space-y-6">
             {/* 🔥 잠재매출 세부 분석 - 수정된 클릭 핸들러 */}
-            <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
-              <h4 className="font-semibold text-blue-900 mb-3 flex items-center gap-2">
+            <div className="bg-orange-50 border border-orange-200 rounded-lg p-4">
+              <h4 className="font-semibold text-orange-900 mb-3 flex items-center gap-2">
                 <Clock className="w-5 h-5" />
                 잠재매출 세부 분석 ({potentialRevenue.totalPatients}명)
               </h4>
               
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4 text-sm">
                 <div 
-                  className="text-center p-3 bg-white rounded border cursor-pointer hover:bg-blue-50 transition-colors"
+                  className="text-center p-3 bg-white rounded border cursor-pointer hover:bg-orange-50 transition-colors"
                   onClick={() => handlePatientListClick('potential', 'consultation_ongoing')}
                 >
-                  <div className="text-xl font-bold text-blue-900">{potentialRevenue.consultation.patients}명</div>
-                  <div className="text-blue-700 text-xs mb-1">상담진행중</div>
-                  <div className="text-blue-800 font-medium">{formatRevenueAmount(potentialRevenue.consultation.amount)}</div>
+                  <div className="text-xl font-bold text-orange-900">{potentialRevenue.consultation.patients}명</div>
+                  <div className="text-orange-700 text-xs mb-1">상담진행중</div>
+                  <div className="text-orange-800 font-medium">{formatRevenueAmount(potentialRevenue.consultation.amount)}</div>
                   <div className="text-xs text-gray-600 mt-1">콜백필요, 잠재고객, 예약확정</div>
                 </div>
                 
                 <div 
-                  className="text-center p-3 bg-white rounded border cursor-pointer hover:bg-blue-50 transition-colors"
+                  className="text-center p-3 bg-white rounded border cursor-pointer hover:bg-orange-50 transition-colors"
                   onClick={() => handlePatientListClick('potential', 'visit_management')}
                 >
-                  <div className="text-xl font-bold text-blue-900">{potentialRevenue.visitManagement.patients}명</div>
-                  <div className="text-blue-700 text-xs mb-1">내원관리중</div>
-                  <div className="text-blue-800 font-medium">{formatRevenueAmount(potentialRevenue.visitManagement.amount)}</div>
+                  <div className="text-xl font-bold text-orange-900">{potentialRevenue.visitManagement.patients}명</div>
+                  <div className="text-orange-700 text-xs mb-1">내원관리중</div>
+                  <div className="text-orange-800 font-medium">{formatRevenueAmount(potentialRevenue.visitManagement.amount)}</div>
                   <div className="text-xs text-gray-600 mt-1">치료동의, 재콜백필요, 상태미설정</div>
                 </div>
               </div>
               
-              <p className="text-xs text-blue-600 mt-3">
+              <p className="text-xs text-orange-600 mt-3">
                 💡 이 환자들은 아직 치료 가능성이 있는 진행 중인 케이스입니다.
               </p>
             </div>

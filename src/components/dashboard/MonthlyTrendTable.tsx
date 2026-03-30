@@ -154,17 +154,17 @@ export default function MonthlyTrendTable() {
                 <tr 
                   key={trend.month} 
                   className={`border-b border-gray-100 hover:bg-gray-50 transition-colors duration-200 ${
-                    isCurrentMonth ? 'bg-blue-50 border-blue-200' : ''
+                    isCurrentMonth ? 'bg-orange-50 border-orange-200' : ''
                   }`}
                 >
                   {/* 기간 */}
                   <td className="py-4 px-2">
                     <div className="flex flex-col">
-                      <span className={`font-medium ${isCurrentMonth ? 'text-blue-700' : 'text-text-primary'}`}>
+                      <span className={`font-medium ${isCurrentMonth ? 'text-orange-700' : 'text-text-primary'}`}>
                         {formatMonth(trend.month)}
                       </span>
                       {isCurrentMonth && (
-                        <span className="text-xs text-blue-600 font-medium">이번달</span>
+                        <span className="text-xs text-orange-600 font-medium">이번달</span>
                       )}
                     </div>
                   </td>

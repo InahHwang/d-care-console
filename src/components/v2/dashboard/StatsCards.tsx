@@ -59,7 +59,7 @@ export function StatsCards({ stats, loading }: StatsCardsProps) {
         title="신규 환자"
         value={stats.newPatients}
         icon={<Users size={20} />}
-        iconBgColor="text-blue-400"
+        iconBgColor="text-orange-400"
         subtext="AI 자동 등록"
         subtextColor="gray"
       />

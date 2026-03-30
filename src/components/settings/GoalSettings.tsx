@@ -148,12 +148,12 @@ const GoalSettings: React.FC = () => {
 
       {/* 🔥 목표 상속 알림 */}
       {isInherited && (
-        <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
+        <div className="bg-orange-50 border border-orange-200 rounded-lg p-4">
           <div className="flex items-center gap-2">
-            <Icon icon={HiOutlineInformationCircle} size={20} className="text-blue-500" />
-            <span className="text-blue-800 text-sm font-medium">이전 달 목표를 자동으로 가져왔습니다</span>
+            <Icon icon={HiOutlineInformationCircle} size={20} className="text-orange-500" />
+            <span className="text-orange-800 text-sm font-medium">이전 달 목표를 자동으로 가져왔습니다</span>
           </div>
-          <p className="text-blue-700 text-sm mt-1">
+          <p className="text-orange-700 text-sm mt-1">
             {getCurrentMonthName()}에 새로 설정된 목표가 없어서 이전 달의 목표를 그대로 사용하고 있습니다. 
             새로운 목표를 설정하려면 아래에서 수정 후 저장해주세요.
           </p>
@@ -165,7 +165,7 @@ const GoalSettings: React.FC = () => {
         <div className="text-xs text-text-muted bg-gray-50 p-2 rounded flex items-center justify-between">
           <span>마지막 업데이트: {formatLastUpdated(lastUpdated)}</span>
           {isInherited && (
-            <span className="text-blue-600 font-medium">이전 달에서 상속됨</span>
+            <span className="text-orange-600 font-medium">이전 달에서 상속됨</span>
           )}
         </div>
       )}
@@ -195,21 +195,21 @@ const GoalSettings: React.FC = () => {
 
       {/* 현재 달성 현황 */}
       <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-        <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
-          <h4 className="text-sm font-medium text-blue-800 mb-2">신규 환자 현황</h4>
+        <div className="bg-orange-50 border border-orange-200 rounded-lg p-4">
+          <h4 className="text-sm font-medium text-orange-800 mb-2">신규 환자 현황</h4>
           <div className="flex items-end gap-2">
-            <span className="text-2xl font-bold text-blue-600">
+            <span className="text-2xl font-bold text-orange-600">
               {currentMonth.newPatients.current}
             </span>
-            <span className="text-blue-600">/ {currentMonth.newPatients.target}명</span>
+            <span className="text-orange-600">/ {currentMonth.newPatients.target}명</span>
           </div>
           <div className="mt-2">
-            <div className="text-xs text-blue-600 mb-1">
+            <div className="text-xs text-orange-600 mb-1">
               달성률: {currentMonth.newPatients.percentage}%
             </div>
-            <div className="w-full bg-blue-200 rounded-full h-2">
+            <div className="w-full bg-orange-200 rounded-full h-2">
               <div 
-                className="bg-blue-500 h-2 rounded-full transition-all duration-300"
+                className="bg-orange-500 h-2 rounded-full transition-all duration-300"
                 style={{ width: `${Math.min(currentMonth.newPatients.percentage, 100)}%` }}
               ></div>
             </div>
@@ -243,7 +243,7 @@ const GoalSettings: React.FC = () => {
         <h4 className="text-md font-semibold text-text-primary mb-4">
           목표 수정
           {isInherited && (
-            <span className="ml-2 text-sm text-blue-600 font-normal">(현재 이전 달 목표 사용 중)</span>
+            <span className="ml-2 text-sm text-orange-600 font-normal">(현재 이전 달 목표 사용 중)</span>
           )}
         </h4>
         

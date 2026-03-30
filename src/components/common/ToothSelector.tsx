@@ -131,7 +131,7 @@ export default function ToothSelector({
             checked={showPrimary}
             onChange={(e) => setShowPrimary(e.target.checked)}
             disabled={disabled}
-            className="w-3.5 h-3.5 rounded border-gray-300 text-blue-600 focus:ring-blue-500"
+            className="w-3.5 h-3.5 rounded border-gray-300 text-orange-600 focus:ring-orange-500"
           />
           유치 표시
         </label>
@@ -197,8 +197,8 @@ export default function ToothSelector({
               unknown
                 ? 'text-gray-300 cursor-not-allowed'
                 : isGroupFullySelected(allPermanentTeeth)
-                  ? 'text-blue-600'
-                  : 'text-gray-700 hover:text-blue-600'
+                  ? 'text-orange-600'
+                  : 'text-gray-700 hover:text-orange-600'
             } ${disabled ? 'cursor-not-allowed' : ''}`}
           >
             {isGroupFullySelected(allPermanentTeeth) ? '전체해제' : '전체선택'}
@@ -273,10 +273,10 @@ export default function ToothSelector({
       )}
 
       {/* 선택된 치아 표시 */}
-      <div className="px-4 py-3 bg-blue-50 border-t border-blue-100 rounded-b-xl">
+      <div className="px-4 py-3 bg-orange-50 border-t border-orange-100 rounded-b-xl">
         <div className="flex items-start justify-between">
           <div className="flex-1 min-w-0">
-            <span className="text-xs text-blue-600 font-medium">선택된 치아</span>
+            <span className="text-xs text-orange-600 font-medium">선택된 치아</span>
             <div className="mt-1">
               {unknown ? (
                 <span className="px-3 py-1 bg-amber-500 text-white text-xs rounded-full font-medium">
@@ -303,8 +303,8 @@ export default function ToothSelector({
               <span className="text-lg font-bold text-amber-500">-</span>
             ) : (
               <>
-                <span className="text-xl font-bold text-blue-600">{selectedTeeth.length}</span>
-                <span className="text-xs text-blue-500 ml-1">개</span>
+                <span className="text-xl font-bold text-orange-600">{selectedTeeth.length}</span>
+                <span className="text-xs text-orange-500 ml-1">개</span>
               </>
             )}
           </div>

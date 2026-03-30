@@ -189,11 +189,11 @@ export default function ReferralsPage() {
             <div className="text-2xl font-bold text-amber-600">{stats.thanksPending}</div>
           </div>
           <div className="bg-white rounded-xl p-4 border border-gray-100">
-            <div className="flex items-center gap-2 text-blue-600 text-sm mb-1">
+            <div className="flex items-center gap-2 text-orange-600 text-sm mb-1">
               <TrendingUp className="w-4 h-4" />
               전환율
             </div>
-            <div className="text-2xl font-bold text-blue-600">
+            <div className="text-2xl font-bold text-orange-600">
               {stats.total > 0 ? Math.round((stats.thanksSent / stats.total) * 100) : 0}%
             </div>
           </div>
@@ -240,7 +240,7 @@ export default function ReferralsPage() {
                       <div className="flex-1 min-w-0">
                         <div className="text-xs text-gray-400 mb-1">소개자</div>
                         <div
-                          className="font-medium text-gray-900 cursor-pointer hover:text-blue-600 truncate"
+                          className="font-medium text-gray-900 cursor-pointer hover:text-orange-600 truncate"
                           onClick={() => handlePatientClick(referral.referrerId)}
                         >
                           {referral.referrerName}
@@ -257,7 +257,7 @@ export default function ReferralsPage() {
                       <div className="flex-1 min-w-0">
                         <div className="text-xs text-gray-400 mb-1">피소개자</div>
                         <div
-                          className="font-medium text-gray-900 cursor-pointer hover:text-blue-600 truncate"
+                          className="font-medium text-gray-900 cursor-pointer hover:text-orange-600 truncate"
                           onClick={() => handlePatientClick(referral.referredId)}
                         >
                           {referral.referredName}
@@ -305,7 +305,7 @@ export default function ReferralsPage() {
                       <div className="flex items-center gap-2">
                         <button
                           onClick={() => handleCallReferrer(referral.referrerPhone)}
-                          className="p-2 bg-blue-500 text-white rounded-lg hover:bg-blue-600 transition-colors"
+                          className="p-2 bg-orange-500 text-white rounded-lg hover:bg-orange-600 transition-colors"
                           title="전화 걸기"
                         >
                           <Phone className="w-4 h-4" />
@@ -373,7 +373,7 @@ export default function ReferralsPage() {
                         {referrer.phone}
                       </div>
                     </div>
-                    <div className="text-sm font-bold text-blue-600">
+                    <div className="text-sm font-bold text-orange-600">
                       {referrer.count}명
                     </div>
                   </div>
@@ -572,7 +572,7 @@ function AddReferralModal({
             <button
               type="submit"
               disabled={submitting}
-              className="flex-1 py-2 bg-blue-500 text-white rounded-lg hover:bg-blue-600 transition-colors disabled:opacity-50"
+              className="flex-1 py-2 bg-orange-500 text-white rounded-lg hover:bg-orange-600 transition-colors disabled:opacity-50"
             >
               {submitting ? '등록 중...' : '등록'}
             </button>

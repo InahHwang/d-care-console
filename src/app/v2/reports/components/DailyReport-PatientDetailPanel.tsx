@@ -124,7 +124,7 @@ export function DailyReportPatientDetailPanel({
                 </span>
               )}
               {patient.consultationNumber && patient.consultationNumber > 1 && (
-                <span className="px-2 py-1 bg-blue-500 text-white text-sm rounded font-medium">
+                <span className="px-2 py-1 bg-orange-500 text-white text-sm rounded font-medium">
                   {patient.consultationNumber}차 상담
                 </span>
               )}
@@ -134,7 +134,7 @@ export function DailyReportPatientDetailPanel({
               {patient.consultationType && (
                 <span className={`px-2 py-0.5 rounded-full text-xs font-medium ${
                   patient.consultationType === 'inbound'
-                    ? 'bg-blue-100 text-blue-700'
+                    ? 'bg-orange-100 text-orange-700'
                     : patient.consultationType === 'outbound'
                       ? 'bg-purple-100 text-purple-700'
                       : 'bg-teal-100 text-teal-700'
@@ -172,7 +172,7 @@ export function DailyReportPatientDetailPanel({
                 <span className="text-gray-400 line-through text-sm">
                   {patient.originalAmount}만
                 </span>
-                <span className="font-bold text-blue-600">
+                <span className="font-bold text-orange-600">
                   {patient.finalAmount}만원
                 </span>
                 <span className="px-1.5 py-0.5 bg-rose-100 text-rose-600 text-xs rounded font-medium">
@@ -180,7 +180,7 @@ export function DailyReportPatientDetailPanel({
                 </span>
               </div>
             ) : patient.originalAmount > 0 ? (
-              <div className="font-bold text-blue-600">
+              <div className="font-bold text-orange-600">
                 {patient.originalAmount}만원
               </div>
             ) : (
@@ -269,7 +269,7 @@ export function DailyReportPatientDetailPanel({
                     {entry.direction && (
                       <span className={`px-1.5 py-0.5 rounded text-xs font-medium ${
                         entry.direction === 'inbound'
-                          ? 'bg-blue-100 text-blue-700'
+                          ? 'bg-orange-100 text-orange-700'
                           : 'bg-purple-100 text-purple-700'
                       }`}>
                         {entry.direction === 'inbound' ? '수신' : '발신'}
@@ -290,7 +290,7 @@ export function DailyReportPatientDetailPanel({
                   <ul className="space-y-2">
                     {entry.content.split('\n').filter(line => line.trim()).map((line, lineIdx) => (
                       <li key={lineIdx} className="flex items-start gap-2 text-gray-700">
-                        <span className="text-blue-500 mt-1">•</span>
+                        <span className="text-orange-500 mt-1">•</span>
                         <span>{line.trim()}</span>
                       </li>
                     ))}
@@ -310,7 +310,7 @@ export function DailyReportPatientDetailPanel({
             <ul className="space-y-2">
               {patient.aiSummary.split('\n').filter(line => line.trim()).map((line, idx) => (
                 <li key={idx} className="flex items-start gap-2 text-gray-700">
-                  <span className="text-blue-500 mt-1">•</span>
+                  <span className="text-orange-500 mt-1">•</span>
                   <span>{line.trim()}</span>
                 </li>
               ))}
@@ -374,11 +374,11 @@ export function DailyReportPatientDetailPanel({
         {/* 시정 계획 */}
         {(patient.status === 'disagreed' || patient.status === 'pending') &&
           patient.correctionPlan && (
-            <div className="bg-blue-50 rounded-xl p-5 border border-blue-200">
-              <h3 className="font-semibold text-blue-900 mb-3 flex items-center gap-2">
+            <div className="bg-orange-50 rounded-xl p-5 border border-orange-200">
+              <h3 className="font-semibold text-orange-900 mb-3 flex items-center gap-2">
                 <span>📝</span> 시정 계획
               </h3>
-              <p className="text-blue-800 leading-relaxed">{patient.correctionPlan}</p>
+              <p className="text-orange-800 leading-relaxed">{patient.correctionPlan}</p>
             </div>
           )}
 

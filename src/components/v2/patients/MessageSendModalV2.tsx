@@ -141,7 +141,7 @@ export function MessageSendModalV2({
         {/* 헤더 */}
         <div className="flex items-center justify-between p-4 border-b">
           <div className="flex items-center gap-2">
-            <MessageSquare size={20} className="text-blue-500" />
+            <MessageSquare size={20} className="text-orange-500" />
             <h2 className="text-lg font-bold text-gray-900">문자 발송</h2>
           </div>
           <button
@@ -174,7 +174,7 @@ export function MessageSendModalV2({
               <select
                 value={selectedTemplateId}
                 onChange={(e) => handleTemplateSelect(e.target.value)}
-                className="w-full p-2 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+                className="w-full p-2 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-orange-500"
               >
                 <option value="">직접 입력</option>
                 {templates.map((template) => (
@@ -192,7 +192,7 @@ export function MessageSendModalV2({
               <label className="text-sm font-medium text-gray-700">메시지 내용</label>
               <div className="flex items-center gap-2 text-xs">
                 <span className={`px-2 py-0.5 rounded ${
-                  messageType === 'SMS' ? 'bg-blue-100 text-blue-700' : 'bg-purple-100 text-purple-700'
+                  messageType === 'SMS' ? 'bg-orange-100 text-orange-700' : 'bg-purple-100 text-purple-700'
                 }`}>
                   {messageType}
                 </span>
@@ -205,7 +205,7 @@ export function MessageSendModalV2({
               value={content}
               onChange={(e) => setContent(e.target.value)}
               placeholder="메시지 내용을 입력하세요..."
-              className="w-full h-48 p-3 border border-gray-200 rounded-lg resize-none focus:outline-none focus:ring-2 focus:ring-blue-500 text-sm"
+              className="w-full h-48 p-3 border border-gray-200 rounded-lg resize-none focus:outline-none focus:ring-2 focus:ring-orange-500 text-sm"
             />
           </div>
 
@@ -228,7 +228,7 @@ export function MessageSendModalV2({
           <button
             onClick={handleSend}
             disabled={isSending || !content.trim() || byteLength > 2000}
-            className="flex items-center gap-2 px-4 py-2 bg-blue-500 text-white rounded-lg hover:bg-blue-600 transition-colors disabled:opacity-50"
+            className="flex items-center gap-2 px-4 py-2 bg-orange-500 text-white rounded-lg hover:bg-orange-600 transition-colors disabled:opacity-50"
           >
             {isSending ? (
               <>

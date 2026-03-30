@@ -164,7 +164,7 @@ function getScheduleDisplay(
       return { text: `${nextAction} D-${diffDays}`, style: 'text-gray-600' };
     } else if (diffDays === 0) {
       // 오늘
-      return { text: `${nextAction} D-Day`, style: 'text-blue-600 font-bold' };
+      return { text: `${nextAction} D-Day`, style: 'text-orange-600 font-bold' };
     } else {
       // 과거: +N일 (지연)
       const overdue = Math.abs(diffDays);
@@ -194,7 +194,7 @@ function getScheduleDisplay(
 
 function getStatusStyle(status: PatientStatus) {
   switch (status) {
-    case 'consulting': return 'bg-blue-100 text-blue-700';
+    case 'consulting': return 'bg-orange-100 text-orange-700';
     case 'reserved': return 'bg-purple-100 text-purple-700';
     case 'visited': return 'bg-amber-100 text-amber-700';
     case 'treatmentBooked': return 'bg-teal-100 text-teal-700';
@@ -224,7 +224,7 @@ function getUrgencyRowStyle(urgency?: UrgencyType): string {
     case 'noshow':
       return 'bg-red-50 border-l-4 border-l-red-500';
     case 'today':
-      return 'bg-blue-50 border-l-4 border-l-blue-500';
+      return 'bg-orange-50 border-l-4 border-l-orange-500';
     case 'overdue':
       return 'bg-amber-50 border-l-4 border-l-amber-500';
     default:
@@ -236,7 +236,7 @@ function TemperatureDisplay({ temperature }: { temperature: Temperature }) {
   const config = {
     hot: { icon: Flame, color: 'text-red-500', label: '높음' },
     warm: { icon: Thermometer, color: 'text-amber-500', label: '중간' },
-    cold: { icon: Snowflake, color: 'text-blue-400', label: '낮음' },
+    cold: { icon: Snowflake, color: 'text-orange-400', label: '낮음' },
   };
 
   const { icon: Icon, color, label } = config[temperature] || config.warm;
@@ -251,8 +251,8 @@ function TemperatureDisplay({ temperature }: { temperature: Temperature }) {
 function CallDirectionIcon({ direction }: { direction?: CallDirection }) {
   if (direction === 'outbound') {
     return (
-      <div className="w-8 h-8 rounded-full bg-blue-100 flex items-center justify-center">
-        <PhoneOutgoing size={16} className="text-blue-600" />
+      <div className="w-8 h-8 rounded-full bg-orange-100 flex items-center justify-center">
+        <PhoneOutgoing size={16} className="text-orange-600" />
       </div>
     );
   }
@@ -443,7 +443,7 @@ export function PatientList({ patients, onPatientClick, onCallClick, loading, co
                   if (displayInterest) {
                     return (
                       <span className={`px-1.5 py-0.5 rounded text-xs inline-block max-w-full truncate ${
-                        activeJourney ? 'bg-indigo-50 text-indigo-700' : 'bg-blue-50 text-blue-700'
+                        activeJourney ? 'bg-indigo-50 text-indigo-700' : 'bg-orange-50 text-orange-700'
                       }`} title={displayInterest}>
                         {displayInterest}
                       </span>
@@ -513,7 +513,7 @@ export function PatientList({ patients, onPatientClick, onCallClick, loading, co
                     e.stopPropagation();
                     onPatientClick?.(patient);
                   }}
-                  className="p-1.5 hover:bg-gray-100 rounded text-gray-400 hover:text-blue-500"
+                  className="p-1.5 hover:bg-gray-100 rounded text-gray-400 hover:text-orange-500"
                 >
                   <ChevronRight size={16} />
                 </button>

@@ -399,7 +399,7 @@ export default function PatientManagement() {
   if (!patientsState) {
     return (
       <div className="flex items-center justify-center h-64">
-        <div className="w-8 h-8 border-2 border-blue-500 border-t-transparent rounded-full animate-spin"></div>
+        <div className="w-8 h-8 border-2 border-orange-500 border-t-transparent rounded-full animate-spin"></div>
         <span className="ml-2 text-gray-600">시스템을 초기화하는 중...</span>
       </div>
     )
@@ -562,8 +562,8 @@ export default function PatientManagement() {
       key: 'potential_customer' as BoxFilterType, // 🔥 "today_reservation" → "potential_customer"로 변경
       label: '잠재고객', // 🔥 "오늘 예약" → "잠재고객"으로 변경
       count: boxStats.potentialCustomers, // 🔥 "todayReservations" → "potentialCustomers"로 변경
-      color: 'bg-white hover:bg-blue-50',
-      textColor: 'text-blue-600'
+      color: 'bg-white hover:bg-orange-50',
+      textColor: 'text-orange-600'
     }
   ];
 
@@ -665,7 +665,7 @@ export default function PatientManagement() {
                 onClick={() => handleDateFilterTypeChange('all')}
                 className={`px-4 py-2 rounded-full text-sm font-medium transition-colors ${
                   dateFilterType === 'all'
-                    ? 'bg-blue-500 text-white'
+                    ? 'bg-orange-500 text-white'
                     : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
                 }`}
               >
@@ -675,7 +675,7 @@ export default function PatientManagement() {
                 onClick={() => handleDateFilterTypeChange('daily')}
                 className={`px-4 py-2 rounded-full text-sm font-medium transition-colors ${
                   dateFilterType === 'daily'
-                    ? 'bg-blue-500 text-white'
+                    ? 'bg-orange-500 text-white'
                     : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
                 }`}
               >
@@ -685,7 +685,7 @@ export default function PatientManagement() {
                 onClick={() => handleDateFilterTypeChange('monthly')}
                 className={`px-4 py-2 rounded-full text-sm font-medium transition-colors ${
                   dateFilterType === 'monthly'
-                    ? 'bg-blue-500 text-white'
+                    ? 'bg-orange-500 text-white'
                     : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
                 }`}
               >
@@ -740,45 +740,45 @@ export default function PatientManagement() {
 
         {/* 🔥 수정된 필터 결과 요약 표시 */}
         {(consultationTypeFilter !== 'all' || interestFilter !== 'all' || dateFilterType !== 'all' || searchTerm || selectedBoxFilter !== 'all') && (
-          <div className="mt-4 p-3 bg-blue-50 rounded-lg">
+          <div className="mt-4 p-3 bg-orange-50 rounded-lg">
             <div className="flex items-center justify-between">
-              <div className="flex items-center space-x-2 text-sm text-blue-800 flex-wrap">
+              <div className="flex items-center space-x-2 text-sm text-orange-800 flex-wrap">
                 <span>🔍 필터링 결과: <strong>{totalCount}명</strong></span>
                 
                 {/* 🔥 박스 필터 표시 */}
                 {selectedBoxFilter !== 'all' && (
-                  <span className="inline-flex items-center px-2 py-1 rounded-full text-xs bg-blue-200 text-blue-800">
+                  <span className="inline-flex items-center px-2 py-1 rounded-full text-xs bg-orange-200 text-orange-800">
                     {statusBoxes.find(b => b.key === selectedBoxFilter)?.label}
                   </span>
                 )}
                 
                 {getDateFilterDisplayText() && (
-                  <span className="inline-flex items-center px-2 py-1 rounded-full text-xs bg-blue-200 text-blue-800">
+                  <span className="inline-flex items-center px-2 py-1 rounded-full text-xs bg-orange-200 text-orange-800">
                     {getDateFilterDisplayText()}
                   </span>
                 )}
                 
                 {consultationTypeFilter !== 'all' && (
-                  <span className="inline-flex items-center px-2 py-1 rounded-full text-xs bg-blue-200 text-blue-800">
+                  <span className="inline-flex items-center px-2 py-1 rounded-full text-xs bg-orange-200 text-orange-800">
                     {consultationTypeFilter === 'inbound' ? '🟢 인바운드' : '🔵 아웃바운드'}
                   </span>
                 )}
                 
                 {interestFilter !== 'all' && (
-                  <span className="inline-flex items-center px-2 py-1 rounded-full text-xs bg-blue-200 text-blue-800">
+                  <span className="inline-flex items-center px-2 py-1 rounded-full text-xs bg-orange-200 text-orange-800">
                     {interestFilter}
                   </span>
                 )}
                 
                 {searchTerm && (
-                  <span className="inline-flex items-center px-2 py-1 rounded-full text-xs bg-blue-200 text-blue-800">
+                  <span className="inline-flex items-center px-2 py-1 rounded-full text-xs bg-orange-200 text-orange-800">
                     "{searchTerm}"
                   </span>
                 )}
               </div>
               <button
                 onClick={handleResetFilters}
-                className="text-xs text-blue-600 hover:text-blue-800 underline"
+                className="text-xs text-orange-600 hover:text-orange-800 underline"
               >
                 전체 보기
               </button>
@@ -794,7 +794,7 @@ export default function PatientManagement() {
             key={box.key}
             className={`p-4 rounded-lg border cursor-pointer transition-all duration-200 ${
               selectedBoxFilter === box.key 
-                ? 'ring-2 ring-blue-500 shadow-lg' 
+                ? 'ring-2 ring-orange-500 shadow-lg' 
                 : 'hover:shadow-lg'
             } ${box.color}`}
             onClick={() => handleBoxClick(box.key)}

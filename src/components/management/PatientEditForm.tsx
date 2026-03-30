@@ -727,7 +727,7 @@ export default function PatientEditForm({ patient, isOpen, onClose }: PatientEdi
                 {/* 🔥 중복 체크 상태 표시 */}
                 {phoneCheckStatus.isChecking && (
                   <span className="absolute right-3 top-1/2 transform -translate-y-1/2">
-                    <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-blue-600"></div>
+                    <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-orange-600"></div>
                   </span>
                 )}
                 {!phoneCheckStatus.isChecking && phoneCheckStatus.message && (

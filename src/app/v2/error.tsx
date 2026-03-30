@@ -26,7 +26,7 @@ export default function V2Error({
         <div className="space-y-2">
           <button
             onClick={reset}
-            className="w-full px-4 py-2 bg-blue-500 text-white rounded-lg text-sm hover:bg-blue-600"
+            className="w-full px-4 py-2 bg-orange-500 text-white rounded-lg text-sm hover:bg-orange-600"
           >
             다시 시도
           </button>

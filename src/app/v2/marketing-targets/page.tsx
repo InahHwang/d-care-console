@@ -180,7 +180,7 @@ export default function MarketingTargetsPage() {
       {/* 헤더 */}
       <div className="flex items-center justify-between">
         <div className="flex items-center gap-3">
-          <Target className="w-8 h-8 text-blue-600" />
+          <Target className="w-8 h-8 text-orange-600" />
           <div>
             <h1 className="text-2xl font-bold text-gray-900">이벤트 타겟 관리</h1>
             <p className="text-sm text-gray-500">
@@ -200,7 +200,7 @@ export default function MarketingTargetsPage() {
             <button
               onClick={handleSendMessage}
               disabled={selectedPatients.length === 0}
-              className="flex items-center gap-2 px-4 py-2 bg-blue-500 text-white rounded-lg hover:bg-blue-600 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+              className="flex items-center gap-2 px-4 py-2 bg-orange-500 text-white rounded-lg hover:bg-orange-600 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
             >
               <MessageSquare size={18} />
               문자 발송 ({selectedPatients.length})
@@ -216,7 +216,7 @@ export default function MarketingTargetsPage() {
             onClick={() => setActiveTab('targets')}
             className={`flex items-center gap-2 px-4 py-3 border-b-2 font-medium text-sm transition-colors ${
               activeTab === 'targets'
-                ? 'border-blue-500 text-blue-600'
+                ? 'border-orange-500 text-orange-600'
                 : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
             }`}
           >
@@ -227,7 +227,7 @@ export default function MarketingTargetsPage() {
             onClick={() => setActiveTab('message-logs')}
             className={`flex items-center gap-2 px-4 py-3 border-b-2 font-medium text-sm transition-colors ${
               activeTab === 'message-logs'
-                ? 'border-blue-500 text-blue-600'
+                ? 'border-orange-500 text-orange-600'
                 : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
             }`}
           >
@@ -238,7 +238,7 @@ export default function MarketingTargetsPage() {
             onClick={() => setActiveTab('templates')}
             className={`flex items-center gap-2 px-4 py-3 border-b-2 font-medium text-sm transition-colors ${
               activeTab === 'templates'
-                ? 'border-blue-500 text-blue-600'
+                ? 'border-orange-500 text-orange-600'
                 : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
             }`}
           >

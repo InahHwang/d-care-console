@@ -140,7 +140,7 @@ function PatientRegisterModal({
               placeholder="서울시 강남구..."
             />
             {form.address && extractRegion(form.address) && (
-              <span className="text-xs text-blue-600 mt-1">지역: {extractRegion(form.address)}</span>
+              <span className="text-xs text-orange-600 mt-1">지역: {extractRegion(form.address)}</span>
             )}
           </div>
 
@@ -155,7 +155,7 @@ function PatientRegisterModal({
                   onClick={() => setForm({ ...form, consultationType: type })}
                   className={`px-3 py-1.5 text-sm rounded border ${
                     form.consultationType === type
-                      ? 'bg-blue-500 text-white border-blue-500'
+                      ? 'bg-orange-500 text-white border-orange-500'
                       : 'bg-white text-gray-700 border-gray-300 hover:bg-gray-50'
                   }`}
                 >
@@ -221,7 +221,7 @@ function PatientRegisterModal({
           <button
             onClick={handleSubmit}
             disabled={isSubmitting}
-            className="px-4 py-2 text-sm bg-blue-500 text-white rounded hover:bg-blue-600 disabled:opacity-50"
+            className="px-4 py-2 text-sm bg-orange-500 text-white rounded hover:bg-orange-600 disabled:opacity-50"
           >
             {isSubmitting ? '등록 중...' : '등록'}
           </button>
@@ -274,7 +274,7 @@ function PatientDetailModal({
 
   const getPhaseColor = (phase: string) => {
     switch (phase) {
-      case '전화상담': return 'bg-blue-100 text-blue-800'
+      case '전화상담': return 'bg-orange-100 text-orange-800'
       case '예약확정': return 'bg-green-100 text-green-800'
       case '내원완료': return 'bg-purple-100 text-purple-800'
       case '종결': return 'bg-gray-100 text-gray-800'
@@ -327,28 +327,28 @@ function PatientDetailModal({
         {/* 탭 메뉴 */}
         <div className="bg-white border-b px-6 flex items-center flex-shrink-0">
           <button
-            className={`px-4 py-3 text-sm font-medium relative ${activeTab === '환자정보' ? 'text-blue-600' : 'text-gray-500 hover:text-gray-700'}`}
+            className={`px-4 py-3 text-sm font-medium relative ${activeTab === '환자정보' ? 'text-orange-600' : 'text-gray-500 hover:text-gray-700'}`}
             onClick={() => setActiveTab('환자정보')}
           >
             환자정보
-            {activeTab === '환자정보' && <div className="absolute bottom-0 left-0 right-0 h-0.5 bg-blue-600" />}
+            {activeTab === '환자정보' && <div className="absolute bottom-0 left-0 right-0 h-0.5 bg-orange-600" />}
           </button>
           <button
-            className={`px-4 py-3 text-sm font-medium relative ${activeTab === '상담관리' ? 'text-blue-600' : 'text-gray-500 hover:text-gray-700'}`}
+            className={`px-4 py-3 text-sm font-medium relative ${activeTab === '상담관리' ? 'text-orange-600' : 'text-gray-500 hover:text-gray-700'}`}
             onClick={() => setActiveTab('상담관리')}
           >
             상담관리
             {patient.preVisitCallbacks && patient.preVisitCallbacks.length > 0 && (
-              <span className="ml-1 px-1.5 py-0.5 bg-blue-100 text-blue-600 text-xs rounded-full">
+              <span className="ml-1 px-1.5 py-0.5 bg-orange-100 text-orange-600 text-xs rounded-full">
                 {patient.preVisitCallbacks.length}
               </span>
             )}
-            {activeTab === '상담관리' && <div className="absolute bottom-0 left-0 right-0 h-0.5 bg-blue-600" />}
+            {activeTab === '상담관리' && <div className="absolute bottom-0 left-0 right-0 h-0.5 bg-orange-600" />}
           </button>
           <button
             className={`px-4 py-3 text-sm font-medium relative ${
               !isVisitConfirmed ? 'text-gray-300 cursor-not-allowed' :
-              activeTab === '내원관리' ? 'text-blue-600' : 'text-gray-500 hover:text-gray-700'
+              activeTab === '내원관리' ? 'text-orange-600' : 'text-gray-500 hover:text-gray-700'
             }`}
             onClick={() => isVisitConfirmed && setActiveTab('내원관리')}
             disabled={!isVisitConfirmed}
@@ -359,25 +359,25 @@ function PatientDetailModal({
                 {patient.postVisitCallbacks.length}
               </span>
             )}
-            {activeTab === '내원관리' && isVisitConfirmed && <div className="absolute bottom-0 left-0 right-0 h-0.5 bg-blue-600" />}
+            {activeTab === '내원관리' && isVisitConfirmed && <div className="absolute bottom-0 left-0 right-0 h-0.5 bg-orange-600" />}
           </button>
           <button
             className={`px-4 py-3 text-sm font-medium relative ${
               !isVisitConfirmed ? 'text-gray-300 cursor-not-allowed' :
-              activeTab === '사후관리' ? 'text-blue-600' : 'text-gray-500 hover:text-gray-700'
+              activeTab === '사후관리' ? 'text-orange-600' : 'text-gray-500 hover:text-gray-700'
             }`}
             onClick={() => isVisitConfirmed && setActiveTab('사후관리')}
             disabled={!isVisitConfirmed}
           >
             사후관리 {!isVisitConfirmed && '🔒'}
-            {activeTab === '사후관리' && isVisitConfirmed && <div className="absolute bottom-0 left-0 right-0 h-0.5 bg-blue-600" />}
+            {activeTab === '사후관리' && isVisitConfirmed && <div className="absolute bottom-0 left-0 right-0 h-0.5 bg-orange-600" />}
           </button>
           <button
-            className={`px-4 py-3 text-sm font-medium relative ${activeTab === '소개관리' ? 'text-blue-600' : 'text-gray-500 hover:text-gray-700'}`}
+            className={`px-4 py-3 text-sm font-medium relative ${activeTab === '소개관리' ? 'text-orange-600' : 'text-gray-500 hover:text-gray-700'}`}
             onClick={() => setActiveTab('소개관리')}
           >
             소개관리
-            {activeTab === '소개관리' && <div className="absolute bottom-0 left-0 right-0 h-0.5 bg-blue-600" />}
+            {activeTab === '소개관리' && <div className="absolute bottom-0 left-0 right-0 h-0.5 bg-orange-600" />}
           </button>
         </div>
 
@@ -429,7 +429,7 @@ function PatientDetailModal({
                     <span className="text-gray-500">관심 서비스:</span>
                     <div className="flex flex-wrap gap-1 mt-1">
                       {patient.consultation?.interestedServices?.map(service => (
-                        <span key={service} className="px-2 py-0.5 bg-blue-100 text-blue-800 text-xs rounded">
+                        <span key={service} className="px-2 py-0.5 bg-orange-100 text-orange-800 text-xs rounded">
                           {service}
                         </span>
                       )) || <span className="text-gray-400">-</span>}
@@ -498,7 +498,7 @@ function PatientDetailModal({
                     <>
                       <button
                         onClick={() => onStatusChange('confirmVisit')}
-                        className="px-4 py-2 bg-blue-500 text-white rounded hover:bg-blue-600"
+                        className="px-4 py-2 bg-orange-500 text-white rounded hover:bg-orange-600"
                       >
                         내원 확인
                       </button>
@@ -529,7 +529,7 @@ function PatientDetailModal({
                 {!isVisitConfirmed && (
                   <button
                     onClick={() => setShowCallbackForm(true)}
-                    className="px-3 py-1.5 bg-blue-500 text-white text-sm rounded hover:bg-blue-600"
+                    className="px-3 py-1.5 bg-orange-500 text-white text-sm rounded hover:bg-orange-600"
                   >
                     + 콜백 등록
                   </button>
@@ -537,7 +537,7 @@ function PatientDetailModal({
               </div>
 
               {showCallbackForm && (
-                <div className="p-4 bg-blue-50 rounded-lg space-y-3">
+                <div className="p-4 bg-orange-50 rounded-lg space-y-3">
                   <select
                     value={callbackForm.result}
                     onChange={(e) => setCallbackForm({ ...callbackForm, result: e.target.value })}
@@ -566,7 +566,7 @@ function PatientDetailModal({
                     <button
                       onClick={handleAddCallback}
                       disabled={isSubmitting}
-                      className="px-3 py-1.5 bg-blue-500 text-white rounded hover:bg-blue-600 text-sm disabled:opacity-50"
+                      className="px-3 py-1.5 bg-orange-500 text-white rounded hover:bg-orange-600 text-sm disabled:opacity-50"
                     >
                       {isSubmitting ? '저장중...' : '저장'}
                     </button>
@@ -580,7 +580,7 @@ function PatientDetailModal({
                     <div key={idx} className="p-3 bg-gray-50 rounded-lg">
                       <div className="flex items-center justify-between mb-1">
                         <div className="flex items-center gap-2">
-                          <span className="font-medium text-blue-600">{cb.attempt}차 콜백</span>
+                          <span className="font-medium text-orange-600">{cb.attempt}차 콜백</span>
                           <span className="text-sm text-gray-500">{cb.date} {cb.time}</span>
                         </div>
                         <span className={`px-2 py-0.5 rounded text-xs font-medium ${
@@ -612,9 +612,9 @@ function PatientDetailModal({
           {/* 내원관리 탭 */}
           {activeTab === '내원관리' && isVisitConfirmed && (
             <div className="space-y-4">
-              <div className="bg-blue-50 rounded-lg p-4 border border-blue-200 mb-4">
-                <h3 className="font-medium text-blue-800 mb-2">내원 정보</h3>
-                <p className="text-sm text-blue-700">첫 내원일: {patient.firstVisitDate || '-'}</p>
+              <div className="bg-orange-50 rounded-lg p-4 border border-orange-200 mb-4">
+                <h3 className="font-medium text-orange-800 mb-2">내원 정보</h3>
+                <p className="text-sm text-orange-700">첫 내원일: {patient.firstVisitDate || '-'}</p>
               </div>
 
               <div className="flex items-center justify-between">
@@ -934,7 +934,7 @@ export default function ConsultationV2TablePage() {
             <div className="flex gap-2">
               <button
                 onClick={() => setShowRegisterModal(true)}
-                className="px-3 py-2 text-sm bg-blue-500 text-white rounded hover:bg-blue-600"
+                className="px-3 py-2 text-sm bg-orange-500 text-white rounded hover:bg-orange-600"
               >
                 + 환자 등록
               </button>
@@ -966,7 +966,7 @@ export default function ConsultationV2TablePage() {
                   onKeyDown={(e) => e.key === 'Enter' && setSearch(searchInput)}
                   className="flex-1 border rounded-l px-3 py-2 text-sm"
                 />
-                <button onClick={() => setSearch(searchInput)} className="px-4 py-2 bg-blue-500 text-white rounded-r hover:bg-blue-600 text-sm">
+                <button onClick={() => setSearch(searchInput)} className="px-4 py-2 bg-orange-500 text-white rounded-r hover:bg-orange-600 text-sm">
                   검색
                 </button>
               </div>
@@ -1049,7 +1049,7 @@ export default function ConsultationV2TablePage() {
                       <td className="px-4 py-3 text-sm">{patient.age}세/{patient.gender}</td>
                       <td className="px-4 py-3 text-sm">
                         <span className={`px-2 py-0.5 rounded text-xs ${
-                          patient.consultationType === '인바운드' ? 'bg-blue-100 text-blue-800' :
+                          patient.consultationType === '인바운드' ? 'bg-orange-100 text-orange-800' :
                           patient.consultationType === '아웃바운드' ? 'bg-green-100 text-green-800' :
                           patient.consultationType === '팀플DB' ? 'bg-purple-100 text-purple-800' :
                           'bg-gray-100 text-gray-700'
@@ -1061,7 +1061,7 @@ export default function ConsultationV2TablePage() {
                       <td className="px-4 py-3">
                         <div className="flex flex-wrap gap-1">
                           {patient.consultation?.interestedServices?.slice(0, 2).map(s => (
-                            <span key={s} className="px-1.5 py-0.5 bg-blue-50 text-blue-700 text-xs rounded">{s}</span>
+                            <span key={s} className="px-1.5 py-0.5 bg-orange-50 text-orange-700 text-xs rounded">{s}</span>
                           ))}
                           {(patient.consultation?.interestedServices?.length || 0) > 2 && (
                             <span className="text-xs text-gray-400">+{(patient.consultation?.interestedServices?.length || 0) - 2}</span>
@@ -1086,7 +1086,7 @@ export default function ConsultationV2TablePage() {
                       </td>
                       <td className="px-4 py-3 text-center">
                         {(patient.preVisitCallbacks?.length || 0) > 0 ? (
-                          <span className="inline-flex items-center justify-center w-6 h-6 rounded-full text-xs font-medium bg-blue-100 text-blue-800">
+                          <span className="inline-flex items-center justify-center w-6 h-6 rounded-full text-xs font-medium bg-orange-100 text-orange-800">
                             {patient.preVisitCallbacks?.length}
                           </span>
                         ) : (
@@ -1136,7 +1136,7 @@ export default function ConsultationV2TablePage() {
               <button onClick={() => fetchPatients(1)} disabled={!pagination.hasPrev} className="px-2 py-1 text-sm rounded hover:bg-gray-100 disabled:opacity-30">««</button>
               <button onClick={() => fetchPatients(pagination.page - 1)} disabled={!pagination.hasPrev} className="px-2 py-1 text-sm rounded hover:bg-gray-100 disabled:opacity-30">«</button>
               {getPageNumbers().map(p => (
-                <button key={p} onClick={() => fetchPatients(p)} className={`px-3 py-1 text-sm rounded ${p === pagination.page ? 'bg-blue-500 text-white' : 'hover:bg-gray-100'}`}>{p}</button>
+                <button key={p} onClick={() => fetchPatients(p)} className={`px-3 py-1 text-sm rounded ${p === pagination.page ? 'bg-orange-500 text-white' : 'hover:bg-gray-100'}`}>{p}</button>
               ))}
               <button onClick={() => fetchPatients(pagination.page + 1)} disabled={!pagination.hasNext} className="px-2 py-1 text-sm rounded hover:bg-gray-100 disabled:opacity-30">»</button>
               <button onClick={() => fetchPatients(pagination.totalPages)} disabled={!pagination.hasNext} className="px-2 py-1 text-sm rounded hover:bg-gray-100 disabled:opacity-30">»»</button>

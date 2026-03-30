@@ -68,7 +68,7 @@ export const VISIT_MANAGEMENT_FILTER_COLORS: Record<VisitManagementFilterType, {
 }> = {
   all: { bg: 'bg-gray-100', text: 'text-gray-800', hover: 'hover:bg-gray-200' },
   unprocessed_callback: { bg: 'bg-red-100', text: 'text-red-800', hover: 'hover:bg-red-50' },
-  treatment_consent_not_started: { bg: 'bg-blue-100', text: 'text-blue-800', hover: 'hover:bg-blue-50' },
+  treatment_consent_not_started: { bg: 'bg-orange-100', text: 'text-orange-800', hover: 'hover:bg-orange-50' },
   in_treatment: { bg: 'bg-green-100', text: 'text-green-800', hover: 'hover:bg-green-50' },
   needs_callback: { bg: 'bg-yellow-100', text: 'text-yellow-800', hover: 'hover:bg-yellow-50' },
   no_status: { bg: 'bg-gray-100', text: 'text-gray-600', hover: 'hover:bg-gray-50' }

@@ -201,7 +201,7 @@ export default function DeleteConfirmModal({
               </p>
               {/* 🚀 Optimistic 모드일 때 추가 안내 */}
               {isOptimisticEnabled && !isPropMode && (
-                <p className="text-blue-600 text-sm mt-2 bg-blue-50 p-2 rounded">
+                <p className="text-orange-600 text-sm mt-2 bg-orange-50 p-2 rounded">
                   ⚡ 삭제 즉시 목록에서 제거됩니다.
                 </p>
               )}

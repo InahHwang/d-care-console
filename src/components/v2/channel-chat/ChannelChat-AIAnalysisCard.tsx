@@ -13,7 +13,7 @@ export function ChannelChatAIAnalysisCard({ analysis, className = '' }: ChannelC
   const temperatureConfig = {
     hot: { label: 'HOT', color: 'text-red-600', bg: 'bg-red-100' },
     warm: { label: 'WARM', color: 'text-amber-600', bg: 'bg-amber-100' },
-    cold: { label: 'COLD', color: 'text-blue-600', bg: 'bg-blue-100' },
+    cold: { label: 'COLD', color: 'text-orange-600', bg: 'bg-orange-100' },
   };
 
   const followUpConfig = {
@@ -42,7 +42,7 @@ export function ChannelChatAIAnalysisCard({ analysis, className = '' }: ChannelC
       {/* 태그들 */}
       <div className="flex flex-wrap gap-2 mb-3">
         {/* 관심 치료 */}
-        <div className="flex items-center gap-1 text-xs bg-blue-100 text-blue-700 px-2 py-1 rounded">
+        <div className="flex items-center gap-1 text-xs bg-orange-100 text-orange-700 px-2 py-1 rounded">
           <Target size={12} />
           <span>{analysis.interest}</span>
         </div>

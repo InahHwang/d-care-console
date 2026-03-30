@@ -361,7 +361,7 @@ function PatientsPageContent() {
           </div>
           <button
             onClick={handleAddPatient}
-            className="px-4 py-2 bg-blue-500 hover:bg-blue-600 text-white rounded-lg font-medium flex items-center gap-2"
+            className="px-4 py-2 bg-orange-500 hover:bg-orange-600 text-white rounded-lg font-medium flex items-center gap-2"
           >
             <Plus size={18} />
             환자 등록
@@ -405,7 +405,7 @@ function PatientsPageContent() {
                 placeholder="이름, 전화번호 검색"
                 value={searchInput}
                 onChange={handleSearch}
-                className="pl-10 pr-4 py-2 border border-gray-200 rounded-lg w-64 focus:outline-none focus:ring-2 focus:ring-blue-500"
+                className="pl-10 pr-4 py-2 border border-gray-200 rounded-lg w-64 focus:outline-none focus:ring-2 focus:ring-orange-500"
               />
             </div>
           </div>

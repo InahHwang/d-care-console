@@ -23,7 +23,7 @@ const EventTargetBadge: React.FC<EventTargetBadgeProps> = ({ patient, context = 
       // 내원완료 후 이벤트 타겟 - 파란색
       return (
         <span 
-          className="inline-flex items-center justify-center w-4 h-4 ml-1 text-blue-600"
+          className="inline-flex items-center justify-center w-4 h-4 ml-1 text-orange-600"
           title="내원완료 후 이벤트 타겟 관리 대상"
         >
           <HiOutlineTag size={14} />
@@ -46,7 +46,7 @@ const EventTargetBadge: React.FC<EventTargetBadgeProps> = ({ patient, context = 
   if (context === 'visit-management') {
     return (
       <span 
-        className="inline-flex items-center justify-center w-4 h-4 ml-1 text-blue-600"
+        className="inline-flex items-center justify-center w-4 h-4 ml-1 text-orange-600"
         title="이벤트 타겟 관리 대상"
       >
         <HiOutlineTag size={14} />

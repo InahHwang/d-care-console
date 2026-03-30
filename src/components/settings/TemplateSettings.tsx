@@ -54,11 +54,11 @@ export default function TemplateSettings() {
   const [selectedCategory, setSelectedCategory] = useState<MessageCategory | null>(null);
   const [categoryFormData, setCategoryFormData] = useState({
     displayName: '',
-    color: 'bg-blue-100 text-blue-800'
+    color: 'bg-orange-100 text-orange-800'
   });
   
   const colorOptions = [
-    { value: 'bg-blue-100 text-blue-800', label: '파란색', preview: 'bg-blue-100' },
+    { value: 'bg-orange-100 text-orange-800', label: '파란색', preview: 'bg-orange-100' },
     { value: 'bg-red-100 text-red-800', label: '빨간색', preview: 'bg-red-100' },
     { value: 'bg-green-100 text-green-800', label: '초록색', preview: 'bg-green-100' },
     { value: 'bg-purple-100 text-purple-800', label: '보라색', preview: 'bg-purple-100' },
@@ -162,7 +162,7 @@ export default function TemplateSettings() {
   const handleAddCategory = () => {
     setIsAddCategoryMode(true);
     setEditingCategoryId(null);
-    setCategoryFormData({ displayName: '', color: 'bg-blue-100 text-blue-800' });
+    setCategoryFormData({ displayName: '', color: 'bg-orange-100 text-orange-800' });
   };
   
   const handleEditCategory = (category: MessageCategory) => {
@@ -201,13 +201,13 @@ export default function TemplateSettings() {
     
     setIsAddCategoryMode(false);
     setEditingCategoryId(null);
-    setCategoryFormData({ displayName: '', color: 'bg-blue-100 text-blue-800' });
+    setCategoryFormData({ displayName: '', color: 'bg-orange-100 text-orange-800' });
   };
   
   const handleCancelCategoryEdit = () => {
     setIsAddCategoryMode(false);
     setEditingCategoryId(null);
-    setCategoryFormData({ displayName: '', color: 'bg-blue-100 text-blue-800' });
+    setCategoryFormData({ displayName: '', color: 'bg-orange-100 text-orange-800' });
   };
   
   const handleCategoryDeleteClick = (category: MessageCategory) => {
@@ -234,7 +234,7 @@ export default function TemplateSettings() {
         <button
           className={`px-4 py-2 font-medium rounded-t-md flex items-center gap-2 ${
             activeSubTab === 'templates'
-              ? 'bg-white text-blue-600 border-b-2 border-blue-600'
+              ? 'bg-white text-orange-600 border-b-2 border-orange-600'
               : 'text-text-secondary hover:text-text-primary'
           }`}
           onClick={() => setActiveSubTab('templates')}
@@ -245,7 +245,7 @@ export default function TemplateSettings() {
         <button
           className={`px-4 py-2 font-medium rounded-t-md flex items-center gap-2 ${
             activeSubTab === 'categories'
-              ? 'bg-white text-blue-600 border-b-2 border-blue-600'
+              ? 'bg-white text-orange-600 border-b-2 border-orange-600'
               : 'text-text-secondary hover:text-text-primary'
           }`}
           onClick={() => setActiveSubTab('categories')}
@@ -292,7 +292,7 @@ export default function TemplateSettings() {
               <button
                 className={`px-3 py-1.5 rounded-md text-sm font-medium ${
                   activeCategory === 'all'
-                    ? 'bg-blue-100 text-blue-800'
+                    ? 'bg-orange-100 text-orange-800'
                     : 'bg-gray-100 text-text-secondary hover:bg-gray-200'
                 }`}
                 onClick={() => setActiveCategory('all')}
@@ -318,7 +318,7 @@ export default function TemplateSettings() {
           {/* 템플릿 목록 */}
           {isLoading ? (
             <div className="text-center py-12">
-              <div className="w-12 h-12 border-4 border-t-blue-500 border-blue-200 rounded-full animate-spin mx-auto"></div>
+              <div className="w-12 h-12 border-4 border-t-orange-500 border-orange-200 rounded-full animate-spin mx-auto"></div>
               <p className="mt-4 text-text-secondary">템플릿을 불러오는 중...</p>
             </div>
           ) : (
@@ -329,7 +329,7 @@ export default function TemplateSettings() {
                     {searchTerm ? '검색 결과가 없습니다.' : '등록된 템플릿이 없습니다.'}
                   </p>
                   <button
-                    className="mt-4 px-4 py-2 bg-blue-100 text-blue-800 rounded-md hover:bg-blue-200 transition-colors"
+                    className="mt-4 px-4 py-2 bg-orange-100 text-orange-800 rounded-md hover:bg-orange-200 transition-colors"
                     onClick={handleAddTemplate}
                   >
                     새 템플릿 추가하기
@@ -345,7 +345,7 @@ export default function TemplateSettings() {
                     <div className="px-4 py-3 bg-gray-50 border-b border-border flex justify-between items-center">
                       <div className="flex items-center gap-2">
                         <span className={`inline-block w-2 h-2 rounded-full ${
-                          template.type === 'SMS' ? 'bg-blue-500' : 
+                          template.type === 'SMS' ? 'bg-orange-500' : 
                           template.type === 'LMS' ? 'bg-purple-500' :
                           template.type === 'MMS' ? 'bg-green-500' : 'bg-orange-500'
                         }`}></span>
@@ -355,7 +355,7 @@ export default function TemplateSettings() {
                       </div>
                       <div className="flex items-center gap-1">
                         <button
-                          className="p-1.5 text-text-secondary hover:text-blue-600 hover:bg-blue-50 rounded-md"
+                          className="p-1.5 text-text-secondary hover:text-orange-600 hover:bg-orange-50 rounded-md"
                           onClick={() => handleEditTemplate(template)}
                           title="템플릿 수정"
                         >
@@ -462,8 +462,8 @@ export default function TemplateSettings() {
           <div className="space-y-4">
             {/* 카테고리 추가 폼 */}
             {isAddCategoryMode && (
-              <div className="p-4 bg-blue-50 border border-blue-200 rounded-md">
-                <h4 className="font-medium text-blue-800 mb-3">새 카테고리 추가</h4>
+              <div className="p-4 bg-orange-50 border border-orange-200 rounded-md">
+                <h4 className="font-medium text-orange-800 mb-3">새 카테고리 추가</h4>
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                   <div>
                     <label className="block text-sm font-medium text-text-secondary mb-1">
@@ -487,7 +487,7 @@ export default function TemplateSettings() {
                           key={color.value}
                           className={`p-2 text-xs rounded-md border-2 flex items-center gap-1 ${
                             categoryFormData.color === color.value 
-                              ? 'border-blue-500 ' + color.value 
+                              ? 'border-orange-500 ' + color.value 
                               : 'border-gray-200 hover:border-gray-300'
                           }`}
                           onClick={() => setCategoryFormData({ ...categoryFormData, color: color.value })}
@@ -509,7 +509,7 @@ export default function TemplateSettings() {
                     취소
                   </button>
                   <button
-                    className="px-3 py-1 text-sm bg-blue-600 text-white rounded-md hover:bg-blue-700"
+                    className="px-3 py-1 text-sm bg-orange-600 text-white rounded-md hover:bg-orange-700"
                     onClick={handleSaveCategory}
                   >
                     저장
@@ -546,7 +546,7 @@ export default function TemplateSettings() {
                               key={color.value}
                               className={`px-2 py-1 text-xs rounded border flex items-center gap-1 ${
                                 categoryFormData.color === color.value 
-                                  ? 'border-blue-500 ' + color.value 
+                                  ? 'border-orange-500 ' + color.value 
                                   : 'border-gray-200 hover:border-gray-300'
                               }`}
                               onClick={() => setCategoryFormData({ ...categoryFormData, color: color.value })}
@@ -566,7 +566,7 @@ export default function TemplateSettings() {
                           <Icon icon={HiOutlineX} size={16} />
                         </button>
                         <button
-                          className="p-1 text-blue-600 hover:text-blue-800"
+                          className="p-1 text-orange-600 hover:text-orange-800"
                           onClick={handleSaveCategory}
                           title="저장"
                         >
@@ -586,7 +586,7 @@ export default function TemplateSettings() {
                         </div>
                         <div className="flex items-center gap-1">
                           <button
-                            className="p-1 text-text-secondary hover:text-blue-600"
+                            className="p-1 text-text-secondary hover:text-orange-600"
                             onClick={() => handleEditCategory(category)}
                             title="수정"
                             disabled={isAddCategoryMode || editingCategoryId !== null}
@@ -619,7 +619,7 @@ export default function TemplateSettings() {
               <div className="text-center py-12 bg-gray-50 rounded-lg">
                 <p className="text-text-secondary mb-4">등록된 카테고리가 없습니다.</p>
                 <button
-                  className="px-4 py-2 bg-blue-100 text-blue-800 rounded-md hover:bg-blue-200 transition-colors"
+                  className="px-4 py-2 bg-orange-100 text-orange-800 rounded-md hover:bg-orange-200 transition-colors"
                   onClick={handleAddCategory}
                 >
                   첫 번째 카테고리 추가하기

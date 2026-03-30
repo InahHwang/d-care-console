@@ -383,7 +383,7 @@ export const PROGRESS_STAGE_CONFIG: Record<PatientStatus, {
   reserved: { label: '예약완료', color: 'text-orange-800', bgColor: 'bg-orange-100', order: 2 },
   visited: { label: '내원완료', color: 'text-purple-800', bgColor: 'bg-purple-100', order: 3 },
   treatmentBooked: { label: '치료예약', color: 'text-indigo-800', bgColor: 'bg-indigo-100', order: 4 },
-  treatment: { label: '치료중', color: 'text-blue-800', bgColor: 'bg-blue-100', order: 5 },
+  treatment: { label: '치료중', color: 'text-orange-800', bgColor: 'bg-orange-100', order: 5 },
   completed: { label: '치료완료', color: 'text-green-800', bgColor: 'bg-green-100', order: 6 },
   followup: { label: '사후관리', color: 'text-teal-800', bgColor: 'bg-teal-100', order: 7 },
   closed: { label: '종결', color: 'text-gray-800', bgColor: 'bg-gray-100', order: 8 },

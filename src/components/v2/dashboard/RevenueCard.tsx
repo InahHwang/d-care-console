@@ -177,7 +177,7 @@ export function RevenueCard({
             <span className="text-xs text-gray-500">
               목표 {formatCurrency(monthlyTarget)}원 <span className={`font-medium ${
                 achievementRate >= 100 ? 'text-emerald-600' :
-                achievementRate >= 70 ? 'text-blue-600' :
+                achievementRate >= 70 ? 'text-orange-600' :
                 achievementRate >= 40 ? 'text-amber-600' : 'text-red-500'
               }`}>(달성률 {achievementRate}%)</span>
             </span>
@@ -190,7 +190,7 @@ export function RevenueCard({
             <div
               className={`h-full rounded-full transition-all duration-500 ${
                 achievementRate >= 100 ? 'bg-emerald-500' :
-                achievementRate >= 70 ? 'bg-blue-500' :
+                achievementRate >= 70 ? 'bg-orange-500' :
                 achievementRate >= 40 ? 'bg-amber-500' : 'bg-red-400'
               }`}
               style={{ width: `${Math.min(achievementRate, 100)}%` }}

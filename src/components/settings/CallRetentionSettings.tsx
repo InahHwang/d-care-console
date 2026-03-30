@@ -144,12 +144,12 @@ const CallRetentionSettings: React.FC = () => {
       </div>
 
       {/* 안내 메시지 */}
-      <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
+      <div className="bg-orange-50 border border-orange-200 rounded-lg p-4">
         <div className="flex items-start gap-2">
-          <Icon icon={HiOutlineInformationCircle} size={20} className="text-blue-500 mt-0.5" />
+          <Icon icon={HiOutlineInformationCircle} size={20} className="text-orange-500 mt-0.5" />
           <div>
-            <span className="text-blue-800 text-sm font-medium">통화기록 자동 분류 안내</span>
-            <p className="text-blue-700 text-sm mt-1">
+            <span className="text-orange-800 text-sm font-medium">통화기록 자동 분류 안내</span>
+            <p className="text-orange-700 text-sm mt-1">
               AI가 통화 내용을 분석하여 자동으로 분류합니다.
               아래에서 각 분류별로 메인 목록 표시 여부와 보존 기간을 설정할 수 있습니다.
             </p>

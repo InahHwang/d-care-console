@@ -67,7 +67,7 @@ export interface InvitationAcceptResponse {
 // 역할 표시 설정
 export const ROLE_CONFIG: Record<UserRole, { label: string; color: string; bgColor: string }> = {
   admin: { label: '관리자', color: 'purple', bgColor: 'bg-purple-100 text-purple-700' },
-  manager: { label: '매니저', color: 'blue', bgColor: 'bg-blue-100 text-blue-700' },
+  manager: { label: '매니저', color: 'blue', bgColor: 'bg-orange-100 text-orange-700' },
   staff: { label: '상담사', color: 'gray', bgColor: 'bg-gray-100 text-gray-700' },
 };
 

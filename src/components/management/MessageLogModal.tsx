@@ -277,7 +277,7 @@ export default function MessageLogModal({ isOpen, onClose, patientId, embedded =
             )}
 
             <button
-              className="px-3 py-1.5 rounded-md text-sm font-medium hover:bg-blue-100 text-blue-700 flex items-center gap-1"
+              className="px-3 py-1.5 rounded-md text-sm font-medium hover:bg-orange-100 text-orange-700 flex items-center gap-1"
               onClick={() => dispatch(fetchMessageLogs())}
               disabled={isLoading}
               title="새로고침"
@@ -401,7 +401,7 @@ export default function MessageLogModal({ isOpen, onClose, patientId, embedded =
                     <button
                       className={`px-3 py-1 text-sm rounded-md ${
                         filters.messageTypes.includes('SMS')
-                          ? 'bg-blue-100 text-blue-800 border border-blue-300'
+                          ? 'bg-orange-100 text-orange-800 border border-orange-300'
                           : 'bg-white text-text-secondary border border-border hover:bg-gray-100'
                       }`}
                       onClick={() => toggleMessageTypeFilter('SMS')}
@@ -411,7 +411,7 @@ export default function MessageLogModal({ isOpen, onClose, patientId, embedded =
                     <button
                       className={`px-3 py-1 text-sm rounded-md ${
                         filters.messageTypes.includes('LMS')
-                          ? 'bg-blue-100 text-blue-800 border border-blue-300'
+                          ? 'bg-orange-100 text-orange-800 border border-orange-300'
                           : 'bg-white text-text-secondary border border-border hover:bg-gray-100'
                       }`}
                       onClick={() => toggleMessageTypeFilter('LMS')}
@@ -495,9 +495,9 @@ export default function MessageLogModal({ isOpen, onClose, patientId, embedded =
                 )}
               </div>
             </div>
-            <div className="bg-blue-50 px-4 py-2 rounded-md">
-              <div className="text-xs text-blue-700">SMS</div>
-              <div className="text-lg font-semibold text-blue-700">
+            <div className="bg-orange-50 px-4 py-2 rounded-md">
+              <div className="text-xs text-orange-700">SMS</div>
+              <div className="text-lg font-semibold text-orange-700">
                 {stats.smsCount}건
               </div>
             </div>
@@ -572,7 +572,7 @@ export default function MessageLogModal({ isOpen, onClose, patientId, embedded =
                 <tr>
                   <td colSpan={8} className="px-4 py-12 text-center text-text-secondary">
                     <div className="flex flex-col items-center gap-2">
-                      <div className="w-6 h-6 border-2 border-blue-500 border-t-transparent rounded-full animate-spin" />
+                      <div className="w-6 h-6 border-2 border-orange-500 border-t-transparent rounded-full animate-spin" />
                       <span>문자 발송 내역을 불러오는 중...</span>
                     </div>
                   </td>
@@ -610,7 +610,7 @@ export default function MessageLogModal({ isOpen, onClose, patientId, embedded =
                     <td className="px-4 py-3">
                       <span className={`inline-flex items-center px-2 py-1 rounded-full text-xs font-medium ${
                         log.messageType === 'SMS' 
-                          ? 'bg-blue-100 text-blue-800' 
+                          ? 'bg-orange-100 text-orange-800' 
                           : 'bg-purple-100 text-purple-800'
                       }`}>
                         {getMessageTypeText(log.messageType)}
@@ -716,7 +716,7 @@ export default function MessageLogModal({ isOpen, onClose, patientId, embedded =
               <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                 <div className="col-span-1">
                   <h5 className="text-sm font-medium text-text-secondary mb-3 flex items-center">
-                    <Icon icon={HiOutlineUser} size={16} className="mr-1.5 text-blue-600" />
+                    <Icon icon={HiOutlineUser} size={16} className="mr-1.5 text-orange-600" />
                     환자 정보
                   </h5>
                   <div className="space-y-2">
@@ -733,7 +733,7 @@ export default function MessageLogModal({ isOpen, onClose, patientId, embedded =
                 
                 <div className="col-span-1">
                   <h5 className="text-sm font-medium text-text-secondary mb-3 flex items-center">
-                    <Icon icon={HiOutlineMail} size={16} className="mr-1.5 text-blue-600" />
+                    <Icon icon={HiOutlineMail} size={16} className="mr-1.5 text-orange-600" />
                     발송 정보
                   </h5>
                   <div className="space-y-2">
@@ -765,7 +765,7 @@ export default function MessageLogModal({ isOpen, onClose, patientId, embedded =
               
               <div className="mt-6">
                 <h5 className="text-sm font-medium text-text-secondary mb-3 flex items-center">
-                  <Icon icon={HiOutlineTemplate} size={16} className="mr-1.5 text-blue-600" />
+                  <Icon icon={HiOutlineTemplate} size={16} className="mr-1.5 text-orange-600" />
                   메시지 내용
                 </h5>
                 <div className="space-y-2">
@@ -775,7 +775,7 @@ export default function MessageLogModal({ isOpen, onClose, patientId, embedded =
                       <p className="text-sm">
                         <span className={`inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium ${
                           selectedLog.messageType === 'SMS' 
-                            ? 'bg-blue-100 text-blue-800' 
+                            ? 'bg-orange-100 text-orange-800' 
                             : selectedLog.messageType === 'MMS'
                             ? 'bg-green-100 text-green-800'
                             : 'bg-purple-100 text-purple-800'

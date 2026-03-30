@@ -154,9 +154,9 @@ export default function InviteAcceptPage() {
   // 로딩 중
   if (isLoading) {
     return (
-      <div className="min-h-screen bg-gradient-to-br from-blue-50 to-indigo-100 flex items-center justify-center p-4">
+      <div className="min-h-screen bg-gradient-to-br from-orange-50 to-indigo-100 flex items-center justify-center p-4">
         <div className="bg-white rounded-2xl shadow-xl w-full max-w-md p-8 text-center">
-          <div className="w-12 h-12 border-4 border-blue-600 border-t-transparent rounded-full animate-spin mx-auto mb-4"></div>
+          <div className="w-12 h-12 border-4 border-orange-600 border-t-transparent rounded-full animate-spin mx-auto mb-4"></div>
           <p className="text-gray-600">초대 정보를 확인하는 중...</p>
         </div>
       </div>
@@ -166,7 +166,7 @@ export default function InviteAcceptPage() {
   // 에러 (유효하지 않은 초대)
   if (error && !invitation) {
     return (
-      <div className="min-h-screen bg-gradient-to-br from-blue-50 to-indigo-100 flex items-center justify-center p-4">
+      <div className="min-h-screen bg-gradient-to-br from-orange-50 to-indigo-100 flex items-center justify-center p-4">
         <div className="bg-white rounded-2xl shadow-xl w-full max-w-md p-8 text-center">
           <div className="mx-auto w-16 h-16 bg-red-100 rounded-full flex items-center justify-center mb-4">
             <FiAlertCircle className="w-8 h-8 text-red-600" />
@@ -175,7 +175,7 @@ export default function InviteAcceptPage() {
           <p className="text-gray-600 mb-6">{error}</p>
           <button
             onClick={() => router.push('/login')}
-            className="px-6 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors"
+            className="px-6 py-2 bg-orange-600 text-white rounded-lg hover:bg-orange-700 transition-colors"
           >
             로그인 페이지로 이동
           </button>
@@ -187,7 +187,7 @@ export default function InviteAcceptPage() {
   // 가입 성공
   if (success) {
     return (
-      <div className="min-h-screen bg-gradient-to-br from-blue-50 to-indigo-100 flex items-center justify-center p-4">
+      <div className="min-h-screen bg-gradient-to-br from-orange-50 to-indigo-100 flex items-center justify-center p-4">
         <div className="bg-white rounded-2xl shadow-xl w-full max-w-md p-8 text-center">
           <div className="mx-auto w-16 h-16 bg-green-100 rounded-full flex items-center justify-center mb-4">
             <FiCheckCircle className="w-8 h-8 text-green-600" />
@@ -197,7 +197,7 @@ export default function InviteAcceptPage() {
           <p className="text-sm text-gray-500">잠시 후 로그인 페이지로 이동합니다...</p>
           <button
             onClick={() => router.push('/login')}
-            className="mt-6 px-6 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors"
+            className="mt-6 px-6 py-2 bg-orange-600 text-white rounded-lg hover:bg-orange-700 transition-colors"
           >
             지금 로그인하기
           </button>
@@ -208,21 +208,21 @@ export default function InviteAcceptPage() {
 
   // 초대 수락 폼
   return (
-    <div className="min-h-screen bg-gradient-to-br from-blue-50 to-indigo-100 flex items-center justify-center p-4">
+    <div className="min-h-screen bg-gradient-to-br from-orange-50 to-indigo-100 flex items-center justify-center p-4">
       <div className="bg-white rounded-2xl shadow-xl w-full max-w-md p-8">
         {/* 헤더 */}
         <div className="text-center mb-6">
-          <div className="mx-auto w-16 h-16 bg-blue-600 rounded-full flex items-center justify-center mb-4">
+          <div className="mx-auto w-16 h-16 bg-orange-600 rounded-full flex items-center justify-center mb-4">
             <FiUserPlus className="w-8 h-8 text-white" />
           </div>
           <h1 className="text-2xl font-bold text-gray-900 mb-2">D-Care 초대</h1>
           <p className="text-gray-600">
-            <span className="font-medium text-blue-600">{invitation?.invitedByName}</span>님이 초대했습니다
+            <span className="font-medium text-orange-600">{invitation?.invitedByName}</span>님이 초대했습니다
           </p>
         </div>
 
         {/* 초대 정보 */}
-        <div className="bg-blue-50 rounded-lg p-4 mb-6">
+        <div className="bg-orange-50 rounded-lg p-4 mb-6">
           <div className="flex items-center justify-between mb-2">
             <span className="text-sm text-gray-600">부여 역할</span>
             <span className={`px-3 py-1 rounded-full text-sm font-medium ${ROLE_CONFIG[invitation?.role || 'staff'].bgColor}`}>
@@ -261,7 +261,7 @@ export default function InviteAcceptPage() {
                 name="name"
                 value={formData.name}
                 onChange={handleInputChange}
-                className={`block w-full pl-10 pr-3 py-3 border rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-colors ${
+                className={`block w-full pl-10 pr-3 py-3 border rounded-lg focus:ring-2 focus:ring-orange-500 focus:border-orange-500 transition-colors ${
                   formErrors.name
                     ? 'border-red-300 bg-red-50'
                     : 'border-gray-300 bg-white hover:border-gray-400'
@@ -289,7 +289,7 @@ export default function InviteAcceptPage() {
                 name="username"
                 value={formData.username}
                 onChange={handleInputChange}
-                className={`block w-full pl-10 pr-3 py-3 border rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-colors ${
+                className={`block w-full pl-10 pr-3 py-3 border rounded-lg focus:ring-2 focus:ring-orange-500 focus:border-orange-500 transition-colors ${
                   formErrors.username
                     ? 'border-red-300 bg-red-50'
                     : 'border-gray-300 bg-white hover:border-gray-400'
@@ -318,7 +318,7 @@ export default function InviteAcceptPage() {
                 name="password"
                 value={formData.password}
                 onChange={handleInputChange}
-                className={`block w-full pl-10 pr-12 py-3 border rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-colors ${
+                className={`block w-full pl-10 pr-12 py-3 border rounded-lg focus:ring-2 focus:ring-orange-500 focus:border-orange-500 transition-colors ${
                   formErrors.password
                     ? 'border-red-300 bg-red-50'
                     : 'border-gray-300 bg-white hover:border-gray-400'
@@ -358,7 +358,7 @@ export default function InviteAcceptPage() {
                 name="confirmPassword"
                 value={formData.confirmPassword}
                 onChange={handleInputChange}
-                className={`block w-full pl-10 pr-12 py-3 border rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-colors ${
+                className={`block w-full pl-10 pr-12 py-3 border rounded-lg focus:ring-2 focus:ring-orange-500 focus:border-orange-500 transition-colors ${
                   formErrors.confirmPassword
                     ? 'border-red-300 bg-red-50'
                     : 'border-gray-300 bg-white hover:border-gray-400'
@@ -390,7 +390,7 @@ export default function InviteAcceptPage() {
             className={`w-full py-3 px-4 rounded-lg text-white font-medium transition-all duration-200 ${
               isSubmitting
                 ? 'bg-gray-400 cursor-not-allowed'
-                : 'bg-blue-600 hover:bg-blue-700 active:bg-blue-800 shadow-lg hover:shadow-xl'
+                : 'bg-orange-600 hover:bg-orange-700 active:bg-orange-800 shadow-lg hover:shadow-xl'
             }`}
           >
             {isSubmitting ? (
@@ -410,7 +410,7 @@ export default function InviteAcceptPage() {
             이미 계정이 있으신가요?{' '}
             <button
               onClick={() => router.push('/login')}
-              className="text-blue-600 font-medium hover:text-blue-700"
+              className="text-orange-600 font-medium hover:text-orange-700"
             >
               로그인
             </button>

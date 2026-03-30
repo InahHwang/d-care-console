@@ -142,7 +142,7 @@ export default function OnboardingChecklistWidget() {
   };
 
   return (
-    <div className="bg-gradient-to-r from-blue-50 to-indigo-50 border border-blue-200 rounded-xl p-5 relative">
+    <div className="bg-gradient-to-r from-orange-50 to-indigo-50 border border-orange-200 rounded-xl p-5 relative">
       {/* 닫기 버튼 */}
       <button
         onClick={() => setDismissed(true)}
@@ -166,11 +166,11 @@ export default function OnboardingChecklistWidget() {
           <span className="text-xs font-medium text-gray-600">
             {completedCount}/{totalCount} 완료
           </span>
-          <span className="text-xs font-bold text-blue-600">{progressPercent}%</span>
+          <span className="text-xs font-bold text-orange-600">{progressPercent}%</span>
         </div>
         <div className="h-2 bg-white rounded-full overflow-hidden">
           <div
-            className="h-full bg-gradient-to-r from-blue-500 to-indigo-500 rounded-full transition-all duration-500"
+            className="h-full bg-gradient-to-r from-orange-500 to-indigo-500 rounded-full transition-all duration-500"
             style={{ width: `${progressPercent}%` }}
           />
         </div>

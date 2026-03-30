@@ -293,7 +293,7 @@ export default function PatientDetailModal() {
 
   const getTreatmentStatusColor = useCallback(() => {
     if (isReservationConfirmed()) {
-      return 'text-blue-600';
+      return 'text-orange-600';
     } else if (selectedPatient?.consultation?.estimateAgreed) {
       return 'text-green-600';
     } else {
@@ -303,7 +303,7 @@ export default function PatientDetailModal() {
 
   const getStatusColor = useCallback((status: string) => {
     const colorMap: Record<string, string> = {
-      '잠재고객': 'bg-blue-100 text-blue-800',
+      '잠재고객': 'bg-orange-100 text-orange-800',
       '콜백필요': 'bg-yellow-100 text-yellow-800',
       '부재중': 'bg-orange-100 text-orange-800',
       '활성고객': 'bg-green-100 text-green-800',
@@ -807,7 +807,7 @@ export default function PatientDetailModal() {
                 : consultationType === 'returning'
                 ? 'bg-purple-100 text-purple-800'
                 : consultationType === 'outbound'
-                ? 'bg-blue-100 text-blue-800'
+                ? 'bg-orange-100 text-orange-800'
                 : 'bg-gray-100 text-gray-800'; // 커스텀 카테고리
 
               // 아이콘 결정
@@ -1149,7 +1149,7 @@ export default function PatientDetailModal() {
                   </h3>
                   <button
                     onClick={() => setIsConsultationFormOpen(true)}
-                    className="text-sm text-blue-600 hover:text-blue-800 underline"
+                    className="text-sm text-orange-600 hover:text-orange-800 underline"
                     disabled={consultationUpdateMutation.isPending}
                   >
                     {selectedPatient.consultation ? '수정' : '+ 추가'}
@@ -1215,7 +1215,7 @@ export default function PatientDetailModal() {
                       {isReservationConfirmed() && (selectedPatient.reservationDate || selectedPatient.reservationTime) && (
                         <div className="mt-3 pt-3 border-t border-gray-200">
                           <p className="text-xs text-gray-600 mb-1">예약 정보</p>
-                          <p className="text-sm font-medium text-blue-600">
+                          <p className="text-sm font-medium text-orange-600">
                             📅 {selectedPatient.reservationDate} {selectedPatient.reservationTime}
                           </p>
                         </div>
@@ -1252,7 +1252,7 @@ export default function PatientDetailModal() {
                     <p className="mb-2">최초 상담 기록이 없습니다.</p>
                     <button
                       onClick={() => setIsConsultationFormOpen(true)}
-                      className="text-blue-600 hover:text-blue-800 underline"
+                      className="text-orange-600 hover:text-orange-800 underline"
                       disabled={consultationUpdateMutation.isPending}
                     >
                       최초 상담 정보 추가하기

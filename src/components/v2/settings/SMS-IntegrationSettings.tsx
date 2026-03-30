@@ -81,12 +81,12 @@ export default function SMSIntegrationSettings({ settings, onSave }: Props) {
       </div>
 
       {/* 안내 */}
-      <div className="p-3 bg-blue-50 border border-blue-200 rounded-lg space-y-2 text-sm text-blue-800">
+      <div className="p-3 bg-orange-50 border border-orange-200 rounded-lg space-y-2 text-sm text-orange-800">
         <div className="flex items-start gap-2">
           <Info className="w-4 h-4 mt-0.5 flex-shrink-0" />
           <div>
             <p className="font-medium">SMS 발송을 위해 발신번호 등록이 필요합니다</p>
-            <p className="text-blue-600 mt-1">
+            <p className="text-orange-600 mt-1">
               통신서비스이용증명원을 준비하여 아래 이메일로 보내주세요.
               승인이 완료되면 SMS 발송 기능이 활성화됩니다.
             </p>
@@ -131,7 +131,7 @@ export default function SMSIntegrationSettings({ settings, onSave }: Props) {
           </ol>
           <div className="mt-2 p-2 bg-white border border-gray-200 rounded text-sm">
             <span className="text-gray-500">제출 이메일: </span>
-            <span className="font-medium text-blue-600">support@dcare.com</span>
+            <span className="font-medium text-orange-600">support@dcare.com</span>
           </div>
         </div>
 

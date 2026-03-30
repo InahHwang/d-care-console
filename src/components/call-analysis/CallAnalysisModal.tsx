@@ -27,7 +27,7 @@ interface CallAnalysisModalProps {
 // 상태별 색상 및 라벨
 const statusConfig: Record<AnalysisStatus, { label: string; color: string; bgColor: string }> = {
   pending: { label: '대기중', color: 'text-gray-600', bgColor: 'bg-gray-100' },
-  stt_processing: { label: 'STT 처리중', color: 'text-blue-600', bgColor: 'bg-blue-100' },
+  stt_processing: { label: 'STT 처리중', color: 'text-orange-600', bgColor: 'bg-orange-100' },
   stt_complete: { label: 'STT 완료', color: 'text-cyan-600', bgColor: 'bg-cyan-100' },
   analyzing: { label: 'AI 분석중', color: 'text-purple-600', bgColor: 'bg-purple-100' },
   complete: { label: '분석 완료', color: 'text-green-600', bgColor: 'bg-green-100' },
@@ -37,7 +37,7 @@ const statusConfig: Record<AnalysisStatus, { label: string; color: string; bgCol
 // 상담 결과별 색상
 const resultConfig: Record<string, { color: string; bgColor: string }> = {
   '예약완료': { color: 'text-green-700', bgColor: 'bg-green-100' },
-  '예약예정': { color: 'text-blue-700', bgColor: 'bg-blue-100' },
+  '예약예정': { color: 'text-orange-700', bgColor: 'bg-orange-100' },
   '보류': { color: 'text-yellow-700', bgColor: 'bg-yellow-100' },
   '거절': { color: 'text-red-700', bgColor: 'bg-red-100' },
   '단순문의': { color: 'text-gray-700', bgColor: 'bg-gray-100' },
@@ -127,7 +127,7 @@ export default function CallAnalysisModal({ analysisId, onClose }: CallAnalysisM
     return (
       <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50">
         <div className="bg-white rounded-xl p-8 flex items-center gap-3">
-          <Loader2 className="w-6 h-6 animate-spin text-blue-600" />
+          <Loader2 className="w-6 h-6 animate-spin text-orange-600" />
           <span className="text-gray-700">분석 데이터 로딩 중...</span>
         </div>
       </div>
@@ -205,7 +205,7 @@ export default function CallAnalysisModal({ analysisId, onClose }: CallAnalysisM
               <button
                 onClick={handleRetry}
                 disabled={retrying}
-                className="flex items-center gap-2 px-3 py-1.5 text-sm text-blue-600 bg-blue-50 rounded-lg hover:bg-blue-100 disabled:opacity-50"
+                className="flex items-center gap-2 px-3 py-1.5 text-sm text-orange-600 bg-orange-50 rounded-lg hover:bg-orange-100 disabled:opacity-50"
               >
                 <RefreshCw className={`w-4 h-4 ${retrying ? 'animate-spin' : ''}`} />
                 재분석
@@ -217,9 +217,9 @@ export default function CallAnalysisModal({ analysisId, onClose }: CallAnalysisM
           {analysis.status === 'complete' && analysis.analysis && (
             <>
               {/* 요약 카드 */}
-              <div className="bg-gradient-to-r from-blue-50 to-purple-50 rounded-xl p-5">
+              <div className="bg-gradient-to-r from-orange-50 to-purple-50 rounded-xl p-5">
                 <div className="flex items-start gap-3">
-                  <FileText className="w-5 h-5 text-blue-600 mt-0.5" />
+                  <FileText className="w-5 h-5 text-orange-600 mt-0.5" />
                   <div>
                     <h3 className="font-medium text-gray-900 mb-2">통화 요약</h3>
                     <p className="text-gray-700">{analysis.analysis.summary}</p>
@@ -311,7 +311,7 @@ export default function CallAnalysisModal({ analysisId, onClose }: CallAnalysisM
           {/* 처리 중인 경우 */}
           {(analysis.status === 'stt_processing' || analysis.status === 'analyzing') && (
             <div className="flex flex-col items-center justify-center py-12">
-              <Loader2 className="w-12 h-12 text-blue-600 animate-spin mb-4" />
+              <Loader2 className="w-12 h-12 text-orange-600 animate-spin mb-4" />
               <p className="text-gray-600 font-medium">
                 {analysis.status === 'stt_processing' ? '음성을 텍스트로 변환 중...' : 'AI가 통화 내용을 분석 중...'}
               </p>
@@ -357,7 +357,7 @@ export default function CallAnalysisModal({ analysisId, onClose }: CallAnalysisM
                               isConsultant
                                 ? 'bg-gray-100 text-gray-800 rounded-tl-sm'
                                 : isPatient
-                                ? 'bg-blue-500 text-white rounded-tr-sm'
+                                ? 'bg-orange-500 text-white rounded-tr-sm'
                                 : 'bg-gray-200 text-gray-700'
                             }`}
                           >

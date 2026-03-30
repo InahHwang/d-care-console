@@ -35,8 +35,8 @@ export function TemperatureIcon({
     },
     cold: {
       icon: Snowflake,
-      color: 'text-blue-400',
-      bgColor: 'bg-blue-50',
+      color: 'text-orange-400',
+      bgColor: 'bg-orange-50',
       label: '낮음',
     },
   };
@@ -78,7 +78,7 @@ export function TemperatureSelector({ value, onChange, className = '' }: Tempera
                 ? 'bg-red-100 text-red-600'
                 : temp === 'warm'
                 ? 'bg-amber-100 text-amber-600'
-                : 'bg-blue-100 text-blue-600'
+                : 'bg-orange-100 text-orange-600'
               : 'bg-gray-100 text-gray-400 hover:bg-gray-200'
           }`}
         >

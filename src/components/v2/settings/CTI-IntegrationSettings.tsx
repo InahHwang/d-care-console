@@ -66,7 +66,7 @@ export default function CTIIntegrationSettings({ settings, onSave }: Props) {
     <div className="space-y-4">
       <div className="flex items-center justify-between">
         <div className="flex items-center gap-2">
-          <Phone className="w-5 h-5 text-blue-600" />
+          <Phone className="w-5 h-5 text-orange-600" />
           <h3 className="font-medium text-gray-900">CTI 연동 (SK 브로드밴드)</h3>
           {form.isConfigured && (
             <span className="px-2 py-0.5 bg-green-100 text-green-700 rounded-full text-xs font-medium">
@@ -77,23 +77,23 @@ export default function CTIIntegrationSettings({ settings, onSave }: Props) {
       </div>
 
       {/* 인라인 가이드 (접이식) */}
-      <div className="border border-blue-200 rounded-lg overflow-hidden">
+      <div className="border border-orange-200 rounded-lg overflow-hidden">
         <button
           onClick={() => setShowGuide(!showGuide)}
-          className="w-full flex items-center justify-between px-4 py-3 bg-blue-50 hover:bg-blue-100 transition-colors text-left"
+          className="w-full flex items-center justify-between px-4 py-3 bg-orange-50 hover:bg-orange-100 transition-colors text-left"
         >
           <div className="flex items-center gap-2">
-            <Info className="w-4 h-4 text-blue-600" />
-            <span className="text-sm font-medium text-blue-800">SK 브로드밴드 오픈API 가입 가이드</span>
+            <Info className="w-4 h-4 text-orange-600" />
+            <span className="text-sm font-medium text-orange-800">SK 브로드밴드 오픈API 가입 가이드</span>
           </div>
-          {showGuide ? <ChevronUp className="w-4 h-4 text-blue-600" /> : <ChevronDown className="w-4 h-4 text-blue-600" />}
+          {showGuide ? <ChevronUp className="w-4 h-4 text-orange-600" /> : <ChevronDown className="w-4 h-4 text-orange-600" />}
         </button>
         {showGuide && (
           <div className="px-4 py-3 bg-white space-y-3 text-sm text-gray-700">
             <div className="space-y-2">
               <p className="font-medium text-gray-900">1단계: 오픈API 서비스 가입</p>
               <p>
-                <span className="font-mono bg-gray-100 px-1.5 py-0.5 rounded text-blue-700">1600-0108</span>
+                <span className="font-mono bg-gray-100 px-1.5 py-0.5 rounded text-orange-700">1600-0108</span>
                 로 전화하여 <strong>&quot;오픈API서비스 가입&quot;</strong>을 신청하세요.
               </p>
               <p className="text-gray-500">
@@ -133,7 +133,7 @@ export default function CTIIntegrationSettings({ settings, onSave }: Props) {
                 key={option.value}
                 className={`flex items-center gap-2 px-4 py-2.5 border rounded-lg cursor-pointer transition-colors ${
                   form.productType === option.value
-                    ? 'border-blue-500 bg-blue-50 text-blue-700'
+                    ? 'border-orange-500 bg-orange-50 text-orange-700'
                     : 'border-gray-200 hover:border-gray-300 text-gray-700'
                 }`}
               >
@@ -143,7 +143,7 @@ export default function CTIIntegrationSettings({ settings, onSave }: Props) {
                   value={option.value}
                   checked={form.productType === option.value}
                   onChange={(e) => setForm({ ...form, productType: e.target.value as CTISettings['productType'] })}
-                  className="w-4 h-4 text-blue-600 focus:ring-blue-500"
+                  className="w-4 h-4 text-orange-600 focus:ring-orange-500"
                 />
                 <span className="text-sm font-medium">{option.label}</span>
               </label>
@@ -165,7 +165,7 @@ export default function CTIIntegrationSettings({ settings, onSave }: Props) {
               value={form.apiId}
               onChange={(e) => setForm({ ...form, apiId: e.target.value })}
               placeholder="SK Open API 로그인 ID"
-              className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+              className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-orange-500 focus:border-orange-500"
             />
           </div>
           <div>
@@ -176,7 +176,7 @@ export default function CTIIntegrationSettings({ settings, onSave }: Props) {
                 value={form.apiPassword}
                 onChange={(e) => setForm({ ...form, apiPassword: e.target.value })}
                 placeholder="SK Open API 비밀번호"
-                className="w-full border border-gray-200 rounded-lg px-3 py-2 pr-10 text-sm focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                className="w-full border border-gray-200 rounded-lg px-3 py-2 pr-10 text-sm focus:ring-2 focus:ring-orange-500 focus:border-orange-500"
               />
               <button
                 type="button"
@@ -197,7 +197,7 @@ export default function CTIIntegrationSettings({ settings, onSave }: Props) {
             value={form.phoneNumber}
             onChange={(e) => setForm({ ...form, phoneNumber: e.target.value })}
             placeholder="예: 031-567-2278"
-            className="w-full max-w-xs border border-gray-200 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+            className="w-full max-w-xs border border-gray-200 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-orange-500 focus:border-orange-500"
           />
           <p className="mt-1 text-xs text-gray-500">오픈API에 등록한 전화번호를 입력하세요.</p>
         </div>
@@ -216,7 +216,7 @@ export default function CTIIntegrationSettings({ settings, onSave }: Props) {
             className={`flex items-center gap-2 px-5 py-2.5 rounded-lg font-medium text-sm transition-all ${
               saved
                 ? 'bg-green-500 text-white'
-                : 'bg-blue-600 text-white hover:bg-blue-700'
+                : 'bg-orange-600 text-white hover:bg-orange-700'
             } disabled:opacity-50 disabled:cursor-not-allowed`}
           >
             {saved ? (

@@ -81,7 +81,7 @@ interface Patient {
 
 // 상태 라벨
 const statusLabels: Record<ReferralStatus, { label: string; color: string; bgColor: string }> = {
-  registered: { label: '등록', color: 'text-blue-600', bgColor: 'bg-blue-100' },
+  registered: { label: '등록', color: 'text-orange-600', bgColor: 'bg-orange-100' },
   visited: { label: '내원', color: 'text-yellow-600', bgColor: 'bg-yellow-100' },
   treating: { label: '진료중', color: 'text-purple-600', bgColor: 'bg-purple-100' },
   completed: { label: '완료', color: 'text-green-600', bgColor: 'bg-green-100' }
@@ -373,7 +373,7 @@ export default function ReferralsPage() {
                 onClick={() => setActiveTab(tab.id)}
                 className={`flex items-center gap-2 px-4 py-2 rounded-md transition-colors ${
                   activeTab === tab.id
-                    ? 'bg-white text-blue-600 shadow-sm'
+                    ? 'bg-white text-orange-600 shadow-sm'
                     : 'text-gray-600 hover:text-gray-900'
                 }`}
               >
@@ -390,8 +390,8 @@ export default function ReferralsPage() {
               <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
                 <div className="bg-white rounded-lg shadow-sm border p-4">
                   <div className="flex items-center gap-3">
-                    <div className="p-2 bg-blue-100 rounded-lg">
-                      <Users className="w-6 h-6 text-blue-600" />
+                    <div className="p-2 bg-orange-100 rounded-lg">
+                      <Users className="w-6 h-6 text-orange-600" />
                     </div>
                     <div>
                       <p className="text-gray-500 text-sm">총 소개 건수</p>
@@ -446,7 +446,7 @@ export default function ReferralsPage() {
                   </h3>
                   <button
                     onClick={() => setActiveTab('ranking')}
-                    className="text-sm text-blue-600 hover:text-blue-800"
+                    className="text-sm text-orange-600 hover:text-orange-800"
                   >
                     전체보기
                   </button>
@@ -466,7 +466,7 @@ export default function ReferralsPage() {
                         <p className="text-sm text-gray-500">{item.referrerPhone}</p>
                       </div>
                       <div className="text-right">
-                        <p className="text-lg font-bold text-blue-600">{item.count}건</p>
+                        <p className="text-lg font-bold text-orange-600">{item.count}건</p>
                       </div>
                     </div>
                   ))}
@@ -493,9 +493,9 @@ export default function ReferralsPage() {
                     소개자 (기존 환자)
                   </label>
                   {selectedReferrer ? (
-                    <div className={`flex items-center gap-3 p-3 rounded-lg ${selectedReferrer.isLegacy ? 'bg-orange-50' : 'bg-blue-50'}`}>
-                      <div className={`p-2 rounded-full ${selectedReferrer.isLegacy ? 'bg-orange-100' : 'bg-blue-100'}`}>
-                        <User className={`w-5 h-5 ${selectedReferrer.isLegacy ? 'text-orange-600' : 'text-blue-600'}`} />
+                    <div className={`flex items-center gap-3 p-3 rounded-lg ${selectedReferrer.isLegacy ? 'bg-orange-50' : 'bg-orange-50'}`}>
+                      <div className={`p-2 rounded-full ${selectedReferrer.isLegacy ? 'bg-orange-100' : 'bg-orange-100'}`}>
+                        <User className={`w-5 h-5 ${selectedReferrer.isLegacy ? 'text-orange-600' : 'text-orange-600'}`} />
                       </div>
                       <div className="flex-1">
                         <div className="flex items-center gap-2">
@@ -526,7 +526,7 @@ export default function ReferralsPage() {
                           searchPatients(e.target.value);
                         }}
                         onFocus={() => setSearchingFor('referrer')}
-                        className="w-full pl-10 pr-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                        className="w-full pl-10 pr-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-orange-500"
                       />
                       {searchingFor === 'referrer' && searchResults.length > 0 && (
                         <div className="absolute z-10 w-full mt-1 bg-white border border-gray-200 rounded-lg shadow-lg max-h-48 overflow-y-auto">
@@ -598,7 +598,7 @@ export default function ReferralsPage() {
                           searchPatients(e.target.value);
                         }}
                         onFocus={() => setSearchingFor('referred')}
-                        className="w-full pl-10 pr-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                        className="w-full pl-10 pr-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-orange-500"
                       />
                       {searchingFor === 'referred' && searchResults.length > 0 && (
                         <div className="absolute z-10 w-full mt-1 bg-white border border-gray-200 rounded-lg shadow-lg max-h-48 overflow-y-auto">
@@ -635,15 +635,15 @@ export default function ReferralsPage() {
                 <button
                   onClick={handleRegister}
                   disabled={!selectedReferrer || !selectedReferred}
-                  className="w-full py-3 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2"
+                  className="w-full py-3 bg-orange-600 text-white rounded-lg hover:bg-orange-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2"
                 >
                   <UserPlus className="w-5 h-5" />
                   <span>소개 등록</span>
                 </button>
               </div>
 
-              <div className="bg-blue-50 rounded-lg p-4">
-                <p className="text-sm text-blue-700">
+              <div className="bg-orange-50 rounded-lg p-4">
+                <p className="text-sm text-orange-700">
                   <strong>안내:</strong> 소개자가 내원할 때 자동으로 알림이 표시되어 감사인사를 전달할 수 있습니다.
                 </p>
               </div>
@@ -669,7 +669,7 @@ export default function ReferralsPage() {
                           }}
                           className={`px-4 py-2 text-sm transition-colors ${
                             filter === status
-                              ? 'bg-blue-600 text-white'
+                              ? 'bg-orange-600 text-white'
                               : 'bg-white hover:bg-gray-50 text-gray-600'
                           }`}
                         >
@@ -691,7 +691,7 @@ export default function ReferralsPage() {
                           setSearchQuery(e.target.value);
                           setPagination(prev => ({ ...prev, page: 1 }));
                         }}
-                        className="w-full pl-10 pr-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                        className="w-full pl-10 pr-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-orange-500"
                       />
                     </div>
                   </div>
@@ -705,7 +705,7 @@ export default function ReferralsPage() {
                         setDateRange(prev => ({ ...prev, startDate: e.target.value }));
                         setPagination(prev => ({ ...prev, page: 1 }));
                       }}
-                      className="px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                      className="px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-orange-500"
                     />
                     <span className="text-gray-400">~</span>
                     <input
@@ -715,7 +715,7 @@ export default function ReferralsPage() {
                         setDateRange(prev => ({ ...prev, endDate: e.target.value }));
                         setPagination(prev => ({ ...prev, page: 1 }));
                       }}
-                      className="px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                      className="px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-orange-500"
                     />
                   </div>
                 </div>
@@ -739,7 +739,7 @@ export default function ReferralsPage() {
                       <tr>
                         <td colSpan={6} className="text-center py-12 text-gray-500">
                           <div className="flex items-center justify-center gap-2">
-                            <div className="animate-spin rounded-full h-5 w-5 border-2 border-blue-600 border-t-transparent" />
+                            <div className="animate-spin rounded-full h-5 w-5 border-2 border-orange-600 border-t-transparent" />
                             <span>로딩 중...</span>
                           </div>
                         </td>
@@ -760,7 +760,7 @@ export default function ReferralsPage() {
                         >
                           <td className="px-4 py-3">
                             <div className="flex items-center gap-2">
-                              <User className="w-4 h-4 text-blue-600" />
+                              <User className="w-4 h-4 text-orange-600" />
                               <div>
                                 <p className="font-medium text-gray-900">{referral.referrerName}</p>
                                 <p className="text-sm text-gray-500">{referral.referrerPhone}</p>
@@ -874,7 +874,7 @@ export default function ReferralsPage() {
                       <p className="text-sm text-gray-500">{item.referrerPhone}</p>
                     </div>
                     <div className="text-right">
-                      <p className="text-2xl font-bold text-blue-600">{item.count}건</p>
+                      <p className="text-2xl font-bold text-orange-600">{item.count}건</p>
                       <p className="text-xs text-gray-500">
                         마지막 소개: {format(new Date(item.lastReferralDate), 'yyyy-MM-dd', { locale: ko })}
                       </p>
@@ -945,17 +945,17 @@ function ReferrerDetailModal({
 
         <div className="p-4 overflow-y-auto flex-1">
           {/* 소개자 정보 */}
-          <div className="bg-blue-50 rounded-lg p-4 mb-4">
+          <div className="bg-orange-50 rounded-lg p-4 mb-4">
             <div className="flex items-center gap-4">
-              <div className="p-3 bg-blue-100 rounded-full">
-                <User className="w-8 h-8 text-blue-600" />
+              <div className="p-3 bg-orange-100 rounded-full">
+                <User className="w-8 h-8 text-orange-600" />
               </div>
               <div className="flex-1">
                 <p className="text-xl font-bold text-gray-900">{referral.referrerName}</p>
                 <p className="text-gray-600">{referral.referrerPhone}</p>
               </div>
               <div className="text-right">
-                <p className="text-3xl font-bold text-blue-600">{totalReferrals}건</p>
+                <p className="text-3xl font-bold text-orange-600">{totalReferrals}건</p>
                 <p className="text-sm text-gray-500">총 소개</p>
               </div>
             </div>

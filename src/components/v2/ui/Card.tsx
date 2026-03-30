@@ -108,7 +108,7 @@ export function AlertCard({ children, type, className = '' }: AlertCardProps) {
   const typeStyles = {
     warning: 'border-l-4 border-amber-400',
     error: 'border-l-4 border-red-400',
-    info: 'border-l-4 border-blue-400',
+    info: 'border-l-4 border-orange-400',
     success: 'border-l-4 border-emerald-400',
   };
 

@@ -73,7 +73,7 @@ function getCallIcon(callType: string, duration: number) {
     return <PhoneMissed size={20} className="text-red-500" />;
   }
   if (callType === 'inbound') {
-    return <PhoneIncoming size={20} className="text-blue-500" />;
+    return <PhoneIncoming size={20} className="text-orange-500" />;
   }
   return <PhoneOutgoing size={20} className="text-emerald-500" />;
 }
@@ -171,7 +171,7 @@ export function CallLogList({
                   {getCallIcon(log.callType, log.duration)}
                   <span className={`text-sm font-medium ${
                     log.duration === 0 ? 'text-red-500' :
-                    log.callType === 'inbound' ? 'text-blue-600' : 'text-emerald-600'
+                    log.callType === 'inbound' ? 'text-orange-600' : 'text-emerald-600'
                   }`}>
                     {getCallTypeLabel(log.callType, log.duration)}
                   </span>
@@ -184,7 +184,7 @@ export function CallLogList({
                   log.calledNumber?.includes('070')
                     ? 'bg-purple-100 text-purple-700'
                     : log.calledNumber?.includes('031')
-                    ? 'bg-blue-100 text-blue-700'
+                    ? 'bg-orange-100 text-orange-700'
                     : 'bg-gray-100 text-gray-600'
                 }`}>
                   {formatCalledNumber(log.calledNumber)}
@@ -204,7 +204,7 @@ export function CallLogList({
                       e.stopPropagation();
                       if (log.patientId) onPatientClick?.(log.patientId);
                     }}
-                    className="font-medium text-gray-900 hover:text-blue-600"
+                    className="font-medium text-gray-900 hover:text-orange-600"
                   >
                     {log.patientName}
                   </button>
@@ -245,7 +245,7 @@ export function CallLogList({
                     <span className="text-xs text-gray-600 line-clamp-2">{log.summary}</span>
                   </div>
                 ) : log.interest ? (
-                  <span className="text-xs text-blue-600">{log.interest}</span>
+                  <span className="text-xs text-orange-600">{log.interest}</span>
                 ) : (
                   <span className="text-gray-300">-</span>
                 )}

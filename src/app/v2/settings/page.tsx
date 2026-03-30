@@ -411,7 +411,7 @@ export default function SettingsPage() {
             onClick={() => setActiveTab('general')}
             className={`flex items-center gap-2 px-4 py-2 rounded-t-lg font-medium text-sm transition-colors ${
               activeTab === 'general'
-                ? 'bg-white border border-b-white border-gray-200 -mb-[3px] text-blue-600'
+                ? 'bg-white border border-b-white border-gray-200 -mb-[3px] text-orange-600'
                 : 'text-gray-500 hover:text-gray-700 hover:bg-gray-50'
             }`}
           >
@@ -423,7 +423,7 @@ export default function SettingsPage() {
           onClick={() => setActiveTab('categories')}
           className={`flex items-center gap-2 px-4 py-2 rounded-t-lg font-medium text-sm transition-colors ${
             activeTab === 'categories'
-              ? 'bg-white border border-b-white border-gray-200 -mb-[3px] text-blue-600'
+              ? 'bg-white border border-b-white border-gray-200 -mb-[3px] text-orange-600'
               : 'text-gray-500 hover:text-gray-700 hover:bg-gray-50'
           }`}
         >
@@ -434,7 +434,7 @@ export default function SettingsPage() {
           onClick={() => setActiveTab('manuals')}
           className={`flex items-center gap-2 px-4 py-2 rounded-t-lg font-medium text-sm transition-colors ${
             activeTab === 'manuals'
-              ? 'bg-white border border-b-white border-gray-200 -mb-[3px] text-blue-600'
+              ? 'bg-white border border-b-white border-gray-200 -mb-[3px] text-orange-600'
               : 'text-gray-500 hover:text-gray-700 hover:bg-gray-50'
           }`}
         >
@@ -445,7 +445,7 @@ export default function SettingsPage() {
           onClick={() => setActiveTab('recall')}
           className={`flex items-center gap-2 px-4 py-2 rounded-t-lg font-medium text-sm transition-colors ${
             activeTab === 'recall'
-              ? 'bg-white border border-b-white border-gray-200 -mb-[3px] text-blue-600'
+              ? 'bg-white border border-b-white border-gray-200 -mb-[3px] text-orange-600'
               : 'text-gray-500 hover:text-gray-700 hover:bg-gray-50'
           }`}
         >
@@ -596,7 +596,7 @@ export default function SettingsPage() {
                             <div className="flex items-center justify-end gap-1">
                               <button
                                 onClick={() => handleOpenEditUser(user)}
-                                className="p-1.5 text-blue-600 hover:bg-blue-50 rounded transition-colors"
+                                className="p-1.5 text-orange-600 hover:bg-orange-50 rounded transition-colors"
                                 title="역할 수정"
                               >
                                 <Pencil className="w-4 h-4" />
@@ -848,7 +848,7 @@ export default function SettingsPage() {
                 </button>
                 <button
                   onClick={handleUpdateUserRole}
-                  className="flex-1 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors"
+                  className="flex-1 px-4 py-2 bg-orange-600 text-white rounded-lg hover:bg-orange-700 transition-colors"
                 >
                   저장
                 </button>
@@ -951,7 +951,7 @@ export default function SettingsPage() {
               type="checkbox"
               checked={settings.notifications.missedCall}
               onChange={(e) => updateSettings('notifications.missedCall', e.target.checked)}
-              className="w-4 h-4 rounded border-gray-300 text-blue-600 focus:ring-blue-500"
+              className="w-4 h-4 rounded border-gray-300 text-orange-600 focus:ring-orange-500"
             />
             <span className="text-sm text-gray-700">부재중 전화 알림</span>
           </label>
@@ -960,7 +960,7 @@ export default function SettingsPage() {
               type="checkbox"
               checked={settings.notifications.newPatient}
               onChange={(e) => updateSettings('notifications.newPatient', e.target.checked)}
-              className="w-4 h-4 rounded border-gray-300 text-blue-600 focus:ring-blue-500"
+              className="w-4 h-4 rounded border-gray-300 text-orange-600 focus:ring-orange-500"
             />
             <span className="text-sm text-gray-700">신규 환자 등록 알림</span>
           </label>
@@ -969,7 +969,7 @@ export default function SettingsPage() {
               type="checkbox"
               checked={settings.notifications.callback}
               onChange={(e) => updateSettings('notifications.callback', e.target.checked)}
-              className="w-4 h-4 rounded border-gray-300 text-blue-600 focus:ring-blue-500"
+              className="w-4 h-4 rounded border-gray-300 text-orange-600 focus:ring-orange-500"
             />
             <span className="text-sm text-gray-700">콜백 일정 알림</span>
           </label>
@@ -1036,7 +1036,7 @@ export default function SettingsPage() {
           className={`flex items-center gap-2 px-6 py-3 rounded-xl font-medium shadow-lg transition-all ${
             saved
               ? 'bg-green-500 text-white'
-              : 'bg-blue-500 text-white hover:bg-blue-600'
+              : 'bg-orange-500 text-white hover:bg-orange-600'
           } disabled:opacity-50`}
         >
           {saved ? (
@@ -1244,7 +1244,7 @@ function DailyReportSmsSection({
             type="checkbox"
             checked={sms.enabled}
             onChange={(e) => updateSettings('dailyReportSms', { ...sms, enabled: e.target.checked })}
-            className="w-5 h-5 rounded border-gray-300 text-blue-600 focus:ring-blue-500"
+            className="w-5 h-5 rounded border-gray-300 text-orange-600 focus:ring-orange-500"
           />
           <span className="text-sm text-gray-600">활성화</span>
         </label>
@@ -1276,7 +1276,7 @@ function DailyReportSmsSection({
               />
               <button
                 onClick={handleAddRecipient}
-                className="px-3 py-1.5 bg-blue-500 text-white rounded-lg text-sm hover:bg-blue-600"
+                className="px-3 py-1.5 bg-orange-500 text-white rounded-lg text-sm hover:bg-orange-600"
               >
                 <Plus className="w-4 h-4" />
               </button>
@@ -1298,7 +1298,7 @@ function DailyReportSmsSection({
                     <option key={t} value={t}>{t}</option>
                   ))}
                 </select>
-                <button onClick={handleApplyWeekdayTime} className="text-blue-500 hover:text-blue-700 font-medium">
+                <button onClick={handleApplyWeekdayTime} className="text-orange-500 hover:text-orange-700 font-medium">
                   적용
                 </button>
               </div>
@@ -1313,7 +1313,7 @@ function DailyReportSmsSection({
                     <option key={t} value={t}>{t}</option>
                   ))}
                 </select>
-                <button onClick={handleApplyWeekendTime} className="text-blue-500 hover:text-blue-700 font-medium">
+                <button onClick={handleApplyWeekendTime} className="text-orange-500 hover:text-orange-700 font-medium">
                   적용
                 </button>
               </div>
@@ -1331,7 +1331,7 @@ function DailyReportSmsSection({
                       type="checkbox"
                       checked={schedule[day].enabled}
                       onChange={() => handleToggleDay(day)}
-                      className="w-4 h-4 rounded border-gray-300 text-blue-600 focus:ring-blue-500"
+                      className="w-4 h-4 rounded border-gray-300 text-orange-600 focus:ring-orange-500"
                     />
                     <span className={`text-sm font-medium ${
                       (day === 'sat' || day === 'sun') ? 'text-red-500' : ''

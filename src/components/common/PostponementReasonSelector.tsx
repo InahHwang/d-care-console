@@ -116,7 +116,7 @@ export default function PostponementReasonSelector({
                 onClick={() => handleCategoryClick(category.id)}
                 className={`w-full px-4 py-3 text-left flex items-center justify-between transition-colors ${
                   hasSelectedReason
-                    ? 'bg-blue-50 border-blue-200'
+                    ? 'bg-orange-50 border-orange-200'
                     : 'bg-white hover:bg-gray-50'
                 }`}
               >
@@ -124,7 +124,7 @@ export default function PostponementReasonSelector({
                   <span>{category.icon}</span>
                   <span className="font-medium text-gray-800">{category.label}</span>
                   {hasSelectedReason && (
-                    <span className="text-xs bg-blue-100 text-blue-700 px-2 py-0.5 rounded-full ml-2">
+                    <span className="text-xs bg-orange-100 text-orange-700 px-2 py-0.5 rounded-full ml-2">
                       {getDelayReasonLabel(value)}
                     </span>
                   )}
@@ -150,8 +150,8 @@ export default function PostponementReasonSelector({
                         onClick={() => handleReasonSelect(option.value)}
                         className={`w-full px-3 py-2 text-left text-sm rounded-md transition-colors ${
                           value === option.value
-                            ? 'bg-blue-500 text-white'
-                            : 'bg-white text-gray-700 hover:bg-blue-50'
+                            ? 'bg-orange-500 text-white'
+                            : 'bg-white text-gray-700 hover:bg-orange-50'
                         }`}
                       >
                         {option.label}
@@ -167,7 +167,7 @@ export default function PostponementReasonSelector({
                         value={customText}
                         onChange={(e) => handleCustomTextChange(e.target.value)}
                         placeholder="기타 사유를 입력해주세요"
-                        className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 text-sm"
+                        className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-orange-500 text-sm"
                       />
                     </div>
                   )}
@@ -180,9 +180,9 @@ export default function PostponementReasonSelector({
 
       {/* 선택된 사유 표시 (요약) */}
       {value && (
-        <div className="flex items-center gap-2 p-3 bg-blue-50 rounded-lg">
-          <span className="text-blue-600 text-sm font-medium">선택된 사유:</span>
-          <span className="text-blue-800 text-sm">
+        <div className="flex items-center gap-2 p-3 bg-orange-50 rounded-lg">
+          <span className="text-orange-600 text-sm font-medium">선택된 사유:</span>
+          <span className="text-orange-800 text-sm">
             {value === 'other' && customText
               ? `기타 - ${customText}`
               : getDelayReasonLabel(value)}
@@ -190,7 +190,7 @@ export default function PostponementReasonSelector({
           <button
             type="button"
             onClick={handleNotConfirmed}
-            className="ml-auto text-blue-600 hover:text-blue-800 text-xs"
+            className="ml-auto text-orange-600 hover:text-orange-800 text-xs"
           >
             취소
           </button>

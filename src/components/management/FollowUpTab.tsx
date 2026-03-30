@@ -191,7 +191,7 @@ export default function FollowUpTab({ patient }: FollowUpTabProps) {
     const days = differenceInDays(new Date(scheduledDate), new Date())
     if (days < 0) return <span className="text-red-500">D{days}</span>
     if (days === 0) return <span className="text-orange-500">오늘</span>
-    return <span className="text-blue-500">D-{days}</span>
+    return <span className="text-orange-500">D-{days}</span>
   }
 
   if (isLoading) {
@@ -230,8 +230,8 @@ export default function FollowUpTab({ patient }: FollowUpTabProps) {
 
       {/* 내원 정보 */}
       {patient.visitDate && (
-        <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
-          <div className="flex items-center gap-2 text-blue-800">
+        <div className="bg-orange-50 border border-orange-200 rounded-lg p-4">
+          <div className="flex items-center gap-2 text-orange-800">
             <Icon icon={HiOutlineCalendar} size={18} />
             <span className="font-medium">내원일: {patient.visitDate}</span>
           </div>
@@ -354,7 +354,7 @@ export default function FollowUpTab({ patient }: FollowUpTabProps) {
                     <>
                       <button
                         onClick={() => handleSendNow(followUp._id)}
-                        className="p-2 text-blue-600 hover:bg-blue-50 rounded-lg"
+                        className="p-2 text-orange-600 hover:bg-orange-50 rounded-lg"
                         title="즉시 발송"
                       >
                         <Icon icon={HiOutlinePaperAirplane} size={18} />

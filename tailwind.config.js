@@ -9,21 +9,23 @@ module.exports = {
   theme: {
     extend: {
       colors: {
-        // 디자인에서 사용된 색상
-        'primary': '#4fc3f7',
-        'secondary': '#212b36',
-        'light-bg': '#f7f9fc',
-        'dark-bg': '#161c24',
-        'sidebar': '#212b36',
-        'sidebar-active': '#36414c',
-        'text-primary': '#212b36',
-        'text-secondary': '#637381',
-        'text-muted': '#8a94a0',
-        'border': '#f1f3f5',
+        // 브랜드 컬러 (catchall.ai.kr 기반 오렌지 톤)
+        'primary': '#ff7a00',
+        'primary-light': '#ffa24d',
+        'primary-pale': '#fff1e6',
+        'secondary': '#222222',
+        'light-bg': '#f9fafb',
+        'dark-bg': '#1a1a2e',
+        'sidebar': '#1e1e2d',
+        'sidebar-active': '#2d2d44',
+        'text-primary': '#222222',
+        'text-secondary': '#666666',
+        'text-muted': '#99a1af',
+        'border': '#e5e7eb',
         // 상태 색상
-        'success': '#4caf50',
+        'success': '#2ecc71',
         'warning': '#ffab00',
-        'error': '#ff5252',
+        'error': '#e74c3c',
         'info': '#0288d1',
       },
       boxShadow: {

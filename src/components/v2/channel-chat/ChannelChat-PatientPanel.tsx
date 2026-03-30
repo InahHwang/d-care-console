@@ -22,7 +22,7 @@ function TemperatureBadge({ temperature }: { temperature: string }) {
   const config = {
     hot: { label: 'HOT', color: 'bg-red-100 text-red-700' },
     warm: { label: 'WARM', color: 'bg-amber-100 text-amber-700' },
-    cold: { label: 'COLD', color: 'bg-blue-100 text-blue-700' },
+    cold: { label: 'COLD', color: 'bg-orange-100 text-orange-700' },
   };
   const { label, color } = config[temperature as keyof typeof config] || config.cold;
 
@@ -51,7 +51,7 @@ export function ChannelChatPatientPanel({
             onClick={() => setActiveTab('patient')}
             className={`flex-1 flex items-center justify-center gap-1.5 px-4 py-3 text-sm font-medium transition-colors ${
               activeTab === 'patient'
-                ? 'text-blue-600 border-b-2 border-blue-600'
+                ? 'text-orange-600 border-b-2 border-orange-600'
                 : 'text-gray-500 hover:text-gray-700'
             }`}
           >
@@ -62,7 +62,7 @@ export function ChannelChatPatientPanel({
             onClick={() => setActiveTab('manual')}
             className={`flex-1 flex items-center justify-center gap-1.5 px-4 py-3 text-sm font-medium transition-colors ${
               activeTab === 'manual'
-                ? 'text-blue-600 border-b-2 border-blue-600'
+                ? 'text-orange-600 border-b-2 border-orange-600'
                 : 'text-gray-500 hover:text-gray-700'
             }`}
           >
@@ -101,7 +101,7 @@ export function ChannelChatPatientPanel({
           onClick={() => setActiveTab('patient')}
           className={`flex-1 flex items-center justify-center gap-1.5 px-4 py-3 text-sm font-medium transition-colors ${
             activeTab === 'patient'
-              ? 'text-blue-600 border-b-2 border-blue-600'
+              ? 'text-orange-600 border-b-2 border-orange-600'
               : 'text-gray-500 hover:text-gray-700'
           }`}
         >
@@ -112,7 +112,7 @@ export function ChannelChatPatientPanel({
           onClick={() => setActiveTab('manual')}
           className={`flex-1 flex items-center justify-center gap-1.5 px-4 py-3 text-sm font-medium transition-colors ${
             activeTab === 'manual'
-              ? 'text-blue-600 border-b-2 border-blue-600'
+              ? 'text-orange-600 border-b-2 border-orange-600'
               : 'text-gray-500 hover:text-gray-700'
           }`}
         >
@@ -142,8 +142,8 @@ export function ChannelChatPatientPanel({
             <div className="bg-gray-50 rounded-xl p-4">
               <div className="flex items-center justify-between mb-3">
                 <div className="flex items-center gap-2">
-                  <div className="w-10 h-10 bg-blue-100 rounded-full flex items-center justify-center">
-                    <User size={20} className="text-blue-600" />
+                  <div className="w-10 h-10 bg-orange-100 rounded-full flex items-center justify-center">
+                    <User size={20} className="text-orange-600" />
                   </div>
                   <div>
                     <div className="font-medium text-gray-900">{patient.name}</div>
@@ -168,7 +168,7 @@ export function ChannelChatPatientPanel({
               {/* 환자 상세 페이지 링크 */}
               <Link
                 href={`/v2/patients/${patient._id}`}
-                className="flex items-center gap-1 text-sm text-blue-600 hover:underline mt-2"
+                className="flex items-center gap-1 text-sm text-orange-600 hover:underline mt-2"
               >
                 <span>환자 상세 보기</span>
                 <ExternalLink size={12} />
@@ -193,7 +193,7 @@ export function ChannelChatPatientPanel({
                 </button>
                 <button
                   onClick={onInputConsultation}
-                  className="flex items-center justify-center gap-1.5 px-3 py-2 bg-blue-50 text-blue-700 text-sm rounded-lg hover:bg-blue-100 transition-colors"
+                  className="flex items-center justify-center gap-1.5 px-3 py-2 bg-orange-50 text-orange-700 text-sm rounded-lg hover:bg-orange-100 transition-colors"
                 >
                   <MessageSquare size={14} />
                   상담결과
@@ -231,13 +231,13 @@ export function ChannelChatPatientPanel({
             <div className="space-y-2">
               <button
                 onClick={onMatchPatient}
-                className="w-full px-4 py-2.5 bg-blue-600 text-white text-sm rounded-lg hover:bg-blue-700 transition-colors"
+                className="w-full px-4 py-2.5 bg-orange-600 text-white text-sm rounded-lg hover:bg-orange-700 transition-colors"
               >
                 환자 검색/매칭
               </button>
               <button
                 onClick={onRegisterPatient}
-                className="w-full px-4 py-2.5 border border-blue-600 text-blue-600 text-sm rounded-lg hover:bg-blue-50 transition-colors"
+                className="w-full px-4 py-2.5 border border-orange-600 text-orange-600 text-sm rounded-lg hover:bg-orange-50 transition-colors"
               >
                 신규 환자 등록
               </button>

@@ -69,7 +69,7 @@ const CALLBACK_TYPE_LABELS: Record<CallbackType, string> = {
 };
 
 const CALLBACK_TYPE_COLORS: Record<CallbackType, string> = {
-  callback: 'bg-blue-500 hover:bg-blue-600',
+  callback: 'bg-orange-500 hover:bg-orange-600',
   recall: 'bg-purple-500 hover:bg-purple-600',
   thanks: 'bg-amber-500 hover:bg-amber-600',
 };
@@ -434,7 +434,7 @@ export function CTIPanel() {
           className={`
             flex items-center gap-2 px-4 py-3 rounded-xl shadow-lg transition-all
             ${isRinging
-              ? 'bg-blue-500 text-white animate-pulse'
+              ? 'bg-orange-500 text-white animate-pulse'
               : 'bg-white text-gray-700 hover:bg-gray-50'
             }
           `}
@@ -442,7 +442,7 @@ export function CTIPanel() {
           <Phone size={20} />
           <span className="font-medium">CTI</span>
           {recentCalls.length > 0 && (
-            <span className="bg-blue-100 text-blue-600 px-2 py-0.5 rounded-full text-xs">
+            <span className="bg-orange-100 text-orange-600 px-2 py-0.5 rounded-full text-xs">
               {recentCalls.length}
             </span>
           )}
@@ -471,7 +471,7 @@ export function CTIPanel() {
         <div
           className={`
             bg-white rounded-xl shadow-xl overflow-hidden
-            ${isRinging ? 'ring-2 ring-blue-500 ring-offset-2' : ''}
+            ${isRinging ? 'ring-2 ring-orange-500 ring-offset-2' : ''}
           `}
         >
         {/* 헤더 */}
@@ -489,7 +489,7 @@ export function CTIPanel() {
           <div className="flex items-center gap-1">
             <button
               onClick={() => setShowManualPanel(!showManualPanel)}
-              className={`p-1.5 rounded transition-colors ${showManualPanel ? 'bg-blue-100 text-blue-600' : 'hover:bg-gray-200 text-gray-500'}`}
+              className={`p-1.5 rounded transition-colors ${showManualPanel ? 'bg-orange-100 text-orange-600' : 'hover:bg-gray-200 text-gray-500'}`}
               title="상담 매뉴얼"
             >
               <BookOpen size={16} />
@@ -546,7 +546,7 @@ export function CTIPanel() {
           <div
             className={`
               p-4 border-b
-              ${isRinging ? 'bg-blue-50' : 'bg-white'}
+              ${isRinging ? 'bg-orange-50' : 'bg-white'}
             `}
           >
             <div className="flex items-start justify-between mb-3">
@@ -554,7 +554,7 @@ export function CTIPanel() {
                 <div
                   className={`
                     w-10 h-10 rounded-xl flex items-center justify-center
-                    ${isRinging ? 'bg-blue-500 animate-pulse' : currentCall.direction === 'outbound' ? 'bg-emerald-100' : 'bg-blue-100'}
+                    ${isRinging ? 'bg-orange-500 animate-pulse' : currentCall.direction === 'outbound' ? 'bg-emerald-100' : 'bg-orange-100'}
                   `}
                 >
                   {currentCall.direction === 'outbound' ? (
@@ -565,7 +565,7 @@ export function CTIPanel() {
                   ) : (
                     <PhoneIncoming
                       size={20}
-                      className={isRinging ? 'text-white' : 'text-blue-600'}
+                      className={isRinging ? 'text-white' : 'text-orange-600'}
                     />
                   )}
                 </div>
@@ -579,7 +579,7 @@ export function CTIPanel() {
                     </span>
                     <span className="mx-1">·</span>
                     {currentCall.isNewPatient ? (
-                      <span className="text-blue-600">신규</span>
+                      <span className="text-orange-600">신규</span>
                     ) : (
                       <span>기존</span>
                     )}
@@ -614,10 +614,10 @@ export function CTIPanel() {
 
             {/* 콜백으로 처리 버튼 - 통화 종료 후 예정된 콜백이 있을 때 표시 */}
             {isCallEnded && pendingCallbacks.length > 0 && (
-              <div className="mt-3 p-3 bg-blue-50 rounded-lg">
+              <div className="mt-3 p-3 bg-orange-50 rounded-lg">
                 <div className="flex items-center gap-2 mb-2">
-                  <CalendarCheck size={14} className="text-blue-500" />
-                  <span className="text-xs font-medium text-blue-600">
+                  <CalendarCheck size={14} className="text-orange-500" />
+                  <span className="text-xs font-medium text-orange-600">
                     예정된 콜백이 있습니다
                   </span>
                 </div>
@@ -772,11 +772,11 @@ export function CTIPanel() {
                 className="flex items-center gap-3 px-4 py-2 hover:bg-gray-50 cursor-pointer border-b last:border-b-0"
                 onClick={() => handlePatientClick(call.patientId)}
               >
-                <div className={`w-8 h-8 rounded-lg flex items-center justify-center ${call.direction === 'outbound' ? 'bg-emerald-50' : 'bg-blue-50'}`}>
+                <div className={`w-8 h-8 rounded-lg flex items-center justify-center ${call.direction === 'outbound' ? 'bg-emerald-50' : 'bg-orange-50'}`}>
                   {call.direction === 'outbound' ? (
                     <PhoneOutgoing size={14} className="text-emerald-500" />
                   ) : (
-                    <PhoneIncoming size={14} className="text-blue-500" />
+                    <PhoneIncoming size={14} className="text-orange-500" />
                   )}
                 </div>
                 <div className="flex-1 min-w-0">
@@ -784,7 +784,7 @@ export function CTIPanel() {
                     {call.patientName || formatPhone(call.phone)}
                   </div>
                   <div className="text-xs text-gray-400">
-                    <span className={call.direction === 'outbound' ? 'text-emerald-500' : 'text-blue-500'}>
+                    <span className={call.direction === 'outbound' ? 'text-emerald-500' : 'text-orange-500'}>
                       {call.direction === 'outbound' ? '발신' : '수신'}
                     </span>
                     <span className="mx-1">·</span>

@@ -390,7 +390,7 @@ export default function FollowUpPage() {
                 onClick={() => setActiveTab(tab.id)}
                 className={`flex items-center gap-2 px-4 py-2 rounded-md transition-colors ${
                   activeTab === tab.id
-                    ? 'bg-white text-blue-600 shadow-sm'
+                    ? 'bg-white text-orange-600 shadow-sm'
                     : 'text-gray-600 hover:text-gray-900'
                 }`}
               >
@@ -407,8 +407,8 @@ export default function FollowUpPage() {
               <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
                 <div className="bg-white rounded-lg shadow-sm border p-4">
                   <div className="flex items-center gap-3">
-                    <div className="p-2 bg-blue-100 rounded-lg">
-                      <Calendar className="w-6 h-6 text-blue-600" />
+                    <div className="p-2 bg-orange-100 rounded-lg">
+                      <Calendar className="w-6 h-6 text-orange-600" />
                     </div>
                     <div>
                       <p className="text-gray-500 text-sm">오늘 발송 예정</p>
@@ -472,8 +472,8 @@ export default function FollowUpPage() {
                         <div key={followUp._id} className="p-4 hover:bg-gray-50 transition-colors">
                           <div className="flex items-center justify-between">
                             <div className="flex items-center gap-3">
-                              <div className="p-2 bg-blue-100 rounded-lg">
-                                <User className="w-4 h-4 text-blue-600" />
+                              <div className="p-2 bg-orange-100 rounded-lg">
+                                <User className="w-4 h-4 text-orange-600" />
                               </div>
                               <div>
                                 <p className="font-medium text-gray-900">{followUp.patientName}</p>
@@ -485,7 +485,7 @@ export default function FollowUpPage() {
                             </div>
                             <button
                               onClick={() => handleSend(followUp._id)}
-                              className="flex items-center gap-1 px-3 py-1.5 bg-blue-600 text-white text-sm rounded-lg hover:bg-blue-700 transition-colors"
+                              className="flex items-center gap-1 px-3 py-1.5 bg-orange-600 text-white text-sm rounded-lg hover:bg-orange-700 transition-colors"
                             >
                               <Send className="w-3 h-3" />
                               <span>발송</span>
@@ -563,7 +563,7 @@ export default function FollowUpPage() {
                           setPatientSearch(e.target.value);
                           setPatientPagination(prev => ({ ...prev, page: 1 }));
                         }}
-                        className="w-full pl-10 pr-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                        className="w-full pl-10 pr-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-orange-500"
                       />
                     </div>
                   </div>
@@ -587,7 +587,7 @@ export default function FollowUpPage() {
                       <tr>
                         <td colSpan={5} className="text-center py-12 text-gray-500">
                           <div className="flex items-center justify-center gap-2">
-                            <div className="animate-spin rounded-full h-5 w-5 border-2 border-blue-600 border-t-transparent" />
+                            <div className="animate-spin rounded-full h-5 w-5 border-2 border-orange-600 border-t-transparent" />
                             <span>로딩 중...</span>
                           </div>
                         </td>
@@ -647,7 +647,7 @@ export default function FollowUpPage() {
                                 setSelectedPatient(patient);
                                 setShowCreateModal(true);
                               }}
-                              className="flex items-center gap-1 px-3 py-1.5 text-sm text-blue-600 hover:bg-blue-50 rounded-lg transition-colors ml-auto"
+                              className="flex items-center gap-1 px-3 py-1.5 text-sm text-orange-600 hover:bg-orange-50 rounded-lg transition-colors ml-auto"
                             >
                               <Plus className="w-4 h-4" />
                               <span>등록</span>
@@ -707,7 +707,7 @@ export default function FollowUpPage() {
                           setHistorySearch(e.target.value);
                           setHistoryPagination(prev => ({ ...prev, page: 1 }));
                         }}
-                        className="w-full pl-10 pr-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                        className="w-full pl-10 pr-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-orange-500"
                       />
                     </div>
                   </div>
@@ -719,7 +719,7 @@ export default function FollowUpPage() {
                         setHistoryDateRange(prev => ({ ...prev, startDate: e.target.value }));
                         setHistoryPagination(prev => ({ ...prev, page: 1 }));
                       }}
-                      className="px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                      className="px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-orange-500"
                     />
                     <span className="text-gray-400">~</span>
                     <input
@@ -729,7 +729,7 @@ export default function FollowUpPage() {
                         setHistoryDateRange(prev => ({ ...prev, endDate: e.target.value }));
                         setHistoryPagination(prev => ({ ...prev, page: 1 }));
                       }}
-                      className="px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                      className="px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-orange-500"
                     />
                   </div>
                 </div>
@@ -752,7 +752,7 @@ export default function FollowUpPage() {
                       <tr>
                         <td colSpan={5} className="text-center py-12 text-gray-500">
                           <div className="flex items-center justify-center gap-2">
-                            <div className="animate-spin rounded-full h-5 w-5 border-2 border-blue-600 border-t-transparent" />
+                            <div className="animate-spin rounded-full h-5 w-5 border-2 border-orange-600 border-t-transparent" />
                             <span>로딩 중...</span>
                           </div>
                         </td>
@@ -903,8 +903,8 @@ function CreateFollowUpModal({
           {/* 환자 정보 */}
           <div className="bg-gray-50 rounded-lg p-3">
             <div className="flex items-center gap-3">
-              <div className="p-2 bg-blue-100 rounded-full">
-                <User className="w-5 h-5 text-blue-600" />
+              <div className="p-2 bg-orange-100 rounded-full">
+                <User className="w-5 h-5 text-orange-600" />
               </div>
               <div>
                 <p className="font-medium text-gray-900">{patient.name}</p>
@@ -925,8 +925,8 @@ function CreateFollowUpModal({
                   onClick={() => toggleType(type)}
                   className={`px-3 py-2 text-sm rounded-lg border transition-colors ${
                     selectedTypes.includes(type)
-                      ? 'bg-blue-600 text-white border-blue-600'
-                      : 'bg-white text-gray-700 border-gray-300 hover:border-blue-500'
+                      ? 'bg-orange-600 text-white border-orange-600'
+                      : 'bg-white text-gray-700 border-gray-300 hover:border-orange-500'
                   }`}
                 >
                   {label}
@@ -937,8 +937,8 @@ function CreateFollowUpModal({
 
           {/* 선택된 타입 미리보기 */}
           {selectedTypes.length > 0 && (
-            <div className="bg-blue-50 rounded-lg p-3">
-              <p className="text-sm text-blue-700">
+            <div className="bg-orange-50 rounded-lg p-3">
+              <p className="text-sm text-orange-700">
                 선택된 발송: {selectedTypes.map(t => followUpTypeLabels[t]).join(', ')}
               </p>
             </div>
@@ -954,7 +954,7 @@ function CreateFollowUpModal({
           <button
             onClick={handleSubmit}
             disabled={selectedTypes.length === 0}
-            className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+            className="px-4 py-2 bg-orange-600 text-white rounded-lg hover:bg-orange-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
           >
             등록
           </button>
@@ -1007,8 +1007,8 @@ function TemplateManagementModal({ onClose }: { onClose: () => void }) {
         </div>
 
         <div className="p-4 overflow-y-auto flex-1">
-          <div className="mb-4 p-3 bg-blue-50 rounded-lg">
-            <p className="text-sm text-blue-700">
+          <div className="mb-4 p-3 bg-orange-50 rounded-lg">
+            <p className="text-sm text-orange-700">
               <strong>사용 가능한 변수:</strong> {'{환자명}'}, {'{병원명}'}, {'{병원전화}'}, {'{내원일}'}, {'{진료내용}'}
             </p>
           </div>
@@ -1029,7 +1029,7 @@ function TemplateManagementModal({ onClose }: { onClose: () => void }) {
                         type="checkbox"
                         checked={template.isActive}
                         onChange={() => handleToggleActive(template.id)}
-                        className="w-4 h-4 text-blue-600 rounded focus:ring-blue-500"
+                        className="w-4 h-4 text-orange-600 rounded focus:ring-orange-500"
                       />
                       <span className="text-sm text-gray-600">활성화</span>
                     </label>
@@ -1043,7 +1043,7 @@ function TemplateManagementModal({ onClose }: { onClose: () => void }) {
                     ) : (
                       <button
                         onClick={() => handleEdit(template)}
-                        className="p-1.5 text-blue-600 hover:bg-blue-50 rounded"
+                        className="p-1.5 text-orange-600 hover:bg-orange-50 rounded"
                       >
                         <Edit className="w-4 h-4" />
                       </button>
@@ -1054,7 +1054,7 @@ function TemplateManagementModal({ onClose }: { onClose: () => void }) {
                   <textarea
                     value={editContent}
                     onChange={(e) => setEditContent(e.target.value)}
-                    className="w-full p-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 text-sm"
+                    className="w-full p-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-orange-500 text-sm"
                     rows={3}
                   />
                 ) : (
@@ -1070,7 +1070,7 @@ function TemplateManagementModal({ onClose }: { onClose: () => void }) {
         <div className="p-4 border-t flex justify-end">
           <button
             onClick={onClose}
-            className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors"
+            className="px-4 py-2 bg-orange-600 text-white rounded-lg hover:bg-orange-700 transition-colors"
           >
             확인
           </button>
@@ -1149,7 +1149,7 @@ function SendRuleModal({ onClose }: { onClose: () => void }) {
                       onChange={() => handleToggle(rule.type, 'enabled')}
                       className="sr-only peer"
                     />
-                    <div className="w-11 h-6 bg-gray-200 peer-focus:outline-none peer-focus:ring-4 peer-focus:ring-blue-300 rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-blue-600"></div>
+                    <div className="w-11 h-6 bg-gray-200 peer-focus:outline-none peer-focus:ring-4 peer-focus:ring-orange-300 rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-orange-600"></div>
                   </label>
                 </div>
                 <div className="flex justify-center">
@@ -1170,7 +1170,7 @@ function SendRuleModal({ onClose }: { onClose: () => void }) {
                     value={rule.sendTime}
                     onChange={(e) => handleTimeChange(rule.type, e.target.value)}
                     disabled={!rule.enabled || !rule.autoSend}
-                    className="px-2 py-1 border border-gray-300 rounded text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 disabled:bg-gray-100 disabled:cursor-not-allowed"
+                    className="px-2 py-1 border border-gray-300 rounded text-sm focus:outline-none focus:ring-2 focus:ring-orange-500 disabled:bg-gray-100 disabled:cursor-not-allowed"
                   />
                 </div>
               </div>
@@ -1199,7 +1199,7 @@ function SendRuleModal({ onClose }: { onClose: () => void }) {
           </button>
           <button
             onClick={handleSave}
-            className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors"
+            className="px-4 py-2 bg-orange-600 text-white rounded-lg hover:bg-orange-700 transition-colors"
           >
             저장
           </button>

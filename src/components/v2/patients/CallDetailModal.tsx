@@ -313,10 +313,10 @@ export function CallDetailModal({
         <div className="flex items-center justify-between px-6 py-4 border-b bg-gray-50">
           <div className="flex items-center gap-3">
             <div className={`w-10 h-10 rounded-lg flex items-center justify-center ${
-              callDetail?.direction === 'inbound' ? 'bg-blue-100' : 'bg-emerald-100'
+              callDetail?.direction === 'inbound' ? 'bg-orange-100' : 'bg-emerald-100'
             }`}>
               <Phone size={20} className={
-                callDetail?.direction === 'inbound' ? 'text-blue-600' : 'text-emerald-600'
+                callDetail?.direction === 'inbound' ? 'text-orange-600' : 'text-emerald-600'
               } />
             </div>
             <div>
@@ -340,7 +340,7 @@ export function CallDetailModal({
         <div className="flex-1 overflow-y-auto p-6">
           {loading ? (
             <div className="flex items-center justify-center py-12">
-              <Loader2 size={32} className="animate-spin text-blue-500" />
+              <Loader2 size={32} className="animate-spin text-orange-500" />
             </div>
           ) : error ? (
             <div className="flex items-center justify-center py-12 text-red-500">
@@ -368,7 +368,7 @@ export function CallDetailModal({
 
               {/* 녹취 재생 - 관리자만 표시 */}
               {isAdmin && callDetail.recordingUrl && (
-                <div className="bg-gradient-to-r from-purple-50 to-blue-50 rounded-xl p-4">
+                <div className="bg-gradient-to-r from-purple-50 to-orange-50 rounded-xl p-4">
                   <div className="flex items-center justify-between">
                     <div className="flex items-center gap-3">
                       <Volume2 size={20} className="text-purple-500" />
@@ -432,14 +432,14 @@ export function CallDetailModal({
                   {/* 분류 및 요약 */}
                   <div className="space-y-4">
                     <h4 className="font-bold text-gray-900 flex items-center gap-2">
-                      <FileText size={18} className="text-blue-500" />
+                      <FileText size={18} className="text-orange-500" />
                       AI 분석 결과
                     </h4>
 
                     <div className="grid grid-cols-3 gap-3">
-                      <div className="bg-blue-50 rounded-lg p-3 text-center">
-                        <p className="text-xs text-blue-600 mb-1">분류</p>
-                        <p className="font-bold text-blue-700">{callDetail.aiAnalysis.classification}</p>
+                      <div className="bg-orange-50 rounded-lg p-3 text-center">
+                        <p className="text-xs text-orange-600 mb-1">분류</p>
+                        <p className="font-bold text-orange-700">{callDetail.aiAnalysis.classification}</p>
                       </div>
                       <div className="bg-amber-50 rounded-lg p-3 text-center">
                         <p className="text-xs text-amber-600 mb-1">관심도</p>
@@ -666,12 +666,12 @@ export function CallDetailModal({
 
                           {/* 놓친 기회 */}
                           {coaching.missedOpportunities.length > 0 && (
-                            <div className="bg-blue-50 rounded-xl p-4">
-                              <p className="text-sm font-semibold text-blue-800 mb-2">놓친 기회</p>
+                            <div className="bg-orange-50 rounded-xl p-4">
+                              <p className="text-sm font-semibold text-orange-800 mb-2">놓친 기회</p>
                               <ul className="space-y-1">
                                 {coaching.missedOpportunities.map((m, idx) => (
-                                  <li key={idx} className="text-xs text-blue-700 flex items-start gap-2">
-                                    <span className="text-blue-400 mt-0.5">•</span>
+                                  <li key={idx} className="text-xs text-orange-700 flex items-start gap-2">
+                                    <span className="text-orange-400 mt-0.5">•</span>
                                     {m}
                                   </li>
                                 ))}
@@ -708,7 +708,7 @@ export function CallDetailModal({
                             const content = trimmed.replace(/^상담사\s*:\s*/, '');
                             return (
                               <div key={idx} className="flex items-start gap-2">
-                                <span className="shrink-0 px-1.5 py-0.5 bg-blue-100 text-blue-700 text-xs font-medium rounded mt-0.5">상담사</span>
+                                <span className="shrink-0 px-1.5 py-0.5 bg-orange-100 text-orange-700 text-xs font-medium rounded mt-0.5">상담사</span>
                                 <span className="text-sm text-gray-800">{content}</span>
                               </div>
                             );

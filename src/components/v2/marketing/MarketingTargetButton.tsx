@@ -39,7 +39,7 @@ export function MarketingTargetButton({
         onClick={() => setIsModalOpen(true)}
         className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-sm font-medium transition-colors ${
           isTarget
-            ? 'bg-blue-100 text-blue-700 hover:bg-blue-200'
+            ? 'bg-orange-100 text-orange-700 hover:bg-orange-200'
             : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
         }`}
       >

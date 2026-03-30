@@ -57,7 +57,7 @@ export function CallbacksCard({ callbacks, onCall, onViewAll, loading }: Callbac
           onViewAll && (
             <button
               onClick={onViewAll}
-              className="text-sm text-blue-500 hover:text-blue-600"
+              className="text-sm text-orange-500 hover:text-orange-600"
             >
               전체보기
             </button>

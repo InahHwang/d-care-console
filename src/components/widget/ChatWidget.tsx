@@ -342,7 +342,7 @@ export function ChatWidget({
                       <div
                         className={`max-w-[85%] ${
                           msg.senderType === 'customer'
-                            ? 'bg-blue-500 text-white rounded-2xl rounded-br-md'
+                            ? 'bg-orange-500 text-white rounded-2xl rounded-br-md'
                             : 'bg-gray-100 text-gray-900 rounded-2xl rounded-bl-md'
                         }`}
                       >
@@ -350,7 +350,7 @@ export function ChatWidget({
                           <p className="text-sm whitespace-pre-wrap">{msg.content}</p>
                         </div>
                         <div className={`px-4 pb-2 text-xs ${
-                          msg.senderType === 'customer' ? 'text-blue-100' : 'text-gray-400'
+                          msg.senderType === 'customer' ? 'text-orange-100' : 'text-gray-400'
                         }`}>
                           {formatTime(msg.createdAt)}
                         </div>

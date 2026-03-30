@@ -93,7 +93,7 @@ export default function CampaignList() {
       case 'draft':
         return 'bg-gray-100 text-gray-800';
       case 'scheduled':
-        return 'bg-blue-100 text-blue-800';
+        return 'bg-orange-100 text-orange-800';
       case 'in_progress':
         return 'bg-yellow-100 text-yellow-800';
       case 'completed':
@@ -275,7 +275,7 @@ export default function CampaignList() {
                     {/* 상태별 액션 버튼 */}
                     {campaign.status === 'draft' && (
                       <button
-                        className="px-3 py-1 bg-blue-100 text-blue-800 rounded flex items-center gap-1 hover:bg-blue-200 transition-colors"
+                        className="px-3 py-1 bg-orange-100 text-orange-800 rounded flex items-center gap-1 hover:bg-orange-200 transition-colors"
                         onClick={(e) => {
                           e.stopPropagation();
                           handleOpenStatusModal(campaign, 'scheduled');
@@ -358,7 +358,7 @@ export default function CampaignList() {
             <div className="p-6">
               <div className="mb-6">
                 <div className="flex items-center gap-3 p-4 bg-light-bg rounded-md mb-4">
-                  <div className="w-10 h-10 rounded-full bg-blue-100 text-blue-600 flex items-center justify-center">
+                  <div className="w-10 h-10 rounded-full bg-orange-100 text-orange-600 flex items-center justify-center">
                     <Icon icon={HiOutlineDocumentText} size={20} />
                   </div>
                   <div>

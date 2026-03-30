@@ -154,7 +154,7 @@ export default function DailyTasksManagement() {
       case 'callback_complete':
         return 'text-green-600 bg-green-100';
       case 'callback_create':
-        return 'text-blue-600 bg-blue-100';
+        return 'text-orange-600 bg-orange-100';
       case 'patient_update':
         return 'text-yellow-600 bg-yellow-100';
       case 'consultation_complete':
@@ -292,12 +292,12 @@ export default function DailyTasksManagement() {
               </div>
             </div>
 
-            <div className="bg-blue-50 rounded-lg p-4">
+            <div className="bg-orange-50 rounded-lg p-4">
               <div className="flex items-center">
-                <HiOutlinePhone className="w-5 h-5 text-blue-600 mr-2" />
-                <span className="text-sm font-medium text-blue-900">콜백 등록</span>
+                <HiOutlinePhone className="w-5 h-5 text-orange-600 mr-2" />
+                <span className="text-sm font-medium text-orange-900">콜백 등록</span>
               </div>
-              <div className="text-2xl font-bold text-blue-600 mt-2">
+              <div className="text-2xl font-bold text-orange-600 mt-2">
                 {currentDayData.taskBreakdown.callbackRegistered}
               </div>
             </div>
@@ -365,8 +365,8 @@ export default function DailyTasksManagement() {
                       ) : (
                         <HiOutlineChevronRight className="w-5 h-5 text-gray-400" />
                       )}
-                      <div className="w-8 h-8 bg-blue-100 rounded-full flex items-center justify-center">
-                        <span className="text-sm font-medium text-blue-600">
+                      <div className="w-8 h-8 bg-orange-100 rounded-full flex items-center justify-center">
+                        <span className="text-sm font-medium text-orange-600">
                           {userTask.userName.charAt(0).toUpperCase()}
                         </span>
                       </div>
@@ -383,7 +383,7 @@ export default function DailyTasksManagement() {
                       <span>콜백완료 {userTask.taskCounts.callbackComplete}</span>
                     </div>
                     <div className="flex items-center space-x-1">
-                      <div className="w-2 h-2 bg-blue-500 rounded-full"></div>
+                      <div className="w-2 h-2 bg-orange-500 rounded-full"></div>
                       <span>콜백등록 {userTask.taskCounts.callbackRegistered}</span>
                     </div>
                     <div className="flex items-center space-x-1">

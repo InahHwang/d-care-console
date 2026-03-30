@@ -28,7 +28,7 @@ export default function AIChatConversationList({
         <div className="flex items-center gap-1">
           <button
             onClick={onNew}
-            className="p-1.5 text-blue-600 hover:bg-blue-50 rounded-lg transition-colors"
+            className="p-1.5 text-orange-600 hover:bg-orange-50 rounded-lg transition-colors"
             title="새 대화"
           >
             <Plus className="w-4 h-4" />
@@ -58,7 +58,7 @@ export default function AIChatConversationList({
               key={conv._id}
               className={`group flex items-center gap-2 px-3 py-2.5 cursor-pointer border-b border-gray-100 transition-colors ${
                 activeId === conv._id
-                  ? 'bg-blue-50 border-l-2 border-l-blue-500'
+                  ? 'bg-orange-50 border-l-2 border-l-orange-500'
                   : 'hover:bg-gray-100'
               }`}
               onClick={() => onSelect(conv._id)}

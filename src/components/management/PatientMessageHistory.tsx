@@ -241,7 +241,7 @@ export default function PatientMessageHistory({ patient }: PatientMessageHistory
               <div 
                 key={`${message.id}-${index}`} // 인덱스를 추가하여 고유키 생성
                 className={`p-4 hover:bg-gray-50 cursor-pointer transition-colors ${
-                  selectedMessage?.id === message.id ? 'bg-blue-50' : ''
+                  selectedMessage?.id === message.id ? 'bg-orange-50' : ''
                 }`}
                 onClick={() => setSelectedMessage(message.id === selectedMessage?.id ? null : message)}
               >
@@ -254,7 +254,7 @@ export default function PatientMessageHistory({ patient }: PatientMessageHistory
                     </span>
                     <span className={`text-xs px-2 py-0.5 rounded-full ${
                       message.messageType === 'SMS' 
-                        ? 'bg-blue-100 text-blue-700' 
+                        ? 'bg-orange-100 text-orange-700' 
                         : message.messageType === 'MMS'
                           ? 'bg-purple-100 text-purple-700'
                           : 'bg-green-100 text-green-700'
@@ -358,7 +358,7 @@ export default function PatientMessageHistory({ patient }: PatientMessageHistory
               <p className="text-text-primary">
                 <span className={`inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium ${
                   selectedMessage.messageType === 'SMS' 
-                    ? 'bg-blue-100 text-blue-700' 
+                    ? 'bg-orange-100 text-orange-700' 
                     : selectedMessage.messageType === 'MMS'
                       ? 'bg-purple-100 text-purple-700'
                       : 'bg-green-100 text-green-700'
@@ -406,7 +406,7 @@ export default function PatientMessageHistory({ patient }: PatientMessageHistory
           {selectedMessage.templateName && (
             <div className="mt-4">
               <p className="text-sm text-text-secondary mb-1">사용된 템플릿</p>
-              <div className="p-3 bg-blue-50 rounded-md text-blue-600 text-sm">
+              <div className="p-3 bg-orange-50 rounded-md text-orange-600 text-sm">
                 {selectedMessage.templateName}
               </div>
             </div>

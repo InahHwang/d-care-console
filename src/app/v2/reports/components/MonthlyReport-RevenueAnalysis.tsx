@@ -83,7 +83,7 @@ function RevenueTooltip({ active, payload, label }: any) {
   return (
     <div className="bg-white border rounded-lg shadow-lg p-2 text-xs">
       <div className="font-medium text-gray-900">{label}일</div>
-      <div className="text-blue-600">누적 매출: {formatAmount(payload[0]?.value || 0)}</div>
+      <div className="text-orange-600">누적 매출: {formatAmount(payload[0]?.value || 0)}</div>
     </div>
   );
 }
@@ -95,8 +95,8 @@ function RevenueTooltip({ active, payload, label }: any) {
 function PatientList({ patients, color }: { patients: PatientSummaryV2[]; color: 'blue' | 'red' }) {
   if (patients.length === 0) return null;
 
-  const borderColor = color === 'blue' ? 'border-blue-100' : 'border-red-100';
-  const hoverColor = color === 'blue' ? 'hover:bg-blue-50' : 'hover:bg-red-50';
+  const borderColor = color === 'blue' ? 'border-orange-100' : 'border-red-100';
+  const hoverColor = color === 'blue' ? 'hover:bg-orange-50' : 'hover:bg-red-50';
 
   return (
     <div className={`mt-3 border ${borderColor} rounded-lg overflow-hidden`}>
@@ -128,7 +128,7 @@ function PatientList({ patients, color }: { patients: PatientSummaryV2[]; color:
                 href={`/v2/patients/${p.patientId}`}
                 target="_blank"
                 rel="noopener noreferrer"
-                className="p-1 text-gray-400 hover:text-blue-600 rounded"
+                className="p-1 text-gray-400 hover:text-orange-600 rounded"
               >
                 <ExternalLink className="w-3.5 h-3.5" />
               </a>
@@ -249,18 +249,18 @@ const MonthlyReportRevenueAnalysis: React.FC<MonthlyReportRevenueAnalysisProps> 
                 결제 완료된 최종금액 합계
               </div>
             </div>
-            <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
+            <div className="bg-orange-50 border border-orange-200 rounded-lg p-4">
               <div className="flex items-center gap-2 mb-2">
-                <Clock className="w-4 h-4 text-blue-600" />
-                <span className="text-sm font-medium text-blue-800">잠재매출</span>
+                <Clock className="w-4 h-4 text-orange-600" />
+                <span className="text-sm font-medium text-orange-800">잠재매출</span>
               </div>
-              <div className="text-2xl font-bold text-blue-900 mb-1">
+              <div className="text-2xl font-bold text-orange-900 mb-1">
                 {formatAmount(potential.totalAmount)}
               </div>
-              <div className="text-xs text-blue-700 mb-1">
+              <div className="text-xs text-orange-700 mb-1">
                 {potential.totalPatients}명 ({potential.percentage}%)
               </div>
-              <div className="text-xs text-blue-600/70">
+              <div className="text-xs text-orange-600/70">
                 미결제 환자의 원래금액 합계
               </div>
             </div>
@@ -371,8 +371,8 @@ const MonthlyReportRevenueAnalysis: React.FC<MonthlyReportRevenueAnalysisProps> 
         {showDetails && (
           <div className="space-y-4">
             {/* 잠재매출 세부 */}
-            <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
-              <h4 className="text-sm font-semibold text-blue-900 mb-3 flex items-center gap-2">
+            <div className="bg-orange-50 border border-orange-200 rounded-lg p-4">
+              <h4 className="text-sm font-semibold text-orange-900 mb-3 flex items-center gap-2">
                 <Clock className="w-4 h-4" />
                 아직 전환 가능한 환자 ({potential.totalPatients}명)
               </h4>
@@ -381,29 +381,29 @@ const MonthlyReportRevenueAnalysis: React.FC<MonthlyReportRevenueAnalysisProps> 
                 <div>
                   <button
                     onClick={() => toggleCategory('consultingOngoing')}
-                    className="w-full bg-white rounded-lg p-4 border border-blue-100 text-left hover:shadow-sm transition-shadow"
+                    className="w-full bg-white rounded-lg p-4 border border-orange-100 text-left hover:shadow-sm transition-shadow"
                   >
                     <div className="flex items-center justify-between mb-2">
                       <div className="flex items-center gap-2">
                         <span className="text-lg">📞</span>
-                        <span className="font-medium text-blue-800">아직 안 오신 환자</span>
+                        <span className="font-medium text-orange-800">아직 안 오신 환자</span>
                       </div>
                       {categorized && categorized.consultingOngoing.length > 0 && (
                         expandedCategory === 'consultingOngoing'
-                          ? <ChevronDown className="w-4 h-4 text-blue-400" />
-                          : <ChevronRight className="w-4 h-4 text-blue-400" />
+                          ? <ChevronDown className="w-4 h-4 text-orange-400" />
+                          : <ChevronRight className="w-4 h-4 text-orange-400" />
                       )}
                     </div>
-                    <div className="text-2xl font-bold text-blue-900 mb-1">
+                    <div className="text-2xl font-bold text-orange-900 mb-1">
                       {potential.consultingOngoing.patients}명
                     </div>
-                    <div className="text-sm text-blue-700 mb-2">
+                    <div className="text-sm text-orange-700 mb-2">
                       {formatAmount(potential.consultingOngoing.amount)}
                     </div>
                     <div className="text-xs text-gray-500 bg-gray-50 rounded px-2 py-1">
                       전화상담 · 예약만 한 상태
                     </div>
-                    <div className="text-xs text-blue-600 mt-2 font-medium">→ 내원 유도 필요</div>
+                    <div className="text-xs text-orange-600 mt-2 font-medium">→ 내원 유도 필요</div>
                   </button>
                   {expandedCategory === 'consultingOngoing' && categorized && (
                     <PatientList patients={categorized.consultingOngoing} color="blue" />
@@ -414,29 +414,29 @@ const MonthlyReportRevenueAnalysis: React.FC<MonthlyReportRevenueAnalysisProps> 
                 <div>
                   <button
                     onClick={() => toggleCategory('visitManagement')}
-                    className="w-full bg-white rounded-lg p-4 border border-blue-100 text-left hover:shadow-sm transition-shadow"
+                    className="w-full bg-white rounded-lg p-4 border border-orange-100 text-left hover:shadow-sm transition-shadow"
                   >
                     <div className="flex items-center justify-between mb-2">
                       <div className="flex items-center gap-2">
                         <span className="text-lg">🏥</span>
-                        <span className="font-medium text-blue-800">왔지만 아직 미결제</span>
+                        <span className="font-medium text-orange-800">왔지만 아직 미결제</span>
                       </div>
                       {categorized && categorized.visitManagement.length > 0 && (
                         expandedCategory === 'visitManagement'
-                          ? <ChevronDown className="w-4 h-4 text-blue-400" />
-                          : <ChevronRight className="w-4 h-4 text-blue-400" />
+                          ? <ChevronDown className="w-4 h-4 text-orange-400" />
+                          : <ChevronRight className="w-4 h-4 text-orange-400" />
                       )}
                     </div>
-                    <div className="text-2xl font-bold text-blue-900 mb-1">
+                    <div className="text-2xl font-bold text-orange-900 mb-1">
                       {potential.visitManagement.patients}명
                     </div>
-                    <div className="text-sm text-blue-700 mb-2">
+                    <div className="text-sm text-orange-700 mb-2">
                       {formatAmount(potential.visitManagement.amount)}
                     </div>
                     <div className="text-xs text-gray-500 bg-gray-50 rounded px-2 py-1">
                       내원 완료, 치료 결정 대기 중
                     </div>
-                    <div className="text-xs text-blue-600 mt-2 font-medium">→ 치료 동의 유도 필요</div>
+                    <div className="text-xs text-orange-600 mt-2 font-medium">→ 치료 동의 유도 필요</div>
                   </button>
                   {expandedCategory === 'visitManagement' && categorized && (
                     <PatientList patients={categorized.visitManagement} color="blue" />

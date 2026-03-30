@@ -44,7 +44,7 @@ import { MarketingTargetButton } from '@/components/v2/marketing';
 
 // 상태 진행 단계 정의 (7단계 퍼널)
 const statusSteps: Array<{ id: PatientStatus; label: string; color: string }> = [
-  { id: 'consulting', label: '전화상담', color: 'bg-blue-500' },
+  { id: 'consulting', label: '전화상담', color: 'bg-orange-500' },
   { id: 'reserved', label: '내원예약', color: 'bg-purple-500' },
   { id: 'visited', label: '내원완료', color: 'bg-amber-500' },
   { id: 'treatmentBooked', label: '치료예약', color: 'bg-teal-500' },
@@ -63,7 +63,7 @@ const CALLBACK_TYPE_LABELS: Record<CallbackTypeValue, string> = {
 };
 
 const CALLBACK_TYPE_COLORS: Record<CallbackTypeValue, string> = {
-  callback: 'bg-blue-100 text-blue-700',
+  callback: 'bg-orange-100 text-orange-700',
   recall: 'bg-purple-100 text-purple-700',
   thanks: 'bg-amber-100 text-amber-700',
 };
@@ -837,7 +837,7 @@ export default function PatientDetailPage() {
     if (diff > 0) {
       return { text: `D-${diff}`, style: diff <= 3 ? 'text-orange-500' : 'text-gray-600' };
     } else if (diff === 0) {
-      return { text: 'D-Day', style: 'text-blue-600 font-bold' };
+      return { text: 'D-Day', style: 'text-orange-600 font-bold' };
     } else {
       return { text: `+${Math.abs(diff)}일 지남`, style: 'text-red-500 font-medium' };
     }
@@ -903,7 +903,7 @@ export default function PatientDetailPage() {
               <button
                 onClick={handleSave}
                 disabled={saving}
-                className="flex items-center gap-2 px-4 py-2 bg-blue-500 text-white rounded-lg hover:bg-blue-600 disabled:opacity-50"
+                className="flex items-center gap-2 px-4 py-2 bg-orange-500 text-white rounded-lg hover:bg-orange-600 disabled:opacity-50"
               >
                 <Save size={18} />
                 {saving ? '저장 중...' : '저장'}
@@ -913,7 +913,7 @@ export default function PatientDetailPage() {
             <>
               <button
                 onClick={() => setMessageSendModalOpen(true)}
-                className="flex items-center gap-2 px-4 py-2 text-blue-600 hover:bg-blue-50 rounded-lg"
+                className="flex items-center gap-2 px-4 py-2 text-orange-600 hover:bg-orange-50 rounded-lg"
               >
                 <Send size={18} />
                 문자 발송
@@ -957,7 +957,7 @@ export default function PatientDetailPage() {
       {/* ============================================ */}
       {/* 🆕 여정 선택 영역 */}
       {/* ============================================ */}
-      <Card className="p-4 mb-6 border-2 border-blue-200 bg-blue-50/30">
+      <Card className="p-4 mb-6 border-2 border-orange-200 bg-orange-50/30">
         <div className="flex items-center justify-between flex-wrap gap-4">
           <div className="flex items-center gap-4">
             {/* 여정 선택 드롭다운 */}
@@ -995,7 +995,7 @@ export default function PatientDetailPage() {
                             setIsJourneyDropdownOpen(false);
                           }}
                           className={`w-full px-4 py-3 flex items-center justify-between hover:bg-gray-50 transition-colors ${
-                            selectedJourneyId === journey.id ? 'bg-blue-50' : ''
+                            selectedJourneyId === journey.id ? 'bg-orange-50' : ''
                           }`}
                         >
                           <div className="flex items-center gap-3">
@@ -1031,7 +1031,7 @@ export default function PatientDetailPage() {
                           setIsNewJourneyModalOpen(true);
                           setIsJourneyDropdownOpen(false);
                         }}
-                        className="w-full flex items-center justify-center gap-2 px-4 py-2 text-blue-600 hover:bg-blue-50 rounded-lg transition-colors"
+                        className="w-full flex items-center justify-center gap-2 px-4 py-2 text-orange-600 hover:bg-orange-50 rounded-lg transition-colors"
                       >
                         <Plus size={16} />
                         새 여정 시작 (구신환)
@@ -1065,7 +1065,7 @@ export default function PatientDetailPage() {
             </div>
             <div className="text-center">
               <p className="text-gray-500">진행중</p>
-              <p className="text-xl font-bold text-blue-600">
+              <p className="text-xl font-bold text-orange-600">
                 {journeys.filter(j => j.isActive).length}개
               </p>
             </div>
@@ -1084,7 +1084,7 @@ export default function PatientDetailPage() {
                       type="text"
                       value={editData.name || ''}
                       onChange={(e) => setEditData({ ...editData, name: e.target.value })}
-                      className="text-2xl font-bold text-gray-900 border-b border-gray-300 focus:border-blue-500 outline-none"
+                      className="text-2xl font-bold text-gray-900 border-b border-gray-300 focus:border-orange-500 outline-none"
                     />
                   ) : (
                     <h1 className="text-2xl font-bold text-gray-900">{patient.name}</h1>
@@ -1093,7 +1093,7 @@ export default function PatientDetailPage() {
                     <select
                       value={editData.consultationType || ''}
                       onChange={(e) => setEditData({ ...editData, consultationType: e.target.value })}
-                      className="px-2 py-1 text-sm border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                      className="px-2 py-1 text-sm border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-orange-500"
                     >
                       <option value="">상담타입 선택</option>
                       {Object.entries(consultationTypeMap).map(([id, label]) => (
@@ -1123,7 +1123,7 @@ export default function PatientDetailPage() {
                           value={interestEditValue}
                           onChange={(e) => setInterestEditValue(e.target.value)}
                           disabled={interestSaving}
-                          className="text-sm border border-blue-300 rounded px-2 py-0.5 focus:outline-none focus:ring-2 focus:ring-blue-500 bg-white"
+                          className="text-sm border border-orange-300 rounded px-2 py-0.5 focus:outline-none focus:ring-2 focus:ring-orange-500 bg-white"
                           autoFocus
                         >
                           <option value="">선택...</option>
@@ -1134,7 +1134,7 @@ export default function PatientDetailPage() {
                         <button
                           onClick={() => handleInterestSave(interestEditValue)}
                           disabled={interestSaving}
-                          className="p-1 text-blue-600 hover:bg-blue-50 rounded"
+                          className="p-1 text-orange-600 hover:bg-orange-50 rounded"
                         >
                           <Save size={14} />
                         </button>
@@ -1151,7 +1151,7 @@ export default function PatientDetailPage() {
                         onClick={handleInterestEditOpen}
                         className={`flex items-center gap-1 px-2 py-0.5 rounded text-sm transition-colors ${
                           displayInterest
-                            ? 'bg-blue-100 text-blue-700 hover:bg-blue-200'
+                            ? 'bg-orange-100 text-orange-700 hover:bg-orange-200'
                             : 'bg-gray-100 text-gray-500 hover:bg-gray-200'
                         }`}
                       >
@@ -1191,7 +1191,7 @@ export default function PatientDetailPage() {
                       placeholder="나이"
                       min="1"
                       max="120"
-                      className="w-16 px-2 py-1 text-sm border border-gray-200 rounded focus:outline-none focus:ring-2 focus:ring-blue-500"
+                      className="w-16 px-2 py-1 text-sm border border-gray-200 rounded focus:outline-none focus:ring-2 focus:ring-orange-500"
                     />
                   </div>
                   <div className="flex items-center gap-2">
@@ -1202,7 +1202,7 @@ export default function PatientDetailPage() {
                         ...editData,
                         region: e.target.value ? { province: e.target.value, city: '' } : undefined
                       })}
-                      className="px-2 py-1 text-sm border border-gray-200 rounded focus:outline-none focus:ring-2 focus:ring-blue-500"
+                      className="px-2 py-1 text-sm border border-gray-200 rounded focus:outline-none focus:ring-2 focus:ring-orange-500"
                     >
                       <option value="">시/도</option>
                       {PROVINCES.map((p) => (
@@ -1216,7 +1216,7 @@ export default function PatientDetailPage() {
                         region: { province: editData.region?.province || '', city: e.target.value }
                       })}
                       disabled={!editData.region?.province}
-                      className="px-2 py-1 text-sm border border-gray-200 rounded focus:outline-none focus:ring-2 focus:ring-blue-500 disabled:bg-gray-100"
+                      className="px-2 py-1 text-sm border border-gray-200 rounded focus:outline-none focus:ring-2 focus:ring-orange-500 disabled:bg-gray-100"
                     >
                       <option value="">시/군/구</option>
                       {editData.region?.province && REGION_DATA[editData.region.province]?.map((c) => (
@@ -1272,7 +1272,7 @@ export default function PatientDetailPage() {
                           }}
                           placeholder="0"
                           disabled={amountSaving}
-                          className="w-full p-2 pr-8 border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 text-sm text-right"
+                          className="w-full p-2 pr-8 border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-orange-500 text-sm text-right"
                         />
                         <span className="absolute right-3 top-1/2 -translate-y-1/2 text-sm text-gray-400">원</span>
                       </div>
@@ -1291,7 +1291,7 @@ export default function PatientDetailPage() {
                           }}
                           placeholder="0"
                           disabled={amountSaving}
-                          className="w-full p-2 pr-8 border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 text-sm text-right"
+                          className="w-full p-2 pr-8 border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-orange-500 text-sm text-right"
                         />
                         <span className="absolute right-3 top-1/2 -translate-y-1/2 text-sm text-gray-400">원</span>
                       </div>
@@ -1331,7 +1331,7 @@ export default function PatientDetailPage() {
                       onChange={(e) => setAmountEditValue({ ...amountEditValue, treatmentNote: e.target.value })}
                       placeholder="예: 임플란트 2본, 크라운 1개"
                       disabled={amountSaving}
-                      className="w-full p-2 border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 text-sm"
+                      className="w-full p-2 border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-orange-500 text-sm"
                     />
                   </div>
                   {/* 버튼 */}
@@ -1502,7 +1502,7 @@ export default function PatientDetailPage() {
                   {displayNextActionDate && (
                     <button
                       onClick={() => setScheduleModalOpen(true)}
-                      className="text-xs text-blue-600 hover:text-blue-700 hover:underline"
+                      className="text-xs text-orange-600 hover:text-orange-700 hover:underline"
                     >
                       변경
                     </button>
@@ -1518,7 +1518,7 @@ export default function PatientDetailPage() {
                       getDdayDisplay(displayNextActionDate as string).style.includes('red')
                         ? 'bg-red-100 text-red-600'
                         : getDdayDisplay(displayNextActionDate as string).style.includes('blue')
-                          ? 'bg-blue-500 text-white'
+                          ? 'bg-orange-500 text-white'
                           : getDdayDisplay(displayNextActionDate as string).style.includes('orange')
                             ? 'bg-orange-100 text-orange-600'
                             : 'bg-gray-100 text-gray-600'
@@ -1587,7 +1587,7 @@ export default function PatientDetailPage() {
                           {entry.note && (
                             expandedCallbackIdx === idx ? (
                               <span
-                                className="text-blue-500 text-xs cursor-pointer hover:text-blue-700"
+                                className="text-orange-500 text-xs cursor-pointer hover:text-orange-700"
                                 onClick={() => setExpandedCallbackIdx(null)}
                               >
                                 접기
@@ -1603,7 +1603,7 @@ export default function PatientDetailPage() {
                             )
                           )}
                           <span className="text-gray-300 text-xs">&rarr;</span>
-                          <span className="text-blue-400 text-xs">
+                          <span className="text-orange-400 text-xs">
                             {formatDateOnly(entry.scheduledAt)} 콜백
                           </span>
                         </div>
@@ -1775,7 +1775,7 @@ export default function PatientDetailPage() {
               <textarea
                 value={editData.memo || ''}
                 onChange={(e) => setEditData({ ...editData, memo: e.target.value })}
-                className="w-full h-32 p-3 border border-gray-200 rounded-lg resize-none focus:outline-none focus:ring-2 focus:ring-blue-500"
+                className="w-full h-32 p-3 border border-gray-200 rounded-lg resize-none focus:outline-none focus:ring-2 focus:ring-orange-500"
                 placeholder="메모를 입력하세요..."
               />
             ) : patient.memo ? (
@@ -1970,7 +1970,7 @@ function InterestEditSection({ displayInterest, selectedJourney, patientId, jour
 
   if (isEditing) {
     return (
-      <div className="bg-blue-50 rounded-lg p-4">
+      <div className="bg-orange-50 rounded-lg p-4">
         <p className="text-sm text-gray-500 mb-2">관심 분야 / 치료 유형</p>
         <div className="space-y-3">
           {/* 치료 유형 선택 그리드 */}
@@ -1982,7 +1982,7 @@ function InterestEditSection({ displayInterest, selectedJourney, patientId, jour
                 disabled={isSaving}
                 className={`px-3 py-2 rounded-lg text-sm transition-colors ${
                   selectedType === type
-                    ? 'bg-blue-500 text-white'
+                    ? 'bg-orange-500 text-white'
                     : 'bg-white text-gray-700 hover:bg-gray-100 border border-gray-200'
                 } disabled:opacity-50`}
               >
@@ -1999,7 +1999,7 @@ function InterestEditSection({ displayInterest, selectedJourney, patientId, jour
               onChange={(e) => setCustomType(e.target.value)}
               placeholder="치료 유형 직접 입력"
               disabled={isSaving}
-              className="w-full px-3 py-2 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 disabled:bg-gray-100"
+              className="w-full px-3 py-2 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-orange-500 disabled:bg-gray-100"
             />
           )}
 
@@ -2015,7 +2015,7 @@ function InterestEditSection({ displayInterest, selectedJourney, patientId, jour
             <button
               onClick={handleSave}
               disabled={isSaving || (!selectedType || (selectedType === '기타' && !customType))}
-              className="px-3 py-1.5 text-sm bg-blue-500 text-white rounded-lg hover:bg-blue-600 transition-colors disabled:opacity-50"
+              className="px-3 py-1.5 text-sm bg-orange-500 text-white rounded-lg hover:bg-orange-600 transition-colors disabled:opacity-50"
             >
               {isSaving ? '저장 중...' : '저장'}
             </button>
@@ -2030,13 +2030,13 @@ function InterestEditSection({ displayInterest, selectedJourney, patientId, jour
       <p className="text-sm text-gray-500 mb-1">관심 분야 / 치료 유형</p>
       <div className="flex items-center gap-2">
         {displayInterest ? (
-          <p className="text-blue-600 font-medium">{displayInterest}</p>
+          <p className="text-orange-600 font-medium">{displayInterest}</p>
         ) : (
           <p className="text-gray-400">미설정</p>
         )}
         <button
           onClick={handleStartEdit}
-          className="p-1 text-gray-400 hover:text-blue-500 hover:bg-blue-50 rounded transition-colors opacity-0 group-hover:opacity-100"
+          className="p-1 text-gray-400 hover:text-orange-500 hover:bg-orange-50 rounded transition-colors opacity-0 group-hover:opacity-100"
           title="치료 유형 수정"
         >
           <Edit2 size={14} />
@@ -2113,11 +2113,11 @@ function NewJourneyModal({ onClose, patientName, patientId, onSuccess, changedBy
 
         <div className="p-6 space-y-4">
           {/* 안내 메시지 */}
-          <div className="flex items-start gap-3 p-3 bg-blue-50 rounded-lg">
-            <AlertCircle size={18} className="text-blue-500 mt-0.5" />
-            <div className="text-sm text-blue-700">
+          <div className="flex items-start gap-3 p-3 bg-orange-50 rounded-lg">
+            <AlertCircle size={18} className="text-orange-500 mt-0.5" />
+            <div className="text-sm text-orange-700">
               <p className="font-medium">구신환 등록</p>
-              <p className="text-blue-600 mt-1">
+              <p className="text-orange-600 mt-1">
                 기존 치료가 완료된 환자가 새로운 치료를 시작할 때 사용합니다.
                 이전 여정 기록은 그대로 유지됩니다.
               </p>
@@ -2148,7 +2148,7 @@ function NewJourneyModal({ onClose, patientName, patientId, onSuccess, changedBy
                   disabled={isSubmitting}
                   className={`px-4 py-2 rounded-lg text-sm transition-colors ${
                     treatmentType === type
-                      ? 'bg-blue-500 text-white'
+                      ? 'bg-orange-500 text-white'
                       : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
                   } disabled:opacity-50`}
                 >
@@ -2164,7 +2164,7 @@ function NewJourneyModal({ onClose, patientName, patientId, onSuccess, changedBy
                 onChange={(e) => setCustomType(e.target.value)}
                 placeholder="치료 유형 직접 입력"
                 disabled={isSubmitting}
-                className="w-full mt-2 px-4 py-2 border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 disabled:bg-gray-100"
+                className="w-full mt-2 px-4 py-2 border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-orange-500 disabled:bg-gray-100"
               />
             )}
           </div>
@@ -2191,7 +2191,7 @@ function NewJourneyModal({ onClose, patientName, patientId, onSuccess, changedBy
           <button
             onClick={handleSubmit}
             disabled={isSubmitting}
-            className="px-4 py-2 bg-blue-500 text-white rounded-lg hover:bg-blue-600 transition-colors disabled:opacity-50 min-w-[100px]"
+            className="px-4 py-2 bg-orange-500 text-white rounded-lg hover:bg-orange-600 transition-colors disabled:opacity-50 min-w-[100px]"
           >
             {isSubmitting ? '생성 중...' : '여정 시작'}
           </button>
@@ -2251,7 +2251,7 @@ function ScheduleChangeModal({ isOpen, onClose, onConfirm, currentDate, patientN
     { value: 'noshow', label: '노쇼', color: 'bg-red-100 text-red-700 border-red-200' },
     { value: 'no_answer', label: '부재중', color: 'bg-orange-100 text-orange-700 border-orange-200' },
     { value: 'postponed', label: '보류', color: 'bg-amber-100 text-amber-700 border-amber-200' },
-    { value: 'reschedule', label: '일정변경', color: 'bg-blue-100 text-blue-700 border-blue-200' },
+    { value: 'reschedule', label: '일정변경', color: 'bg-orange-100 text-orange-700 border-orange-200' },
   ];
 
   return (
@@ -2306,7 +2306,7 @@ function ScheduleChangeModal({ isOpen, onClose, onConfirm, currentDate, patientN
               value={note}
               onChange={(e) => setNote(e.target.value)}
               placeholder="예: 다음주 수요일에 전화 요청"
-              className="w-full p-3 border border-gray-200 rounded-lg text-sm resize-none focus:outline-none focus:ring-2 focus:ring-blue-500"
+              className="w-full p-3 border border-gray-200 rounded-lg text-sm resize-none focus:outline-none focus:ring-2 focus:ring-orange-500"
               rows={2}
             />
           </div>
@@ -2321,7 +2321,7 @@ function ScheduleChangeModal({ isOpen, onClose, onConfirm, currentDate, patientN
               value={newDate}
               onChange={(e) => setNewDate(e.target.value)}
               min={new Date().toISOString().split('T')[0]}
-              className="w-full p-3 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+              className="w-full p-3 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-orange-500"
             />
             {/* 빠른 선택 버튼 */}
             <div className="flex gap-2 mt-2">
@@ -2340,7 +2340,7 @@ function ScheduleChangeModal({ isOpen, onClose, onConfirm, currentDate, patientN
                     onClick={() => setNewDate(dateStr)}
                     className={`flex-1 px-2 py-1.5 rounded text-xs transition-colors ${
                       newDate === dateStr
-                        ? 'bg-blue-500 text-white'
+                        ? 'bg-orange-500 text-white'
                         : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
                     }`}
                   >
@@ -2363,7 +2363,7 @@ function ScheduleChangeModal({ isOpen, onClose, onConfirm, currentDate, patientN
           <button
             onClick={handleSubmit}
             disabled={isSubmitting || !newDate}
-            className="px-4 py-2 bg-blue-500 text-white rounded-lg hover:bg-blue-600 transition-colors disabled:opacity-50 min-w-[80px]"
+            className="px-4 py-2 bg-orange-500 text-white rounded-lg hover:bg-orange-600 transition-colors disabled:opacity-50 min-w-[80px]"
           >
             {isSubmitting ? '저장 중...' : '저장'}
           </button>

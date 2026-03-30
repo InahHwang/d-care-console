@@ -105,7 +105,7 @@ export function ChannelChatNewPatientModal({
                 value={formData.name}
                 onChange={(e) => handleChange('name', e.target.value)}
                 placeholder="환자 이름"
-                className="w-full pl-10 pr-4 py-2.5 border rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500"
+                className="w-full pl-10 pr-4 py-2.5 border rounded-xl focus:outline-none focus:ring-2 focus:ring-orange-500"
               />
             </div>
           </div>
@@ -122,7 +122,7 @@ export function ChannelChatNewPatientModal({
                 value={formData.phone}
                 onChange={(e) => handleChange('phone', e.target.value)}
                 placeholder="010-0000-0000"
-                className="w-full pl-10 pr-4 py-2.5 border rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500"
+                className="w-full pl-10 pr-4 py-2.5 border rounded-xl focus:outline-none focus:ring-2 focus:ring-orange-500"
               />
             </div>
           </div>
@@ -138,7 +138,7 @@ export function ChannelChatNewPatientModal({
                   onClick={() => handleChange('interest', option)}
                   className={`px-3 py-1.5 text-sm rounded-lg border transition-colors ${
                     formData.interest === option
-                      ? 'bg-blue-100 border-blue-500 text-blue-700'
+                      ? 'bg-orange-100 border-orange-500 text-orange-700'
                       : 'bg-white border-gray-300 text-gray-700 hover:bg-gray-50'
                   }`}
                 >
@@ -156,7 +156,7 @@ export function ChannelChatNewPatientModal({
                 const config = {
                   hot: { label: 'HOT', desc: '즉시 예약 가능', color: 'bg-red-100 border-red-400 text-red-700' },
                   warm: { label: 'WARM', desc: '관심은 있음', color: 'bg-amber-100 border-amber-400 text-amber-700' },
-                  cold: { label: 'COLD', desc: '정보 수집 중', color: 'bg-blue-100 border-blue-400 text-blue-700' },
+                  cold: { label: 'COLD', desc: '정보 수집 중', color: 'bg-orange-100 border-orange-400 text-orange-700' },
                 };
                 const { label, desc, color } = config[temp];
 
@@ -187,7 +187,7 @@ export function ChannelChatNewPatientModal({
               onChange={(e) => handleChange('memo', e.target.value)}
               placeholder="상담 내용, 특이사항 등"
               rows={3}
-              className="w-full px-4 py-2.5 border rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500 resize-none"
+              className="w-full px-4 py-2.5 border rounded-xl focus:outline-none focus:ring-2 focus:ring-orange-500 resize-none"
             />
           </div>
         </div>
@@ -203,7 +203,7 @@ export function ChannelChatNewPatientModal({
           <button
             onClick={handleSubmit}
             disabled={isSubmitting || !formData.name.trim() || !formData.phone.trim()}
-            className="flex-1 px-4 py-2.5 bg-blue-600 text-white rounded-xl hover:bg-blue-700 disabled:bg-gray-300 disabled:cursor-not-allowed transition-colors"
+            className="flex-1 px-4 py-2.5 bg-orange-600 text-white rounded-xl hover:bg-orange-700 disabled:bg-gray-300 disabled:cursor-not-allowed transition-colors"
           >
             {isSubmitting ? '등록 중...' : '환자 등록'}
           </button>

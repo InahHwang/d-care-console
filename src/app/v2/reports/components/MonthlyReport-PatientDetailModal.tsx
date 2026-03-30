@@ -88,7 +88,7 @@ const MonthlyReportPatientDetailModal: React.FC<MonthlyReportPatientDetailModalP
             </div>
             <div className="flex justify-between text-sm">
               <span className="text-gray-600">최종 금액</span>
-              <span className="font-medium text-blue-700">{patient.finalAmount > 0 ? `${patient.finalAmount.toLocaleString()}원` : '-'}</span>
+              <span className="font-medium text-orange-700">{patient.finalAmount > 0 ? `${patient.finalAmount.toLocaleString()}원` : '-'}</span>
             </div>
           </div>
 

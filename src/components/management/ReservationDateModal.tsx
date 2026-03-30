@@ -38,9 +38,9 @@ export default function ReservationDateModal({
         dateLabel: '예약일',
         timeLabel: '예약시간',
         instruction: '예약완료 → 내원확정 순서로 자동 처리됩니다.',
-        bgColor: 'bg-blue-50',
-        borderColor: 'border-blue-400',
-        textColor: 'text-blue-700'
+        bgColor: 'bg-orange-50',
+        borderColor: 'border-orange-400',
+        textColor: 'text-orange-700'
       };
     }
 
@@ -157,7 +157,7 @@ export default function ReservationDateModal({
         {isLoading && (
           <div className="absolute inset-0 bg-white bg-opacity-80 flex items-center justify-center rounded-lg">
             <div className="flex items-center space-x-2">
-              <div className="w-5 h-5 border-2 border-blue-500 border-t-transparent rounded-full animate-spin"></div>
+              <div className="w-5 h-5 border-2 border-orange-500 border-t-transparent rounded-full animate-spin"></div>
               <span className="text-gray-600">처리 중...</span>
             </div>
           </div>
@@ -166,7 +166,7 @@ export default function ReservationDateModal({
         {/* 🔥 헤더 - 동적 타이틀 적용 (기존 UI 그대로 유지) */}
         <div className="flex items-center justify-between mb-6">
           <div className="flex items-center space-x-2">
-            <Icon icon={HiOutlineCalendar} size={24} className="text-blue-500" />
+            <Icon icon={HiOutlineCalendar} size={24} className="text-orange-500" />
             <h2 className="text-xl font-bold text-gray-900">{modalInfo.title}</h2>
           </div>
           <button
@@ -180,7 +180,7 @@ export default function ReservationDateModal({
 
         {/* 환자 정보 (기존 UI 그대로 유지) */}
         {patient && (
-          <div className="mb-6 p-4 bg-blue-50 rounded-lg">
+          <div className="mb-6 p-4 bg-orange-50 rounded-lg">
             <div className="flex items-center justify-between">
               <div>
                 <h3 className="font-medium text-gray-900">{patient.name}</h3>
@@ -234,7 +234,7 @@ export default function ReservationDateModal({
             }}
             disabled={isLoading}
             // 🔥 min 속성 제거 - 과거 날짜 선택 가능
-            className={`w-full px-3 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 disabled:opacity-50 ${
+            className={`w-full px-3 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-orange-500 disabled:opacity-50 ${
               errors.date ? 'border-red-500' : 'border-gray-300'
             }`}
           />
@@ -255,7 +255,7 @@ export default function ReservationDateModal({
               if (errors.time) setErrors({...errors, time: undefined})
             }}
             disabled={isLoading}
-            className={`w-full px-3 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 disabled:opacity-50 ${
+            className={`w-full px-3 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-orange-500 disabled:opacity-50 ${
               errors.time ? 'border-red-500' : 'border-gray-300'
             }`}
           >
@@ -283,7 +283,7 @@ export default function ReservationDateModal({
           <button
             onClick={handleConfirm}
             disabled={isLoading}
-            className="flex-1 px-4 py-2 bg-blue-500 hover:bg-blue-600 text-white rounded-lg transition-colors disabled:opacity-50"
+            className="flex-1 px-4 py-2 bg-orange-500 hover:bg-orange-600 text-white rounded-lg transition-colors disabled:opacity-50"
           >
             확인
           </button>

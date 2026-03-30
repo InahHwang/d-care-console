@@ -275,10 +275,10 @@ function InsightCallout({
   const otherTied = tied.filter((c) => c.channel !== bestName);
 
   return (
-    <div className="mt-4 bg-blue-50 border border-blue-200 rounded-lg px-4 py-3">
+    <div className="mt-4 bg-orange-50 border border-orange-200 rounded-lg px-4 py-3">
       <div className="flex items-start gap-2">
-        <TrendingUp className="w-4 h-4 text-blue-600 mt-0.5 flex-shrink-0" />
-        <div className="text-sm text-blue-800 space-y-1">
+        <TrendingUp className="w-4 h-4 text-orange-600 mt-0.5 flex-shrink-0" />
+        <div className="text-sm text-orange-800 space-y-1">
           {best && (
             <p>
               <span className="font-bold text-green-700">{best.channel}</span>

@@ -36,7 +36,7 @@ const STATUS_CONFIG: Record<string, { label: string; icon: typeof Check; color: 
 };
 
 const TYPE_CONFIG = {
-  phone: { label: '전화', icon: Phone, color: 'text-blue-600' },
+  phone: { label: '전화', icon: Phone, color: 'text-orange-600' },
   visit: { label: '내원', icon: Building, color: 'text-purple-600' },
 };
 

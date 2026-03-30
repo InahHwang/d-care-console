@@ -155,7 +155,7 @@ export const FloatingCTIPanel: React.FC = () => {
             />
             <span className="text-sm font-medium text-gray-700">발신자표시</span>
             {currentCall && (
-              <div className="w-2 h-2 rounded-full bg-blue-500 animate-pulse" />
+              <div className="w-2 h-2 rounded-full bg-orange-500 animate-pulse" />
             )}
           </div>
         </div>
@@ -183,7 +183,7 @@ export const FloatingCTIPanel: React.FC = () => {
               발신자 표시
             </h3>
             {currentCall && (
-              <span className="text-xs bg-blue-100 text-blue-800 px-2 py-1 rounded-full animate-pulse">
+              <span className="text-xs bg-orange-100 text-orange-800 px-2 py-1 rounded-full animate-pulse">
                 전화 수신
               </span>
             )}
@@ -248,7 +248,7 @@ export const FloatingCTIPanel: React.FC = () => {
                   {currentCall.patient && (
                     <button
                       onClick={() => handleOpenPatientDetail(currentCall.patient!.id)}
-                      className="px-3 py-1 bg-blue-500 text-white text-xs rounded hover:bg-blue-600"
+                      className="px-3 py-1 bg-orange-500 text-white text-xs rounded hover:bg-orange-600"
                     >
                       상세보기
                     </button>
@@ -295,7 +295,7 @@ export const FloatingCTIPanel: React.FC = () => {
               <button
                 onClick={fetchRecentCallLogs}
                 disabled={loadingLogs}
-                className="text-xs text-blue-600 hover:text-blue-800 disabled:text-gray-400"
+                className="text-xs text-orange-600 hover:text-orange-800 disabled:text-gray-400"
               >
                 {loadingLogs ? '로딩...' : '새로고침'}
               </button>
@@ -332,7 +332,7 @@ export const FloatingCTIPanel: React.FC = () => {
                             {isMissedCall ? '부재중' : '통화완료'}
                           </span>
                           {log.patientName ? (
-                            <span className="text-xs px-2 py-0.5 rounded bg-blue-100 text-blue-700">
+                            <span className="text-xs px-2 py-0.5 rounded bg-orange-100 text-orange-700">
                               {log.patientName}
                             </span>
                           ) : (
@@ -341,7 +341,7 @@ export const FloatingCTIPanel: React.FC = () => {
                             </span>
                           )}
                         </div>
-                        <p className="text-xs text-blue-600 font-medium mt-1 hover:underline">
+                        <p className="text-xs text-orange-600 font-medium mt-1 hover:underline">
                           {formatPhoneNumber(log.callerNumber)}
                         </p>
                       </div>

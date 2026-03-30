@@ -216,7 +216,7 @@ export function CallbackDetailPanel({
           </div>
           <button
             onClick={() => onPatientClick(callback.patientId)}
-            className="text-xs text-blue-600 hover:text-blue-700 hover:underline flex-shrink-0 mt-1"
+            className="text-xs text-orange-600 hover:text-orange-700 hover:underline flex-shrink-0 mt-1"
           >
             환자 상세 →
           </button>
@@ -226,7 +226,7 @@ export function CallbackDetailPanel({
         <div className="flex items-center gap-2 mt-3">
           <button
             onClick={() => onCall(callback.patientPhone)}
-            className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-blue-600 text-white rounded-lg text-sm font-medium hover:bg-blue-700 transition-colors"
+            className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-orange-600 text-white rounded-lg text-sm font-medium hover:bg-orange-700 transition-colors"
           >
             <Phone size={14} />
             {callback.patientPhone}
@@ -299,7 +299,7 @@ export function CallbackDetailPanel({
         {contextLoading && (
           <div className="px-4 py-6 text-center">
             <div className="inline-flex items-center gap-2 text-sm text-gray-400">
-              <div className="w-4 h-4 border-2 border-gray-300 border-t-blue-500 rounded-full animate-spin" />
+              <div className="w-4 h-4 border-2 border-gray-300 border-t-orange-500 rounded-full animate-spin" />
               환자 정보 불러오는 중...
             </div>
           </div>
@@ -339,7 +339,7 @@ export function CallbackDetailPanel({
                 <div className="bg-gray-50 rounded-lg p-2.5 text-center">
                   <p className="text-[11px] text-gray-400 mb-1">통화 이력</p>
                   <div className="flex items-center justify-center gap-1">
-                    <Hash size={13} className="text-blue-500" />
+                    <Hash size={13} className="text-orange-500" />
                     <span className="text-lg font-bold text-gray-800">{context.callCount}</span>
                     <span className="text-xs text-gray-400">회</span>
                   </div>
@@ -389,7 +389,7 @@ export function CallbackDetailPanel({
                       {/* 상단: 날짜 + 방향 + 통화시간 */}
                       <div className="flex items-center gap-2 mb-1">
                         {log.callType === 'inbound' ? (
-                          <span className="inline-flex items-center gap-1 text-xs text-blue-600">
+                          <span className="inline-flex items-center gap-1 text-xs text-orange-600">
                             <PhoneIncoming size={12} />
                             수신
                           </span>

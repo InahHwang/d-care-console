@@ -215,10 +215,10 @@ export default function AIChatAdminPanel() {
                       {expandedMessages.map((msg, i) => (
                         <div key={i} className="flex gap-2">
                           <div className={`flex-shrink-0 w-6 h-6 rounded-full flex items-center justify-center ${
-                            msg.role === 'user' ? 'bg-blue-100' : 'bg-purple-100'
+                            msg.role === 'user' ? 'bg-orange-100' : 'bg-purple-100'
                           }`}>
                             {msg.role === 'user'
-                              ? <User className="w-3 h-3 text-blue-600" />
+                              ? <User className="w-3 h-3 text-orange-600" />
                               : <Sparkles className="w-3 h-3 text-purple-600" />
                             }
                           </div>

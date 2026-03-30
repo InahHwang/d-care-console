@@ -151,7 +151,7 @@ function SummaryCards({ summary }: { summary: ReportData['summary'] }) {
       {/* 예상 매출 */}
       <div className="bg-white rounded-xl border border-gray-200 p-4">
         <div className="text-sm text-gray-500 mb-1">예상 매출</div>
-        <div className="text-3xl font-bold text-blue-600">
+        <div className="text-3xl font-bold text-orange-600">
           {summary.actualRevenue.toLocaleString()}만원
         </div>
         {summary.totalDiscount > 0 && (
@@ -222,7 +222,7 @@ function PatientList({
               onClick={() => onFilterChange(tab.key)}
               className={`px-4 py-2 rounded-lg text-sm font-medium transition-colors ${
                 filter === tab.key
-                  ? 'bg-blue-500 text-white'
+                  ? 'bg-orange-500 text-white'
                   : 'bg-white text-gray-600 hover:bg-gray-100 border border-gray-200'
               }`}
             >
@@ -250,7 +250,7 @@ function PatientList({
                   key={patient.id}
                   onClick={() => onSelect(patient)}
                   className={`w-full text-left p-4 hover:bg-gray-50 transition-colors ${
-                    isSelected ? 'bg-blue-50 border-l-4 border-l-blue-500' : ''
+                    isSelected ? 'bg-orange-50 border-l-4 border-l-orange-500' : ''
                   }`}
                 >
                   <div className="flex items-start justify-between mb-2">
@@ -313,7 +313,7 @@ function PatientList({
                         <span className="text-sm text-gray-400 line-through">
                           {patient.originalAmount.toLocaleString()}만
                         </span>
-                        <span className="text-sm font-semibold text-blue-600">
+                        <span className="text-sm font-semibold text-orange-600">
                           {patient.finalAmount.toLocaleString()}만원
                         </span>
                         <span className="px-1.5 py-0.5 bg-rose-100 text-rose-600 text-xs rounded font-medium">
@@ -377,7 +377,7 @@ function PatientDetailPanel({ patient }: { patient: PatientData | null }) {
           {/* 전화 버튼 */}
           <a
             href={`tel:${patient.phone}`}
-            className="px-4 py-2 bg-blue-500 hover:bg-blue-600 text-white rounded-lg font-medium transition-colors flex items-center gap-2"
+            className="px-4 py-2 bg-orange-500 hover:bg-orange-600 text-white rounded-lg font-medium transition-colors flex items-center gap-2"
           >
             📞 전화 걸기
           </a>
@@ -404,7 +404,7 @@ function PatientDetailPanel({ patient }: { patient: PatientData | null }) {
                 <span className="text-gray-400 line-through text-sm">
                   {patient.originalAmount.toLocaleString()}만
                 </span>
-                <span className="font-bold text-blue-600">
+                <span className="font-bold text-orange-600">
                   {patient.finalAmount.toLocaleString()}만원
                 </span>
                 <span className="px-1.5 py-0.5 bg-rose-100 text-rose-600 text-xs rounded font-medium">
@@ -412,7 +412,7 @@ function PatientDetailPanel({ patient }: { patient: PatientData | null }) {
                 </span>
               </div>
             ) : patient.originalAmount > 0 ? (
-              <div className="font-bold text-blue-600">
+              <div className="font-bold text-orange-600">
                 {patient.originalAmount.toLocaleString()}만원
               </div>
             ) : (
@@ -507,11 +507,11 @@ function PatientDetailPanel({ patient }: { patient: PatientData | null }) {
 
         {/* 시정 계획 */}
         {(patient.status === 'disagreed' || patient.status === 'pending') && patient.correctionPlan && (
-          <div className="bg-blue-50 rounded-xl p-5 border border-blue-200">
-            <h3 className="font-semibold text-blue-900 mb-3 flex items-center gap-2">
+          <div className="bg-orange-50 rounded-xl p-5 border border-orange-200">
+            <h3 className="font-semibold text-orange-900 mb-3 flex items-center gap-2">
               <span>📝</span> 시정 계획
             </h3>
-            <p className="text-blue-800 leading-relaxed">
+            <p className="text-orange-800 leading-relaxed">
               {patient.correctionPlan}
             </p>
           </div>
@@ -601,7 +601,7 @@ const DailyReport: React.FC = () => {
     return (
       <div className="flex items-center justify-center py-20">
         <div className="text-center">
-          <div className="animate-spin rounded-full h-12 w-12 border-4 border-blue-500 border-t-transparent mx-auto mb-4" />
+          <div className="animate-spin rounded-full h-12 w-12 border-4 border-orange-500 border-t-transparent mx-auto mb-4" />
           <p className="text-gray-600">일별마감보고서를 불러오는 중...</p>
         </div>
       </div>
@@ -617,7 +617,7 @@ const DailyReport: React.FC = () => {
           <p className="text-gray-600 mb-4">{error}</p>
           <button
             onClick={fetchReport}
-            className="px-4 py-2 bg-blue-500 text-white rounded-lg hover:bg-blue-600"
+            className="px-4 py-2 bg-orange-500 text-white rounded-lg hover:bg-orange-600"
           >
             다시 시도
           </button>
@@ -649,7 +649,7 @@ const DailyReport: React.FC = () => {
           <button
             onClick={fetchReport}
             disabled={loading}
-            className="flex items-center gap-2 px-3 py-2 text-sm bg-blue-50 text-blue-600 border border-blue-200 rounded-lg hover:bg-blue-100 disabled:opacity-50"
+            className="flex items-center gap-2 px-3 py-2 text-sm bg-orange-50 text-orange-600 border border-orange-200 rounded-lg hover:bg-orange-100 disabled:opacity-50"
           >
             <RefreshCw className={`w-4 h-4 ${loading ? 'animate-spin' : ''}`} />
             새로고침

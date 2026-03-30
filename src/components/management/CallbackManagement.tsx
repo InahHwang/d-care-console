@@ -1059,7 +1059,7 @@ export default function CallbackManagement({ patient }: CallbackManagementProps)
             )}
             
             <div className={`text-sm px-3 py-1 rounded-full font-medium ${
-              currentStage === 'first' ? 'bg-blue-100 text-blue-800' :
+              currentStage === 'first' ? 'bg-orange-100 text-orange-800' :
               currentStage === 'callback' ? 'bg-yellow-100 text-yellow-800' :
               currentStage === 'post_reservation' ? 'bg-orange-100 text-orange-800' :
               'bg-green-100 text-green-800'
@@ -1113,7 +1113,7 @@ export default function CallbackManagement({ patient }: CallbackManagementProps)
 
             {/* 재예약 완료 선택시 입력 필드 */}
             {postReservationStatus === '재예약 완료' && (
-              <div className="space-y-3 p-3 bg-blue-50 rounded-lg">
+              <div className="space-y-3 p-3 bg-orange-50 rounded-lg">
                 <div className="grid grid-cols-2 gap-3">
                   <div>
                     <label className="block text-sm font-medium text-gray-700 mb-1">재예약 날짜</label>
@@ -1121,7 +1121,7 @@ export default function CallbackManagement({ patient }: CallbackManagementProps)
                       type="date"
                       value={reReservationDate}
                       onChange={(e) => setReReservationDate(e.target.value)}
-                      className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                      className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-orange-500"
                     />
                   </div>
                   <div>
@@ -1130,7 +1130,7 @@ export default function CallbackManagement({ patient }: CallbackManagementProps)
                       type="time"
                       value={reReservationTime}
                       onChange={(e) => setReReservationTime(e.target.value)}
-                      className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                      className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-orange-500"
                     />
                   </div>
                 </div>
@@ -1239,14 +1239,14 @@ export default function CallbackManagement({ patient }: CallbackManagementProps)
                     callback.status === '완료' 
                       ? 'border-green-200 bg-green-50' 
                       : callback.status === '예정'
-                        ? 'border-blue-200 bg-blue-50'
+                        ? 'border-orange-200 bg-orange-50'
                         : 'border-orange-200 bg-orange-50'
                   }`}
                 >
                 <div className="flex items-center justify-between mb-3">
                   <div className="flex items-center gap-3">
                     <span className={`px-3 py-1 rounded-full text-sm font-medium ${
-                      callback.isReReservationRecord ? 'bg-blue-100 text-blue-800' :
+                      callback.isReReservationRecord ? 'bg-orange-100 text-orange-800' :
                       callback.type === '1차' ? 'bg-orange-100 text-orange-800' :
                       callback.type === '2차' ? 'bg-yellow-100 text-yellow-800' :
                       callback.type === '3차' ? 'bg-red-100 text-red-800' :
@@ -1261,7 +1261,7 @@ export default function CallbackManagement({ patient }: CallbackManagementProps)
                     <div className="flex items-center gap-2">
                       <span className={`text-sm px-2 py-1 rounded ${
                         callback.status === '완료' ? 'bg-green-100 text-green-800' :
-                        callback.status === '예정' ? 'bg-blue-100 text-blue-800' :
+                        callback.status === '예정' ? 'bg-orange-100 text-orange-800' :
                         'bg-orange-100 text-orange-800'
                       }`}>
                         {callback.status}
@@ -1271,7 +1271,7 @@ export default function CallbackManagement({ patient }: CallbackManagementProps)
                       {callback.status === '완료' && (
                         <>
                           {callback.firstConsultationResult?.status === '예약완료' && (
-                            <span className="text-xs px-2 py-1 rounded bg-blue-100 text-blue-800">
+                            <span className="text-xs px-2 py-1 rounded bg-orange-100 text-orange-800">
                               예약완료
                             </span>
                           )}
@@ -1292,7 +1292,7 @@ export default function CallbackManagement({ patient }: CallbackManagementProps)
                           )}
                           
                           {callback.callbackFollowupResult?.status === '예약완료' && (
-                            <span className="text-xs px-2 py-1 rounded bg-blue-100 text-blue-800">
+                            <span className="text-xs px-2 py-1 rounded bg-orange-100 text-orange-800">
                               예약완료
                             </span>
                           )}
@@ -1333,7 +1333,7 @@ export default function CallbackManagement({ patient }: CallbackManagementProps)
                           className={`p-1 rounded ${
                             isEditRestricted
                               ? 'text-gray-400 bg-gray-100 cursor-not-allowed'
-                              : 'text-blue-600 hover:bg-blue-100'
+                              : 'text-orange-600 hover:bg-orange-100'
                           }`}
                           title={isEditRestricted ? "내원완료 환자는 내원관리에서 수정" : "수정"}
                         >
@@ -1391,12 +1391,12 @@ export default function CallbackManagement({ patient }: CallbackManagementProps)
 
                     {/* 🔥 통일된 예약완료 박스 표시 - 중복 제거 */}
                     {unifiedDisplayData.shouldShowReservationBox && (
-                      <div className="mt-3 p-3 bg-blue-50 border border-blue-200 rounded-lg">
+                      <div className="mt-3 p-3 bg-orange-50 border border-orange-200 rounded-lg">
                         <div className="flex items-center gap-2 mb-1">
-                          <Icon icon={HiOutlineCheck} size={16} className="text-blue-600" />
-                          <span className="text-sm font-medium text-blue-800">예약 완료</span>
+                          <Icon icon={HiOutlineCheck} size={16} className="text-orange-600" />
+                          <span className="text-sm font-medium text-orange-800">예약 완료</span>
                         </div>
-                        <div className="text-sm text-blue-700">
+                        <div className="text-sm text-orange-700">
                           <p>예약일정: {unifiedDisplayData.reservationBoxData.reservationDate} {unifiedDisplayData.reservationBoxData.reservationTime}</p>
                           <p className="mt-1">상담내용: {unifiedDisplayData.reservationBoxData.consultationContent}</p>
                         </div>
@@ -1420,7 +1420,7 @@ export default function CallbackManagement({ patient }: CallbackManagementProps)
                               onClick={() => setFirstConsultationStatus(status)}
                               className={`px-3 py-2 rounded-lg text-sm font-medium transition-colors ${
                                 firstConsultationStatus === status
-                                  ? 'bg-blue-500 text-white'
+                                  ? 'bg-orange-500 text-white'
                                   : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
                               }`}
                             >
@@ -1431,7 +1431,7 @@ export default function CallbackManagement({ patient }: CallbackManagementProps)
 
                         {/* 예약완료 선택시 입력 필드 */}
                         {firstConsultationStatus === '예약완료' && (
-                          <div className="space-y-3 p-3 bg-blue-50 rounded-lg">
+                          <div className="space-y-3 p-3 bg-orange-50 rounded-lg">
                             <div className="grid grid-cols-2 gap-3">
                               <div>
                                 <label className="block text-sm font-medium text-gray-700 mb-1">예약날짜</label>
@@ -1439,7 +1439,7 @@ export default function CallbackManagement({ patient }: CallbackManagementProps)
                                   type="date"
                                   value={reservationDate}
                                   onChange={(e) => setReservationDate(e.target.value)}
-                                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-orange-500"
                                 />
                               </div>
                               <div>
@@ -1448,7 +1448,7 @@ export default function CallbackManagement({ patient }: CallbackManagementProps)
                                   type="time"
                                   value={reservationTime}
                                   onChange={(e) => setReservationTime(e.target.value)}
-                                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-orange-500"
                                 />
                               </div>
                             </div>
@@ -1457,7 +1457,7 @@ export default function CallbackManagement({ patient }: CallbackManagementProps)
                               <textarea
                                 value={consultationContent}
                                 onChange={(e) => setConsultationContent(e.target.value)}
-                                className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                                className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-orange-500"
                                 rows={3}
                                 placeholder="상담 내용을 입력하세요... (비워두면 '예약완료'로 표시됩니다)"
                               />
@@ -1474,7 +1474,7 @@ export default function CallbackManagement({ patient }: CallbackManagementProps)
                                 type="date"
                                 value={callbackDate}
                                 onChange={(e) => setCallbackDate(e.target.value)}
-                                className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                                className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-orange-500"
                               />
                             </div>
                             <div>
@@ -1482,7 +1482,7 @@ export default function CallbackManagement({ patient }: CallbackManagementProps)
                               <textarea
                                 value={consultationPlan}
                                 onChange={(e) => setConsultationPlan(e.target.value)}
-                                className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                                className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-orange-500"
                                 rows={2}
                                 placeholder="다음 상담 계획을 입력하세요..."
                               />
@@ -1498,7 +1498,7 @@ export default function CallbackManagement({ patient }: CallbackManagementProps)
                               <select
                                 value={terminationReason}
                                 onChange={(e) => setTerminationReason(e.target.value)}
-                                className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                                className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-orange-500"
                               >
                                 <option value="">종결 사유를 선택하세요</option>
                                 {TERMINATION_REASONS.map(reason => (
@@ -1513,7 +1513,7 @@ export default function CallbackManagement({ patient }: CallbackManagementProps)
                                 <textarea
                                   value={customTerminationReason}
                                   onChange={(e) => setCustomTerminationReason(e.target.value)}
-                                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-orange-500"
                                   rows={2}
                                   placeholder="구체적인 종결 사유를 입력해주세요..."
                                 />
@@ -1547,7 +1547,7 @@ export default function CallbackManagement({ patient }: CallbackManagementProps)
                               onClick={() => setCallbackFollowupStatus(status)}
                               className={`flex-1 px-3 py-2 rounded-lg text-sm font-medium transition-colors ${
                                 callbackFollowupStatus === status
-                                  ? (status === '종결' ? 'bg-red-500 text-white' : 'bg-blue-500 text-white')
+                                  ? (status === '종결' ? 'bg-red-500 text-white' : 'bg-orange-500 text-white')
                                   : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
                               }`}
                             >
@@ -1558,7 +1558,7 @@ export default function CallbackManagement({ patient }: CallbackManagementProps)
 
                         {/* 예약완료 선택시 입력 필드 */}
                         {callbackFollowupStatus === '예약완료' && (
-                          <div className="space-y-3 p-3 bg-blue-50 rounded-lg">
+                          <div className="space-y-3 p-3 bg-orange-50 rounded-lg">
                             <div className="grid grid-cols-2 gap-3">
                               <div>
                                 <label className="block text-sm font-medium text-gray-700 mb-1">예약날짜</label>
@@ -1566,7 +1566,7 @@ export default function CallbackManagement({ patient }: CallbackManagementProps)
                                   type="date"
                                   value={reservationDate}
                                   onChange={(e) => setReservationDate(e.target.value)}
-                                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-orange-500"
                                 />
                               </div>
                               <div>
@@ -1575,7 +1575,7 @@ export default function CallbackManagement({ patient }: CallbackManagementProps)
                                   type="time"
                                   value={reservationTime}
                                   onChange={(e) => setReservationTime(e.target.value)}
-                                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-orange-500"
                                 />
                               </div>
                             </div>
@@ -1584,7 +1584,7 @@ export default function CallbackManagement({ patient }: CallbackManagementProps)
                                 <textarea
                                   value={consultationContent}
                                   onChange={(e) => setConsultationContent(e.target.value)}
-                                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-orange-500"
                                   rows={3}
                                   placeholder="상담 내용을 입력하세요... (비워두면 '예약완료'로 표시됩니다)"
                                 />
@@ -1601,7 +1601,7 @@ export default function CallbackManagement({ patient }: CallbackManagementProps)
                                 type="date"
                                 value={followupCallbackDate}
                                 onChange={(e) => setFollowupCallbackDate(e.target.value)}
-                                className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                                className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-orange-500"
                               />
                             </div>
                             <div>
@@ -1609,7 +1609,7 @@ export default function CallbackManagement({ patient }: CallbackManagementProps)
                               <textarea
                                 value={followupReason}
                                 onChange={(e) => setFollowupReason(e.target.value)}
-                                className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                                className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-orange-500"
                                 rows={2}
                                 placeholder="다음 상담 계획을 입력하세요..."
                               />
@@ -1712,8 +1712,8 @@ export default function CallbackManagement({ patient }: CallbackManagementProps)
 
       {/* 🔥 콜백 추가 폼 - 상담 계획 입력 필드 추가 */}
       {isAddingCallback && (
-        <div className="border border-blue-200 rounded-lg p-4 bg-blue-50">
-          <h4 className="font-medium text-blue-800 mb-3">{getNextCallbackType} 콜백 등록</h4>
+        <div className="border border-orange-200 rounded-lg p-4 bg-orange-50">
+          <h4 className="font-medium text-orange-800 mb-3">{getNextCallbackType} 콜백 등록</h4>
           
           <div className="space-y-4">
             <div className="grid grid-cols-2 gap-3">
@@ -1725,7 +1725,7 @@ export default function CallbackManagement({ patient }: CallbackManagementProps)
                   type="date"
                   value={callbackDate}
                   onChange={(e) => setCallbackDate(e.target.value)}
-                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-orange-500"
                 />
               </div>
               <div>
@@ -1736,7 +1736,7 @@ export default function CallbackManagement({ patient }: CallbackManagementProps)
                   type="time"
                   value={callbackTime}
                   onChange={(e) => setCallbackTime(e.target.value)}
-                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-orange-500"
                 />
               </div>
             </div>
@@ -1749,7 +1749,7 @@ export default function CallbackManagement({ patient }: CallbackManagementProps)
               <textarea
                 value={callbackPlan}
                 onChange={(e) => setCallbackPlan(e.target.value)}
-                className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-orange-500"
                 rows={2}
                 placeholder="콜백 시 진행할 상담 계획을 입력하세요..."
               />
@@ -1774,7 +1774,7 @@ export default function CallbackManagement({ patient }: CallbackManagementProps)
             <button
               onClick={handleAddCallback}
               disabled={isLoading || !callbackDate}
-              className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 disabled:opacity-50"
+              className="px-4 py-2 bg-orange-600 text-white rounded-lg hover:bg-orange-700 disabled:opacity-50"
             >
               {isLoading ? '등록 중...' : `${getNextCallbackType} 콜백 등록`}
             </button>
@@ -1802,7 +1802,7 @@ export default function CallbackManagement({ patient }: CallbackManagementProps)
                   type="date"
                   value={editCallbackDate}
                   onChange={(e) => setEditCallbackDate(e.target.value)}
-                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-orange-500"
                 />
               </div>
               
@@ -1814,7 +1814,7 @@ export default function CallbackManagement({ patient }: CallbackManagementProps)
                   type="time"
                   value={editCallbackTime}
                   onChange={(e) => setEditCallbackTime(e.target.value)}
-                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-orange-500"
                 />
               </div>
               
@@ -1825,7 +1825,7 @@ export default function CallbackManagement({ patient }: CallbackManagementProps)
                 <textarea
                   value={editCallbackNotes}
                   onChange={(e) => setEditCallbackNotes(e.target.value)}
-                  className="w-full px-3 py-2 border border-gray-300 rounded-lg resize-none focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  className="w-full px-3 py-2 border border-gray-300 rounded-lg resize-none focus:outline-none focus:ring-2 focus:ring-orange-500"
                   rows={3}
                   placeholder="콜백 관련 상담 계획을 입력하세요..."
                 />
@@ -1843,7 +1843,7 @@ export default function CallbackManagement({ patient }: CallbackManagementProps)
               <button
                 onClick={handleSaveCallbackEdit}
                 disabled={isLoading || !editCallbackDate}
-                className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 disabled:opacity-50"
+                className="px-4 py-2 bg-orange-600 text-white rounded-lg hover:bg-orange-700 disabled:opacity-50"
               >
                 {isLoading ? '저장 중...' : '저장'}
               </button>

@@ -153,7 +153,7 @@ export function ManualConsultationModal({
                   disabled={isSaving}
                   className={`flex-1 flex items-center justify-center gap-2 px-4 py-2.5 rounded-lg text-sm font-medium transition-colors ${
                     type === option.value
-                      ? 'bg-blue-500 text-white'
+                      ? 'bg-orange-500 text-white'
                       : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
                   } disabled:opacity-50`}
                 >
@@ -176,7 +176,7 @@ export function ManualConsultationModal({
                 value={date}
                 onChange={(e) => setDate(e.target.value)}
                 disabled={isSaving}
-                className="w-full px-3 py-2 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 disabled:bg-gray-100"
+                className="w-full px-3 py-2 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-orange-500 disabled:bg-gray-100"
               />
             </div>
             <div>
@@ -189,7 +189,7 @@ export function ManualConsultationModal({
                 value={time}
                 onChange={(e) => setTime(e.target.value)}
                 disabled={isSaving}
-                className="w-full px-3 py-2 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 disabled:bg-gray-100"
+                className="w-full px-3 py-2 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-orange-500 disabled:bg-gray-100"
               />
             </div>
           </div>
@@ -205,7 +205,7 @@ export function ManualConsultationModal({
               placeholder="상담 내용을 입력하세요..."
               disabled={isSaving}
               rows={4}
-              className="w-full px-3 py-2 border border-gray-200 rounded-lg text-sm resize-none focus:outline-none focus:ring-2 focus:ring-blue-500 disabled:bg-gray-100"
+              className="w-full px-3 py-2 border border-gray-200 rounded-lg text-sm resize-none focus:outline-none focus:ring-2 focus:ring-orange-500 disabled:bg-gray-100"
             />
           </div>
 
@@ -233,7 +233,7 @@ export function ManualConsultationModal({
           <button
             onClick={handleSubmit}
             disabled={isSaving || !content.trim()}
-            className="px-4 py-2 text-sm bg-blue-500 text-white rounded-lg hover:bg-blue-600 transition-colors disabled:opacity-50 min-w-[80px] flex items-center justify-center gap-2"
+            className="px-4 py-2 text-sm bg-orange-500 text-white rounded-lg hover:bg-orange-600 transition-colors disabled:opacity-50 min-w-[80px] flex items-center justify-center gap-2"
           >
             {isSaving ? (
               <>

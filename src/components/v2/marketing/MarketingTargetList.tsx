@@ -200,7 +200,7 @@ export function MarketingTargetList({
                 onClick={() => onPageChange(p)}
                 className={`w-8 h-8 rounded text-sm ${
                   p === page
-                    ? 'bg-blue-500 text-white'
+                    ? 'bg-orange-500 text-white'
                     : 'hover:bg-gray-100 text-gray-600'
                 }`}
               >
@@ -228,7 +228,7 @@ export function MarketingTargetList({
     return (
       <div className="bg-white rounded-xl border">
         <div className="p-8 text-center text-gray-500">
-          <div className="animate-spin w-8 h-8 border-2 border-blue-500 border-t-transparent rounded-full mx-auto mb-2" />
+          <div className="animate-spin w-8 h-8 border-2 border-orange-500 border-t-transparent rounded-full mx-auto mb-2" />
           로딩 중...
         </div>
       </div>
@@ -249,13 +249,13 @@ export function MarketingTargetList({
     <div className="bg-white rounded-xl border overflow-hidden">
       {/* 선택 정보 */}
       {selectedPatients.length > 0 && (
-        <div className="px-4 py-3 bg-blue-50 border-b flex items-center justify-between">
-          <span className="text-sm text-blue-700 font-medium">
+        <div className="px-4 py-3 bg-orange-50 border-b flex items-center justify-between">
+          <span className="text-sm text-orange-700 font-medium">
             {selectedPatients.length}명 선택됨
           </span>
           <button
             onClick={() => onSelectionChange([])}
-            className="text-sm text-blue-600 hover:text-blue-700"
+            className="text-sm text-orange-600 hover:text-orange-700"
           >
             선택 해제
           </button>
@@ -272,7 +272,7 @@ export function MarketingTargetList({
                   type="checkbox"
                   checked={allSelected}
                   onChange={handleSelectAll}
-                  className="w-4 h-4 text-blue-600 border-gray-300 rounded focus:ring-blue-500"
+                  className="w-4 h-4 text-orange-600 border-gray-300 rounded focus:ring-orange-500"
                 />
               </th>
               <th className="px-4 py-3 text-left text-sm font-medium text-gray-600">
@@ -312,7 +312,7 @@ export function MarketingTargetList({
                   key={patient.id}
                   onClick={() => handleRowClick(patient.id)}
                   className={`hover:bg-gray-50 cursor-pointer transition-colors ${
-                    isSelected ? 'bg-blue-50' : overdue ? 'bg-red-50' : ''
+                    isSelected ? 'bg-orange-50' : overdue ? 'bg-red-50' : ''
                   }`}
                 >
                   <td
@@ -323,7 +323,7 @@ export function MarketingTargetList({
                       type="checkbox"
                       checked={isSelected}
                       onChange={() => handleSelectPatient(patient)}
-                      className="w-4 h-4 text-blue-600 border-gray-300 rounded focus:ring-blue-500"
+                      className="w-4 h-4 text-orange-600 border-gray-300 rounded focus:ring-orange-500"
                     />
                   </td>
                   <td className="px-4 py-3">
@@ -353,7 +353,7 @@ export function MarketingTargetList({
                       {marketingInfo.categories?.slice(0, 2).map((cat) => (
                         <span
                           key={cat}
-                          className="px-2 py-0.5 text-xs rounded-full bg-blue-50 text-blue-600"
+                          className="px-2 py-0.5 text-xs rounded-full bg-orange-50 text-orange-600"
                         >
                           {cat}
                         </span>
@@ -372,7 +372,7 @@ export function MarketingTargetList({
                           overdue
                             ? 'bg-red-100 text-red-700'
                             : todaySchedule
-                            ? 'bg-blue-100 text-blue-700'
+                            ? 'bg-orange-100 text-orange-700'
                             : 'text-gray-600'
                         }`}
                       >

@@ -24,7 +24,7 @@ export function Button({
   ...props
 }: ButtonProps) {
   const variantStyles = {
-    primary: 'bg-blue-500 hover:bg-blue-600 text-white',
+    primary: 'bg-orange-500 hover:bg-orange-600 text-white',
     secondary: 'bg-gray-100 hover:bg-gray-200 text-gray-700',
     outline: 'border border-gray-200 hover:bg-gray-50 text-gray-700',
     ghost: 'hover:bg-gray-100 text-gray-700',
@@ -76,7 +76,7 @@ export function IconButton({
   ...props
 }: IconButtonProps) {
   const variantStyles = {
-    primary: 'bg-blue-500 hover:bg-blue-600 text-white',
+    primary: 'bg-orange-500 hover:bg-orange-600 text-white',
     secondary: 'bg-gray-100 hover:bg-gray-200 text-gray-700',
     outline: 'border border-gray-200 hover:bg-gray-50 text-gray-700',
     ghost: 'hover:bg-gray-100 text-gray-400 hover:text-gray-600',

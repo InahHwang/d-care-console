@@ -307,16 +307,16 @@ export function ConsultationInputModal({
                         activity.hasResult
                           ? 'bg-gray-50 text-gray-400 cursor-not-allowed'
                           : isSelected
-                            ? 'bg-blue-50 ring-2 ring-blue-400'
+                            ? 'bg-orange-50 ring-2 ring-orange-400'
                             : 'hover:bg-gray-50'
                       }`}
                     >
                       {/* 아이콘 */}
                       <div className={`w-7 h-7 rounded-full flex items-center justify-center flex-shrink-0 ${
-                        activity.type === 'call' ? 'bg-blue-100' : 'bg-amber-100'
+                        activity.type === 'call' ? 'bg-orange-100' : 'bg-amber-100'
                       }`}>
                         {activity.type === 'call' ? (
-                          <Phone size={13} className="text-blue-600" />
+                          <Phone size={13} className="text-orange-600" />
                         ) : activity.manualType === 'visit' ? (
                           <Building size={13} className="text-amber-600" />
                         ) : (
@@ -329,7 +329,7 @@ export function ConsultationInputModal({
                         <div className="flex items-center gap-1.5">
                           {activity.type === 'call' ? (
                             <span className={`text-xs px-1.5 py-0.5 rounded ${
-                              activity.direction === 'inbound' ? 'bg-blue-100 text-blue-700' : 'bg-purple-100 text-purple-700'
+                              activity.direction === 'inbound' ? 'bg-orange-100 text-orange-700' : 'bg-purple-100 text-purple-700'
                             }`}>
                               {activity.direction === 'inbound' ? '수신' : '발신'}
                             </span>
@@ -362,7 +362,7 @@ export function ConsultationInputModal({
                   onClick={() => setSelectedActivityId(null)}
                   className={`w-full flex items-center gap-2.5 px-3 py-2 rounded-lg text-left text-sm transition-colors ${
                     selectedActivityId === null
-                      ? 'bg-blue-50 ring-2 ring-blue-400'
+                      ? 'bg-orange-50 ring-2 ring-orange-400'
                       : 'hover:bg-gray-50'
                   }`}
                 >
@@ -695,7 +695,7 @@ export function ConsultationInputModal({
           <button
             onClick={handleSubmit}
             disabled={!status || submitting}
-            className="px-6 py-2 bg-blue-500 text-white rounded-lg hover:bg-blue-600 disabled:opacity-50 disabled:cursor-not-allowed"
+            className="px-6 py-2 bg-orange-500 text-white rounded-lg hover:bg-orange-600 disabled:opacity-50 disabled:cursor-not-allowed"
           >
             {submitting ? '저장 중...' : '저장'}
           </button>

@@ -249,7 +249,7 @@ const MonthlyReportPatientConsultationTable: React.FC<MonthlyReportPatientConsul
                           target="_blank"
                           rel="noopener noreferrer"
                           onClick={(e) => e.stopPropagation()}
-                          className="text-xs text-blue-500 hover:text-blue-700 flex items-center gap-0.5 justify-end"
+                          className="text-xs text-orange-500 hover:text-orange-700 flex items-center gap-0.5 justify-end"
                         >
                           상세 <ExternalLink className="w-3 h-3" />
                         </a>
@@ -300,7 +300,7 @@ const MonthlyReportPatientConsultationTable: React.FC<MonthlyReportPatientConsul
                       )}
                       {stageFinal > 0 && (
                         <>
-                          <span className="text-blue-600 font-medium">할인가 {formatAmount(stageFinal)}</span>
+                          <span className="text-orange-600 font-medium">할인가 {formatAmount(stageFinal)}</span>
                           <span className="text-amber-600">
                             ({Math.round((1 - stageFinal / stageEstimated) * 100)}%↓)
                           </span>
@@ -316,7 +316,7 @@ const MonthlyReportPatientConsultationTable: React.FC<MonthlyReportPatientConsul
                         <div
                           key={patient.patientId}
                           onClick={() => onPatientClick(patient)}
-                          className="flex items-center justify-between px-4 py-2.5 hover:bg-blue-50 cursor-pointer transition-colors"
+                          className="flex items-center justify-between px-4 py-2.5 hover:bg-orange-50 cursor-pointer transition-colors"
                         >
                           <div className="flex-1 min-w-0">
                             <div className="flex items-center gap-2">
@@ -337,7 +337,7 @@ const MonthlyReportPatientConsultationTable: React.FC<MonthlyReportPatientConsul
                             )}
                             {patient.finalAmount > 0 && patient.estimatedAmount > 0 && (
                               <>
-                                <span className="text-xs text-blue-600 font-medium">
+                                <span className="text-xs text-orange-600 font-medium">
                                   → {formatAmount(patient.finalAmount)}
                                 </span>
                                 <span className="text-xs text-amber-600">
@@ -350,7 +350,7 @@ const MonthlyReportPatientConsultationTable: React.FC<MonthlyReportPatientConsul
                               target="_blank"
                               rel="noopener noreferrer"
                               onClick={(e) => e.stopPropagation()}
-                              className="p-1 text-gray-400 hover:text-blue-600 rounded"
+                              className="p-1 text-gray-400 hover:text-orange-600 rounded"
                             >
                               <ExternalLink className="w-3.5 h-3.5" />
                             </a>
@@ -373,7 +373,7 @@ const MonthlyReportPatientConsultationTable: React.FC<MonthlyReportPatientConsul
           {totalFinal > 0 && (
             <>
               <div className="text-gray-600">
-                할인가 합계: <span className="font-bold text-blue-700">{formatAmount(totalFinal)}</span>
+                할인가 합계: <span className="font-bold text-orange-700">{formatAmount(totalFinal)}</span>
               </div>
               {totalEstimated > 0 && (
                 <div className="text-amber-600 font-medium">

@@ -79,7 +79,7 @@ export function MessageHistoryCard({ patientId, patientPhone, className = '' }: 
       {/* 헤더 */}
       <div className="p-4 border-b">
         <div className="flex items-center gap-2">
-          <MessageSquare size={18} className="text-blue-500" />
+          <MessageSquare size={18} className="text-orange-500" />
           <h3 className="font-bold text-gray-900">문자 발송 이력</h3>
           <span className="text-sm text-gray-500">({messages.length}건)</span>
         </div>
@@ -115,7 +115,7 @@ export function MessageHistoryCard({ patientId, patientPhone, className = '' }: 
                   <div className="flex items-center gap-2 text-sm flex-wrap">
                     {/* 메시지 타입 */}
                     <span className={`px-1.5 py-0.5 rounded text-xs ${
-                      msg.messageType === 'SMS' ? 'bg-blue-100 text-blue-700' :
+                      msg.messageType === 'SMS' ? 'bg-orange-100 text-orange-700' :
                       msg.messageType === 'LMS' ? 'bg-purple-100 text-purple-700' :
                       'bg-amber-100 text-amber-700'
                     }`}>
@@ -172,7 +172,7 @@ export function MessageHistoryCard({ patientId, patientPhone, className = '' }: 
       {messages.length > 3 && (
         <button
           onClick={() => setIsExpanded(!isExpanded)}
-          className="w-full p-3 text-sm text-blue-600 hover:bg-gray-50 flex items-center justify-center gap-1 border-t"
+          className="w-full p-3 text-sm text-orange-600 hover:bg-gray-50 flex items-center justify-center gap-1 border-t"
         >
           <span>{isExpanded ? '접기' : `더보기 (${messages.length - 3}건)`}</span>
           <ChevronDown size={16} className={`transition-transform ${isExpanded ? 'rotate-180' : ''}`} />

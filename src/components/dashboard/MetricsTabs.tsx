@@ -279,7 +279,7 @@ export default function MetricsTabs({ monthlyStats, isLoading = false }: Metrics
               suffix="명"
               icon={HiOutlineUsers}
               progressValue={100}
-              progressColor="bg-blue-500"
+              progressColor="bg-orange-500"
               isLoading={isLoading}
               subtitle="이번달 새로 등록된 환자"
               onClick={() => handleOpenModal('new_inquiry', '이번달 신규 문의 환자')}
@@ -344,7 +344,7 @@ export default function MetricsTabs({ monthlyStats, isLoading = false }: Metrics
               suffix="명"
               icon={HiOutlineUsers}
               progressValue={100}
-              progressColor="bg-blue-500"
+              progressColor="bg-orange-500"
               isLoading={isLoading}
               subtitle="서비스 시작부터 현재까지"
               isClickable={false}
@@ -390,16 +390,16 @@ export default function MetricsTabs({ monthlyStats, isLoading = false }: Metrics
         return (
           <div className="space-y-6">
             {/* 퍼널 시각화 */}
-            <div className="bg-gradient-to-r from-blue-50 to-indigo-50 p-6 rounded-lg border">
+            <div className="bg-gradient-to-r from-orange-50 to-indigo-50 p-6 rounded-lg border">
               <h4 className="text-lg font-semibold text-gray-800 mb-4 flex items-center gap-2">
                 <Icon icon={HiOutlineCalendar} size={20} />
                 이번달 전환 퍼널
               </h4>
               <div className="flex items-center gap-4 overflow-x-auto">
-                <div className="flex-shrink-0 bg-white p-4 rounded-lg text-center border-2 border-blue-200 min-w-[120px]">
-                  <div className="text-2xl font-bold text-blue-600">{monthlyStats.totalInquiries}</div>
+                <div className="flex-shrink-0 bg-white p-4 rounded-lg text-center border-2 border-orange-200 min-w-[120px]">
+                  <div className="text-2xl font-bold text-orange-600">{monthlyStats.totalInquiries}</div>
                   <div className="text-sm text-gray-600">신규 문의</div>
-                  <div className="text-xs text-blue-500 mt-1">100%</div>
+                  <div className="text-xs text-orange-500 mt-1">100%</div>
                 </div>
                 <div className="flex-shrink-0 text-2xl text-gray-400">→</div>
                 <div className="flex-shrink-0 bg-white p-4 rounded-lg text-center border-2 border-green-200 min-w-[120px]">

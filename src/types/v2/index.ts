@@ -582,7 +582,7 @@ export type StatusConfig = {
 };
 
 export const PATIENT_STATUS_CONFIG: StatusConfig = {
-  consulting: { label: '전화상담', color: 'blue', bgColor: 'bg-blue-100 text-blue-700' },
+  consulting: { label: '전화상담', color: 'blue', bgColor: 'bg-orange-100 text-orange-700' },
   reserved: { label: '내원예약', color: 'purple', bgColor: 'bg-purple-100 text-purple-700' },
   visited: { label: '내원완료', color: 'amber', bgColor: 'bg-amber-100 text-amber-700' },
   treatmentBooked: { label: '치료예약', color: 'teal', bgColor: 'bg-teal-100 text-teal-700' },

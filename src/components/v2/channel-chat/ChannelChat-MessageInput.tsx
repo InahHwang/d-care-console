@@ -91,7 +91,7 @@ export function ChannelChatMessageInput({
             placeholder={placeholder}
             disabled={disabled}
             rows={1}
-            className="w-full px-4 py-2.5 pr-10 border rounded-xl resize-none focus:outline-none focus:ring-2 focus:ring-blue-500 disabled:bg-gray-100 disabled:cursor-not-allowed"
+            className="w-full px-4 py-2.5 pr-10 border rounded-xl resize-none focus:outline-none focus:ring-2 focus:ring-orange-500 disabled:bg-gray-100 disabled:cursor-not-allowed"
             style={{ maxHeight: '120px' }}
           />
           <button
@@ -107,7 +107,7 @@ export function ChannelChatMessageInput({
         <button
           onClick={handleSend}
           disabled={!message.trim() || disabled}
-          className="p-2.5 bg-blue-600 text-white rounded-xl hover:bg-blue-700 disabled:bg-gray-300 disabled:cursor-not-allowed transition-colors"
+          className="p-2.5 bg-orange-600 text-white rounded-xl hover:bg-orange-700 disabled:bg-gray-300 disabled:cursor-not-allowed transition-colors"
         >
           <Send size={20} />
         </button>

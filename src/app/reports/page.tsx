@@ -88,7 +88,7 @@ export default function ReportsPage() {
         );
       case 'submitted':
         return (
-          <span className="inline-flex items-center gap-1 px-2 py-1 text-xs bg-blue-100 text-blue-800 rounded-full">
+          <span className="inline-flex items-center gap-1 px-2 py-1 text-xs bg-orange-100 text-orange-800 rounded-full">
             <AlertCircle className="w-3 h-3" />
             제출완료
           </span>
@@ -116,7 +116,7 @@ export default function ReportsPage() {
                 dispatch(clearCurrentReport());
                 await dispatch(fetchReports());
               }}
-              className="text-blue-600 hover:text-blue-800 text-sm"
+              className="text-orange-600 hover:text-orange-800 text-sm"
             >
               ← 보고서 목록으로 돌아가기
             </button>
@@ -144,7 +144,7 @@ export default function ReportsPage() {
                   onClick={() => setActiveTab('daily')}
                   className={`py-4 px-1 border-b-2 font-medium text-sm transition-colors ${
                     activeTab === 'daily'
-                      ? 'border-blue-500 text-blue-600'
+                      ? 'border-orange-500 text-orange-600'
                       : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
                   }`}
                 >
@@ -157,7 +157,7 @@ export default function ReportsPage() {
                   onClick={() => setActiveTab('monthly')}
                   className={`py-4 px-1 border-b-2 font-medium text-sm transition-colors ${
                     activeTab === 'monthly'
-                      ? 'border-blue-500 text-blue-600'
+                      ? 'border-orange-500 text-orange-600'
                       : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
                   }`}
                 >
@@ -187,7 +187,7 @@ export default function ReportsPage() {
                     <h2 className="text-lg font-semibold text-gray-900">월별보고서 목록</h2>
                     <button
                       onClick={() => setShowCreateModal(true)}
-                      className="flex items-center gap-2 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700"
+                      className="flex items-center gap-2 px-4 py-2 bg-orange-600 text-white rounded-lg hover:bg-orange-700"
                     >
                       <Plus className="w-4 h-4" />
                       새 보고서 생성
@@ -198,7 +198,7 @@ export default function ReportsPage() {
                   <div className="bg-gray-50 rounded-lg border">
                     {isLoading ? (
                       <div className="p-8 text-center">
-                        <div className="w-8 h-8 border-4 border-blue-200 border-t-blue-600 rounded-full animate-spin mx-auto mb-4"></div>
+                        <div className="w-8 h-8 border-4 border-orange-200 border-t-orange-600 rounded-full animate-spin mx-auto mb-4"></div>
                         <p className="text-gray-600">보고서를 불러오는 중...</p>
                       </div>
                     ) : reports.length === 0 ? (
@@ -213,8 +213,8 @@ export default function ReportsPage() {
                           <div key={report._id} className="p-6 hover:bg-white transition-colors">
                             <div className="flex items-center justify-between">
                               <div className="flex items-center gap-4">
-                                <div className="w-12 h-12 bg-blue-100 rounded-lg flex items-center justify-center">
-                                  <Calendar className="w-6 h-6 text-blue-600" />
+                                <div className="w-12 h-12 bg-orange-100 rounded-lg flex items-center justify-center">
+                                  <Calendar className="w-6 h-6 text-orange-600" />
                                 </div>
                                 <div>
                                   <h3 className="font-medium text-gray-900">
@@ -232,7 +232,7 @@ export default function ReportsPage() {
                                 <div className="flex items-center gap-2">
                                   <button
                                     onClick={() => handleViewReport(report._id)}
-                                    className="px-3 py-1 text-sm text-blue-600 hover:bg-blue-50 rounded"
+                                    className="px-3 py-1 text-sm text-orange-600 hover:bg-orange-50 rounded"
                                   >
                                     보기
                                   </button>
@@ -311,7 +311,7 @@ export default function ReportsPage() {
                 <button
                   onClick={handleCreateReport}
                   disabled={isLoading}
-                  className="flex-1 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 disabled:opacity-50"
+                  className="flex-1 px-4 py-2 bg-orange-600 text-white rounded-lg hover:bg-orange-700 disabled:opacity-50"
                 >
                   {isLoading ? '생성 중...' : '생성'}
                 </button>

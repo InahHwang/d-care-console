@@ -33,26 +33,26 @@ export default function TrendAnalysis() {
 
       {/* 인사이트 카드 */}
       <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-        <div className="card p-6 bg-gradient-to-br from-blue-50 to-indigo-50 border-2 border-blue-200">
+        <div className="card p-6 bg-gradient-to-br from-orange-50 to-indigo-50 border-2 border-orange-200">
           <div className="flex items-center gap-3 mb-4">
-            <div className="w-10 h-10 bg-blue-500 rounded-full flex items-center justify-center">
+            <div className="w-10 h-10 bg-orange-500 rounded-full flex items-center justify-center">
               <svg className="w-5 h-5 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 7h8m0 0v8m0-8l-8 8-4-4-6 6" />
               </svg>
             </div>
-            <h3 className="text-lg font-semibold text-blue-800">트렌드 분석 팁</h3>
+            <h3 className="text-lg font-semibold text-orange-800">트렌드 분석 팁</h3>
           </div>
-          <ul className="space-y-2 text-sm text-blue-700">
+          <ul className="space-y-2 text-sm text-orange-700">
             <li className="flex items-start gap-2">
-              <div className="w-1.5 h-1.5 bg-blue-500 rounded-full mt-2 flex-shrink-0"></div>
+              <div className="w-1.5 h-1.5 bg-orange-500 rounded-full mt-2 flex-shrink-0"></div>
               <span>예약전환율이 낮다면 초기 상담 프로세스를 점검해보세요</span>
             </li>
             <li className="flex items-start gap-2">
-              <div className="w-1.5 h-1.5 bg-blue-500 rounded-full mt-2 flex-shrink-0"></div>
+              <div className="w-1.5 h-1.5 bg-orange-500 rounded-full mt-2 flex-shrink-0"></div>
               <span>내원전환율이 낮다면 예약 확정 후 리마인드 강화가 필요합니다</span>
             </li>
             <li className="flex items-start gap-2">
-              <div className="w-1.5 h-1.5 bg-blue-500 rounded-full mt-2 flex-shrink-0"></div>
+              <div className="w-1.5 h-1.5 bg-orange-500 rounded-full mt-2 flex-shrink-0"></div>
               <span>결제전환율 개선을 위해 내원 당일 상담 품질을 높여보세요</span>
             </li>
           </ul>
