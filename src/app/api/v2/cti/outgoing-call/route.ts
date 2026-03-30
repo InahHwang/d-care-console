@@ -3,7 +3,7 @@
 // CTIBridge ClickCall 시작 시 호출 → callLogId 반환 (녹취 매칭용)
 
 import { NextRequest, NextResponse } from 'next/server';
-import { connectToDatabase } from '@/utils/mongodb';
+import { connectToDatabase, getClinicId } from '@/utils/mongodb';
 import Pusher from 'pusher';
 import { z } from 'zod';
 
@@ -38,7 +38,8 @@ function formatPhone(phone: string): string {
 // V2 환자 검색
 async function findPatientV2(
   db: Awaited<ReturnType<typeof connectToDatabase>>['db'],
-  phoneNumber: string
+  phoneNumber: string,
+  clinicId: string
 ) {
   if (!phoneNumber) return null;
 
@@ -47,6 +48,7 @@ async function findPatientV2(
 
   return db.collection('patients_v2').findOne(
     {
+      clinicId,
       $or: [
         { phone: formatted },
         { phone: normalized },
@@ -83,15 +85,16 @@ export async function POST(request: NextRequest) {
     console.log(`[OutgoingCall V2] 발신: ${phoneNumber} (치과: ${callerNumber})`);
 
     const { db } = await connectToDatabase();
+    const clinicId = getClinicId();
     const formattedPhone = formatPhone(phoneNumber);
     const now = new Date();
 
     // 환자 검색 (콜드스타트 시 DB 초기화로 실패할 수 있어 1회 재시도)
-    let patient = await findPatientV2(db, phoneNumber);
+    let patient = await findPatientV2(db, phoneNumber, clinicId);
     if (!patient) {
       console.log(`[OutgoingCall V2] 환자 못 찾음, 500ms 후 재시도: ${formattedPhone}`);
       await new Promise(resolve => setTimeout(resolve, 500));
-      patient = await findPatientV2(db, phoneNumber);
+      patient = await findPatientV2(db, phoneNumber, clinicId);
       if (!patient) {
         console.warn(`[OutgoingCall V2] ⚠️ 재시도에도 환자 못 찾음: ${formattedPhone}`);
       } else {
@@ -114,6 +117,7 @@ export async function POST(request: NextRequest) {
     // 통화 기록 생성 (direction=outbound, status=ringing)
     // ★ calledNumber = 치과 회선번호 (031/070) - 착신 컬럼 표시용
     const callLog = {
+      clinicId,
       phone: formattedPhone,
       calledNumber: callerNumber || '',  // ★ 치과 회선번호 (031/070)
       patientId,

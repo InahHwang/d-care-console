@@ -2,7 +2,7 @@
 // Claude/GPT API를 사용한 통화 내용 AI 분석 - v2 타입 시스템 통합
 
 import { NextRequest, NextResponse } from 'next/server';
-import { connectToDatabase } from '@/utils/mongodb';
+import { connectToDatabase, getClinicId } from '@/utils/mongodb';
 import { getActiveInterestedServiceLabels } from '@/utils/treatmentTypes';
 
 import { ObjectId } from 'mongodb';
@@ -322,11 +322,13 @@ export async function POST(request: NextRequest) {
     console.log(`[Analyze v2] 분석 시작: ${callLogId}`);
 
     const { db } = await connectToDatabase();
+    const clinicId = getClinicId();
     const now = new Date().toISOString();
 
     // 통화 기록 조회
     const callLog = await db.collection('callLogs_v2').findOne({
       _id: new ObjectId(callLogId),
+      clinicId,
     });
 
     if (!callLog) {
@@ -347,7 +349,7 @@ export async function POST(request: NextRequest) {
 
     // 상태 업데이트
     await db.collection('callLogs_v2').updateOne(
-      { _id: new ObjectId(callLogId) },
+      { _id: new ObjectId(callLogId), clinicId },
       {
         $set: {
           aiStatus: 'processing',
@@ -364,7 +366,7 @@ export async function POST(request: NextRequest) {
 
     // 같은 전화번호의 기존 이름 확인 (수동 수정 > 최초 인식 > 현재 AI 인식)
     if (callLog.phone) {
-      const existingName = await getExistingNameForPhone(db, callLog.phone, callLogId);
+      const existingName = await getExistingNameForPhone(db, callLog.phone, callLogId, clinicId);
       if (existingName) {
         console.log(`[Analyze v2] 기존 이름 발견: "${existingName}" (현재 AI 인식: "${analysis.patientName}")`);
         analysis.patientName = existingName;
@@ -373,7 +375,7 @@ export async function POST(request: NextRequest) {
 
     // 분석 결과 저장
     await db.collection('callLogs_v2').updateOne(
-      { _id: new ObjectId(callLogId) },
+      { _id: new ObjectId(callLogId), clinicId },
       {
         $set: {
           aiStatus: 'completed',
@@ -426,12 +428,14 @@ export async function POST(request: NextRequest) {
 async function getExistingNameForPhone(
   db: Awaited<ReturnType<typeof connectToDatabase>>['db'],
   phone: string,
-  currentCallLogId: string
+  currentCallLogId: string,
+  clinicId: string
 ): Promise<string | null> {
   try {
     // 같은 전화번호의 다른 통화 기록 조회 (현재 건 제외)
     const existingLogs = await db.collection('callLogs_v2')
       .find({
+        clinicId,
         phone: phone,
         _id: { $ne: new ObjectId(currentCallLogId) },
         'aiAnalysis.patientName': { $exists: true, $nin: ['', null] },

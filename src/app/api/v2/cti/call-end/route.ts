@@ -2,7 +2,7 @@
 // CTI Bridge로부터 통화 종료 이벤트 수신
 
 import { NextRequest, NextResponse } from 'next/server';
-import { connectToDatabase } from '@/utils/mongodb';
+import { connectToDatabase, getClinicId } from '@/utils/mongodb';
 import { ObjectId } from 'mongodb';
 import Pusher from 'pusher';
 import { z } from 'zod';
@@ -52,6 +52,7 @@ export async function POST(request: NextRequest) {
     console.log(`[CTI v2] 통화 종료: ${callerNumber}, ${duration}초`);
 
     const { db } = await connectToDatabase();
+    const clinicId = getClinicId();
     const now = new Date().toISOString();
     const formattedPhone = formatPhone(callerNumber);
 
@@ -67,6 +68,7 @@ export async function POST(request: NextRequest) {
       // 부재중: aiAnalysis에 분류 설정
       callLog = await db.collection('callLogs_v2').findOneAndUpdate(
         {
+          clinicId,
           phone: formattedPhone,
           direction: 'inbound',
           createdAt: { $gte: fiveMinutesAgo },
@@ -98,6 +100,7 @@ export async function POST(request: NextRequest) {
       // 연결됨: 일반 업데이트
       callLog = await db.collection('callLogs_v2').findOneAndUpdate(
         {
+          clinicId,
           phone: formattedPhone,
           direction: 'inbound',
           createdAt: { $gte: fiveMinutesAgo },

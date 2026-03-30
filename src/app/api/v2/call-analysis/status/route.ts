@@ -2,7 +2,7 @@
 // 분석 상태 폴링용 API - 대시보드 실시간 업데이트 + 디버그
 
 import { NextRequest, NextResponse } from 'next/server';
-import { connectToDatabase } from '@/utils/mongodb';
+import { connectToDatabase, getClinicId } from '@/utils/mongodb';
 import { ObjectId } from 'mongodb';
 import { waitUntil } from '@vercel/functions';
 
@@ -13,6 +13,7 @@ export async function GET(request: NextRequest) {
     const callLogIds = searchParams.get('ids')?.split(',').filter(Boolean);
 
     const { db } = await connectToDatabase();
+    const clinicId = getClinicId();
 
     // 특정 ID들의 상태 조회
     if (callLogIds && callLogIds.length > 0) {
@@ -25,7 +26,7 @@ export async function GET(request: NextRequest) {
       }).filter(Boolean) as ObjectId[];
 
       const callLogs = await db.collection('callLogs_v2').find(
-        { _id: { $in: objectIds } },
+        { _id: { $in: objectIds }, clinicId },
         {
           projection: {
             _id: 1,
@@ -52,6 +53,7 @@ export async function GET(request: NextRequest) {
 
     const recentUpdates = await db.collection('callLogs_v2').find(
       {
+        clinicId,
         aiStatus: { $in: ['processing', 'completed'] },
         updatedAt: { $gte: sinceTime },
       },
@@ -73,7 +75,7 @@ export async function GET(request: NextRequest) {
 
     // 현재 분석 중인 항목들
     const analyzing = await db.collection('callLogs_v2').find(
-      { aiStatus: 'processing' },
+      { clinicId, aiStatus: 'processing' },
       {
         projection: {
           _id: 1,
@@ -130,19 +132,20 @@ export async function POST(request: NextRequest) {
     console.log('='.repeat(50));
 
     const { db } = await connectToDatabase();
+    const clinicId = getClinicId();
 
     // 시스템 상태 확인
     if (action === 'debug') {
       // 최근 통화기록 확인
       const recentCallLogs = await db.collection('callLogs_v2')
-        .find({})
+        .find({ clinicId })
         .sort({ createdAt: -1 })
         .limit(5)
         .toArray();
 
       // 최근 녹음 데이터 확인
       const recentRecordings = await db.collection('callRecordings_v2')
-        .find({})
+        .find({ clinicId })
         .sort({ createdAt: -1 })
         .limit(5)
         .toArray();
@@ -175,10 +178,12 @@ export async function POST(request: NextRequest) {
     if (action === 'check-recording' && callLogId) {
       const callLog = await db.collection('callLogs_v2').findOne({
         _id: new ObjectId(callLogId),
+        clinicId,
       });
 
       const recording = await db.collection('callRecordings_v2').findOne({
         callLogId: callLogId,
+        clinicId,
       });
 
       return NextResponse.json({
@@ -215,6 +220,7 @@ export async function POST(request: NextRequest) {
       // 통화기록 확인
       const callLog = await db.collection('callLogs_v2').findOne({
         _id: new ObjectId(callLogId),
+        clinicId,
       });
 
       if (!callLog) {
@@ -227,6 +233,7 @@ export async function POST(request: NextRequest) {
       // 녹음 데이터 확인
       const recording = await db.collection('callRecordings_v2').findOne({
         callLogId: callLogId,
+        clinicId,
       });
 
       if (!recording?.recordingBase64) {
@@ -238,7 +245,7 @@ export async function POST(request: NextRequest) {
 
       // 상태 리셋
       await db.collection('callLogs_v2').updateOne(
-        { _id: new ObjectId(callLogId) },
+        { _id: new ObjectId(callLogId), clinicId },
         {
           $set: {
             aiStatus: 'pending',
@@ -310,6 +317,7 @@ export async function POST(request: NextRequest) {
 
       // 실패/pending 상태인 통화기록 조회 (녹음 데이터 있는 것만)
       const failedLogs = await db.collection('callLogs_v2').find({
+        clinicId,
         aiStatus: { $in: ['failed', 'pending'] },
         $or: [
           { startedAt: { $gte: startOfDay, $lte: endOfDay } },
@@ -331,6 +339,7 @@ export async function POST(request: NextRequest) {
       for (const log of failedLogs) {
         const recording = await db.collection('callRecordings_v2').findOne({
           callLogId: log._id.toString(),
+          clinicId,
         });
         if (recording?.recordingBase64) {
           retryTargets.push({ id: log._id.toString(), phone: log.phone });
@@ -351,7 +360,7 @@ export async function POST(request: NextRequest) {
       // 상태 일괄 리셋
       const retryIds = retryTargets.map(t => new ObjectId(t.id));
       await db.collection('callLogs_v2').updateMany(
-        { _id: { $in: retryIds } },
+        { _id: { $in: retryIds }, clinicId },
         {
           $set: { aiStatus: 'pending', updatedAt: new Date().toISOString() },
           $unset: { 'aiAnalysis.error': '' },

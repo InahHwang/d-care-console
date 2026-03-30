@@ -2,7 +2,7 @@
 // OpenAI Whisper API를 사용한 STT 변환
 
 import { NextRequest, NextResponse } from 'next/server';
-import { connectToDatabase } from '@/utils/mongodb';
+import { connectToDatabase, getClinicId } from '@/utils/mongodb';
 import { ObjectId } from 'mongodb';
 
 // Vercel Function 타임아웃 설정 (STT는 오래 걸릴 수 있음)
@@ -18,11 +18,12 @@ interface TranscriptSegment {
 // MongoDB에서 base64 녹음 데이터 가져오기
 async function getRecordingBase64(
   db: Awaited<ReturnType<typeof connectToDatabase>>['db'],
-  callLogId: string
+  callLogId: string,
+  clinicId?: string
 ): Promise<string | null> {
-  const recording = await db.collection('callRecordings_v2').findOne({
-    callLogId: callLogId,
-  });
+  const query: Record<string, unknown> = { callLogId };
+  if (clinicId) query.clinicId = clinicId;
+  const recording = await db.collection('callRecordings_v2').findOne(query);
   return recording?.recordingBase64 || null;
 }
 
@@ -225,12 +226,13 @@ export async function POST(request: NextRequest) {
     }
 
     const { db } = await connectToDatabase();
+    const clinicId = getClinicId();
     const now = new Date().toISOString();
     console.log('[STT v2] DB 연결 성공');
 
     // 상태 업데이트: STT 처리 중
     await db.collection('callLogs_v2').updateOne(
-      { _id: new ObjectId(callLogId) },
+      { _id: new ObjectId(callLogId), clinicId },
       {
         $set: {
           aiStatus: 'processing',
@@ -243,6 +245,7 @@ export async function POST(request: NextRequest) {
     // 통화기록에서 recordingUrl 확인
     const callLog = await db.collection('callLogs_v2').findOne({
       _id: new ObjectId(callLogId),
+      clinicId,
     });
 
     if (!callLog) {
@@ -258,7 +261,7 @@ export async function POST(request: NextRequest) {
 
     // 1. MongoDB에서 base64 데이터 확인
     console.log(`[STT v2] 녹음 데이터 조회 중: callLogId=${callLogId}`);
-    const base64Data = await getRecordingBase64(db, callLogId);
+    const base64Data = await getRecordingBase64(db, callLogId, clinicId);
 
     if (base64Data) {
       console.log(`[STT v2] base64 데이터 사용: ${base64Data.length} chars`);
@@ -292,7 +295,7 @@ export async function POST(request: NextRequest) {
       );
 
       await db.collection('callLogs_v2').updateOne(
-        { _id: new ObjectId(callLogId) },
+        { _id: new ObjectId(callLogId), clinicId },
         {
           $set: {
             aiStatus: 'failed',
@@ -321,7 +324,7 @@ export async function POST(request: NextRequest) {
       console.log(`[STT v2] ⏭️ STT 건너뛰기: ${skipReason}`);
 
       await db.collection('callLogs_v2').updateOne(
-        { _id: new ObjectId(callLogId) },
+        { _id: new ObjectId(callLogId), clinicId },
         {
           $set: {
             aiStatus: 'skipped',
@@ -354,7 +357,7 @@ export async function POST(request: NextRequest) {
 
     // DB 업데이트 (aiAnalysis가 null이어도 처리 가능하도록)
     await db.collection('callLogs_v2').updateOne(
-      { _id: new ObjectId(callLogId) },
+      { _id: new ObjectId(callLogId), clinicId },
       [
         {
           $set: {

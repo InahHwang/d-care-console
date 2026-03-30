@@ -4,7 +4,7 @@
 
 import { NextRequest, NextResponse } from 'next/server';
 import { waitUntil } from '@vercel/functions';
-import { connectToDatabase } from '@/utils/mongodb';
+import { connectToDatabase, getClinicId } from '@/utils/mongodb';
 import { ObjectId } from 'mongodb';
 import { z } from 'zod';
 
@@ -41,12 +41,14 @@ async function findCallLogV2(
   db: Awaited<ReturnType<typeof connectToDatabase>>['db'],
   directCallLogId: string | null,
   callerNumber: string,
-  calledNumber: string
+  calledNumber: string,
+  clinicId: string
 ) {
   // 1순위: directCallLogId로 직접 매칭 (CTIBridge에서 전달)
   if (directCallLogId && ObjectId.isValid(directCallLogId)) {
     const callLog = await db.collection('callLogs_v2').findOne({
       _id: new ObjectId(directCallLogId),
+      clinicId,
     });
     if (callLog) {
       console.log(`[Recording V2] callLogId로 직접 매칭: ${directCallLogId}`);
@@ -64,6 +66,7 @@ async function findCallLogV2(
 
   const callLog = await db.collection('callLogs_v2').findOne(
     {
+      clinicId,
       $or: [
         { phone: formattedCaller },
         { phone: formattedCalled },
@@ -181,6 +184,7 @@ export async function POST(request: NextRequest) {
     console.log('='.repeat(50));
 
     const { db } = await connectToDatabase();
+    const clinicId = getClinicId();
     const now = new Date().toISOString();
 
     // 통화기록 찾기 (callLogId 우선 → 전화번호 fallback)
@@ -188,7 +192,8 @@ export async function POST(request: NextRequest) {
       db,
       directCallLogId || null,
       callerNumber,
-      calledNumber || ''
+      calledNumber || '',
+      clinicId
     );
 
     let callLogId: string;
@@ -197,6 +202,7 @@ export async function POST(request: NextRequest) {
       // 통화기록이 없으면 새로 생성
       console.log('[Recording V2] 매칭 통화기록 없음, 새로 생성');
       const newCallLog = {
+        clinicId,
         phone: formatPhone(callerNumber),
         direction: 'inbound' as const,
         status: 'connected' as const,
@@ -243,6 +249,7 @@ export async function POST(request: NextRequest) {
     let hasRecording = false;
     if (recordingBase64 && recordingBase64.length > 0) {
       await db.collection('callRecordings_v2').insertOne({
+        clinicId,
         callLogId,
         recordingBase64,
         createdAt: new Date(now),
@@ -292,8 +299,9 @@ export async function GET(request: NextRequest) {
     }
 
     const { db } = await connectToDatabase();
+    const clinicId = getClinicId();
     const callLog = await db.collection('callLogs_v2').findOne(
-      { _id: new ObjectId(callLogId) },
+      { _id: new ObjectId(callLogId), clinicId },
       { projection: { aiStatus: 1, aiAnalysis: 1, aiCompletedAt: 1 } }
     );
 

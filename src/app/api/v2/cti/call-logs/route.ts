@@ -3,7 +3,7 @@
 // CTIBridge에서 ring/start/end/missed/outbound_end/no_answer/busy 등 이벤트 수신
 
 import { NextRequest, NextResponse } from 'next/server';
-import { connectToDatabase } from '@/utils/mongodb';
+import { connectToDatabase, getClinicId } from '@/utils/mongodb';
 import { ObjectId } from 'mongodb';
 import Pusher from 'pusher';
 import { z } from 'zod';
@@ -44,9 +44,9 @@ function formatPhone(phone: string): string {
 const DEFAULT_EXCLUDED_PHONES = ['07047414471', '0315672278'];
 
 // DB 설정에서 제외 전화번호 목록 조회
-async function getExcludedPhones(db: Awaited<ReturnType<typeof connectToDatabase>>['db']): Promise<string[]> {
+async function getExcludedPhones(db: Awaited<ReturnType<typeof connectToDatabase>>['db'], clinicId: string): Promise<string[]> {
   try {
-    const settings = await db.collection('settings_v2').findOne({ clinicId: 'default' });
+    const settings = await db.collection('settings_v2').findOne({ clinicId });
     if (settings?.excludedPhones && Array.isArray(settings.excludedPhones)) {
       return settings.excludedPhones.map((p: string) => p.replace(/\D/g, ''));
     }
@@ -60,7 +60,8 @@ async function getExcludedPhones(db: Awaited<ReturnType<typeof connectToDatabase
 async function autoCompleteCallbackForOutbound(
   db: Awaited<ReturnType<typeof connectToDatabase>>['db'],
   patientId: string,
-  callLogId: string
+  callLogId: string,
+  clinicId: string
 ): Promise<{ completed: boolean; callbackId?: string }> {
   const now = new Date();
   const nowIso = now.toISOString();
@@ -75,6 +76,7 @@ async function autoCompleteCallbackForOutbound(
   try {
     // 1. callbacks_v2에서 오늘 pending 콜백 찾기
     const pendingCallback = await db.collection('callbacks_v2').findOne({
+      clinicId,
       patientId,
       status: 'pending',
       scheduledAt: { $gte: todayStart, $lte: todayEnd },
@@ -110,6 +112,7 @@ async function autoCompleteCallbackForOutbound(
         const callbackType = patient.nextAction === '리콜' ? 'recall' :
                              patient.nextAction === '감사전화' ? 'thanks' : 'callback';
         const newCallback = {
+          clinicId,
           patientId,
           type: callbackType,
           scheduledAt: new Date(patient.nextActionDate),
@@ -153,12 +156,14 @@ async function findCallLog(
   callLogId: string | null,
   phone: string,
   direction: 'inbound' | 'outbound',
-  statusFilter: string[]
+  statusFilter: string[],
+  clinicId: string
 ) {
   // 1순위: callLogId 직접 매칭
   if (callLogId && ObjectId.isValid(callLogId)) {
     const log = await db.collection('callLogs_v2').findOne({
       _id: new ObjectId(callLogId),
+      clinicId,
     });
     if (log) return log;
   }
@@ -170,6 +175,7 @@ async function findCallLog(
 
   return db.collection('callLogs_v2').findOne(
     {
+      clinicId,
       $or: [
         { phone: formattedPhone },
         { phone: normalizedPhone },
@@ -210,9 +216,10 @@ export async function POST(request: NextRequest) {
 
     const normalizedCaller = normalizePhone(callerNumber);
     const { db } = await connectToDatabase();
+    const clinicId = getClinicId();
 
     // 제외 번호 체크 (설정에서 관리)
-    const excludedPhones = await getExcludedPhones(db);
+    const excludedPhones = await getExcludedPhones(db, clinicId);
     if (excludedPhones.includes(normalizedCaller)) {
       return NextResponse.json({ success: true, message: 'Excluded number' });
     }
@@ -223,7 +230,7 @@ export async function POST(request: NextRequest) {
 
     if (eventType === 'start') {
       // 수신 통화 시작 (수화기 들었을 때) → ringing → connected
-      const callLog = await findCallLog(db, directCallLogId, callerNumber, 'inbound', ['ringing']);
+      const callLog = await findCallLog(db, directCallLogId, callerNumber, 'inbound', ['ringing'], clinicId);
 
       if (callLog) {
         await db.collection('callLogs_v2').updateOne(
@@ -247,7 +254,7 @@ export async function POST(request: NextRequest) {
 
     if (eventType === 'end') {
       // 수신 통화 종료
-      const callLog = await findCallLog(db, directCallLogId, callerNumber, 'inbound', ['ringing', 'connected']);
+      const callLog = await findCallLog(db, directCallLogId, callerNumber, 'inbound', ['ringing', 'connected'], clinicId);
 
       if (callLog) {
         const wasMissed = callLog.status === 'ringing';
@@ -280,7 +287,7 @@ export async function POST(request: NextRequest) {
 
     if (eventType === 'missed') {
       // 명시적 부재중
-      const callLog = await findCallLog(db, directCallLogId, callerNumber, 'inbound', ['ringing']);
+      const callLog = await findCallLog(db, directCallLogId, callerNumber, 'inbound', ['ringing'], clinicId);
 
       if (callLog) {
         await db.collection('callLogs_v2').updateOne(
@@ -306,7 +313,7 @@ export async function POST(request: NextRequest) {
     if (eventType === 'outbound_end') {
       // 발신 통화 정상 종료 (성공한 통화 + 녹취 있음)
       // 녹취는 별도 Recording 이벤트로 도착하므로 여기서는 상태만 업데이트
-      const callLog = await findCallLog(db, directCallLogId, callerNumber, 'outbound', ['ringing', 'connected']);
+      const callLog = await findCallLog(db, directCallLogId, callerNumber, 'outbound', ['ringing', 'connected'], clinicId);
 
       if (callLog) {
         const callDuration = duration || 0;
@@ -326,7 +333,7 @@ export async function POST(request: NextRequest) {
         // ★ 발신 통화 성공 시 오늘 예정 콜백 자동 완료
         let autoCompletedCallbackId: string | undefined;
         if (callDuration > 0 && callLog.patientId) {
-          const result = await autoCompleteCallbackForOutbound(db, callLog.patientId, callLog._id.toString());
+          const result = await autoCompleteCallbackForOutbound(db, callLog.patientId, callLog._id.toString(), clinicId);
           autoCompletedCallbackId = result.callbackId;
         }
 
@@ -353,7 +360,7 @@ export async function POST(request: NextRequest) {
     // no_answer, service_stopped, busy, cancelled, rejected → 발신 부재중/실패
     if (['no_answer', 'service_stopped', 'busy', 'cancelled', 'rejected'].includes(eventType)) {
       const isMissed = ['no_answer', 'service_stopped', 'busy'].includes(eventType);
-      const callLog = await findCallLog(db, directCallLogId, callerNumber, 'outbound', ['ringing', 'connected']);
+      const callLog = await findCallLog(db, directCallLogId, callerNumber, 'outbound', ['ringing', 'connected'], clinicId);
 
       if (callLog) {
         const updateData: Record<string, unknown> = {

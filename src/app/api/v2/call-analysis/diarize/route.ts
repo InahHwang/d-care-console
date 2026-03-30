@@ -2,7 +2,7 @@
 // 기존 통화 녹취에 화자분리를 적용하는 API
 
 import { NextRequest, NextResponse } from 'next/server';
-import { connectToDatabase } from '@/utils/mongodb';
+import { connectToDatabase, getClinicId } from '@/utils/mongodb';
 import { ObjectId } from 'mongodb';
 
 export const maxDuration = 120;
@@ -101,9 +101,11 @@ export async function POST(request: NextRequest) {
     }
 
     const { db } = await connectToDatabase();
+    const clinicId = getClinicId();
 
     const callLog = await db.collection('callLogs_v2').findOne({
       _id: new ObjectId(callLogId),
+      clinicId,
     });
 
     if (!callLog) {

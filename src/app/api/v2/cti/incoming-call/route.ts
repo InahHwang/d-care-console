@@ -2,7 +2,7 @@
 // CTI Bridge로부터 수신 통화 CID 데이터를 받아 v2 시스템에 처리
 
 import { NextRequest, NextResponse } from 'next/server';
-import { connectToDatabase } from '@/utils/mongodb';
+import { connectToDatabase, getClinicId } from '@/utils/mongodb';
 import { ObjectId } from 'mongodb';
 import Pusher from 'pusher';
 import type { PatientV2, CallLogV2, Temperature } from '@/types/v2';
@@ -40,7 +40,7 @@ function formatPhone(phone: string): string {
 }
 
 // v2 환자 검색 (최적화된 쿼리)
-async function findPatientV2(db: Awaited<ReturnType<typeof connectToDatabase>>['db'], phoneNumber: string): Promise<PatientV2 | null> {
+async function findPatientV2(db: Awaited<ReturnType<typeof connectToDatabase>>['db'], phoneNumber: string, clinicId: string): Promise<PatientV2 | null> {
   if (!phoneNumber) return null;
 
   const normalized = normalizePhone(phoneNumber);
@@ -49,6 +49,7 @@ async function findPatientV2(db: Awaited<ReturnType<typeof connectToDatabase>>['
   // 인덱스 활용을 위해 정확한 매칭 우선
   const patient = await db.collection<PatientV2>('patients_v2').findOne(
     {
+      clinicId,
       $or: [
         { phone: formatted },
         { phone: normalized },
@@ -104,13 +105,15 @@ async function createCallLogV2(
   callerNumber: string,
   calledNumber: string,
   patientId: string | undefined,
-  callTime: string
+  callTime: string,
+  clinicId: string
 ): Promise<CallLogV2> {
   const now = new Date();
   // ★ 날짜는 반드시 Date 객체로 저장 (String 저장 시 MongoDB 비교 연산 실패)
   const startedAtDate = callTime ? new Date(callTime) : now;
 
   const callLog: CallLogV2 = {
+    clinicId,
     phone: formatPhone(callerNumber),
     calledNumber: calledNumber || '',  // ★ 착신번호 (031/070 회선)
     patientId: patientId,
@@ -146,11 +149,12 @@ export async function POST(request: NextRequest) {
     console.log(`[CTI v2] 수신: ${callerNumber} → ${calledNumber}`);
 
     const { db } = await connectToDatabase();
+    const clinicId = getClinicId();
 
     // 제외 번호 체크 (설정에서 관리)
     const normalizedCaller = normalizePhone(callerNumber);
     try {
-      const settings = await db.collection('settings_v2').findOne({ clinicId: 'default' });
+      const settings = await db.collection('settings_v2').findOne({ clinicId });
       const excludedPhones: string[] = (settings?.excludedPhones && Array.isArray(settings.excludedPhones))
         ? settings.excludedPhones.map((p: string) => p.replace(/\D/g, ''))
         : ['07047414471', '0315672278'];
@@ -169,6 +173,7 @@ export async function POST(request: NextRequest) {
     const formattedCaller = formatPhone(callerNumber);
     const tenSecondsAgo = new Date(Date.now() - 10 * 1000);
     const existingCall = await db.collection('callLogs_v2').findOne({
+      clinicId,
       phone: formattedCaller,
       direction: 'inbound',
       status: { $in: ['ringing', 'connected'] },
@@ -201,7 +206,7 @@ export async function POST(request: NextRequest) {
     }
 
     // 1. 환자 검색 (자동등록 비활성화 - 상담사가 수동으로만 등록)
-    const patient = await findPatientV2(db, callerNumber);
+    const patient = await findPatientV2(db, callerNumber, clinicId);
 
     if (!patient) {
       isNewPatient = true;
@@ -214,7 +219,8 @@ export async function POST(request: NextRequest) {
       callerNumber,
       calledNumber || '',
       patient?._id?.toString(),
-      callTime
+      callTime,
+      clinicId
     );
 
     // 3. Pusher 실시간 전송

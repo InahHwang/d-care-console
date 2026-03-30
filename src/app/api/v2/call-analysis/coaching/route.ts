@@ -2,7 +2,7 @@
 // 통화 녹취 기반 AI 상담 코칭 분석
 
 import { NextRequest, NextResponse } from 'next/server';
-import { connectToDatabase } from '@/utils/mongodb';
+import { connectToDatabase, getClinicId } from '@/utils/mongodb';
 import { ObjectId } from 'mongodb';
 import type { AICoachingResult } from '@/types/v2';
 import { logAudit } from '@/utils/auditLog';
@@ -242,16 +242,17 @@ export async function POST(request: NextRequest) {
     }
 
     const { db } = await connectToDatabase();
+    const clinicId = getClinicId();
 
     // apply 모드: 미리보기 결과를 DB에 저장
     if (apply && coachingData) {
       const callLog = await db.collection('callLogs_v2').findOne(
-        { _id: new ObjectId(callLogId) },
+        { _id: new ObjectId(callLogId), clinicId },
         { projection: { patientId: 1, patientName: 1 } }
       );
 
       await db.collection('callLogs_v2').updateOne(
-        { _id: new ObjectId(callLogId) },
+        { _id: new ObjectId(callLogId), clinicId },
         { $set: { aiCoaching: coachingData, updatedAt: new Date().toISOString() } }
       );
 
@@ -274,6 +275,7 @@ export async function POST(request: NextRequest) {
         }
         if (!docName) docName = callLog?.callerName || callLog?.phone;
         await db.collection('auditLogs_v2').insertOne({
+          clinicId,
           userId: requestedBy || 'unknown',
           userName: requestedBy || 'unknown',
           userRole: 'staff',
@@ -297,6 +299,7 @@ export async function POST(request: NextRequest) {
     // 통화 기록 조회
     const callLog = await db.collection('callLogs_v2').findOne({
       _id: new ObjectId(callLogId),
+      clinicId,
     });
 
     if (!callLog) {
@@ -368,7 +371,7 @@ export async function POST(request: NextRequest) {
     }
 
     await db.collection('callLogs_v2').updateOne(
-      { _id: new ObjectId(callLogId) },
+      { _id: new ObjectId(callLogId), clinicId },
       {
         $set: {
           aiCoaching: coachingWithSnapshot,
@@ -407,6 +410,7 @@ export async function POST(request: NextRequest) {
       }
       if (!coachingDocName) coachingDocName = callLog.callerName || callLog.phone;
       await db.collection('auditLogs_v2').insertOne({
+        clinicId,
         userId: requestedBy || 'unknown',
         userName: requestedBy || 'unknown',
         userRole: 'staff',
@@ -454,9 +458,10 @@ export async function DELETE(request: NextRequest) {
     }
 
     const { db } = await connectToDatabase();
+    const clinicId = getClinicId();
 
     const callLog = await db.collection('callLogs_v2').findOne(
-      { _id: new ObjectId(callLogId) },
+      { _id: new ObjectId(callLogId), clinicId },
       { projection: { patientId: 1 } }
     );
 
@@ -466,13 +471,14 @@ export async function DELETE(request: NextRequest) {
 
     // callLogs_v2에서 aiCoaching 제거
     await db.collection('callLogs_v2').updateOne(
-      { _id: new ObjectId(callLogId) },
+      { _id: new ObjectId(callLogId), clinicId },
       { $unset: { aiCoaching: '' }, $set: { updatedAt: new Date().toISOString() } }
     );
 
     // patients_v2에서 코칭 정보 제거 (해당 환자의 다른 코칭이 없는 경우)
     if (callLog.patientId && ObjectId.isValid(callLog.patientId)) {
       const otherCoaching = await db.collection('callLogs_v2').findOne({
+        clinicId,
         patientId: callLog.patientId,
         aiCoaching: { $exists: true },
         _id: { $ne: new ObjectId(callLogId) },

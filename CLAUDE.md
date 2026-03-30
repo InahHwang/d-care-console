@@ -316,9 +316,9 @@ git commit -m "[CTIBridge] 변경 내용 요약"
   - ⚠️ 진료시간 외에 작업할 것 (문제 시 환자 응대에 영향)
   - 대상 API 목록 (미정, 진행 시 하나씩 체크):
     - [x] patients (조회/생성/수정)
-    - [ ] callLogs (조회) — CTI write 쪽도 같이 수정 필요 (리스크 높음)
+    - [x] callLogs (조회) — 2026-03-30 CTI write 포함 10개 파일 일괄 적용, 빌드 확인
     - [x] callbacks (조회/생성/수정) — 이미 적용되어 있었음
-    - [ ] consultations (조회/생성/수정)
+    - [x] consultations (조회/생성/수정) — 2026-03-27 적용, 배포 완료
     - [x] channel-chats (조회/생성) — 2026-03-22 적용, 빌드 확인 완료
     - [ ] call-analysis (조회)
     - [x] recall-messages (조회/생성) — 2026-03-22 적용, 빌드 확인 완료
@@ -331,9 +331,9 @@ git commit -m "[CTIBridge] 변경 내용 요약"
     - [x] templates (조회/생성/수정/삭제) — 2026-03-22 적용
     - [x] ai-chat (조회/생성/삭제) — 2026-03-22 적용
     - [x] alimtalk (발송/조회) — 2026-03-22 적용
-    - [ ] consultations (조회/생성/수정)
-    - [ ] callLogs + CTI (조회/생성) — CTI write 동시 수정 필요 (리스크 높음)
-    - [ ] call-analysis (조회) — callLogs와 같이
+    - [x] consultations (조회/생성/수정) — 2026-03-27 적용, 배포 완료
+    - [x] callLogs + CTI (조회/생성) — 2026-03-30 적용, 빌드 확인
+    - [x] call-analysis (조회) — 2026-03-30 적용, 빌드 확인
     - [ ] users/invitations — 멀티테넌시 사용자-병원 매핑 설계 필요
 
 #### Step 5: 인증 강화 - JWT/쿠키 (리스크: 높음)
