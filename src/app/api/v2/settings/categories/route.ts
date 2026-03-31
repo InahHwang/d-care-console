@@ -100,6 +100,37 @@ export async function GET(request: NextRequest) {
   }
 }
 
+// 시스템 고정 카테고리 (추가/수정/삭제 불가, 활성 토글만 허용)
+const SYSTEM_LOCKED_CATEGORIES = ['interestedServices'];
+
+// 대분류에 "미분류" 시스템 항목이 없으면 자동 생성
+async function ensureUncategorizedItem(db: any, parentCategory: string) {
+  const settings = await db.collection('settings').findOne({ type: 'categories' });
+  const treatmentTypes = settings?.treatmentTypes || [];
+
+  const uncategorizedId = `uncategorized_${parentCategory.replace(/\s+/g, '_')}`;
+  const exists = treatmentTypes.some((t: any) => t.id === uncategorizedId);
+
+  if (!exists) {
+    await db.collection('settings').updateOne(
+      { type: 'categories' },
+      {
+        $push: {
+          treatmentTypes: {
+            id: uncategorizedId,
+            label: `미분류 (${parentCategory})`,
+            isDefault: false,
+            isActive: true,
+            isSystem: true,
+            parentCategory,
+          },
+        } as any,
+        $set: { updatedAt: new Date().toISOString() },
+      }
+    );
+  }
+}
+
 // PUT: 카테고리 업데이트
 export async function PUT(request: NextRequest) {
   try {
@@ -124,6 +155,42 @@ export async function PUT(request: NextRequest) {
       );
     }
 
+    // 시스템 고정 카테고리: isActive만 변경 허용 (label, 항목 수 변경 차단)
+    if (SYSTEM_LOCKED_CATEGORIES.includes(categoryType)) {
+      const existing = await db.collection('settings').findOne({ type: 'categories' });
+      const existingItems = existing?.[categoryType] || [];
+
+      // 항목 수가 다르면 추가/삭제 시도
+      if (categories.length !== existingItems.length) {
+        return NextResponse.json(
+          { success: false, error: '시스템 관리 카테고리는 항목 추가/삭제가 불가합니다.' },
+          { status: 403 }
+        );
+      }
+
+      // isActive만 변경하고 나머지는 기존 값 유지
+      const safeCategories = existingItems.map((existing: any) => {
+        const updated = categories.find((c: any) => c.id === existing.id);
+        return {
+          ...existing,
+          isActive: updated ? updated.isActive : existing.isActive,
+        };
+      });
+
+      await db.collection('settings').updateOne(
+        { type: 'categories' },
+        { $set: { [categoryType]: safeCategories, updatedAt: new Date().toISOString() } },
+        { upsert: true }
+      );
+
+      return NextResponse.json({
+        success: true,
+        message: '카테고리 활성 상태가 업데이트되었습니다.',
+        categoryType,
+        count: safeCategories.length,
+      });
+    }
+
     // 업데이트
     await db.collection('settings').updateOne(
       { type: 'categories' },
@@ -135,6 +202,18 @@ export async function PUT(request: NextRequest) {
       },
       { upsert: true }
     );
+
+    // treatmentTypes 업데이트 시: 새로 매핑된 대분류에 "미분류" 항목 자동 생성
+    if (categoryType === 'treatmentTypes') {
+      const parentCategories: string[] = Array.from(new Set(
+        categories
+          .filter((c: any) => c.parentCategory)
+          .map((c: any) => c.parentCategory as string)
+      )) as string[];
+      for (let i = 0; i < parentCategories.length; i++) {
+        await ensureUncategorizedItem(db, parentCategories[i]);
+      }
+    }
 
     return NextResponse.json({
       success: true,
@@ -175,13 +254,26 @@ export async function POST(request: NextRequest) {
       );
     }
 
+    // 시스템 고정 카테고리 추가 차단
+    if (SYSTEM_LOCKED_CATEGORIES.includes(categoryType)) {
+      return NextResponse.json(
+        { success: false, error: '시스템 관리 카테고리에는 항목을 추가할 수 없습니다.' },
+        { status: 403 }
+      );
+    }
+
     // 새 항목 생성
-    const newItem = {
+    const newItem: any = {
       id: item.id || `custom_${Date.now()}`,
       label: item.label,
       isDefault: false,
       isActive: true,
     };
+
+    // treatmentTypes: parentCategory 매핑 지원
+    if (categoryType === 'treatmentTypes' && item.parentCategory) {
+      newItem.parentCategory = item.parentCategory;
+    }
 
     // 배열에 추가
     await db.collection('settings').updateOne(
@@ -192,6 +284,11 @@ export async function POST(request: NextRequest) {
       },
       { upsert: true }
     );
+
+    // treatmentTypes에 parentCategory 지정 시: "미분류" 시스템 항목 자동 생성
+    if (categoryType === 'treatmentTypes' && item.parentCategory) {
+      await ensureUncategorizedItem(db, item.parentCategory);
+    }
 
     return NextResponse.json({
       success: true,
@@ -222,6 +319,14 @@ export async function DELETE(request: NextRequest) {
       );
     }
 
+    // 시스템 고정 카테고리 삭제 차단
+    if (SYSTEM_LOCKED_CATEGORIES.includes(categoryType)) {
+      return NextResponse.json(
+        { success: false, error: '시스템 관리 카테고리에서는 항목을 삭제할 수 없습니다.' },
+        { status: 403 }
+      );
+    }
+
     // 현재 카테고리 조회
     const settings = await db.collection('settings').findOne({ type: 'categories' });
     if (!settings || !settings[categoryType]) {
@@ -238,6 +343,14 @@ export async function DELETE(request: NextRequest) {
       return NextResponse.json(
         { success: false, error: '항목을 찾을 수 없습니다.' },
         { status: 404 }
+      );
+    }
+
+    // 시스템 항목 삭제 차단
+    if (items[itemIndex].isSystem) {
+      return NextResponse.json(
+        { success: false, error: '시스템 항목은 삭제할 수 없습니다.' },
+        { status: 403 }
       );
     }
 

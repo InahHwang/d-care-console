@@ -2,13 +2,7 @@
 // 서버사이드에서 치료 과목 목록을 DB에서 가져오는 헬퍼
 
 import { connectToDatabase } from '@/utils/mongodb';
-
-interface CategoryItem {
-  id: string;
-  label: string;
-  isDefault: boolean;
-  isActive: boolean;
-}
+import type { CategoryItem } from '@/hooks/useCategories';
 
 // DB에서 활성화된 치료 과목 라벨 목록 반환
 const DEFAULT_TREATMENT_LABELS = [

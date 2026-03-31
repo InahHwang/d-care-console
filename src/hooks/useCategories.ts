@@ -8,6 +8,8 @@ export interface CategoryItem {
   label: string;
   isDefault: boolean;
   isActive: boolean;
+  parentCategory?: string;  // 대분류 매핑 (interestedServices label과 매칭)
+  isSystem?: boolean;        // 시스템 항목 (삭제 불가, 예: "미분류")
 }
 
 export interface Categories {

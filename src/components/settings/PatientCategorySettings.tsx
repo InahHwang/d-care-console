@@ -15,20 +15,7 @@ import {
   HiOutlineEyeOff,
 } from 'react-icons/hi';
 import { Icon } from '@/components/common/Icon';
-
-interface CategoryItem {
-  id: string;
-  label: string;
-  isDefault: boolean;
-  isActive: boolean;
-}
-
-interface Categories {
-  consultationTypes: CategoryItem[];
-  referralSources: CategoryItem[];
-  interestedServices: CategoryItem[];
-  treatmentTypes: CategoryItem[];
-}
+import type { CategoryItem, Categories } from '@/hooks/useCategories';
 
 type CategoryType = 'consultationTypes' | 'referralSources' | 'interestedServices' | 'treatmentTypes';
 
@@ -42,9 +29,12 @@ const CATEGORY_LABELS: Record<CategoryType, string> = {
 const CATEGORY_DESCRIPTIONS: Record<CategoryType, string> = {
   consultationTypes: '환자 상담 유형을 분류합니다. (예: 인바운드, 아웃바운드, 구신환)',
   referralSources: '환자가 병원을 알게 된 경로입니다. (예: 네이버, 지인소개, 간판)',
-  interestedServices: '환자가 관심있는 진료 분야입니다. (예: 임플란트, 틀니, 라미네이트)',
-  treatmentTypes: '진료 과목을 분류합니다. (예: 임플란트, 치아교정, 보철치료, 스케일링)',
+  interestedServices: 'AI 자동 분류용 대분류 카테고리입니다. 시스템이 관리하며, 활성/비활성만 변경 가능합니다.',
+  treatmentTypes: '진료 과목을 분류합니다. 각 과목에 대분류(관심 분야)를 매핑하면 AI가 자동으로 환자를 분류합니다.',
 };
+
+// interestedServices는 시스템 고정 카테고리 — 추가/수정/삭제 불가
+const READONLY_CATEGORIES: CategoryType[] = ['interestedServices'];
 
 export default function PatientCategorySettings() {
   const [categories, setCategories] = useState<Categories>({
@@ -59,6 +49,7 @@ export default function PatientCategorySettings() {
 
   // 새 항목 추가 상태
   const [newItemLabel, setNewItemLabel] = useState('');
+  const [newItemParentCategory, setNewItemParentCategory] = useState('');
   const [isAddingItem, setIsAddingItem] = useState(false);
 
   // 수정 상태
@@ -98,6 +89,11 @@ export default function PatientCategorySettings() {
   const handleAddItem = async () => {
     if (!newItemLabel.trim()) return;
 
+    const item: any = { label: newItemLabel.trim() };
+    if (activeCategory === 'treatmentTypes' && newItemParentCategory) {
+      item.parentCategory = newItemParentCategory;
+    }
+
     setIsSaving(true);
     try {
       const response = await fetch('/api/v2/settings/categories', {
@@ -105,18 +101,24 @@ export default function PatientCategorySettings() {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           categoryType: activeCategory,
-          item: { label: newItemLabel.trim() },
+          item,
         }),
       });
 
       const data = await response.json();
 
       if (data.success) {
-        setCategories((prev) => ({
-          ...prev,
-          [activeCategory]: [...prev[activeCategory], data.item],
-        }));
+        // 서버에서 "미분류" 시스템 항목이 추가됐을 수 있으므로 전체 리로드
+        if (activeCategory === 'treatmentTypes' && newItemParentCategory) {
+          await fetchCategories();
+        } else {
+          setCategories((prev) => ({
+            ...prev,
+            [activeCategory]: [...prev[activeCategory], data.item],
+          }));
+        }
         setNewItemLabel('');
+        setNewItemParentCategory('');
         setIsAddingItem(false);
       } else {
         alert(data.error || '항목 추가에 실패했습니다.');
@@ -232,6 +234,39 @@ export default function PatientCategorySettings() {
     }
   };
 
+  // 대분류(parentCategory) 변경 (treatmentTypes 전용)
+  const handleChangeParentCategory = async (itemId: string, parentCategory: string) => {
+    const updatedItems = categories.treatmentTypes.map((item) =>
+      item.id === itemId ? { ...item, parentCategory: parentCategory || undefined } : item
+    );
+
+    setIsSaving(true);
+    try {
+      const response = await fetch('/api/v2/settings/categories', {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          categoryType: 'treatmentTypes',
+          categories: updatedItems,
+        }),
+      });
+
+      const data = await response.json();
+
+      if (data.success) {
+        // 서버에서 "미분류" 시스템 항목이 추가됐을 수 있으므로 리로드
+        await fetchCategories();
+      } else {
+        alert(data.error || '대분류 변경에 실패했습니다.');
+      }
+    } catch (err) {
+      alert('대분류 변경에 실패했습니다.');
+      console.error('대분류 변경 오류:', err);
+    } finally {
+      setIsSaving(false);
+    }
+  };
+
   // 수정 시작
   const startEditing = (item: CategoryItem) => {
     setEditingItemId(item.id);
@@ -273,6 +308,12 @@ export default function PatientCategorySettings() {
 
   const currentItems = categories[activeCategory];
   const activeCount = currentItems.filter((i) => i.isActive).length;
+  const isReadonly = READONLY_CATEGORIES.includes(activeCategory);
+  const isTreatmentTypes = activeCategory === 'treatmentTypes';
+  // 대분류 옵션 (interestedServices의 활성 라벨들)
+  const parentCategoryOptions = categories.interestedServices
+    .filter((s) => s.isActive)
+    .map((s) => s.label);
 
   return (
     <div className="space-y-6">
@@ -314,7 +355,9 @@ export default function PatientCategorySettings() {
 
       {/* 새 항목 추가 */}
       <div className="flex items-center space-x-2">
-        {isAddingItem ? (
+        {isReadonly ? (
+          <span className="text-sm text-gray-400">시스템 관리 카테고리 — 항목 추가/삭제 불가</span>
+        ) : isAddingItem ? (
           <>
             <input
               type="text"
@@ -326,6 +369,19 @@ export default function PatientCategorySettings() {
               onKeyPress={(e) => e.key === 'Enter' && handleAddItem()}
               disabled={isSaving}
             />
+            {isTreatmentTypes && (
+              <select
+                value={newItemParentCategory}
+                onChange={(e) => setNewItemParentCategory(e.target.value)}
+                className="px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary text-sm"
+                disabled={isSaving}
+              >
+                <option value="">대분류 선택</option>
+                {parentCategoryOptions.map((label) => (
+                  <option key={label} value={label}>{label}</option>
+                ))}
+              </select>
+            )}
             <button
               onClick={handleAddItem}
               disabled={isSaving || !newItemLabel.trim()}
@@ -338,6 +394,7 @@ export default function PatientCategorySettings() {
               onClick={() => {
                 setIsAddingItem(false);
                 setNewItemLabel('');
+                setNewItemParentCategory('');
               }}
               disabled={isSaving}
               className="p-2 bg-gray-400 text-white rounded-lg hover:bg-gray-500"
@@ -426,6 +483,29 @@ export default function PatientCategorySettings() {
                   </span>
                 )}
 
+                {/* 시스템 항목 뱃지 */}
+                {item.isSystem && (
+                  <span className="px-2 py-0.5 text-xs bg-blue-100 text-blue-600 rounded">
+                    시스템
+                  </span>
+                )}
+
+                {/* 대분류 매핑 (treatmentTypes 전용) */}
+                {isTreatmentTypes && (
+                  <select
+                    value={item.parentCategory || ''}
+                    onChange={(e) => handleChangeParentCategory(item.id, e.target.value)}
+                    disabled={isSaving || item.isSystem}
+                    className="px-2 py-0.5 text-xs border border-gray-200 rounded bg-white focus:outline-none focus:ring-1 focus:ring-primary"
+                    title="대분류 선택"
+                  >
+                    <option value="">대분류 없음</option>
+                    {parentCategoryOptions.map((label) => (
+                      <option key={label} value={label}>{label}</option>
+                    ))}
+                  </select>
+                )}
+
                 {/* 비활성화 뱃지 */}
                 {!item.isActive && (
                   <span className="px-2 py-0.5 text-xs bg-gray-200 text-gray-500 rounded">
@@ -435,6 +515,7 @@ export default function PatientCategorySettings() {
               </div>
 
               {/* 액션 버튼들 */}
+              {!isReadonly && (
               <div className="flex items-center space-x-1">
                 {editingItemId === item.id ? (
                   <>
@@ -465,6 +546,7 @@ export default function PatientCategorySettings() {
                     >
                       <Icon icon={HiOutlinePencil} size={18} />
                     </button>
+                    {!item.isSystem && (
                     <button
                       onClick={() => handleDeleteItem(item.id)}
                       disabled={isSaving}
@@ -473,9 +555,11 @@ export default function PatientCategorySettings() {
                     >
                       <Icon icon={HiOutlineTrash} size={18} />
                     </button>
+                    )}
                   </>
                 )}
               </div>
+              )}
             </div>
           ))
         )}
