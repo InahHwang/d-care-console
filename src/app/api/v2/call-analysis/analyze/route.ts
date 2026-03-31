@@ -535,14 +535,13 @@ async function autoRegisterPatient(
     const matchedTypes = treatmentTypes.filter(
       (t: any) => t.parentCategory === analysis.interest && !t.isSystem && t.isActive
     );
-    // interestDetail로 매칭 시도, 실패 시 첫 번째 항목, 그것도 없으면 "미분류"
+    // interestDetail로 매칭 시도, 실패 시 "미분류"
     let treatmentType = '미분류';
     if (matchedTypes.length > 0) {
-      // interestDetail에 치료 과목명이 포함된 경우 매칭
       const detailMatch = analysis.interestDetail
         ? matchedTypes.find((t: any) => analysis.interestDetail!.includes(t.label))
         : null;
-      treatmentType = detailMatch ? detailMatch.label : matchedTypes[0].label;
+      treatmentType = detailMatch ? detailMatch.label : '미분류';
     }
 
     // 자동 채번: "신환-001", "신환-002"...
