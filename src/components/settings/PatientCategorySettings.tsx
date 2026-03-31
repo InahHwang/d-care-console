@@ -572,14 +572,33 @@ export default function PatientCategorySettings() {
       </div>
 
       {/* 안내 메시지 */}
-      <div className="p-4 bg-orange-50 rounded-lg text-sm text-orange-700">
-        <p className="font-medium mb-1">사용 안내</p>
-        <ul className="list-disc list-inside space-y-1 text-orange-600">
-          <li>항목을 자유롭게 <strong>추가, 수정, 삭제</strong>할 수 있습니다.</li>
-          <li>삭제된 항목은 환자 등록 시 선택 목록에서 사라집니다.</li>
-          <li>연필 아이콘을 클릭하면 항목 이름을 수정할 수 있습니다.</li>
-        </ul>
-      </div>
+      {isReadonly ? (
+        <div className="p-4 bg-blue-50 rounded-lg text-sm text-blue-700">
+          <p className="font-medium mb-1">시스템 관리 카테고리</p>
+          <ul className="list-disc list-inside space-y-1 text-blue-600">
+            <li>AI가 통화 내용을 자동 분류할 때 사용하는 <strong>대분류</strong>입니다.</li>
+            <li>눈 아이콘으로 <strong>활성/비활성</strong>만 변경할 수 있습니다.</li>
+            <li>치료 과목 탭에서 각 과목에 대분류를 매핑하면 자동 환자 등록이 작동합니다.</li>
+          </ul>
+        </div>
+      ) : isTreatmentTypes ? (
+        <div className="p-4 bg-orange-50 rounded-lg text-sm text-orange-700">
+          <p className="font-medium mb-1">사용 안내</p>
+          <ul className="list-disc list-inside space-y-1 text-orange-600">
+            <li>각 치료 과목에 <strong>대분류</strong>를 매핑하세요. 대분류가 있는 과목만 자동 환자 등록 대상입니다.</li>
+            <li>대분류를 선택하면 해당 분류의 <strong>미분류</strong> 항목이 자동 생성됩니다.</li>
+            <li>항목을 자유롭게 <strong>추가, 수정, 삭제</strong>할 수 있습니다.</li>
+          </ul>
+        </div>
+      ) : (
+        <div className="p-4 bg-orange-50 rounded-lg text-sm text-orange-700">
+          <p className="font-medium mb-1">사용 안내</p>
+          <ul className="list-disc list-inside space-y-1 text-orange-600">
+            <li>항목을 자유롭게 <strong>추가, 수정, 삭제</strong>할 수 있습니다.</li>
+            <li>비활성화된 항목은 환자 등록 시 선택 목록에서 숨겨집니다.</li>
+          </ul>
+        </div>
+      )}
     </div>
   );
 }
