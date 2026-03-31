@@ -1414,6 +1414,12 @@ public class CTIWorker : BackgroundService
     {
         if (string.IsNullOrEmpty(_inboundCallerNumber)) return;
 
+        // ★ 녹취 진행 중이면 타임아웃 리셋하지 않음 (장시간 통화 call-end 유실 방지)
+        if (_isRecording)
+        {
+            return;
+        }
+
         int elapsedSeconds = (int)(DateTime.Now - _inboundCallTime).TotalSeconds;
         if (elapsedSeconds > INBOUND_CALL_TIMEOUT_SEC)
         {
