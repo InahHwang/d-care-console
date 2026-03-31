@@ -389,19 +389,28 @@ export async function POST(request: NextRequest) {
     console.log(`[Analyze v2] 분석 완료: ${callLogId}`);
     console.log(`  분류: ${analysis.classification}, 온도: ${analysis.temperature}`);
 
-    // 환자 정보 업데이트 (있는 경우)
+    // 환자 정보 업데이트 또는 자동 등록
+    let autoRegisteredPatientId: string | null = null;
     if (callLog.patientId) {
       await updatePatientWithAnalysis(db, callLog.patientId, analysis);
+    } else {
+      // 미등록 통화 → 자동 환자 등록 시도
+      const autoResult = await autoRegisterPatient(db, callLog, analysis, clinicId);
+      if (autoResult) {
+        autoRegisteredPatientId = autoResult.patientId;
+        console.log(`[Analyze v2] 자동 환자 등록: ${autoResult.patientId} (${autoResult.name})`);
+      }
     }
 
     // Pusher로 분석 완료 알림
     try {
       await pusher.trigger('cti-v2', 'analysis-complete', {
         callLogId,
-        patientId: callLog.patientId,
+        patientId: callLog.patientId || autoRegisteredPatientId,
         classification: analysis.classification,
         temperature: analysis.temperature,
         summary: analysis.summary,
+        autoRegistered: !!autoRegisteredPatientId,
       });
     } catch (pusherError) {
       console.error('[Analyze v2] Pusher 오류:', pusherError);
@@ -466,6 +475,156 @@ async function getExistingNameForPhone(
     return null;
   } catch (error) {
     console.error('[Analyze v2] 기존 이름 조회 오류:', error);
+    return null;
+  }
+}
+
+// 자동 환자 등록 (미등록 신환/구신환 + 관리 대상 대분류)
+async function autoRegisterPatient(
+  db: Awaited<ReturnType<typeof connectToDatabase>>['db'],
+  callLog: any,
+  analysis: AIAnalysis,
+  clinicId: string
+): Promise<{ patientId: string; name: string } | null> {
+  try {
+    // 조건 1: 신환 또는 구신환만
+    if (!analysis.classification || !['신환', '구신환'].includes(analysis.classification)) {
+      return null;
+    }
+
+    // 조건 2: 전화번호 필수
+    if (!callLog.phone) {
+      return null;
+    }
+
+    // 조건 3: 같은 전화번호로 이미 등록된 환자가 있으면 스킵
+    const existingPatient = await db.collection('patients_v2').findOne({
+      clinicId,
+      phone: callLog.phone,
+    });
+    if (existingPatient) {
+      // 기존 환자에 callLog 연결만
+      await db.collection('callLogs_v2').updateOne(
+        { _id: callLog._id, clinicId },
+        { $set: { patientId: existingPatient._id.toString(), updatedAt: new Date().toISOString() } }
+      );
+      // 기존 환자 정보도 업데이트
+      await updatePatientWithAnalysis(db, existingPatient._id.toString(), analysis);
+      console.log(`[AutoRegister] 기존 환자 연결: ${existingPatient._id} (${existingPatient.name})`);
+      return null;
+    }
+
+    // 조건 4: AI interest가 관리 대상 대분류인지 확인
+    const settings = await db.collection('settings').findOne({ type: 'categories' });
+    const treatmentTypes = settings?.treatmentTypes || [];
+
+    // 관리 대상 = treatmentTypes에 parentCategory가 매핑된 대분류
+    const managedCategories = Array.from(new Set(
+      treatmentTypes
+        .filter((t: any) => t.parentCategory && !t.isSystem)
+        .map((t: any) => t.parentCategory as string)
+    )) as string[];
+
+    const isManaged = analysis.interest && managedCategories.includes(analysis.interest);
+    if (!isManaged) {
+      console.log(`[AutoRegister] 관리 대상 아님: interest="${analysis.interest}", 관리대상=[${managedCategories.join(', ')}]`);
+      return null;
+    }
+
+    // 치료 과목 매칭: interest(대분류) → treatmentType(소분류)
+    const matchedTypes = treatmentTypes.filter(
+      (t: any) => t.parentCategory === analysis.interest && !t.isSystem && t.isActive
+    );
+    // interestDetail로 매칭 시도, 실패 시 첫 번째 항목, 그것도 없으면 "미분류"
+    let treatmentType = '미분류';
+    if (matchedTypes.length > 0) {
+      // interestDetail에 치료 과목명이 포함된 경우 매칭
+      const detailMatch = analysis.interestDetail
+        ? matchedTypes.find((t: any) => analysis.interestDetail!.includes(t.label))
+        : null;
+      treatmentType = detailMatch ? detailMatch.label : matchedTypes[0].label;
+    }
+
+    // 자동 채번: "신환-001", "신환-002"...
+    const autoCount = await db.collection('patients_v2').countDocuments({
+      clinicId,
+      isAutoRegistered: true,
+    });
+    const autoName = `신환-${String(autoCount + 1).padStart(3, '0')}`;
+
+    // 여정(Journey) 생성
+    const now = new Date().toISOString();
+    const journeyId = new ObjectId().toString();
+    const firstJourney = {
+      id: journeyId,
+      treatmentType,
+      status: 'consulting',
+      startedAt: callLog.createdAt || now,
+      paymentStatus: 'none',
+      statusHistory: [{
+        from: 'consulting',
+        to: 'consulting',
+        eventDate: callLog.createdAt || now,
+        changedAt: now,
+        changedBy: '자동등록',
+      }],
+      isActive: true,
+      createdAt: now,
+      updatedAt: now,
+    };
+
+    // 환자 생성
+    const newPatient: Record<string, unknown> = {
+      clinicId,
+      name: autoName,
+      phone: callLog.phone,
+      status: 'consulting',
+      statusChangedAt: now,
+      temperature: analysis.temperature || 'warm',
+      interest: treatmentType,
+      interestDetail: analysis.interestDetail || '',
+      source: '',
+      consultationType: analysis.classification === '신환' ? '인바운드' : '',
+      aiRegistered: true,
+      aiConfidence: analysis.confidence || 0.8,
+      isAutoRegistered: true,
+      aiAnalysis: {
+        interest: analysis.interest || '',
+        summary: analysis.summary || '',
+        classification: analysis.classification,
+        followUp: analysis.followUp || '',
+      },
+      journeys: [firstJourney],
+      activeJourneyId: journeyId,
+      lastCallDirection: callLog.direction || 'inbound',
+      lastContactAt: callLog.createdAt || now,
+      callCount: 1,
+      createdAt: now,
+      updatedAt: now,
+    };
+
+    if (analysis.patientName) {
+      newPatient.name = analysis.patientName; // AI가 이름을 인식했으면 사용
+    }
+
+    const result = await db.collection('patients_v2').insertOne(newPatient);
+    const patientId = result.insertedId.toString();
+
+    // callLog에 patientId 연결
+    await db.collection('callLogs_v2').updateOne(
+      { _id: callLog._id, clinicId },
+      { $set: { patientId, updatedAt: now } }
+    );
+
+    // 같은 전화번호의 다른 미연결 callLog도 연결
+    await db.collection('callLogs_v2').updateMany(
+      { clinicId, phone: callLog.phone, patientId: { $exists: false } },
+      { $set: { patientId, updatedAt: now } }
+    );
+
+    return { patientId, name: newPatient.name as string };
+  } catch (error) {
+    console.error('[AutoRegister] 자동 환자 등록 오류:', error);
     return null;
   }
 }
