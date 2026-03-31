@@ -103,13 +103,12 @@ export async function GET(request: NextRequest) {
 // 시스템 고정 카테고리 (추가/수정/삭제 불가, 활성 토글만 허용)
 const SYSTEM_LOCKED_CATEGORIES = ['interestedServices'];
 
-// 대분류에 "미분류" 시스템 항목이 없으면 자동 생성
-async function ensureUncategorizedItem(db: any, parentCategory: string) {
+// "미분류" 시스템 항목이 없으면 자동 생성 (전체 1개)
+async function ensureUncategorizedItem(db: any) {
   const settings = await db.collection('settings').findOne({ type: 'categories' });
   const treatmentTypes = settings?.treatmentTypes || [];
 
-  const uncategorizedId = `uncategorized_${parentCategory.replace(/\s+/g, '_')}`;
-  const exists = treatmentTypes.some((t: any) => t.id === uncategorizedId);
+  const exists = treatmentTypes.some((t: any) => t.id === 'uncategorized');
 
   if (!exists) {
     await db.collection('settings').updateOne(
@@ -117,12 +116,11 @@ async function ensureUncategorizedItem(db: any, parentCategory: string) {
       {
         $push: {
           treatmentTypes: {
-            id: uncategorizedId,
-            label: `미분류 (${parentCategory})`,
+            id: 'uncategorized',
+            label: '미분류',
             isDefault: false,
             isActive: true,
             isSystem: true,
-            parentCategory,
           },
         } as any,
         $set: { updatedAt: new Date().toISOString() },
@@ -203,16 +201,9 @@ export async function PUT(request: NextRequest) {
       { upsert: true }
     );
 
-    // treatmentTypes 업데이트 시: 새로 매핑된 대분류에 "미분류" 항목 자동 생성
+    // treatmentTypes 업데이트 시: "미분류" 시스템 항목 자동 생성
     if (categoryType === 'treatmentTypes') {
-      const parentCategories: string[] = Array.from(new Set(
-        categories
-          .filter((c: any) => c.parentCategory)
-          .map((c: any) => c.parentCategory as string)
-      )) as string[];
-      for (let i = 0; i < parentCategories.length; i++) {
-        await ensureUncategorizedItem(db, parentCategories[i]);
-      }
+      await ensureUncategorizedItem(db);
     }
 
     return NextResponse.json({
@@ -285,9 +276,9 @@ export async function POST(request: NextRequest) {
       { upsert: true }
     );
 
-    // treatmentTypes에 parentCategory 지정 시: "미분류" 시스템 항목 자동 생성
-    if (categoryType === 'treatmentTypes' && item.parentCategory) {
-      await ensureUncategorizedItem(db, item.parentCategory);
+    // treatmentTypes 추가 시: "미분류" 시스템 항목 자동 생성
+    if (categoryType === 'treatmentTypes') {
+      await ensureUncategorizedItem(db);
     }
 
     return NextResponse.json({
