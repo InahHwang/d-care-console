@@ -551,6 +551,19 @@ public class CTIWorker : BackgroundService
         return response.IsSuccessStatusCode;
     }
 
+    // WAV → MP3 압축 (Vercel 4.5MB body 제한 대응)
+    private byte[] CompressWavToMp3(byte[] wavData)
+    {
+        using var wavStream = new MemoryStream(wavData);
+        using var reader = new NAudio.Wave.WaveFileReader(wavStream);
+        using var mp3Stream = new MemoryStream();
+        using (var writer = new NAudio.Lame.LameMP3FileWriter(mp3Stream, reader.WaveFormat, NAudio.Lame.LAMEPreset.V6))
+        {
+            reader.CopyTo(writer);
+        }
+        return mp3Stream.ToArray();
+    }
+
     private async Task<bool> DoSendRecording(CallEvent evt)
     {
         _logger.LogInformation("[Recording] 녹취 전송 시작: {Caller}", evt.CallerNumber);
@@ -569,17 +582,30 @@ public class CTIWorker : BackgroundService
                 var audioBytes = await _http.GetByteArrayAsync(evt.RecordingInfo);
                 _logger.LogInformation("[Recording] 다운로드 완료: {Size} bytes", audioBytes.Length);
 
-                // 3MB 이하만 base64 전송 (base64 변환 시 33% 증가 → ~4MB)
-                // 초과 시 URL만 전송하고 서버에서 직접 다운로드
-                if (audioBytes.Length <= 3 * 1024 * 1024)
+                // WAV→MP3 압축 후 base64 전송 (용량 무관하게 항상 전송)
+                // 이전: 3MB 초과 시 URL만 전송 → Vercel에서 SKB 내부망 접근 불가로 AI 분석 실패
+                try
                 {
-                    recordingBase64 = Convert.ToBase64String(audioBytes);
-                    _logger.LogInformation("[Recording] Base64 변환: {Size} bytes → {Base64Size} chars",
-                        audioBytes.Length, recordingBase64.Length);
+                    var mp3Bytes = CompressWavToMp3(audioBytes);
+                    _logger.LogInformation("[Recording] MP3 압축: {WavSize} bytes → {Mp3Size} bytes ({Ratio}%)",
+                        audioBytes.Length, mp3Bytes.Length, (int)(mp3Bytes.Length * 100.0 / audioBytes.Length));
+                    recordingBase64 = Convert.ToBase64String(mp3Bytes);
+                    fileName = Path.ChangeExtension(fileName, ".mp3");
+                    _logger.LogInformation("[Recording] Base64 변환 완료: {Base64Size} chars", recordingBase64.Length);
                 }
-                else
+                catch (Exception compressEx)
                 {
-                    _logger.LogInformation("[Recording] 파일이 커서 URL만 전송 ({Size} bytes)", audioBytes.Length);
+                    _logger.LogWarning(compressEx, "[Recording] MP3 압축 실패, WAV 원본으로 시도");
+                    // 압축 실패 시 원본이 3MB 이하면 그대로 전송
+                    if (audioBytes.Length <= 3 * 1024 * 1024)
+                    {
+                        recordingBase64 = Convert.ToBase64String(audioBytes);
+                        _logger.LogInformation("[Recording] WAV 원본 Base64 전송: {Size} chars", recordingBase64.Length);
+                    }
+                    else
+                    {
+                        _logger.LogWarning("[Recording] WAV 원본도 3MB 초과, URL만 전송 ({Size} bytes)", audioBytes.Length);
+                    }
                 }
             }
             catch (Exception ex)
