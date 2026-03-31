@@ -490,26 +490,20 @@ export default function PatientCategorySettings() {
                   </span>
                 )}
 
-                {/* 대분류 매핑 (treatmentTypes 전용) */}
-                {isTreatmentTypes && (
-                  item.isSystem ? (
-                    <span className="px-2 py-0.5 text-xs bg-gray-100 text-gray-500 rounded">
-                      {item.parentCategory}
-                    </span>
-                  ) : (
-                    <select
-                      value={item.parentCategory || ''}
-                      onChange={(e) => handleChangeParentCategory(item.id, e.target.value)}
-                      disabled={isSaving}
-                      className="px-2 py-0.5 text-xs border border-gray-200 rounded bg-white focus:outline-none focus:ring-1 focus:ring-primary"
-                      title="대분류 선택"
-                    >
-                      <option value="">대분류 없음</option>
-                      {parentCategoryOptions.map((label) => (
-                        <option key={label} value={label}>{label}</option>
-                      ))}
-                    </select>
-                  )
+                {/* 대분류 매핑 (treatmentTypes 전용, 시스템 항목 제외) */}
+                {isTreatmentTypes && !item.isSystem && (
+                  <select
+                    value={item.parentCategory || ''}
+                    onChange={(e) => handleChangeParentCategory(item.id, e.target.value)}
+                    disabled={isSaving}
+                    className="px-2 py-0.5 text-xs border border-gray-200 rounded bg-white focus:outline-none focus:ring-1 focus:ring-primary"
+                    title="대분류 선택"
+                  >
+                    <option value="">대분류 없음</option>
+                    {parentCategoryOptions.map((label) => (
+                      <option key={label} value={label}>{label}</option>
+                    ))}
+                  </select>
                 )}
 
                 {/* 비활성화 뱃지 */}
