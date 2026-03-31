@@ -492,18 +492,24 @@ export default function PatientCategorySettings() {
 
                 {/* 대분류 매핑 (treatmentTypes 전용) */}
                 {isTreatmentTypes && (
-                  <select
-                    value={item.parentCategory || ''}
-                    onChange={(e) => handleChangeParentCategory(item.id, e.target.value)}
-                    disabled={isSaving || item.isSystem}
-                    className="px-2 py-0.5 text-xs border border-gray-200 rounded bg-white focus:outline-none focus:ring-1 focus:ring-primary"
-                    title="대분류 선택"
-                  >
-                    <option value="">대분류 없음</option>
-                    {parentCategoryOptions.map((label) => (
-                      <option key={label} value={label}>{label}</option>
-                    ))}
-                  </select>
+                  item.isSystem ? (
+                    <span className="px-2 py-0.5 text-xs bg-gray-100 text-gray-500 rounded">
+                      {item.parentCategory}
+                    </span>
+                  ) : (
+                    <select
+                      value={item.parentCategory || ''}
+                      onChange={(e) => handleChangeParentCategory(item.id, e.target.value)}
+                      disabled={isSaving}
+                      className="px-2 py-0.5 text-xs border border-gray-200 rounded bg-white focus:outline-none focus:ring-1 focus:ring-primary"
+                      title="대분류 선택"
+                    >
+                      <option value="">대분류 없음</option>
+                      {parentCategoryOptions.map((label) => (
+                        <option key={label} value={label}>{label}</option>
+                      ))}
+                    </select>
+                  )
                 )}
 
                 {/* 비활성화 뱃지 */}
@@ -538,6 +544,7 @@ export default function PatientCategorySettings() {
                   </>
                 ) : (
                   <>
+                    {!item.isSystem && (
                     <button
                       onClick={() => startEditing(item)}
                       disabled={isSaving}
@@ -546,6 +553,7 @@ export default function PatientCategorySettings() {
                     >
                       <Icon icon={HiOutlinePencil} size={18} />
                     </button>
+                    )}
                     {!item.isSystem && (
                     <button
                       onClick={() => handleDeleteItem(item.id)}
