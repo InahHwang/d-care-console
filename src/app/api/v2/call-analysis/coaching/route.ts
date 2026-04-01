@@ -22,6 +22,19 @@ const PATIENT_STATUS_LABELS: Record<string, string> = {
   closed: '종결',
 };
 
+// 같은 환자의 다른 통화 요약 정보
+interface CallHistoryItem {
+  callDate: string;
+  direction: string;
+  duration: number;
+  transcript: string;
+  summary: string;
+  consultationStatus?: string;
+  statusReason?: string;
+  coachingScore?: number;
+  isCurrent: boolean;
+}
+
 // 코칭 프롬프트 생성
 function buildCoachingPrompt(
   transcript: string,
@@ -31,13 +44,43 @@ function buildCoachingPrompt(
   summary: string,
   concerns: string[],
   interest?: string,
-  patientStatus?: string
+  patientStatus?: string,
+  callHistory?: CallHistoryItem[]
 ): string {
   const statusLabel = patientStatus ? (PATIENT_STATUS_LABELS[patientStatus] || patientStatus) : '알 수 없음';
 
-  return `당신은 치과 콜센터 상담 코칭 전문가입니다. 아래 통화 녹취를 분석하여 상담사에게 구체적인 개선 조언을 제공하세요.
+  // 통화 이력 컨텍스트 생성 (여러 건 있을 때만)
+  let callHistorySection = '';
+  if (callHistory && callHistory.length > 1) {
+    const historyLines = callHistory.map((call, idx) => {
+      const marker = call.isCurrent ? ' ◀ [현재 분석 대상 — 전체 녹취는 아래 별도 섹션]' : '';
+      const score = call.coachingScore != null ? ` | 코칭점수: ${call.coachingScore}점` : '';
+      const transcriptBlock = !call.isCurrent && call.transcript
+        ? `\n   [녹취록]\n${call.transcript}`
+        : '';
+      return `### ${idx + 1}차 통화: [${call.callDate}] ${call.direction === 'inbound' ? '수신' : '발신'} (${Math.floor(call.duration / 60)}분 ${call.duration % 60}초)${marker}
+- 요약: ${call.summary || '없음'}
+- 상담결과: ${call.consultationStatus || '없음'} ${call.statusReason ? `(${call.statusReason})` : ''}${score}${transcriptBlock}`;
+    }).join('\n\n');
 
-## 통화 녹취
+    callHistorySection = `
+## ⚠️ 이 환자와의 전체 통화 이력 (시간순, 녹취 전문 포함)
+이 환자와 총 ${callHistory.length}건의 통화가 있었습니다. **모든 통화의 녹취록을 읽고** 전체 흐름을 고려하여 코칭하세요.
+
+${historyLines}
+
+**중요 지침:**
+- 이전 통화에서 문제가 있었더라도, 이후 통화에서 해결되었다면 그 점을 반영하세요.
+- 통화 간 환자 태도/감정 변화의 흐름을 파악하세요.
+- "이 통화 시점"에서의 상담사 대응을 평가하되, 최종 결과(환자 상태)도 함께 고려하세요.
+- 이전 통화에서 이미 시도한 접근법을 다시 제안하지 마세요.
+- 이전 통화에서 상담사가 잘 대응한 부분이 이후 통화 결과에 긍정적으로 이어졌다면, strengths에 포함하세요.
+`;
+  }
+
+  return `당신은 치과 콜센터 상담 코칭 전문가입니다. 아래 통화 녹취를 분석하여 상담사에게 구체적인 개선 조언을 제공하세요.
+${callHistorySection}
+## 통화 녹취 (분석 대상)
 ${transcript}
 
 ## 상담 결과 정보
@@ -159,7 +202,8 @@ async function analyzeCoachingWithGPT(
   summary: string,
   concerns: string[],
   interest?: string,
-  patientStatus?: string
+  patientStatus?: string,
+  callHistory?: CallHistoryItem[]
 ): Promise<AICoachingResult> {
   const apiKey = process.env.OPENAI_API_KEY;
   if (!apiKey) {
@@ -168,7 +212,7 @@ async function analyzeCoachingWithGPT(
 
   const prompt = buildCoachingPrompt(
     transcript, consultationStatus, statusReason,
-    disagreeReasons, summary, concerns, interest, patientStatus
+    disagreeReasons, summary, concerns, interest, patientStatus, callHistory
   );
 
   const response = await fetch('https://api.openai.com/v1/chat/completions', {
@@ -339,6 +383,45 @@ export async function POST(request: NextRequest) {
       patientStatus = patient?.status;
     }
 
+    // 같은 환자의 통화 이력 조회 (복합 코칭용)
+    let callHistory: CallHistoryItem[] | undefined;
+    if (callLog.patientId) {
+      const otherCalls = await db.collection('callLogs_v2')
+        .find({
+          clinicId,
+          patientId: callLog.patientId,
+          'aiAnalysis.transcript': { $exists: true },
+        })
+        .sort({ callDate: 1 })
+        .project({
+          _id: 1,
+          callDate: 1,
+          direction: 1,
+          duration: 1,
+          'aiAnalysis.transcript': 1,
+          'aiAnalysis.summary': 1,
+          'aiAnalysis.consultationResult.status': 1,
+          'aiAnalysis.consultationResult.statusReason': 1,
+          'aiCoaching.overallScore': 1,
+        })
+        .toArray();
+
+      if (otherCalls.length > 1) {
+        callHistory = otherCalls.map(c => ({
+          callDate: c.callDate || '',
+          direction: c.direction || 'outbound',
+          duration: c.duration || 0,
+          transcript: c.aiAnalysis?.transcript || '',
+          summary: c.aiAnalysis?.summary || '',
+          consultationStatus: c.aiAnalysis?.consultationResult?.status,
+          statusReason: c.aiAnalysis?.consultationResult?.statusReason,
+          coachingScore: c.aiCoaching?.overallScore,
+          isCurrent: c._id.toString() === callLogId,
+        }));
+        console.log(`[Coaching] 환자 ${callLog.patientId} 통화 ${otherCalls.length}건 이력 포함`);
+      }
+    }
+
     // AI 코칭 분석 실행
     const aiAnalysis = callLog.aiAnalysis;
     const coaching = await analyzeCoachingWithGPT(
@@ -349,7 +432,8 @@ export async function POST(request: NextRequest) {
       aiAnalysis?.summary || '',
       aiAnalysis?.concerns || [],
       aiAnalysis?.interest,
-      patientStatus
+      patientStatus,
+      callHistory
     );
 
     // 결과 저장 (환자 상태 스냅샷 포함)
