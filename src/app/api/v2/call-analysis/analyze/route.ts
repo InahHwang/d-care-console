@@ -487,8 +487,8 @@ async function autoRegisterPatient(
   clinicId: string
 ): Promise<{ patientId: string; name: string } | null> {
   try {
-    // 조건 1: 신환 또는 구신환만
-    if (!analysis.classification || !['신환', '구신환'].includes(analysis.classification)) {
+    // 조건 1: 신환/구신환/구환 (관리 대상 관심분야면 미등록 환자는 모두 등록)
+    if (!analysis.classification || !['신환', '구신환', '구환'].includes(analysis.classification)) {
       return null;
     }
 
