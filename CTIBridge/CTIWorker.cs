@@ -91,6 +91,13 @@ public class CTIWorker : BackgroundService
     private DateTime _inboundCallStartTime;      // ★ 실제 통화 연결 시점 (duration 계산용)
     private const int INBOUND_CALL_TIMEOUT_SEC = 300;  // 5분 후 상태 자동 리셋
 
+    // ★ 녹취 지연 재시도 (Svc=9에서 EVT_READY_SERVICE 미수신 시)
+    private bool _pendingRecordingRetry = false;    // 녹취 재시도 대기 중
+    private DateTime _pendingRecordingRetryTime;    // 재시도 예정 시각
+    private int _recordingRetryCount = 0;           // 재시도 횟수
+    private const int RECORDING_RETRY_DELAY_MS = 2000;  // 2초 후 재시도
+    private const int RECORDING_MAX_RETRIES = 3;    // 최대 3회 재시도
+
     // ★ 비동기 큐 관련
     private readonly ConcurrentQueue<CallEvent> _eventQueue = new();
     private const int MAX_RETRY = 3;
@@ -334,6 +341,9 @@ public class CTIWorker : BackgroundService
                     _lastHealthCheckTime = DateTime.Now;
                     CheckSessionHealth();
                 }
+
+                // ★ 녹취 지연 재시도 체크 (Svc=9에서 EVT_READY 미수신 시)
+                CheckPendingRecordingRetry();
 
                 // ★ 수신 통화 타임아웃 체크 (end 이벤트 누락 시 상태 리셋)
                 CheckInboundCallTimeout();
@@ -1065,25 +1075,20 @@ public class CTIWorker : BackgroundService
                         ExtInfo = evt.ExtInfo
                     });
 
-                    // ★ EVT_READY_SERVICE가 안 온 경우 능동적으로 녹취 시작 시도
+                    // ★ EVT_READY_SERVICE가 안 온 경우 → 즉시 시도하지 않고 지연 재시도 예약
+                    // (즉시 IMS_TermRec_Start() 호출 시 녹취 리소스 미할당 상태에서 0x800D 실패하고,
+                    //  이후 EVT_READY_SERVICE도 안 오는 문제 방지)
                     if (!_isRecordingReady && !_isRecording && !_isClickCallActive)
                     {
-                        _logger.LogInformation("🎙️ [Svc=9] EVT_READY_SERVICE 미수신 → 녹취 직접 시작 시도: {Caller} → {Called}", evt.Dn1, evt.Dn2);
                         _currentCallerId = evt.Dn1;
                         _currentCalledId = evt.Dn2;
-                        _recordingCallerId = evt.Dn1;  // ★ 녹취 전용
+                        _recordingCallerId = evt.Dn1;
                         _recordingCalledId = evt.Dn2;
-                        int startResult = IMS_TermRec_Start();
-                        if (startResult == SUCCESS)
-                        {
-                            _isRecordingReady = true;
-                            _recordingStartTime = DateTime.Now;
-                            _logger.LogInformation("✅ [Svc=9] 녹취 시작 요청 성공!");
-                        }
-                        else
-                        {
-                            _logger.LogWarning("⚠️ [Svc=9] 녹취 시작 실패 (코드: 0x{Code:X}) - 녹취 불가 통화", startResult);
-                        }
+                        _pendingRecordingRetry = true;
+                        _pendingRecordingRetryTime = DateTime.Now.AddMilliseconds(RECORDING_RETRY_DELAY_MS);
+                        _recordingRetryCount = 0;
+                        _logger.LogInformation("🎙️ [Svc=9] EVT_READY_SERVICE 미수신 → {Delay}ms 후 녹취 시작 재시도 예약: {Caller} → {Called}",
+                            RECORDING_RETRY_DELAY_MS, evt.Dn1, evt.Dn2);
                     }
                 }
                 else
@@ -1405,11 +1410,67 @@ public class CTIWorker : BackgroundService
         _isRecording = false;
         _currentCallerId = "";
         _currentCalledId = "";
+        _pendingRecordingRetry = false;
+        _recordingRetryCount = 0;
 
         _logger.LogDebug("📞 [수신 상태 리셋] 완료");
     }
 
     // ★ 수신 통화 타임아웃 체크 (end 이벤트 누락 대비)
+    // ★ 녹취 지연 재시도 (Svc=9 후 EVT_READY_SERVICE 대기 → 타임아웃 시 재시도)
+    private void CheckPendingRecordingRetry()
+    {
+        if (!_pendingRecordingRetry) return;
+
+        // EVT_READY_SERVICE가 왔으면 재시도 취소 (정상 경로로 녹취 시작됨)
+        if (_isRecordingReady || _isRecording)
+        {
+            _logger.LogInformation("🎙️ [녹취 재시도] EVT_READY_SERVICE 수신됨 → 재시도 취소");
+            _pendingRecordingRetry = false;
+            _recordingRetryCount = 0;
+            return;
+        }
+
+        // 통화가 끝났으면 재시도 취소
+        if (string.IsNullOrEmpty(_inboundCallerNumber))
+        {
+            _pendingRecordingRetry = false;
+            _recordingRetryCount = 0;
+            return;
+        }
+
+        // 아직 대기 시간 안 됐으면 리턴
+        if (DateTime.Now < _pendingRecordingRetryTime) return;
+
+        _recordingRetryCount++;
+        _logger.LogInformation("🎙️ [녹취 재시도] {Count}/{Max}회 시도: {Caller} → {Called}",
+            _recordingRetryCount, RECORDING_MAX_RETRIES, _recordingCallerId, _recordingCalledId);
+
+        int startResult = IMS_TermRec_Start();
+        if (startResult == SUCCESS)
+        {
+            _isRecordingReady = true;
+            _recordingStartTime = DateTime.Now;
+            _pendingRecordingRetry = false;
+            _recordingRetryCount = 0;
+            _logger.LogInformation("✅ [녹취 재시도] 녹취 시작 성공!");
+        }
+        else if (_recordingRetryCount >= RECORDING_MAX_RETRIES)
+        {
+            _pendingRecordingRetry = false;
+            _recordingRetryCount = 0;
+            _logger.LogWarning("⚠️ [녹취 재시도] {Max}회 모두 실패 (마지막 코드: 0x{Code:X}) - 녹취 불가 통화",
+                RECORDING_MAX_RETRIES, startResult);
+        }
+        else
+        {
+            // 다음 재시도 예약 (간격을 점점 늘림: 2초, 4초, 6초)
+            _pendingRecordingRetryTime = DateTime.Now.AddMilliseconds(RECORDING_RETRY_DELAY_MS * (_recordingRetryCount + 1));
+            _logger.LogWarning("⚠️ [녹취 재시도] 실패 (코드: 0x{Code:X}) - {NextDelay}ms 후 다시 시도",
+                startResult, RECORDING_RETRY_DELAY_MS * (_recordingRetryCount + 1));
+        }
+    }
+
     private void CheckInboundCallTimeout()
     {
         if (string.IsNullOrEmpty(_inboundCallerNumber)) return;
