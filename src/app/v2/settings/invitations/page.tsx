@@ -41,6 +41,7 @@ export default function InvitationsSettingsPage() {
     role: 'staff'
   });
   const [formError, setFormError] = useState<string | null>(null);
+  const [createdInviteLink, setCreatedInviteLink] = useState<string | null>(null);
 
   // 복사 성공 상태
   const [copiedId, setCopiedId] = useState<string | null>(null);
@@ -117,11 +118,9 @@ export default function InvitationsSettingsPage() {
       const data = await response.json();
 
       if (data.success) {
-        // 생성된 초대 링크 복사 (프론트엔드에서 직접 생성)
+        // 생성된 초대 링크 표시
         const inviteLink = `${window.location.origin}/invite/${data.data.token}`;
-        await navigator.clipboard.writeText(inviteLink);
-        alert(`초대가 생성되었습니다!\n\n초대 링크가 클립보드에 복사되었습니다.\n\n${inviteLink}`);
-
+        setCreatedInviteLink(inviteLink);
         setShowModal(false);
         setFormData({ name: '', email: '', role: 'staff' });
         fetchInvitations();
@@ -383,6 +382,51 @@ export default function InvitationsSettingsPage() {
           </table>
         )}
       </div>
+
+      {/* 초대 링크 결과 모달 */}
+      {createdInviteLink && (
+        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
+          <div className="bg-white rounded-2xl shadow-xl w-full max-w-md p-6">
+            <div className="flex items-center justify-between mb-4">
+              <h2 className="text-xl font-bold text-gray-900">초대 링크 생성 완료</h2>
+              <button
+                onClick={() => setCreatedInviteLink(null)}
+                className="p-2 text-gray-500 hover:bg-gray-100 rounded-lg"
+              >
+                <FiX className="w-5 h-5" />
+              </button>
+            </div>
+            <p className="text-sm text-gray-600 mb-3">아래 링크를 복사해서 초대할 사용자에게 전달하세요.</p>
+            <div className="flex gap-2">
+              <input
+                type="text"
+                readOnly
+                value={createdInviteLink}
+                className="flex-1 px-3 py-2 border border-gray-300 rounded-lg bg-gray-50 text-sm"
+                onFocus={(e) => e.target.select()}
+              />
+              <button
+                onClick={async () => {
+                  try {
+                    await navigator.clipboard.writeText(createdInviteLink);
+                    alert('복사되었습니다!');
+                  } catch {
+                    // clipboard 실패 시 수동 선택 유도
+                  }
+                }}
+                className="px-4 py-2 bg-orange-600 text-white rounded-lg hover:bg-orange-700 text-sm whitespace-nowrap"
+              >
+                <FiCopy className="w-4 h-4 inline mr-1" />
+                복사
+              </button>
+            </div>
+            <p className="text-xs text-gray-400 mt-3">
+              <FiClock className="inline w-3 h-3 mr-1" />
+              7일 후 만료됩니다. 입력란을 클릭하면 전체 선택됩니다.
+            </p>
+          </div>
+        </div>
+      )}
 
       {/* 새 초대 모달 */}
       {showModal && (
