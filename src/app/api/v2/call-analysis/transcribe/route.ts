@@ -4,6 +4,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { connectToDatabase, getClinicId } from '@/utils/mongodb';
 import { ObjectId } from 'mongodb';
+import { PIIMasker } from '@/utils/piiMasker';
 
 // Vercel Function 타임아웃 설정 (STT는 오래 걸릴 수 있음)
 export const maxDuration = 120;
@@ -95,6 +96,10 @@ async function diarizeWithGPT(plainText: string, direction: string = 'unknown'):
   try {
     const systemPrompt = buildDiarizePrompt(direction);
 
+    // PII 마스킹 — 화자분리 GPT에 개인정보 전송 방지
+    const piiMasker = new PIIMasker();
+    const maskedText = piiMasker.maskText(plainText);
+
     const response = await fetch('https://api.openai.com/v1/chat/completions', {
       method: 'POST',
       headers: {
@@ -105,7 +110,7 @@ async function diarizeWithGPT(plainText: string, direction: string = 'unknown'):
         model: 'gpt-5.2',
         messages: [
           { role: 'developer', content: systemPrompt },
-          { role: 'user', content: plainText },
+          { role: 'user', content: maskedText },
         ],
         max_completion_tokens: 4000,
       }),
@@ -117,14 +122,16 @@ async function diarizeWithGPT(plainText: string, direction: string = 'unknown'):
     }
 
     const data = await response.json();
-    const diarized = data.choices[0]?.message?.content?.trim();
+    const maskedDiarized = data.choices[0]?.message?.content?.trim();
 
-    if (!diarized || diarized.length < plainText.length * 0.3) {
+    if (!maskedDiarized || maskedDiarized.length < maskedText.length * 0.3) {
       console.log('[STT v2] 화자분리 결과 너무 짧음, 원본 반환');
       return plainText;
     }
 
-    console.log(`[STT v2] 화자분리 완료: ${plainText.length}자 → ${diarized.length}자`);
+    // 마스킹 복원 — DB에는 원본 이름으로 저장
+    const diarized = piiMasker.unmaskText(maskedDiarized);
+    console.log(`[STT v2] 화자분리 완료 (PII 마스킹 적용): ${plainText.length}자 → ${diarized.length}자`);
     return diarized;
   } catch (error) {
     console.error('[STT v2] 화자분리 오류, 원본 반환:', error);

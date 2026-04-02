@@ -5,6 +5,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { connectToDatabase, getClinicId } from '@/utils/mongodb';
 import { ObjectId } from 'mongodb';
 import { extractUserFromRequest } from '@/utils/auditLog';
+import { PIIMasker } from '@/utils/piiMasker';
 
 // Vercel Function 타임아웃 설정 (GPT-5.2는 응답이 느릴 수 있음)
 export const maxDuration = 120;
@@ -518,20 +519,27 @@ export async function POST(request: NextRequest) {
       console.log('[AI Chat] 자동 검색 데이터:', Object.keys(searchedData));
     }
 
-    // 시스템 프롬프트 생성 (페이지 데이터 + 검색 데이터 통합)
-    const systemPrompt = buildSystemPrompt(pageContext || '', pageTitle || '', mergedContextData);
+    // PII 마스킹 — OpenAI에 개인정보 전송 방지
+    const piiMasker = new PIIMasker();
+    const maskedContextData = piiMasker.maskContextData(mergedContextData);
+
+    // 시스템 프롬프트 생성 (마스킹된 데이터 사용)
+    const systemPrompt = buildSystemPrompt(pageContext || '', pageTitle || '', maskedContextData);
 
     // 대화 이력에서 최근 N개만 사용
     const recentMessages = (conversation.messages || []).slice(-MAX_CONTEXT_MESSAGES);
 
-    // OpenAI API 호출
+    // OpenAI API 호출 (대화 이력과 사용자 메시지도 마스킹)
+    const maskedRecentMessages = piiMasker.maskMessages(recentMessages);
+    const maskedUserMessage = piiMasker.maskUserMessage(message.trim());
+
     const openaiMessages = [
       { role: 'developer', content: systemPrompt },
-      ...recentMessages.map((m: { role: string; content: string }) => ({
+      ...maskedRecentMessages.map((m: { role: string; content: string }) => ({
         role: m.role,
         content: m.content,
       })),
-      { role: 'user', content: message.trim() },
+      { role: 'user', content: maskedUserMessage },
     ];
 
     const response = await fetch('https://api.openai.com/v1/chat/completions', {
@@ -557,7 +565,8 @@ export async function POST(request: NextRequest) {
     }
 
     const data = await response.json();
-    const assistantContent = data.choices[0]?.message?.content;
+    // AI 응답에서 마스킹된 값을 원본으로 복원
+    const assistantContent = piiMasker.unmaskText(data.choices[0]?.message?.content || '');
 
     if (!assistantContent) {
       return NextResponse.json(

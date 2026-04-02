@@ -5,7 +5,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { connectToDatabase, getClinicId } from '@/utils/mongodb';
 import { ObjectId } from 'mongodb';
 import type { AICoachingResult } from '@/types/v2';
-import { logAudit } from '@/utils/auditLog';
+import { PIIMasker } from '@/utils/piiMasker';
 
 // Vercel Function 타임아웃 설정 (gpt-5.2는 응답이 느릴 수 있음)
 export const maxDuration = 120;
@@ -210,9 +210,19 @@ async function analyzeCoachingWithGPT(
     throw new Error('OPENAI_API_KEY가 설정되지 않았습니다.');
   }
 
+  // PII 마스킹 — 녹취록/요약에서 개인정보 제거
+  const piiMasker = new PIIMasker();
+  const maskedTranscript = piiMasker.maskText(transcript);
+  const maskedSummary = piiMasker.maskText(summary);
+  const maskedCallHistory = callHistory?.map(h => ({
+    ...h,
+    transcript: h.transcript ? piiMasker.maskText(h.transcript) : h.transcript,
+    summary: h.summary ? piiMasker.maskText(h.summary) : h.summary,
+  }));
+
   const prompt = buildCoachingPrompt(
-    transcript, consultationStatus, statusReason,
-    disagreeReasons, summary, concerns, interest, patientStatus, callHistory
+    maskedTranscript, consultationStatus, statusReason,
+    disagreeReasons, maskedSummary, concerns, interest, patientStatus, maskedCallHistory
   );
 
   const response = await fetch('https://api.openai.com/v1/chat/completions', {

@@ -9,6 +9,7 @@ import { ObjectId } from 'mongodb';
 import Pusher from 'pusher';
 import type { AIAnalysis, AIConsultationResult, Temperature, AIClassification, FollowUpType, ConsultationStatus } from '@/types/v2';
 import { z } from 'zod';
+import { PIIMasker } from '@/utils/piiMasker';
 
 const analyzeSchema = z.object({
   callLogId: z.string().min(1, 'callLogId is required'),
@@ -212,7 +213,10 @@ async function analyzeWithGPT(transcript: string, treatmentLabels: string[]): Pr
     throw new Error('OPENAI_API_KEY가 설정되지 않았습니다.');
   }
 
-  const prompt = buildAnalysisPrompt(transcript, treatmentLabels);
+  // PII 마스킹 — 녹취록에서 전화번호 등 개인정보 제거 후 OpenAI 전송
+  const piiMasker = new PIIMasker();
+  const maskedTranscript = piiMasker.maskText(transcript);
+  const prompt = buildAnalysisPrompt(maskedTranscript, treatmentLabels);
 
   const response = await fetch('https://api.openai.com/v1/chat/completions', {
     method: 'POST',
@@ -274,17 +278,17 @@ async function analyzeWithGPT(transcript: string, treatmentLabels: string[]): Pr
       consultationResult = inferConsultationResult(result);
     }
 
-    // v2 타입으로 변환
+    // v2 타입으로 변환 — 마스킹된 값을 원본으로 복원
     return {
       classification: result.classification as AIClassification,
-      patientName: result.patientName,
+      patientName: piiMasker.unmaskText(result.patientName || ''),
       interest: result.interest,
       interestDetail: result.interestDetail,
       temperature: result.temperature as Temperature,
-      summary: result.summary,
+      summary: piiMasker.unmaskText(result.summary || ''),
       followUp: result.followUp as FollowUpType,
       recommendedCallback: result.recommendedCallback,
-      concerns: result.concerns || [],
+      concerns: (result.concerns || []).map((c: string) => piiMasker.unmaskText(c)),
       preferredTime: result.preferredTime,
       confidence: result.confidence || 0.8,
       transcript: transcript,

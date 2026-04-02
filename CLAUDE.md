@@ -311,38 +311,26 @@ git commit -m "[CTIBridge] 변경 내용 요약"
   - `clinics` 컬렉션 생성 (clinicId: 'default')
   - V2 컬렉션 15개에 `clinicId: 'default'` 일괄 추가 (2026-03-18 재확인: modified 0 = 이미 완료)
   - clinicId 포함 복합 인덱스 7개 생성 (patients_v2, callLogs_v2, callbacks_v2, consultations_v2, channelChats_v2)
-- [ ] Step 4-2: API에 clinicId 필터 적용 (한 API씩 점진적 진행)
-  - 진행 방식: API 1개 수정 → 배포 → 사장님 운영 확인 → 다음 API
-  - ⚠️ 진료시간 외에 작업할 것 (문제 시 환자 응대에 영향)
-  - 대상 API 목록 (미정, 진행 시 하나씩 체크):
-    - [x] patients (조회/생성/수정)
-    - [x] callLogs (조회) — 2026-03-30 CTI write 포함 10개 파일 일괄 적용, 빌드 확인
-    - [x] callbacks (조회/생성/수정) — 이미 적용되어 있었음
-    - [x] consultations (조회/생성/수정) — 2026-03-27 적용, 배포 완료
-    - [x] channel-chats (조회/생성) — 2026-03-22 적용, 빌드 확인 완료
-    - [ ] call-analysis (조회)
-    - [x] recall-messages (조회/생성) — 2026-03-22 적용, 빌드 확인 완료
-    - [x] settings (조회/수정) — 2026-03-22 getClinicId() 사용으로 변경
-    - [x] dashboard (조회) — 2026-03-22 적용, 배포 완료
-    - [x] reports (조회/생성/수정/삭제) — 2026-03-22 적용, 배포 완료
-    - [x] recall-settings (조회/생성/수정/삭제) — 2026-03-22 적용
-    - [x] referrals (조회/생성/수정/삭제) — 2026-03-22 적용
-    - [x] marketing-targets (조회) — 2026-03-22 적용
-    - [x] templates (조회/생성/수정/삭제) — 2026-03-22 적용
-    - [x] ai-chat (조회/생성/삭제) — 2026-03-22 적용
-    - [x] alimtalk (발송/조회) — 2026-03-22 적용
-    - [x] consultations (조회/생성/수정) — 2026-03-27 적용, 배포 완료
-    - [x] callLogs + CTI (조회/생성) — 2026-03-30 적용, 빌드 확인
-    - [x] call-analysis (조회) — 2026-03-30 적용, 빌드 확인
-    - [ ] users/invitations — 멀티테넌시 사용자-병원 매핑 설계 필요
+- [x] Step 4-2: API에 clinicId 필터 적용 — 실질 완료 (2026-03-30)
+  - 전체 API 적용 완료: patients, callLogs+CTI, callbacks, consultations, channel-chats, recall-messages, settings, dashboard, reports, recall-settings, referrals, marketing-targets, templates, ai-chat, alimtalk, call-analysis
+  - [ ] users/invitations — Step 5(JWT) + Step 8(RBAC)과 함께 진행 예정 (사용자-병원 N:M 매핑 설계 필요)
 
 #### Step 5: 인증 강화 - JWT/쿠키 (리스크: 높음)
 - [ ] JWT 인증 미들웨어 (한 라우트씩 점진적 적용)
 
 #### Step 6: PII 마스킹 - AI 전송 시 개인정보 보호 (리스크: 낮음)
-- [ ] AI 채팅 API에서 OpenAI 전송 전 PII(이름, 전화번호 등) 치환 처리
-  - DB 조회 → 개인정보 마스킹 ([환자A], [전화번호] 등) → OpenAI 전송 → 응답에서 복원
-- [ ] AI 통화 분석(coaching, diarize 등)에도 동일 적용
+- [x] PII 마스킹 유틸리티 생성 (2026-04-02)
+  - `src/utils/piiMasker.ts` — 이름→[환자A], 전화번호→[전화번호1] 치환/복원 클래스
+  - 등록된 이름/전화번호 치환 + 미등록 전화번호 패턴 자동 감지
+- [x] AI 채팅 API 적용 (`/api/v2/ai-chat`)
+  - contextData(환자 DB 데이터) 마스킹 → OpenAI 전송 → 응답에서 복원
+  - 대화 이력 + 사용자 메시지도 마스킹
+- [x] AI 통화 분석 4개 API 적용
+  - coaching: 녹취록 + 요약 + 과거 통화이력 마스킹
+  - diarize: 녹취록 마스킹 → 화자분리 → 복원 후 DB 저장
+  - analyze: 녹취록 마스킹 → 분석 → patientName/summary 복원
+  - transcribe 내 화자분리 후처리: 동일 마스킹/복원 적용
+- [ ] transcribe Whisper API (음성 파일 전송)는 마스킹 불가 — 향후 온프레미스 STT 검토
 - 목적: OpenAI 서버(해외)에 환자 개인식별정보가 나가지 않도록 차단
 - 법적 근거: 개인정보보호법 국외 이전 동의 요건 완화
 
@@ -358,10 +346,15 @@ git commit -m "[CTIBridge] 변경 내용 요약"
 - [ ] 병원별 사용자-역할 매핑
 - 법적 근거: 개인정보보호법 접근 권한 관리 (제29조)
 
-#### Step 9: 감사 로그 (리스크: 낮음)
-- [ ] 상담사 활동 감사 시스템 구현 (설계 완료: `project_audit_system_design.md`)
-  - 환자 데이터 조회/수정/삭제 이력 기록
-  - 관리자 감사 대시보드
+#### Step 9: 활동 로그 (리스크: 낮음)
+- [x] 활동 로그 시스템 통합 (2026-04-02)
+  - 기존 audit log + activity log 이원화 → `activityLogs_v2` 단일 컬렉션으로 통합
+  - 백엔드 API 생성: `/api/v2/activity-logs` (조회/생성/삭제/정리/CSV내보내기/대상별조회)
+  - 프론트엔드 `ActivityLogs.tsx` UI 정상 동작 (관리자 대시보드 연동)
+  - 백엔드 logAudit() → activityLogs_v2에 통합 기록 (patients, callbacks, consultations)
+  - login/messages 직접 DB 쓰기도 activityLogs_v2로 통일
+  - 불필요한 audit API(/api/v2/audit) 및 audit 전용 페이지 삭제
+- [ ] 로그 보관 정책 설정 (TTL 인덱스, 보관 기간 결정)
 - 법적 근거: 개인정보보호법 접속기록 보관 (제29조, 안전성 확보조치 기준 제8조)
 
 #### 참고: 법적 필수 문서 (코드 외 작업)

@@ -4,6 +4,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { connectToDatabase, getClinicId } from '@/utils/mongodb';
 import { ObjectId } from 'mongodb';
+import { PIIMasker } from '@/utils/piiMasker';
 
 export const maxDuration = 120;
 
@@ -141,7 +142,16 @@ export async function POST(request: NextRequest) {
     const direction = callLog.direction || callLog.callType || 'unknown';
     console.log(`[Diarize] 화자분리 시작: ${callLogId} (${transcript.length}자, ${direction})`);
 
-    const diarized = await diarizeWithGPT(transcript, direction);
+    // PII 마스킹 — OpenAI에 개인정보 전송 방지
+    const piiMasker = new PIIMasker();
+    // 환자명이 DB에 있으면 미리 등록
+    if (callLog.patientName) piiMasker.registerName(callLog.patientName);
+    if (callLog.aiAnalysis?.patientName) piiMasker.registerName(callLog.aiAnalysis.patientName);
+
+    const maskedTranscript = piiMasker.maskText(transcript);
+    const maskedDiarized = await diarizeWithGPT(maskedTranscript, direction);
+    // 화자분리 결과에서 마스킹 복원 (DB에 원본 이름으로 저장)
+    const diarized = piiMasker.unmaskText(maskedDiarized);
 
     // DB 업데이트: 화자분리 결과 저장, 원본은 rawTranscript로 보존
     await db.collection('callLogs_v2').updateOne(
