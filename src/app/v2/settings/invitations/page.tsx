@@ -118,13 +118,22 @@ export default function InvitationsSettingsPage() {
       const data = await response.json();
 
       if (data.success) {
+        // 디버깅: API 응답 구조 확인
+        console.log('초대 API 응답:', JSON.stringify(data));
+
         // 생성된 초대 링크 표시
-        const inviteLink = `${window.location.origin}/invite/${data.data.token}`;
+        const token = data.data?.token || data.token || '';
+        const inviteLink = `${window.location.origin}/invite/${token}`;
+
+        // prompt()로 링크 표시 (브라우저 기본 기능, 실패 불가)
+        window.prompt('초대 링크를 Ctrl+C로 복사하세요:', inviteLink);
+
         setCreatedInviteLink(inviteLink);
         setShowModal(false);
         setFormData({ name: '', email: '', role: 'staff' });
         fetchInvitations();
       } else {
+        console.log('초대 실패 응답:', JSON.stringify(data));
         setFormError(data.error || '초대 생성에 실패했습니다.');
       }
     } catch (error) {
