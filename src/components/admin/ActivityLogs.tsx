@@ -102,7 +102,7 @@ export default function ActivityLogs() {
         )
       });
 
-      const response = await fetch(`/api/activity-logs?${queryParams}`, {
+      const response = await fetch(`/api/v2/activity-logs?${queryParams}`, {
         headers: {
           'Authorization': `Bearer ${token}`,
           'Content-Type': 'application/json',
@@ -180,7 +180,7 @@ export default function ActivityLogs() {
       console.log('삭제 시도:', logId);
       const token = localStorage.getItem('token');
       
-      const response = await fetch(`/api/activity-logs/${logId}`, {
+      const response = await fetch(`/api/v2/activity-logs/${logId}`, {
         method: 'DELETE',
         headers: {
           'Authorization': `Bearer ${token}`,
@@ -224,7 +224,7 @@ export default function ActivityLogs() {
       
       // 병렬로 개별 삭제 API 호출
       const deletePromises = logIds.map(logId =>
-        fetch(`/api/activity-logs/${logId}`, {
+        fetch(`/api/v2/activity-logs/${logId}`, {
           method: 'DELETE',
           headers: {
             'Authorization': `Bearer ${token}`,
@@ -263,7 +263,7 @@ export default function ActivityLogs() {
         ...(deleteActionTypes.length > 0 && { actions: deleteActionTypes.join(',') })
       });
 
-      const response = await fetch(`/api/activity-logs/cleanup?${queryParams}`, {
+      const response = await fetch(`/api/v2/activity-logs/cleanup?${queryParams}`, {
         method: 'DELETE',
         headers: {
           'Authorization': `Bearer ${token}`,
@@ -304,7 +304,7 @@ export default function ActivityLogs() {
         format: 'csv'
       });
 
-      const response = await fetch(`/api/activity-logs/export?${queryParams}`, {
+      const response = await fetch(`/api/v2/activity-logs/export?${queryParams}`, {
         headers: {
           'Authorization': `Bearer ${token}`,
         },

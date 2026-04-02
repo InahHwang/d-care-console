@@ -6,7 +6,7 @@ import { ActivityAction } from '@/types/activityLog';
 const ADMIN_PATHS = [
   '/admin',
   '/api/admin',
-  '/api/activity-logs',
+  '/api/v2/activity-logs',
   '/api/users',
   '/settings'  // 🔥 설정 페이지도 추가
 ];

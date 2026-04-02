@@ -1,5 +1,6 @@
 // src/utils/auditLog.ts
-// 감사 로그 유틸리티 — 상담사 활동 추적
+// 활동 로그 백엔드 유틸리티 — 상담사 활동 추적
+// activityLogs_v2 컬렉션에 통합 기록
 
 import { NextRequest } from 'next/server';
 import jwt from 'jsonwebtoken';
@@ -7,6 +8,8 @@ import { connectToDatabase } from '@/utils/mongodb';
 import { AuditAction, AuditChange } from '@/types/v2';
 
 const JWT_SECRET = process.env.JWT_SECRET as string;
+
+const COLLECTION = 'activityLogs_v2';
 
 // JWT에서 사용자 정보 추출
 interface AuditUser {
@@ -81,7 +84,33 @@ export function diffChanges(
   return changes;
 }
 
-// 감사 로그 기록 (fire-and-forget)
+// AuditAction('patient.update') → ActivityAction('patient_update') 변환
+function auditActionToActivityAction(action: AuditAction): string {
+  return action.replace('.', '_');
+}
+
+// collection('patients_v2') → target('patient') 변환
+function collectionToTarget(collection: string): string {
+  const map: Record<string, string> = {
+    patients_v2: 'patient',
+    callbacks_v2: 'callback',
+    consultations_v2: 'patient',
+    callLogs_v2: 'system',
+  };
+  return map[collection] || 'system';
+}
+
+// 변경사항을 읽기 쉬운 문자열로 변환
+function changesToNotes(action: string, changes: AuditChange[]): string {
+  if (changes.length === 0) return '';
+  const fieldChanges = changes.map(c => {
+    if (c.oldValue === null) return `${c.field}: ${c.newValue}`;
+    return `${c.field}: ${c.oldValue} → ${c.newValue}`;
+  });
+  return fieldChanges.join(', ');
+}
+
+// 활동 로그 기록 (fire-and-forget) — activityLogs_v2 컬렉션에 통합
 export function logAudit(
   request: NextRequest,
   action: AuditAction,
@@ -92,14 +121,13 @@ export function logAudit(
     documentName?: string;
     reason?: string;
     user?: AuditUser | null;
-    changedBy?: string;  // JWT 없을 때 fallback용 (request body의 changedBy)
+    changedBy?: string;
   }
 ) {
-  // fire-and-forget — 에러가 나도 API 응답에 영향 없음
-  void _writeAuditLog(request, action, collection, documentId, changes, options);
+  void _writeActivityLog(request, action, collection, documentId, changes, options);
 }
 
-async function _writeAuditLog(
+async function _writeActivityLog(
   request: NextRequest,
   action: AuditAction,
   collection: string,
@@ -116,29 +144,36 @@ async function _writeAuditLog(
     const user = options?.user ?? extractUserFromRequest(request);
     const { ipAddress, userAgent } = extractClientInfo(request);
 
-    // JWT → changedBy 순으로 fallback
     const finalUser = user || {
       userId: options?.changedBy || 'unknown',
       userName: options?.changedBy || 'unknown',
       userRole: 'staff',
     };
 
+    const activityAction = auditActionToActivityAction(action);
+    const target = collectionToTarget(collection);
+    const notes = changesToNotes(activityAction, changes);
+
     const { db } = await connectToDatabase();
-    await db.collection('auditLogs_v2').insertOne({
+    await db.collection(COLLECTION).insertOne({
       userId: finalUser.userId,
       userName: finalUser.userName,
       userRole: finalUser.userRole,
-      action,
-      collection,
-      documentId,
-      documentName: options?.documentName,
-      changes,
-      reason: options?.reason,
+      action: activityAction,
+      target,
+      targetId: documentId,
+      targetName: options?.documentName || '',
+      details: {
+        notes: notes || undefined,
+        reason: options?.reason,
+        changes,
+        source: 'backend_api',
+      },
       ipAddress,
       userAgent,
-      timestamp: new Date(),
+      timestamp: new Date().toISOString(),
     });
   } catch (error) {
-    console.error('[AuditLog] 감사 로그 기록 실패:', error);
+    console.error('[ActivityLog] 활동 로그 기록 실패:', error);
   }
 }

@@ -86,7 +86,7 @@ export async function logActivity(
     }
 
     // API 호출하여 로그 기록
-    const response = await fetch('/api/activity-logs', {
+    const response = await fetch('/api/v2/activity-logs', {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',

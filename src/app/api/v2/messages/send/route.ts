@@ -17,7 +17,7 @@ async function logActivityToDatabase(activityData: any) {
       level: 'audit'
     };
     
-    await db.collection('activity_logs').insertOne(logEntry);
+    await db.collection('activityLogs_v2').insertOne(logEntry);
     console.log('✅ 백엔드 활동 로그 기록 완료:', activityData.action);
   } catch (error) {
     console.warn('⚠️ 백엔드 활동 로그 기록 실패:', error);

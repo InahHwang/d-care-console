@@ -27,7 +27,7 @@ const TEST_USERS = [
 async function logActivity(userId: string, userName: string, userRole: string, ipAddress: string, userAgent: string) {
   try {
     const { db } = await connectToDatabase();
-    const logsCollection = db.collection('activityLogs');
+    const logsCollection = db.collection('activityLogs_v2');
     
     await logsCollection.insertOne({
       userId,
@@ -196,7 +196,7 @@ export async function DELETE(request: NextRequest) {
           : request.headers.get('x-real-ip') || 'unknown';
 
         const { db } = await connectToDatabase();
-        const logsCollection = db.collection('activityLogs');
+        const logsCollection = db.collection('activityLogs_v2');
         
         await logsCollection.insertOne({
           userId: decoded.id,

@@ -21,7 +21,7 @@ export const fetchActivityLogs = createAsyncThunk(
       }
     });
 
-    const response = await fetch(`/api/activity-logs?${queryParams}`, {
+    const response = await fetch(`/api/v2/activity-logs?${queryParams}`, {
       headers: {
         'Authorization': `Bearer ${localStorage.getItem('token')}`,
       },
@@ -39,7 +39,7 @@ export const fetchActivityLogs = createAsyncThunk(
 export const createActivityLog = createAsyncThunk(
   'activityLogs/createActivityLog',
   async (logData: CreateActivityLogRequest) => {
-    const response = await fetch('/api/activity-logs', {
+    const response = await fetch('/api/v2/activity-logs', {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
@@ -62,7 +62,7 @@ export const createActivityLog = createAsyncThunk(
 export const fetchTargetActivityLogs = createAsyncThunk(
   'activityLogs/fetchTargetActivityLogs',
   async ({ targetId, target }: { targetId: string; target: string }) => {
-    const response = await fetch(`/api/activity-logs/target/${targetId}?target=${target}`, {
+    const response = await fetch(`/api/v2/activity-logs/target/${targetId}?target=${target}`, {
       headers: {
         'Authorization': `Bearer ${localStorage.getItem('token')}`,
       },

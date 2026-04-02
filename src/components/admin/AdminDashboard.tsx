@@ -121,7 +121,7 @@ export default function AdminDashboard() {
       }
 
       // 최근 활동 가져오기
-      const activitiesResponse = await fetch('/api/activity-logs?limit=10', {
+      const activitiesResponse = await fetch('/api/v2/activity-logs?limit=10', {
         headers: {
           'Authorization': `Bearer ${token}`,
           'Content-Type': 'application/json',
