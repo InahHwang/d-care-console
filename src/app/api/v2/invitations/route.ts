@@ -226,7 +226,8 @@ export async function POST(request: NextRequest) {
     const result = await invitationsCollection.insertOne(invitation);
 
     // 초대 링크 생성
-    const baseUrl = process.env.NEXT_PUBLIC_APP_URL || 'http://localhost:3000';
+    const origin = new URL(request.url).origin;
+    const baseUrl = process.env.NEXT_PUBLIC_APP_URL || origin;
     const inviteLink = `${baseUrl}/invite/${invitation.token}`;
 
     return NextResponse.json({
