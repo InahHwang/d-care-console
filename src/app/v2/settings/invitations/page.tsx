@@ -117,9 +117,10 @@ export default function InvitationsSettingsPage() {
       const data = await response.json();
 
       if (data.success) {
-        // 생성된 초대 링크 복사
-        await navigator.clipboard.writeText(data.data.inviteLink);
-        alert(`초대가 생성되었습니다!\n\n초대 링크가 클립보드에 복사되었습니다.\n\n${data.data.inviteLink}`);
+        // 생성된 초대 링크 복사 (프론트엔드에서 직접 생성)
+        const inviteLink = `${window.location.origin}/invite/${data.data.token}`;
+        await navigator.clipboard.writeText(inviteLink);
+        alert(`초대가 생성되었습니다!\n\n초대 링크가 클립보드에 복사되었습니다.\n\n${inviteLink}`);
 
         setShowModal(false);
         setFormData({ name: '', email: '', role: 'staff' });
