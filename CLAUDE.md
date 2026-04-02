@@ -335,9 +335,13 @@ git commit -m "[CTIBridge] 변경 내용 요약"
 - 법적 근거: 개인정보보호법 국외 이전 동의 요건 완화
 
 #### Step 7: 개인정보 파기 기능 (리스크: 중간)
-- [ ] 환자 데이터 완전 삭제 API (hard delete)
-  - 환자 정보 + 관련 통화기록/상담내용/콜백/채널챗 등 연관 데이터 일괄 삭제
-- [ ] 삭제 요청 로그 보관 (누가 언제 삭제 요청했는지)
+- [x] 환자 데이터 완전 삭제 (hard delete) 변경 (2026-04-02)
+  - 기존 soft delete → hard delete로 변경 (patients/[id] DELETE API)
+  - 연관 데이터 6개 컬렉션 일괄 완전 삭제 (callLogs, callbacks, consultations, manualConsultations, channelChats, recall_messages)
+  - 활동로그에 삭제 기록 (환자명 마스킹 + 삭제 건수)
+- [x] 삭제 권한 제한 — master(관리자)만 삭제 가능
+  - 백엔드: DELETE API에 master role 체크 추가 (403 반환)
+  - 프론트엔드: PatientList 삭제 버튼 master만 표시
 - 법적 근거: 개인정보보호법 정보주체의 삭제 요구권 (제36조)
 
 #### Step 8: 접근 권한 관리 (리스크: 중간)

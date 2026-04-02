@@ -421,7 +421,9 @@ export default function PatientList({ isLoading = false, filteredPatients, onSel
   } = useSelector((state: RootState) => state.patients)
 
   const { hideCompletedVisits } = useSelector((state: RootState) => state.ui.visitManagement)
-  
+  const { user: currentUser } = useSelector((state: RootState) => state.auth)
+  const isMaster = currentUser?.role === 'master'
+
   // props로 받은 filteredPatients가 있으면 그것을 사용, 없으면 Redux 데이터 사용
   const displayPatientsSource = filteredPatients || reduxFilteredPatients;
   
@@ -889,16 +891,18 @@ export default function PatientList({ isLoading = false, filteredPatients, onSel
                             className="transform rotate-45" 
                           />
                         </button>
-                        <button
-                          className="inline-flex items-center justify-center w-8 h-8 rounded-full bg-error text-white hover:bg-error/90 transition-colors duration-150"
-                          onClick={() => patientId && dispatch(openDeleteConfirm(patientId))}
-                          title="환자 삭제"
-                        >
-                          <Icon 
-                            icon={HiOutlineTrash} 
-                            size={16} 
-                          />
-                        </button>
+                        {isMaster && (
+                          <button
+                            className="inline-flex items-center justify-center w-8 h-8 rounded-full bg-error text-white hover:bg-error/90 transition-colors duration-150"
+                            onClick={() => patientId && dispatch(openDeleteConfirm(patientId))}
+                            title="환자 삭제"
+                          >
+                            <Icon
+                              icon={HiOutlineTrash}
+                              size={16}
+                            />
+                          </button>
+                        )}
                       </div>
                     </td>
                   </tr>

@@ -582,7 +582,7 @@ export async function DELETE(
     const { db } = await connectToDatabase();
     const clinicId = getClinicId();
 
-    // soft delete: 환자 정보 보존하면서 삭제 표시
+    // 환자 조회 (삭제 대상 확인)
     const patient = await db.collection('patients_v2').findOne({
       _id: new ObjectId(id),
       clinicId,
@@ -593,81 +593,60 @@ export async function DELETE(
       return NextResponse.json({ error: 'Patient not found' }, { status: 404 });
     }
 
+    // 권한 확인 — master만 삭제 가능
     const auditUser = extractUserFromRequest(request);
-    const deletedBy = auditUser?.userName || 'unknown';
+    if (!auditUser || auditUser.userRole !== 'master') {
+      return NextResponse.json(
+        { error: '관리자만 환자를 삭제할 수 있습니다.' },
+        { status: 403 }
+      );
+    }
 
-    await db.collection('patients_v2').updateOne(
-      { _id: new ObjectId(id) },
-      {
-        $set: {
-          deletedAt: new Date(),
-          deletedBy,
-        },
+    const deletedBy = auditUser.userName;
+    const deletedCounts: Record<string, number> = {};
+
+    // 1. 연관 데이터 완전 삭제
+    const collections = [
+      { name: 'callLogs_v2', filter: { patientId: id } },
+      { name: 'callbacks_v2', filter: { patientId: id } },
+      { name: 'consultations_v2', filter: { patientId: id } },
+      { name: 'manualConsultations_v2', filter: { patientId: id } },
+      { name: 'channelChats_v2', filter: { patientId: id } },
+      { name: 'recall_messages', filter: { patientId: id } },
+    ];
+
+    for (const col of collections) {
+      try {
+        const result = await db.collection(col.name).deleteMany(col.filter);
+        deletedCounts[col.name] = result.deletedCount;
+        if (result.deletedCount > 0) {
+          console.log(`[Patient DELETE] ${col.name} 삭제: ${result.deletedCount}건 (환자ID: ${id})`);
+        }
+      } catch (err) {
+        console.error(`[Patient DELETE] ${col.name} 삭제 실패:`, err);
       }
-    );
+    }
 
-    // 감사 로그 기록
+    // 2. 환자 본체 완전 삭제
+    await db.collection('patients_v2').deleteOne({ _id: new ObjectId(id) });
+    deletedCounts['patients_v2'] = 1;
+
+    // 3. 활동 로그에 삭제 기록 (환자명은 마스킹)
+    const maskedName = patient.name
+      ? patient.name[0] + '*'.repeat(patient.name.length - 1)
+      : 'unknown';
+
     logAudit(request, 'patient.delete', 'patients_v2', id, [
-      { field: 'deletedAt', oldValue: null, newValue: new Date().toISOString() },
-      { field: 'deletedBy', oldValue: null, newValue: deletedBy },
+      { field: 'action', oldValue: null, newValue: 'hard_delete' },
+      { field: 'deletedCounts', oldValue: null, newValue: JSON.stringify(deletedCounts) },
     ], {
-      documentName: patient.name,
+      documentName: maskedName,
       user: auditUser,
     });
 
-    // 연결된 통화기록의 patientId 해제
-    try {
-      const callLogUpdateResult = await db.collection('callLogs_v2').updateMany(
-        { patientId: id },
-        { $unset: { patientId: '' } }
-      );
-      console.log(`[Patient DELETE] 통화기록 patientId 해제: ${callLogUpdateResult.modifiedCount}건 (환자ID: ${id})`);
-    } catch (callLogError) {
-      console.error('[Patient DELETE] 통화기록 patientId 해제 실패:', callLogError);
-    }
+    console.log(`[Patient DELETE] 완전 삭제 완료: ${patient.name} (${id}), 삭제 건수:`, deletedCounts);
 
-    // 연결된 콜백 일정도 soft delete
-    try {
-      const callbackResult = await db.collection('callbacks_v2').updateMany(
-        { patientId: id },
-        { $set: { deletedAt: new Date(), deletedBy } }
-      );
-      console.log(`[Patient DELETE] 콜백 일정 soft delete: ${callbackResult.modifiedCount}건 (환자ID: ${id})`);
-    } catch (callbackError) {
-      console.error('[Patient DELETE] 콜백 soft delete 실패:', callbackError);
-    }
-
-    // 연결된 상담 기록도 soft delete
-    try {
-      const consultationResult = await db.collection('consultations_v2').updateMany(
-        { patientId: id },
-        { $set: { deletedAt: new Date(), deletedBy } }
-      );
-      console.log(`[Patient DELETE] 상담 기록 soft delete: ${consultationResult.modifiedCount}건 (환자ID: ${id})`);
-    } catch (consultationError) {
-      console.error('[Patient DELETE] 상담 soft delete 실패:', consultationError);
-    }
-
-    // 연결된 수동 상담 기록도 soft delete
-    try {
-      const manualResult = await db.collection('manualConsultations_v2').updateMany(
-        { patientId: id },
-        { $set: { deletedAt: new Date(), deletedBy } }
-      );
-      console.log(`[Patient DELETE] 수동 상담 soft delete: ${manualResult.modifiedCount}건 (환자ID: ${id})`);
-    } catch (manualError) {
-      console.error('[Patient DELETE] 수동 상담 soft delete 실패:', manualError);
-    }
-
-    // 연결된 리콜 메시지 삭제 (리콜은 soft delete 불필요 — 발송 스케줄이므로)
-    try {
-      const recallDeleteResult = await db.collection('recall_messages').deleteMany({ patientId: id });
-      console.log(`[Patient DELETE] 리콜 메시지 삭제: ${recallDeleteResult.deletedCount}건 (환자ID: ${id})`);
-    } catch (recallError) {
-      console.error('[Patient DELETE] 리콜 메시지 삭제 실패:', recallError);
-    }
-
-    return NextResponse.json({ success: true });
+    return NextResponse.json({ success: true, deletedCounts });
   } catch (error) {
     console.error('Error deleting patient:', error);
     return NextResponse.json(
