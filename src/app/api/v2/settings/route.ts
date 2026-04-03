@@ -5,7 +5,8 @@ import { NextRequest, NextResponse } from 'next/server';
 
 // 캐싱 방지: 항상 최신 설정 데이터 반환
 export const dynamic = 'force-dynamic';
-import { connectToDatabase, getClinicId } from '@/utils/mongodb';
+import { connectToDatabase } from '@/utils/mongodb';
+import { verifyToken } from '@/lib/auth';
 import { z } from 'zod';
 
 const settingsPatchSchema = z.object({
@@ -83,11 +84,15 @@ const DEFAULT_SETTINGS: Omit<Settings, 'clinicId' | 'updatedAt'> = {
   },
 };
 
-export async function GET() {
+export async function GET(request: NextRequest) {
   try {
-    const { db } = await connectToDatabase();
+    const auth = verifyToken(request);
+    if (!auth.success) {
+      return NextResponse.json({ success: false, message: auth.error }, { status: auth.status });
+    }
 
-    const clinicId = getClinicId();
+    const { db } = await connectToDatabase();
+    const clinicId = auth.user.clinicId;
     let settings: Settings | null = await db.collection<Settings>('settings_v2').findOne({ clinicId });
 
     if (!settings) {
@@ -118,6 +123,11 @@ export async function GET() {
 
 export async function PATCH(request: NextRequest) {
   try {
+    const auth = verifyToken(request);
+    if (!auth.success) {
+      return NextResponse.json({ success: false, message: auth.error }, { status: auth.status });
+    }
+
     const body = await request.json();
     const parsed = settingsPatchSchema.safeParse(body);
 
@@ -129,8 +139,7 @@ export async function PATCH(request: NextRequest) {
     }
 
     const { db } = await connectToDatabase();
-
-    const clinicId = getClinicId();
+    const clinicId = auth.user.clinicId;
     const now = new Date().toISOString();
 
     // 업데이트할 필드만 추출
