@@ -19,6 +19,7 @@ const TEST_USERS = [
     password: 'ektksqkfms1!',        // 평문 비밀번호
     name: '마스터관리자',
     role: 'master',
+    clinicId: 'default',
     isActive: true
   },
 ];
@@ -107,14 +108,18 @@ export async function POST(request: NextRequest) {
       throw new Error('JWT_SECRET 환경 변수가 설정되지 않았습니다.');
     }
     
-    // JWT 토큰 생성
+    // 사용자의 clinicId 결정 (DB 사용자는 clinicId 필드, 테스트 사용자는 'default')
+    const userClinicId = (user as any).clinicId || 'default';
+
+    // JWT 토큰 생성 (clinicId 포함 — 멀티테넌시 Step 5)
     const token = jwt.sign(
-      { 
+      {
         id: user.id || user._id,
         username: (user as any).username,
         email: (user as any).email,
         name: (user as any).name || (user as any).username,
-        role: (user as any).role || 'staff'
+        role: (user as any).role || 'staff',
+        clinicId: userClinicId,
       },
       JWT_SECRET,
       { expiresIn: '1d' }

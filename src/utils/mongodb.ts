@@ -276,7 +276,9 @@ async function createIndexesSafely(db: Db) {
 }
 
 // 🔥 clinicId 헬퍼 함수 (Step 4-2: 멀티테넌시)
-// 현재는 'default' 고정. JWT 인증 도입 시 요청 컨텍스트에서 추출하도록 변경 예정.
+// 현재는 'default' 고정 (70개 API에서 사용 중).
+// Phase C에서 API별로 getClinicIdFromRequest(request)로 점진 교체 예정.
+// → src/lib/auth.ts 의 getClinicIdFromRequest() 참조
 export function getClinicId(): string {
   return 'default';
 }
