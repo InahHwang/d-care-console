@@ -221,7 +221,7 @@ export default function SettingsPage() {
   const handleToggleUserStatus = async (userId: string, currentStatus: boolean) => {
     try {
       const token = localStorage.getItem('token');
-      const response = await fetch(`/api/users/${userId}`, {
+      const response = await fetch(`/api/v2/users/${userId}`, {
         method: 'PUT',
         headers: {
           'Content-Type': 'application/json',
@@ -242,7 +242,7 @@ export default function SettingsPage() {
     if (!confirm(`정말 "${userName}" 사용자를 삭제하시겠습니까?`)) return;
     try {
       const token = localStorage.getItem('token');
-      const response = await fetch(`/api/users/${userId}`, {
+      const response = await fetch(`/api/v2/users/${userId}`, {
         method: 'DELETE',
         headers: { 'Authorization': `Bearer ${token}` }
       });
@@ -269,7 +269,7 @@ export default function SettingsPage() {
     try {
       const token = localStorage.getItem('token');
       const userId = editingUser.id || editingUser._id;
-      const response = await fetch(`/api/users/${userId}`, {
+      const response = await fetch(`/api/v2/users/${userId}`, {
         method: 'PUT',
         headers: {
           'Content-Type': 'application/json',
