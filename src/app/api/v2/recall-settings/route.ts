@@ -2,8 +2,7 @@
 // 리콜 발송 설정 API
 
 import { NextRequest, NextResponse } from 'next/server';
-import { connectToDatabase } from '@/utils/mongodb';
-import { verifyToken } from '@/lib/auth';
+import { connectToDatabase, getClinicId } from '@/utils/mongodb';
 import { ObjectId } from 'mongodb';
 
 export interface RecallSchedule {
@@ -23,15 +22,10 @@ export interface RecallSetting {
 }
 
 // GET - 리콜 설정 목록 조회
-export async function GET(request: NextRequest) {
+export async function GET() {
   try {
-    const auth = verifyToken(request);
-    if (!auth.success) {
-      return NextResponse.json({ success: false, message: auth.error }, { status: auth.status });
-    }
-
     const { db } = await connectToDatabase();
-    const clinicId = auth.user.clinicId;
+    const clinicId = getClinicId();
 
     const settings = await db.collection<RecallSetting>('recall_settings')
       .find({ clinicId })
@@ -60,11 +54,6 @@ export async function GET(request: NextRequest) {
 // POST - 리콜 설정 생성
 export async function POST(request: NextRequest) {
   try {
-    const auth = verifyToken(request);
-    if (!auth.success) {
-      return NextResponse.json({ success: false, message: auth.error }, { status: auth.status });
-    }
-
     const body = await request.json();
     const { treatment, schedules } = body;
 
@@ -76,7 +65,7 @@ export async function POST(request: NextRequest) {
     }
 
     const { db } = await connectToDatabase();
-    const clinicId = auth.user.clinicId;
+    const clinicId = getClinicId();
     const now = new Date().toISOString();
 
     // 중복 치료 확인
@@ -117,11 +106,6 @@ export async function POST(request: NextRequest) {
 // PUT - 리콜 설정 수정
 export async function PUT(request: NextRequest) {
   try {
-    const auth = verifyToken(request);
-    if (!auth.success) {
-      return NextResponse.json({ success: false, message: auth.error }, { status: auth.status });
-    }
-
     const body = await request.json();
     const { id, treatment, schedules } = body;
 
@@ -133,7 +117,7 @@ export async function PUT(request: NextRequest) {
     }
 
     const { db } = await connectToDatabase();
-    const clinicId = auth.user.clinicId;
+    const clinicId = getClinicId();
     const now = new Date().toISOString();
 
     const updateData: Partial<RecallSetting> = {
@@ -175,11 +159,6 @@ export async function PUT(request: NextRequest) {
 // DELETE - 리콜 설정 삭제
 export async function DELETE(request: NextRequest) {
   try {
-    const auth = verifyToken(request);
-    if (!auth.success) {
-      return NextResponse.json({ success: false, message: auth.error }, { status: auth.status });
-    }
-
     const { searchParams } = new URL(request.url);
     const id = searchParams.get('id');
 
@@ -191,7 +170,7 @@ export async function DELETE(request: NextRequest) {
     }
 
     const { db } = await connectToDatabase();
-    const clinicId = auth.user.clinicId;
+    const clinicId = getClinicId();
 
     const result = await db.collection('recall_settings').deleteOne({
       _id: new ObjectId(id),

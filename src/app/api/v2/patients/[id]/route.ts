@@ -1,7 +1,6 @@
 // src/app/api/v2/patients/[id]/route.ts
 import { NextRequest, NextResponse } from 'next/server';
-import { connectToDatabase } from '@/utils/mongodb';
-import { verifyToken } from '@/lib/auth';
+import { connectToDatabase, getClinicId } from '@/utils/mongodb';
 import { ObjectId } from 'mongodb';
 import { PatientStatus, Temperature, CallbackReason, CallbackHistoryEntry } from '@/types/v2';
 import { z } from 'zod';
@@ -48,11 +47,6 @@ export async function GET(
   { params }: { params: Promise<{ id: string }> }
 ) {
   try {
-    const auth = verifyToken(request);
-    if (!auth.success) {
-      return NextResponse.json({ success: false, message: auth.error }, { status: auth.status });
-    }
-
     const { id } = await params;
 
     if (!ObjectId.isValid(id)) {
@@ -60,7 +54,7 @@ export async function GET(
     }
 
     const { db } = await connectToDatabase();
-    const clinicId = auth.user.clinicId;
+    const clinicId = getClinicId();
 
     // 환자 정보와 통화 이력을 병렬로 조회
     const [patient, callLogs] = await Promise.all([
@@ -180,11 +174,6 @@ export async function PATCH(
       );
     }
 
-    const auth = verifyToken(request);
-    if (!auth.success) {
-      return NextResponse.json({ success: false, message: auth.error }, { status: auth.status });
-    }
-
     const {
       name, phone, status, temperature, interest, source, memo,
       nextAction, nextActionDate, tags,
@@ -200,7 +189,7 @@ export async function PATCH(
     } = body;
 
     const { db } = await connectToDatabase();
-    const clinicId = auth.user.clinicId;
+    const clinicId = getClinicId();
 
     // 현재 환자 정보 조회 (상태 변경 감지용, soft delete 제외)
     const currentPatient = await db.collection('patients_v2').findOne({ _id: new ObjectId(id), clinicId, deletedAt: { $exists: false } });
@@ -590,13 +579,8 @@ export async function DELETE(
       return NextResponse.json({ error: 'Invalid patient ID' }, { status: 400 });
     }
 
-    const auth = verifyToken(request);
-    if (!auth.success) {
-      return NextResponse.json({ success: false, message: auth.error }, { status: auth.status });
-    }
-
     const { db } = await connectToDatabase();
-    const clinicId = auth.user.clinicId;
+    const clinicId = getClinicId();
 
     // 환자 조회 (삭제 대상 확인)
     const patient = await db.collection('patients_v2').findOne({

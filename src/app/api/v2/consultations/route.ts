@@ -3,8 +3,7 @@
 // 전화상담(phone) / 내원상담(visit) 결과 기록
 
 import { NextRequest, NextResponse } from 'next/server';
-import { connectToDatabase } from '@/utils/mongodb';
-import { verifyToken } from '@/lib/auth';
+import { connectToDatabase, getClinicId } from '@/utils/mongodb';
 import { ObjectId } from 'mongodb';
 import type { ConsultationV2, ConsultationType, ConsultationStatus, ClosedReason } from '@/types/v2';
 import { z } from 'zod';
@@ -39,11 +38,6 @@ const consultationPatchSchema = z.object({
 // GET - 상담 이력 조회
 export async function GET(request: NextRequest) {
   try {
-    const auth = verifyToken(request);
-    if (!auth.success) {
-      return NextResponse.json({ success: false, message: auth.error }, { status: auth.status });
-    }
-
     const { searchParams } = new URL(request.url);
     const patientId = searchParams.get('patientId');
     const date = searchParams.get('date'); // YYYY-MM-DD (일보고서용)
@@ -53,7 +47,7 @@ export async function GET(request: NextRequest) {
     const limit = parseInt(searchParams.get('limit') || '50');
 
     const { db } = await connectToDatabase();
-    const clinicId = auth.user.clinicId;
+    const clinicId = getClinicId();
 
     const filter: Record<string, unknown> = { clinicId };
 
@@ -193,13 +187,8 @@ export async function POST(request: NextRequest) {
       manualConsultationId,
     } = parsed.data;
 
-    const auth = verifyToken(request);
-    if (!auth.success) {
-      return NextResponse.json({ success: false, message: auth.error }, { status: auth.status });
-    }
-
     const { db } = await connectToDatabase();
-    const clinicId = auth.user.clinicId;
+    const clinicId = getClinicId();
     const now = new Date();
     const nowISO = now.toISOString();
 
@@ -574,16 +563,11 @@ export async function PATCH(request: NextRequest) {
       );
     }
 
-    const auth = verifyToken(request);
-    if (!auth.success) {
-      return NextResponse.json({ success: false, message: auth.error }, { status: auth.status });
-    }
-
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     const { id, editedBy, ...updateData } = body as Record<string, any>;
 
     const { db } = await connectToDatabase();
-    const clinicId = auth.user.clinicId;
+    const clinicId = getClinicId();
     const now = new Date();
     const nowISO = now.toISOString();
 
@@ -745,11 +729,6 @@ export async function PATCH(request: NextRequest) {
 // DELETE - 상담 기록 삭제
 export async function DELETE(request: NextRequest) {
   try {
-    const auth = verifyToken(request);
-    if (!auth.success) {
-      return NextResponse.json({ success: false, message: auth.error }, { status: auth.status });
-    }
-
     const { searchParams } = new URL(request.url);
     const id = searchParams.get('id');
 
@@ -761,7 +740,7 @@ export async function DELETE(request: NextRequest) {
     }
 
     const { db } = await connectToDatabase();
-    const clinicId = auth.user.clinicId;
+    const clinicId = getClinicId();
 
     const result = await db.collection('consultations_v2').deleteOne({
       _id: new ObjectId(id),

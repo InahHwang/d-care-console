@@ -3,8 +3,7 @@
 // patients_v2의 nextActionDate와 callbacks_v2 모두 조회
 
 import { NextRequest, NextResponse } from 'next/server';
-import { connectToDatabase } from '@/utils/mongodb';
-import { verifyToken } from '@/lib/auth';
+import { connectToDatabase, getClinicId } from '@/utils/mongodb';
 import { ObjectId } from 'mongodb';
 import type { CallbackV2, CallbackType, CallbackStatus } from '@/types/v2';
 import { z } from 'zod';
@@ -26,11 +25,6 @@ const callbackPatchSchema = z.object({
 
 export async function GET(request: NextRequest) {
   try {
-    const auth = verifyToken(request);
-    if (!auth.success) {
-      return NextResponse.json({ success: false, message: auth.error }, { status: auth.status });
-    }
-
     const { searchParams } = new URL(request.url);
     const date = searchParams.get('date'); // YYYY-MM-DD
     const status = searchParams.get('status') as CallbackStatus | null;
@@ -44,7 +38,7 @@ export async function GET(request: NextRequest) {
     // KST(UTC+9) 보정: 클라이언트에서 보내는 date는 KST 날짜
     const KST_OFFSET = 9 * 60 * 60 * 1000;
 
-    const clinicId = auth.user.clinicId;
+    const clinicId = getClinicId();
 
     // 1. callbacks_v2 컬렉션에서 조회
     const callbackFilter: Record<string, unknown> = { clinicId };
@@ -243,11 +237,6 @@ export async function GET(request: NextRequest) {
 // POST - 콜백 생성
 export async function POST(request: NextRequest) {
   try {
-    const auth = verifyToken(request);
-    if (!auth.success) {
-      return NextResponse.json({ success: false, message: auth.error }, { status: auth.status });
-    }
-
     const body = await request.json();
     const parsed = callbackCreateSchema.safeParse(body);
 
@@ -261,7 +250,7 @@ export async function POST(request: NextRequest) {
     const { patientId, type, scheduledAt, note } = parsed.data;
 
     const { db } = await connectToDatabase();
-    const clinicId = auth.user.clinicId;
+    const clinicId = getClinicId();
     const now = new Date().toISOString();
 
     const newCallback = {
@@ -314,11 +303,6 @@ export async function POST(request: NextRequest) {
 // PATCH - 콜백 상태 업데이트
 export async function PATCH(request: NextRequest) {
   try {
-    const auth = verifyToken(request);
-    if (!auth.success) {
-      return NextResponse.json({ success: false, message: auth.error }, { status: auth.status });
-    }
-
     const body = await request.json();
     const parsed = callbackPatchSchema.safeParse(body);
 
@@ -332,7 +316,7 @@ export async function PATCH(request: NextRequest) {
     const { id, status, note, source } = parsed.data;
 
     const { db } = await connectToDatabase();
-    const clinicId = auth.user.clinicId;
+    const clinicId = getClinicId();
     const now = new Date().toISOString();
 
     // 1. 먼저 callbacks_v2에서 찾기
@@ -450,11 +434,6 @@ export async function PATCH(request: NextRequest) {
 // DELETE - 콜백 삭제
 export async function DELETE(request: NextRequest) {
   try {
-    const auth = verifyToken(request);
-    if (!auth.success) {
-      return NextResponse.json({ success: false, message: auth.error }, { status: auth.status });
-    }
-
     const { searchParams } = new URL(request.url);
     const id = searchParams.get('id');
 
@@ -466,7 +445,7 @@ export async function DELETE(request: NextRequest) {
     }
 
     const { db } = await connectToDatabase();
-    const clinicId = auth.user.clinicId;
+    const clinicId = getClinicId();
 
     const result = await db.collection('callbacks_v2').deleteOne({
       _id: new ObjectId(id),
