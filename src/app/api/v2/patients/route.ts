@@ -1,6 +1,7 @@
 // src/app/api/v2/patients/route.ts
 import { NextRequest, NextResponse } from 'next/server';
-import { connectToDatabase, getClinicId } from '@/utils/mongodb';
+import { connectToDatabase } from '@/utils/mongodb';
+import { verifyToken } from '@/lib/auth';
 import { ObjectId } from 'mongodb';
 import { PatientStatus, Temperature, Journey } from '@/types/v2';
 import { z } from 'zod';
@@ -109,6 +110,11 @@ function getPeriodStartDate(period: string | null): Date | null {
 
 export async function GET(request: NextRequest) {
   try {
+    const auth = verifyToken(request);
+    if (!auth.success) {
+      return NextResponse.json({ success: false, message: auth.error }, { status: auth.status });
+    }
+
     const searchParams = request.nextUrl.searchParams;
     const page = parseInt(searchParams.get('page') || '1');
     const limit = Math.min(parseInt(searchParams.get('limit') || '20'), 50);
@@ -131,7 +137,7 @@ export async function GET(request: NextRequest) {
 
     const { db } = await connectToDatabase();
     const collection = db.collection('patients_v2');
-    const clinicId = getClinicId();
+    const clinicId = auth.user.clinicId;
 
     // 쿼리 빌드 (soft delete된 환자 제외, clinicId 필터 적용)
     const query: PatientQuery = { clinicId, deletedAt: { $exists: false } } as PatientQuery;
@@ -530,6 +536,11 @@ export async function GET(request: NextRequest) {
 
 export async function POST(request: NextRequest) {
   try {
+    const auth = verifyToken(request);
+    if (!auth.success) {
+      return NextResponse.json({ success: false, message: auth.error }, { status: auth.status });
+    }
+
     const body = await request.json();
     const parsed = createPatientSchema.safeParse(body);
 
@@ -546,7 +557,7 @@ export async function POST(request: NextRequest) {
 
     const { db } = await connectToDatabase();
     const collection = db.collection('patients_v2');
-    const clinicId = getClinicId();
+    const clinicId = auth.user.clinicId;
 
     // 중복 체크 (같은 병원 내에서, 삭제되지 않은 환자만)
     const existing = await collection.findOne({ clinicId, phone, deletedAt: { $exists: false } });
