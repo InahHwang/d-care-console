@@ -1,5 +1,6 @@
 'use client';
 
+import { authFetch } from '@/utils/authFetch';
 import React, { useState, useEffect } from 'react';
 import { MessageSquare, CheckCircle, XCircle, ChevronDown, Clock } from 'lucide-react';
 import { format } from 'date-fns';
@@ -41,7 +42,7 @@ export function MessageHistoryCard({ patientId, patientPhone, className = '' }: 
   const fetchMessages = async () => {
     setIsLoading(true);
     try {
-      const res = await fetch('/api/v2/messages/log');
+      const res = await authFetch('/api/v2/messages/log');
       const data = await res.json();
 
       if (data.success && Array.isArray(data.data)) {

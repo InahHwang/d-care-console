@@ -203,7 +203,7 @@ function RegisterPatientModal({ call, onClose, onSuccess }: RegisterPatientModal
   useEffect(() => {
     const fetchCategories = async () => {
       try {
-        const response = await fetch('/api/v2/settings/categories');
+        const response = await authFetch('/api/v2/settings/categories');
         const data = await response.json();
         if (data.success) {
           // 활성화된 항목만 필터링
@@ -265,7 +265,7 @@ function RegisterPatientModal({ call, onClose, onSuccess }: RegisterPatientModal
         };
       }
 
-      const patientRes = await fetch('/api/v2/patients', {
+      const patientRes = await authFetch('/api/v2/patients', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(patientData),
@@ -287,7 +287,7 @@ function RegisterPatientModal({ call, onClose, onSuccess }: RegisterPatientModal
       }
 
       // 2. 통화기록에 patientId 연결 + 분류를 '환자'로 변경
-      await fetch('/api/v2/call-logs', {
+      await authFetch('/api/v2/call-logs', {
         method: 'PATCH',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
@@ -533,7 +533,7 @@ function EditAnalysisModal({ call, onClose, onSave }: EditAnalysisModalProps) {
   useEffect(() => {
     const fetchCategories = async () => {
       try {
-        const response = await fetch('/api/v2/settings/categories');
+        const response = await authFetch('/api/v2/settings/categories');
         const data = await response.json();
         if (data.success) {
           const activeTreatments = (data.categories.treatmentTypes || []).filter((item: CategoryItem) => item.isActive);
@@ -573,7 +573,7 @@ function EditAnalysisModal({ call, onClose, onSave }: EditAnalysisModalProps) {
 
       console.log('[EditAnalysisModal] 요청 body:', requestBody);
 
-      const response = await fetch('/api/v2/call-logs', {
+      const response = await authFetch('/api/v2/call-logs', {
         method: 'PATCH',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(requestBody),
@@ -1207,7 +1207,7 @@ function CallLogsPageContent() {
     }
 
     try {
-      const response = await fetch('/api/v2/call-logs', {
+      const response = await authFetch('/api/v2/call-logs', {
         method: 'PATCH',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({

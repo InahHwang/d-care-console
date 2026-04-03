@@ -33,7 +33,7 @@ export default function AIChatAdminPanel() {
     const fetchUsers = async () => {
       try {
         const token = localStorage.getItem('token');
-        const res = await fetch('/api/v2/users?includeInactive=false', {
+        const res = await authFetch('/api/v2/users?includeInactive=false', {
           headers: { 'Authorization': `Bearer ${token}` },
         });
         const data = await res.json();

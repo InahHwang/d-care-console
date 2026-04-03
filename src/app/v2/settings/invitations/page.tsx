@@ -107,7 +107,7 @@ export default function InvitationsSettingsPage() {
 
     try {
       const token = localStorage.getItem('token');
-      const response = await fetch('/api/v2/invitations', {
+      const response = await authFetch('/api/v2/invitations', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',

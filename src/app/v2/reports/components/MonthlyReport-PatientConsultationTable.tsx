@@ -2,6 +2,7 @@
 // V2 환자별 상담 분석 - 주의 필요 환자 하이라이트 + 단계별 그룹핑
 'use client';
 
+import { authFetch } from '@/utils/authFetch';
 import React, { useState, useMemo, useCallback } from 'react';
 import { FileText, AlertTriangle, ChevronDown, ChevronRight, ExternalLink, PhoneCall, CheckCircle2, AlertCircle, XCircle } from 'lucide-react';
 import type { MonthlyStatsV2, PatientSummaryV2 } from './MonthlyReport-Types';
@@ -91,7 +92,7 @@ const MonthlyReportPatientConsultationTable: React.FC<MonthlyReportPatientConsul
       const tomorrow = new Date();
       tomorrow.setDate(tomorrow.getDate() + 1);
       tomorrow.setHours(10, 0, 0, 0);
-      const res = await fetch('/api/v2/callbacks', {
+      const res = await authFetch('/api/v2/callbacks', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({

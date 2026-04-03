@@ -1,6 +1,7 @@
 // src/components/v2/dashboard/Onboarding-ChecklistWidget.tsx
 'use client';
 
+import { authFetch } from '@/utils/authFetch';
 import React, { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import {
@@ -44,7 +45,7 @@ export default function OnboardingChecklistWidget() {
   useEffect(() => {
     const fetchSettings = async () => {
       try {
-        const response = await fetch('/api/v2/settings');
+        const response = await authFetch('/api/v2/settings');
         const result = await response.json();
         if (result.success) {
           setSettings(result.data);
@@ -64,7 +65,7 @@ export default function OnboardingChecklistWidget() {
     const fetchUsers = async () => {
       try {
         const token = localStorage.getItem('token');
-        const response = await fetch('/api/v2/users', {
+        const response = await authFetch('/api/v2/users', {
           headers: { 'Authorization': `Bearer ${token}` },
         });
         const data = await response.json();

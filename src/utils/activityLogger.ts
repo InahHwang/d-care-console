@@ -1,5 +1,6 @@
 // src/utils/activityLogger.ts - 순환 의존성 해결 버전
 
+import { authFetch } from '@/utils/authFetch';
 import { ActivityAction, ActivityTarget, ActivityDetails } from '@/types/activityLog';
 // 🔥 순환 의존성 해결: store 직접 import 제거
 // import { store } from '@/store';  // 이 줄 제거!
@@ -86,7 +87,7 @@ export async function logActivity(
     }
 
     // API 호출하여 로그 기록
-    const response = await fetch('/api/v2/activity-logs', {
+    const response = await authFetch('/api/v2/activity-logs', {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',

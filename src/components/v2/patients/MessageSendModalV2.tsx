@@ -1,5 +1,6 @@
 'use client';
 
+import { authFetch } from '@/utils/authFetch';
 import React, { useState, useEffect } from 'react';
 import { X, Send, Loader2, MessageSquare } from 'lucide-react';
 
@@ -42,7 +43,7 @@ export function MessageSendModalV2({
 
   const fetchTemplates = async () => {
     try {
-      const res = await fetch('/api/v2/templates');
+      const res = await authFetch('/api/v2/templates');
       const data = await res.json();
       if (data.success || Array.isArray(data)) {
         setTemplates(Array.isArray(data) ? data : data.data || []);
@@ -73,7 +74,7 @@ export function MessageSendModalV2({
     setIsSending(true);
     try {
       // 1. 문자 발송
-      const sendRes = await fetch('/api/v2/messages/send', {
+      const sendRes = await authFetch('/api/v2/messages/send', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
@@ -88,7 +89,7 @@ export function MessageSendModalV2({
       const sendData = await sendRes.json();
 
       // 2. 발송 로그 저장
-      await fetch('/api/v2/messages/log', {
+      await authFetch('/api/v2/messages/log', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({

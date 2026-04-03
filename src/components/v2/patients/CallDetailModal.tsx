@@ -229,7 +229,7 @@ export function CallDetailModal({
     try {
       // 재분석(force)이고 기존 결과가 있으면 미리보기 모드
       const usePreview = force && coaching;
-      const response = await fetch('/api/v2/call-analysis/coaching', {
+      const response = await authFetch('/api/v2/call-analysis/coaching', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ callLogId, force, preview: usePreview, requestedBy: user?.name }),
@@ -255,7 +255,7 @@ export function CallDetailModal({
   const handleApplyPreview = useCallback(async () => {
     if (!callLogId || !coachingPreview) return;
     try {
-      await fetch('/api/v2/call-analysis/coaching', {
+      await authFetch('/api/v2/call-analysis/coaching', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ callLogId, apply: true, coachingData: coachingPreview, requestedBy: user?.name }),

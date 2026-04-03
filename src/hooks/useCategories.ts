@@ -1,6 +1,7 @@
 // src/hooks/useCategories.ts
 // 카테고리 설정을 가져오는 커스텀 훅
 
+import { authFetch } from '@/utils/authFetch';
 import { useQuery } from '@tanstack/react-query';
 
 export interface CategoryItem {
@@ -63,7 +64,7 @@ const DEFAULT_CATEGORIES: Categories = {
 
 // 카테고리 데이터 fetch 함수
 const fetchCategories = async (): Promise<Categories> => {
-  const response = await fetch('/api/v2/settings/categories');
+  const response = await authFetch('/api/v2/settings/categories');
 
   if (!response.ok) {
     throw new Error('카테고리를 불러오는데 실패했습니다.');

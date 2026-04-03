@@ -49,8 +49,8 @@ export default function ManualSettings() {
   const fetchData = useCallback(async () => {
     try {
       const [catRes, manualRes] = await Promise.all([
-        fetch('/api/v2/manual-categories'),
-        fetch('/api/v2/manuals?limit=200'),
+        authFetch('/api/v2/manual-categories'),
+        authFetch('/api/v2/manuals?limit=200'),
       ]);
 
       const catData = await catRes.json();
@@ -190,7 +190,7 @@ export default function ManualSettings() {
         }
       } else {
         // 생성
-        const res = await fetch('/api/v2/manuals', {
+        const res = await authFetch('/api/v2/manuals', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({

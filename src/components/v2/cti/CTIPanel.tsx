@@ -175,7 +175,7 @@ export function CTIPanel() {
     setProcessingCallback(true);
     try {
       // 1. 통화 기록에 callbackType 태그 추가
-      const callLogRes = await fetch('/api/v2/call-logs', {
+      const callLogRes = await authFetch('/api/v2/call-logs', {
         method: 'PATCH',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
@@ -191,7 +191,7 @@ export function CTIPanel() {
       }
 
       // 2. 콜백 완료 처리
-      const callbackRes = await fetch('/api/v2/callbacks', {
+      const callbackRes = await authFetch('/api/v2/callbacks', {
         method: 'PATCH',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
@@ -399,7 +399,7 @@ export function CTIPanel() {
     if (!currentCall?.patientId) return;
     setQuickCallbackLoading(true);
     try {
-      const res = await fetch('/api/v2/callbacks/quick', {
+      const res = await authFetch('/api/v2/callbacks/quick', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({

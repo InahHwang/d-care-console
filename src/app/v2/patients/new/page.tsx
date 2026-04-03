@@ -1,6 +1,7 @@
 // src/app/v2/patients/new/page.tsx
 'use client';
 
+import { authFetch } from '@/utils/authFetch';
 import React, { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import {
@@ -67,7 +68,7 @@ export default function NewPatientPage() {
   useEffect(() => {
     const fetchCategories = async () => {
       try {
-        const response = await fetch('/api/v2/settings/categories');
+        const response = await authFetch('/api/v2/settings/categories');
         const data = await response.json();
         if (data.success) {
           const activeTypes = (data.categories.consultationTypes || []).filter((item: CategoryItem) => item.isActive);
@@ -148,7 +149,7 @@ export default function NewPatientPage() {
         };
       }
 
-      const response = await fetch('/api/v2/patients', {
+      const response = await authFetch('/api/v2/patients', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(patientData),

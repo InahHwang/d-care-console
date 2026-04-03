@@ -1,6 +1,7 @@
 // src/components/management/MessageLogModal.tsx
 'use client'
 
+import { authFetch } from '@/utils/authFetch';
 import { clearMessageLogs } from '@/store/slices/messageLogsSlice';
 import { useState, useEffect, useMemo } from 'react'
 import { useAppSelector, useAppDispatch } from '@/hooks/reduxHooks'
@@ -103,7 +104,7 @@ export default function MessageLogModal({ isOpen, onClose, patientId, embedded =
   if (confirm('모든 메시지 발송 내역을 초기화하시겠습니까?\n이 작업은 되돌릴 수 없습니다.')) {
     try {
       // 1. API를 통해 데이터베이스에서 실제 삭제
-      const response = await fetch('/api/v2/messages/log', {
+      const response = await authFetch('/api/v2/messages/log', {
         method: 'DELETE',
         headers: {
           'Content-Type': 'application/json',

@@ -1,6 +1,7 @@
 // src/components/v2/patients/StatusChangeModal.tsx
 'use client';
 
+import { authFetch } from '@/utils/authFetch';
 import React, { useState, useEffect, useCallback } from 'react';
 import { X, Calendar, ArrowRight, Bell, BellOff } from 'lucide-react';
 import { PatientStatus } from '@/types/v2';
@@ -107,7 +108,7 @@ export function StatusChangeModal({
     if (!isFollowup || !patientInterest) return;
     setLoadingRecall(true);
     try {
-      const response = await fetch('/api/v2/recall-settings');
+      const response = await authFetch('/api/v2/recall-settings');
       const result = await response.json();
       if (result.success && result.data) {
         const matched = result.data.find((s: { treatment: string }) => s.treatment === patientInterest);

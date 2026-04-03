@@ -383,7 +383,7 @@ export default function PatientDetailPage() {
   useEffect(() => {
     const fetchCategories = async () => {
       try {
-        const response = await fetch('/api/v2/settings/categories');
+        const response = await authFetch('/api/v2/settings/categories');
         if (response.ok) {
           const data = await response.json();
           if (data.success && data.categories?.consultationTypes) {
@@ -406,7 +406,7 @@ export default function PatientDetailPage() {
     try {
       // 수정 모드 (existingId가 있으면)
       if (existingId) {
-        const response = await fetch('/api/v2/consultations', {
+        const response = await authFetch('/api/v2/consultations', {
           method: 'PATCH',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({
@@ -421,7 +421,7 @@ export default function PatientDetailPage() {
         }
       } else {
         // 신규 생성 모드
-        const response = await fetch('/api/v2/consultations', {
+        const response = await authFetch('/api/v2/consultations', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({

@@ -162,7 +162,7 @@ function SchedulesContent() {
   // ============= Recall Settings API =============
   const fetchRecallSettings = useCallback(async () => {
     try {
-      const response = await fetch('/api/v2/recall-settings');
+      const response = await authFetch('/api/v2/recall-settings');
       const result = await response.json();
       if (result.success) {
         setRecallSettings(result.data);
@@ -193,7 +193,7 @@ function SchedulesContent() {
   // ============= Event Targets Stats API =============
   const fetchEventStats = useCallback(async () => {
     try {
-      const response = await fetch('/api/v2/marketing-targets?limit=100');
+      const response = await authFetch('/api/v2/marketing-targets?limit=100');
       const result = await response.json();
 
       if (result.success) {
@@ -263,7 +263,7 @@ function SchedulesContent() {
 
   const handleCallbackStatusChange = async (id: string, status: CallbackStatus) => {
     try {
-      const response = await fetch('/api/v2/callbacks', {
+      const response = await authFetch('/api/v2/callbacks', {
         method: 'PATCH',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ id, status }),
@@ -325,7 +325,7 @@ function SchedulesContent() {
 
   const handleAddTreatment = async (treatment: string) => {
     try {
-      const response = await fetch('/api/v2/recall-settings', {
+      const response = await authFetch('/api/v2/recall-settings', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ treatment, schedules: [] }),
@@ -365,7 +365,7 @@ function SchedulesContent() {
         newSchedules = setting.schedules.map(s => s.id === schedule.id ? schedule : s);
       }
 
-      const response = await fetch('/api/v2/recall-settings', {
+      const response = await authFetch('/api/v2/recall-settings', {
         method: 'PUT',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ id: settingId, schedules: newSchedules }),
@@ -387,7 +387,7 @@ function SchedulesContent() {
 
       const newSchedules = setting.schedules.filter(s => s.id !== scheduleId);
 
-      const response = await fetch('/api/v2/recall-settings', {
+      const response = await authFetch('/api/v2/recall-settings', {
         method: 'PUT',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ id: settingId, schedules: newSchedules }),
@@ -410,7 +410,7 @@ function SchedulesContent() {
         s.id === scheduleId ? { ...s, enabled } : s
       );
 
-      const response = await fetch('/api/v2/recall-settings', {
+      const response = await authFetch('/api/v2/recall-settings', {
         method: 'PUT',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ id: settingId, schedules: newSchedules }),
@@ -1165,7 +1165,7 @@ function AddCallbackModal({ onClose, onSuccess }: { onClose: () => void; onSucce
     }
     setSubmitting(true);
     try {
-      const response = await fetch('/api/v2/callbacks', {
+      const response = await authFetch('/api/v2/callbacks', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ patientId, type, scheduledAt: new Date(scheduledAt).toISOString(), note }),

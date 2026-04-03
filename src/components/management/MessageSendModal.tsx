@@ -2,6 +2,7 @@
 
 'use client'
 
+import { authFetch } from '@/utils/authFetch';
 import { useState, useEffect } from 'react'
 import { 
   HiOutlineX, 
@@ -274,7 +275,7 @@ export default function MessageSendModal({
           });
           
           // 실제 메시지 발송 API 호출
-          const response = await fetch('/api/messages/send', {
+          const response = await authFetch('/api/messages/send', {
             method: 'POST',
             headers: {
               'Content-Type': 'application/json',

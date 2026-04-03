@@ -167,7 +167,7 @@ function ChatDetailModal({ isOpen, onClose, chatId }: ChatDetailModalProps) {
 
     setIsAnalyzing(true);
     try {
-      const res = await fetch('/api/v2/channel-chats/analyze', {
+      const res = await authFetch('/api/v2/channel-chats/analyze', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ chatId }),
@@ -358,7 +358,7 @@ export function ConsultationHistoryCard({ patientId, patientName = '', className
 
     setAnalyzingChatId(chatId);
     try {
-      const res = await fetch('/api/v2/channel-chats/analyze', {
+      const res = await authFetch('/api/v2/channel-chats/analyze', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ chatId }),
@@ -575,7 +575,7 @@ export function ConsultationHistoryCard({ patientId, patientName = '', className
 
         for (const chat of unanalyzedChats) {
           try {
-            const analyzeRes = await fetch('/api/v2/channel-chats/analyze', {
+            const analyzeRes = await authFetch('/api/v2/channel-chats/analyze', {
               method: 'POST',
               headers: { 'Content-Type': 'application/json' },
               body: JSON.stringify({ chatId: chat.id }),

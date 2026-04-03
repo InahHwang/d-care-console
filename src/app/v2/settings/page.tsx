@@ -120,7 +120,7 @@ export default function SettingsPage() {
     setUsersLoading(true);
     try {
       const token = localStorage.getItem('token');
-      const response = await fetch('/api/v2/users?includeInactive=true', {
+      const response = await authFetch('/api/v2/users?includeInactive=true', {
         headers: { 'Authorization': `Bearer ${token}` }
       });
       const data = await response.json();
@@ -140,7 +140,7 @@ export default function SettingsPage() {
     setInvitationsLoading(true);
     try {
       const token = localStorage.getItem('token');
-      const response = await fetch('/api/v2/invitations', {
+      const response = await authFetch('/api/v2/invitations', {
         headers: { 'Authorization': `Bearer ${token}` }
       });
       const data = await response.json();
@@ -165,7 +165,7 @@ export default function SettingsPage() {
 
   const fetchSettings = async () => {
     try {
-      const response = await fetch('/api/v2/settings');
+      const response = await authFetch('/api/v2/settings');
       const result = await response.json();
 
       if (result.success) {
@@ -183,7 +183,7 @@ export default function SettingsPage() {
 
     setSaving(true);
     try {
-      const response = await fetch('/api/v2/settings', {
+      const response = await authFetch('/api/v2/settings', {
         method: 'PATCH',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(settings),
@@ -300,7 +300,7 @@ export default function SettingsPage() {
     }
     try {
       const token = localStorage.getItem('token');
-      const response = await fetch('/api/v2/invitations', {
+      const response = await authFetch('/api/v2/invitations', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -872,7 +872,7 @@ export default function SettingsPage() {
             <CTIIntegrationSettings
               settings={settings.cti || { productType: '', apiId: '', apiPassword: '', phoneNumber: '', isConfigured: false }}
               onSave={async (data) => {
-                await fetch('/api/v2/settings', {
+                await authFetch('/api/v2/settings', {
                   method: 'PATCH',
                   headers: { 'Content-Type': 'application/json' },
                   body: JSON.stringify({ cti: data }),
@@ -885,7 +885,7 @@ export default function SettingsPage() {
             <SMSIntegrationSettings
               settings={settings.sms || { senderNumber: '', senderName: '', approvalStatus: 'none', isConfigured: false }}
               onSave={async (data) => {
-                await fetch('/api/v2/settings', {
+                await authFetch('/api/v2/settings', {
                   method: 'PATCH',
                   headers: { 'Content-Type': 'application/json' },
                   body: JSON.stringify({ sms: data }),
@@ -898,7 +898,7 @@ export default function SettingsPage() {
             <ChannelChatIntegrationSettings
               settings={settings.channels || {}}
               onSave={async (data) => {
-                await fetch('/api/v2/settings', {
+                await authFetch('/api/v2/settings', {
                   method: 'PATCH',
                   headers: { 'Content-Type': 'application/json' },
                   body: JSON.stringify({ channels: data }),

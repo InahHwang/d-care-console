@@ -63,7 +63,7 @@ export default function RecallSettings() {
   // 치료 과목 목록 조회
   const fetchTreatmentTypes = useCallback(async () => {
     try {
-      const response = await fetch('/api/v2/settings/categories');
+      const response = await authFetch('/api/v2/settings/categories');
       const result = await response.json();
       if (result.success && result.categories?.treatmentTypes) {
         const activeLabels = result.categories.treatmentTypes
@@ -79,7 +79,7 @@ export default function RecallSettings() {
   // 설정 조회
   const fetchSettings = useCallback(async () => {
     try {
-      const response = await fetch('/api/v2/recall-settings');
+      const response = await authFetch('/api/v2/recall-settings');
       const result = await response.json();
       if (result.success) {
         setSettings(result.data);
@@ -104,7 +104,7 @@ export default function RecallSettings() {
     }
 
     try {
-      const response = await fetch('/api/v2/recall-settings', {
+      const response = await authFetch('/api/v2/recall-settings', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
@@ -197,7 +197,7 @@ export default function RecallSettings() {
     }
 
     try {
-      const response = await fetch('/api/v2/recall-settings', {
+      const response = await authFetch('/api/v2/recall-settings', {
         method: 'PUT',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
@@ -229,7 +229,7 @@ export default function RecallSettings() {
     const updatedSchedules = setting.schedules.filter(s => s.id !== scheduleId);
 
     try {
-      const response = await fetch('/api/v2/recall-settings', {
+      const response = await authFetch('/api/v2/recall-settings', {
         method: 'PUT',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
@@ -260,7 +260,7 @@ export default function RecallSettings() {
     );
 
     try {
-      const response = await fetch('/api/v2/recall-settings', {
+      const response = await authFetch('/api/v2/recall-settings', {
         method: 'PUT',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({

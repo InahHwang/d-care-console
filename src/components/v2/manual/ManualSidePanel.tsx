@@ -3,6 +3,7 @@
 
 'use client';
 
+import { authFetch } from '@/utils/authFetch';
 import React, { useState, useEffect, useCallback } from 'react';
 import {
   Search,
@@ -42,8 +43,8 @@ export default function ManualSidePanel({
   const fetchData = useCallback(async () => {
     try {
       const [catRes, manualRes] = await Promise.all([
-        fetch('/api/v2/manual-categories'),
-        fetch('/api/v2/manuals?limit=200&isActive=true'),
+        authFetch('/api/v2/manual-categories'),
+        authFetch('/api/v2/manuals?limit=200&isActive=true'),
       ]);
 
       const catData = await catRes.json();

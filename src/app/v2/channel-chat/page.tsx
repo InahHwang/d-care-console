@@ -288,7 +288,7 @@ export default function ChannelChatPage() {
   // 신규 환자 등록
   const handleRegisterPatient = async (patientData: NewPatientData) => {
     try {
-      const patientRes = await fetch('/api/v2/patients', {
+      const patientRes = await authFetch('/api/v2/patients', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({

@@ -96,7 +96,7 @@ export default function ReferralsPage() {
 
   const handleThanksToggle = async (id: string, currentValue: boolean) => {
     try {
-      const response = await fetch('/api/v2/referrals', {
+      const response = await authFetch('/api/v2/referrals', {
         method: 'PATCH',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ id, thanksSent: !currentValue }),
@@ -470,7 +470,7 @@ function AddReferralModal({
     setSubmitting(true);
 
     try {
-      const response = await fetch('/api/v2/referrals', {
+      const response = await authFetch('/api/v2/referrals', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ referrerId, referredId }),

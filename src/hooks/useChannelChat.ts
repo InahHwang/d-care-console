@@ -1,6 +1,7 @@
 // src/hooks/useChannelChat.ts
 // 채널 상담 실시간 통신 훅 (Pusher 기반)
 
+import { authFetch } from '@/utils/authFetch';
 import { useState, useEffect, useCallback, useRef } from 'react';
 import Pusher from 'pusher-js';
 import {
@@ -163,7 +164,7 @@ export const useChannelChat = (options: UseChannelChatOptions = {}) => {
   // 읽지 않은 메시지 수 조회
   const fetchUnreadCount = useCallback(async () => {
     try {
-      const res = await fetch('/api/v2/channel-chats?limit=1');
+      const res = await authFetch('/api/v2/channel-chats?limit=1');
       const data = await res.json();
       if (data.success) {
         setState((prev) => ({ ...prev, unreadTotal: data.unreadTotal || 0 }));

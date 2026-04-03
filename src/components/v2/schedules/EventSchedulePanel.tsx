@@ -75,7 +75,7 @@ export function EventSchedulePanel({ selectedDate }: EventSchedulePanelProps) {
   const fetchPatients = useCallback(async () => {
     setLoading(true);
     try {
-      const response = await fetch('/api/v2/marketing-targets?limit=100&sortBy=scheduledDate&sortOrder=asc');
+      const response = await authFetch('/api/v2/marketing-targets?limit=100&sortBy=scheduledDate&sortOrder=asc');
       const data = await response.json();
 
       if (data.success) {

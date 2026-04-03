@@ -1,5 +1,6 @@
 'use client';
 
+import { authFetch } from '@/utils/authFetch';
 import { useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { useAppDispatch } from '@/hooks/reduxHooks';
@@ -63,7 +64,7 @@ export default function LoginPage() {
     dispatch(loginStart());
 
     try {
-      const response = await fetch('/api/v2/auth/login', {
+      const response = await authFetch('/api/v2/auth/login', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',

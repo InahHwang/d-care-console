@@ -57,7 +57,7 @@ function ReportsPageContent() {
   // === 월별 보고서 목록 fetch ===
   const fetchReportList = useCallback(async () => {
     try {
-      const response = await fetch('/api/v2/reports');
+      const response = await authFetch('/api/v2/reports');
       if (!response.ok) throw new Error('Failed to fetch report list');
       const result = await response.json();
       if (result.success) {
@@ -96,7 +96,7 @@ function ReportsPageContent() {
     const [year, month] = selectedYearMonth.split('-').map(Number);
     setIsCreating(true);
     try {
-      const response = await fetch('/api/v2/reports', {
+      const response = await authFetch('/api/v2/reports', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',

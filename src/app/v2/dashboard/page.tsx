@@ -1,6 +1,7 @@
 // src/app/v2/dashboard/page.tsx
 'use client';
 
+import { authFetch } from '@/utils/authFetch';
 import React, { useState, useEffect, useCallback } from 'react';
 import { PageHeader } from '@/components/v2/layout/PageHeader';
 import {
@@ -63,7 +64,7 @@ export default function DashboardPage() {
 
   const fetchDashboardData = useCallback(async () => {
     try {
-      const response = await fetch('/api/v2/dashboard');
+      const response = await authFetch('/api/v2/dashboard');
       if (!response.ok) {
         throw new Error('Failed to fetch dashboard data');
       }

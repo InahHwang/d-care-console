@@ -2,6 +2,7 @@
 
 'use client'
 
+import { authFetch } from '@/utils/authFetch';
 import { useState, useEffect } from 'react'
 import { useAppSelector, useAppDispatch } from '@/hooks/reduxHooks'
 import { fetchCategories } from '@/store/slices/categoriesSlice'
@@ -134,7 +135,7 @@ export default function TemplateFormModal({
       const formData = new FormData();
       formData.append('file', file);
       
-      const response = await fetch('/api/upload', {
+      const response = await authFetch('/api/upload', {
         method: 'POST',
         body: formData
       });

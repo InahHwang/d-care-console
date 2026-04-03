@@ -2,6 +2,7 @@
 // 일별 리포트 환자 상세 패널 컴포넌트
 'use client';
 
+import { authFetch } from '@/utils/authFetch';
 import React, { useState, useCallback } from 'react';
 import Link from 'next/link';
 import { ExternalLink, Sparkles, Loader2, PhoneForwarded } from 'lucide-react';
@@ -53,7 +54,7 @@ export function DailyReportPatientDetailPanel({
     setCoachingGenerating(true);
     setGeneratingCallLogId(patient.callLogId);
     try {
-      const res = await fetch('/api/v2/call-analysis/coaching', {
+      const res = await authFetch('/api/v2/call-analysis/coaching', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ callLogId: patient.callLogId }),

@@ -97,7 +97,7 @@ export default function AIChatWindow({ onClose }: Props) {
     const loadRecentConversation = async () => {
       try {
         const token = localStorage.getItem('token');
-        const res = await fetch('/api/v2/ai-chat?limit=1', {
+        const res = await authFetch('/api/v2/ai-chat?limit=1', {
           headers: { 'Authorization': `Bearer ${token}` },
         });
         const data = await res.json();
@@ -125,7 +125,7 @@ export default function AIChatWindow({ onClose }: Props) {
     setListLoading(true);
     try {
       const token = localStorage.getItem('token');
-      const res = await fetch('/api/v2/ai-chat?limit=30', {
+      const res = await authFetch('/api/v2/ai-chat?limit=30', {
         headers: { 'Authorization': `Bearer ${token}` },
       });
       const data = await res.json();
@@ -177,7 +177,7 @@ export default function AIChatWindow({ onClose }: Props) {
 
     try {
       const token = localStorage.getItem('token');
-      const res = await fetch('/api/v2/ai-chat', {
+      const res = await authFetch('/api/v2/ai-chat', {
         method: 'POST',
         headers: {
           'Authorization': `Bearer ${token}`,

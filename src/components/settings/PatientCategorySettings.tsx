@@ -3,6 +3,7 @@
 
 'use client';
 
+import { authFetch } from '@/utils/authFetch';
 import { useState, useEffect } from 'react';
 import {
   HiOutlinePlus,
@@ -65,7 +66,7 @@ export default function PatientCategorySettings() {
       setIsLoading(true);
       setError(null);
 
-      const response = await fetch('/api/v2/settings/categories');
+      const response = await authFetch('/api/v2/settings/categories');
       const data = await response.json();
 
       if (data.success) {
@@ -96,7 +97,7 @@ export default function PatientCategorySettings() {
 
     setIsSaving(true);
     try {
-      const response = await fetch('/api/v2/settings/categories', {
+      const response = await authFetch('/api/v2/settings/categories', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
@@ -141,7 +142,7 @@ export default function PatientCategorySettings() {
 
     setIsSaving(true);
     try {
-      const response = await fetch('/api/v2/settings/categories', {
+      const response = await authFetch('/api/v2/settings/categories', {
         method: 'PUT',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
@@ -178,7 +179,7 @@ export default function PatientCategorySettings() {
 
     setIsSaving(true);
     try {
-      const response = await fetch('/api/v2/settings/categories', {
+      const response = await authFetch('/api/v2/settings/categories', {
         method: 'PUT',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
@@ -242,7 +243,7 @@ export default function PatientCategorySettings() {
 
     setIsSaving(true);
     try {
-      const response = await fetch('/api/v2/settings/categories', {
+      const response = await authFetch('/api/v2/settings/categories', {
         method: 'PUT',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
