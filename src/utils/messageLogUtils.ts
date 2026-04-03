@@ -7,7 +7,7 @@ import {
   MessageType,
   RcsOptions
 } from '@/types/messageLog';
-import { Patient } from '@/store/slices/patientsSlice';
+import { Patient } from '@/types/patient';
 import { EventCategory } from '@/types/messageLog'
 import { saveMessageLog } from '@/store/slices/messageLogsSlice';
 import { store } from '@/store'; // 스토어 임포트 추가

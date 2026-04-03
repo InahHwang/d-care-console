@@ -13,7 +13,7 @@ import {
   HiOutlinePhotograph
 } from 'react-icons/hi'
 import { Icon } from '../common/Icon'
-import { Patient } from '@/store/slices/patientsSlice'
+import { Patient } from '@/types/patient'
 import { EventCategory } from '@/types/messageLog'
 import { MessageType, MessageTemplate } from '@/types/messageLog';
 import { useAppDispatch, useAppSelector } from '@/hooks/reduxHooks';
