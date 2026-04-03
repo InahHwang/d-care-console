@@ -292,11 +292,11 @@ export async function POST(request: NextRequest) {
             { arrayFilters: [{ 'journey.id': currentPatientForStatus.activeJourneyId }] }
           );
         }
-      }
 
-      if (appointmentDate) {
-        patientUpdate.nextAction = type === 'phone' ? '내원예약' : '치료예약';
-        patientUpdate.nextActionDate = appointmentDate;
+        if (appointmentDate) {
+          patientUpdate.nextAction = type === 'phone' ? '내원예약' : '치료예약';
+          patientUpdate.nextActionDate = appointmentDate;
+        }
       }
 
       // 금액 정보 업데이트
@@ -663,11 +663,11 @@ export async function PATCH(request: NextRequest) {
               { arrayFilters: [{ 'journey.id': currentPatientForStatus.activeJourneyId }] }
             );
           }
-        }
 
-        if (appointmentDate) {
-          patientUpdate.nextAction = consultationType === 'phone' ? '내원예약' : '치료예약';
-          patientUpdate.nextActionDate = appointmentDate;
+          if (appointmentDate) {
+            patientUpdate.nextAction = consultationType === 'phone' ? '내원예약' : '치료예약';
+            patientUpdate.nextActionDate = appointmentDate;
+          }
         }
 
         // 금액 정보 업데이트

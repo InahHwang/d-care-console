@@ -660,11 +660,9 @@ async function updatePatientWithAnalysis(
       updateData.name = analysis.patientName;
     }
 
-    // 예약 확정된 경우 상태 변경
-    if (analysis.followUp === '예약확정') {
-      updateData.status = 'reserved';
-      updateData.statusChangedAt = new Date().toISOString();
-    }
+    // 상태(status)는 AI가 변경하지 않음 — 상담사가 직접 판단하여 변경
+    // (이전에 analysis.followUp === '예약확정' 시 자동으로 reserved 설정했으나,
+    //  statusHistory/journey 미동기화로 20건+ 데이터 불일치 발생하여 제거)
 
     // 콜백 일정은 상담사가 수동으로 등록 (AI 자동 설정 제거)
 
