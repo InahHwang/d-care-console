@@ -309,12 +309,11 @@ export default function SettingsPage() {
       });
       const data = await response.json();
       if (data.success) {
+        const inviteLink = `${window.location.origin}/invite/${data.data?.token || data.token}`;
         setShowInviteModal(false);
         setInviteForm({ name: '', email: '', role: 'staff' });
         fetchInvitations();
-        // 링크 자동 복사
-        await navigator.clipboard.writeText(data.inviteLink);
-        alert('초대가 생성되었습니다. 링크가 클립보드에 복사되었습니다.');
+        window.prompt('초대 링크를 Ctrl+C로 복사하세요:', inviteLink);
       } else {
         alert(data.error || '초대 생성에 실패했습니다.');
       }
