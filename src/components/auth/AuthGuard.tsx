@@ -29,7 +29,7 @@ export default function AuthGuard({
   const { isAuthenticated, isLoading, user, isInitialized } = useAppSelector((state) => state.auth);
 
   // 보호되지 않는 경로들 (로그인 없이 접근 가능)
-  const publicPaths = ['/login', '/invite'];
+  const publicPaths = ['/login', '/invite', '/auth/callback'];
 
   // 관리자 전용 경로들 (admin 또는 master만 접근 가능)
   const adminOnlyPaths = ['/admin'];
