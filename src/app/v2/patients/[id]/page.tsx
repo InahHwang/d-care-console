@@ -1,6 +1,7 @@
 // src/app/v2/patients/[id]/page.tsx
 'use client';
 
+import { authFetch } from '@/utils/authFetch';
 import React, { useState, useEffect, useCallback } from 'react';
 import { useRouter, useParams } from 'next/navigation';
 import {
@@ -318,7 +319,7 @@ export default function PatientDetailPage() {
 
   const fetchPatient = useCallback(async () => {
     try {
-      const response = await fetch(`/api/v2/patients/${patientId}`);
+      const response = await authFetch(`/api/v2/patients/${patientId}`);
       if (!response.ok) {
         if (response.status === 404) {
           setError('환자를 찾을 수 없습니다');
@@ -361,7 +362,7 @@ export default function PatientDetailPage() {
   const fetchConsultations = useCallback(async () => {
     setConsultationsLoading(true);
     try {
-      const response = await fetch(`/api/v2/consultations?patientId=${patientId}`);
+      const response = await authFetch(`/api/v2/consultations?patientId=${patientId}`);
       if (response.ok) {
         const data = await response.json();
         setConsultations(data.data?.consultations || []);
@@ -437,7 +438,7 @@ export default function PatientDetailPage() {
       // 마케팅 타겟 지정 처리 (미동의/보류 시 체크박스 체크한 경우)
       if (formData.isMarketingTarget && formData.marketingTargetData) {
         try {
-          await fetch(`/api/v2/patients/${patientId}/marketing-target`, {
+          await authFetch(`/api/v2/patients/${patientId}/marketing-target`, {
             method: 'PUT',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({
@@ -486,7 +487,7 @@ export default function PatientDetailPage() {
     // 수동입력 상담 조회
     let manualActivities: SourceActivity[] = [];
     try {
-      const res = await fetch(`/api/v2/patients/${patientId}/manual-consultations`);
+      const res = await authFetch(`/api/v2/patients/${patientId}/manual-consultations`);
       const data = await res.json();
       if (data.success) {
         manualActivities = (data.data || [])
@@ -533,14 +534,14 @@ export default function PatientDetailPage() {
     setInterestSaving(true);
     try {
       if (selectedJourney) {
-        const response = await fetch(`/api/v2/patients/${patientId}/journeys/${selectedJourneyId}`, {
+        const response = await authFetch(`/api/v2/patients/${patientId}/journeys/${selectedJourneyId}`, {
           method: 'PATCH',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({ treatmentType: value }),
         });
         if (!response.ok) throw new Error('여정 업데이트 실패');
       } else {
-        const response = await fetch(`/api/v2/patients/${patientId}`, {
+        const response = await authFetch(`/api/v2/patients/${patientId}`, {
           method: 'PATCH',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({ interest: value }),
@@ -571,7 +572,7 @@ export default function PatientDetailPage() {
     setAmountSaving(true);
     try {
       if (selectedJourney) {
-        const response = await fetch(`/api/v2/patients/${patientId}/journeys/${selectedJourneyId}`, {
+        const response = await authFetch(`/api/v2/patients/${patientId}/journeys/${selectedJourneyId}`, {
           method: 'PATCH',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({
@@ -583,7 +584,7 @@ export default function PatientDetailPage() {
         });
         if (!response.ok) throw new Error('여정 업데이트 실패');
       } else {
-        const response = await fetch(`/api/v2/patients/${patientId}`, {
+        const response = await authFetch(`/api/v2/patients/${patientId}`, {
           method: 'PATCH',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({
@@ -623,7 +624,7 @@ export default function PatientDetailPage() {
     if (!patient) return;
 
     try {
-      const response = await fetch(`/api/v2/patients/${patientId}`, {
+      const response = await authFetch(`/api/v2/patients/${patientId}`, {
         method: 'PATCH',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
@@ -673,7 +674,7 @@ export default function PatientDetailPage() {
   const handleSave = async () => {
     setSaving(true);
     try {
-      const response = await fetch(`/api/v2/patients/${patientId}`, {
+      const response = await authFetch(`/api/v2/patients/${patientId}`, {
         method: 'PATCH',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
@@ -715,7 +716,7 @@ export default function PatientDetailPage() {
     if (!confirm('정말로 이 환자를 삭제하시겠습니까?')) return;
 
     try {
-      const response = await fetch(`/api/v2/patients/${patientId}`, {
+      const response = await authFetch(`/api/v2/patients/${patientId}`, {
         method: 'DELETE',
       });
 
@@ -735,7 +736,7 @@ export default function PatientDetailPage() {
       // 기타 선택 시 사용자 입력 사유 사용
       const finalReason = reason === '기타' && customReason ? `기타: ${customReason}` : reason;
 
-      const response = await fetch(`/api/v2/patients/${patientId}`, {
+      const response = await authFetch(`/api/v2/patients/${patientId}`, {
         method: 'PATCH',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
@@ -764,7 +765,7 @@ export default function PatientDetailPage() {
     const previousStatus = closedEntry?.from || 'consulting';
 
     try {
-      const response = await fetch(`/api/v2/patients/${patientId}`, {
+      const response = await authFetch(`/api/v2/patients/${patientId}`, {
         method: 'PATCH',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
@@ -787,7 +788,7 @@ export default function PatientDetailPage() {
     if (!patient) return;
 
     try {
-      const response = await fetch(`/api/v2/patients/${patientId}`, {
+      const response = await authFetch(`/api/v2/patients/${patientId}`, {
         method: 'PATCH',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
@@ -1658,7 +1659,7 @@ export default function PatientDetailPage() {
                 }}
                 onDeleteResult={async (resultId) => {
                   try {
-                    const res = await fetch(`/api/v2/consultations?id=${resultId}`, { method: 'DELETE' });
+                    const res = await authFetch(`/api/v2/consultations?id=${resultId}`, { method: 'DELETE' });
                     const data = await res.json();
                     if (data.success) {
                       await fetchPatient();
@@ -1937,7 +1938,7 @@ function InterestEditSection({ displayInterest, selectedJourney, patientId, jour
     try {
       if (selectedJourney) {
         // 여정의 treatmentType 업데이트
-        const response = await fetch(`/api/v2/patients/${patientId}/journeys/${journeyId}`, {
+        const response = await authFetch(`/api/v2/patients/${patientId}/journeys/${journeyId}`, {
           method: 'PATCH',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({ treatmentType: newValue }),
@@ -1945,7 +1946,7 @@ function InterestEditSection({ displayInterest, selectedJourney, patientId, jour
         if (!response.ok) throw new Error('여정 업데이트 실패');
       } else {
         // 환자의 interest 업데이트
-        const response = await fetch(`/api/v2/patients/${patientId}`, {
+        const response = await authFetch(`/api/v2/patients/${patientId}`, {
           method: 'PATCH',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({ interest: newValue }),
@@ -2077,7 +2078,7 @@ function NewJourneyModal({ onClose, patientName, patientId, onSuccess, changedBy
     setError(null);
 
     try {
-      const response = await fetch(`/api/v2/patients/${patientId}/journeys`, {
+      const response = await authFetch(`/api/v2/patients/${patientId}/journeys`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({

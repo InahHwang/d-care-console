@@ -2,6 +2,7 @@
 // 콜백 상세 패널 - 상담 컨텍스트 정보 포함
 'use client';
 
+import { authFetch } from '@/utils/authFetch';
 import React, { useState, useEffect, useRef } from 'react';
 import {
   Phone,
@@ -145,8 +146,8 @@ export function CallbackDetailPanel({
     setContextLoading(true);
 
     Promise.all([
-      fetch(`/api/v2/patients/${callback.patientId}`).then(r => r.json()),
-      fetch(`/api/v2/consultations?patientId=${callback.patientId}&limit=10`).then(r => r.json()),
+      authFetch(`/api/v2/patients/${callback.patientId}`).then(r => r.json()),
+      authFetch(`/api/v2/consultations?patientId=${callback.patientId}&limit=10`).then(r => r.json()),
     ])
       .then(([patientRes, consultRes]) => {
         if (cancelled) return;

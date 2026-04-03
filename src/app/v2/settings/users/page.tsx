@@ -1,5 +1,6 @@
 'use client';
 
+import { authFetch } from '@/utils/authFetch';
 import { useState, useEffect, useCallback } from 'react';
 import { useRouter } from 'next/navigation';
 import { useAppSelector } from '@/hooks/reduxHooks';
@@ -40,7 +41,7 @@ export default function UsersSettingsPage() {
         includeInactive: 'true'
       });
 
-      const response = await fetch(`/api/v2/users?${params}`, {
+      const response = await authFetch(`/api/v2/users?${params}`, {
         headers: {
           'Authorization': `Bearer ${token}`
         }
@@ -80,7 +81,7 @@ export default function UsersSettingsPage() {
   const handleToggleStatus = async (userId: string, currentStatus: boolean) => {
     try {
       const token = localStorage.getItem('token');
-      const response = await fetch(`/api/v2/users/${userId}`, {
+      const response = await authFetch(`/api/v2/users/${userId}`, {
         method: 'PUT',
         headers: {
           'Content-Type': 'application/json',
@@ -103,7 +104,7 @@ export default function UsersSettingsPage() {
 
     try {
       const token = localStorage.getItem('token');
-      const response = await fetch(`/api/v2/users/${userId}`, {
+      const response = await authFetch(`/api/v2/users/${userId}`, {
         method: 'DELETE',
         headers: {
           'Authorization': `Bearer ${token}`

@@ -1,6 +1,7 @@
 // src/components/v2/cti/CTIPanel.tsx
 'use client';
 
+import { authFetch } from '@/utils/authFetch';
 import React, { useState, useEffect, useCallback } from 'react';
 import {
   Phone,
@@ -143,7 +144,7 @@ export function CTIPanel() {
   const checkPendingCallbacks = useCallback(async (patientId: string) => {
     try {
       // 오늘 날짜를 기준으로 콜백 조회 (예정일 이전/이후 모두)
-      const res = await fetch(`/api/v2/callbacks?patientId=${patientId}`);
+      const res = await authFetch(`/api/v2/callbacks?patientId=${patientId}`);
       if (res.ok) {
         const data = await res.json();
         if (data.success && data.data?.callbacks) {

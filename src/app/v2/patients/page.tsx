@@ -3,6 +3,7 @@
 
 export const dynamic = 'force-dynamic';
 
+import { authFetch } from '@/utils/authFetch';
 import React, { useState, useEffect, useCallback, Suspense, useRef } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { Plus, Search } from 'lucide-react';
@@ -203,7 +204,7 @@ function PatientsPageContent() {
         }
       }
 
-      const response = await fetch(`/api/v2/patients?${params.toString()}`, {
+      const response = await authFetch(`/api/v2/patients?${params.toString()}`, {
         signal: abortControllerRef.current.signal,
       });
       if (!response.ok) throw new Error('Failed to fetch');

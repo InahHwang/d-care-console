@@ -2,6 +2,7 @@
 // V2 월별 보고서 전체 뷰 - 재편된 섹션 구성 (2026-02)
 'use client';
 
+import { authFetch } from '@/utils/authFetch';
 import React, { useState, useEffect, useCallback } from 'react';
 import type { MonthlyReportV2 } from './MonthlyReport-Types';
 import type { PatientSummaryV2 } from './MonthlyReport-Types';
@@ -52,7 +53,7 @@ const MonthlyReportFullView: React.FC<MonthlyReportFullViewProps> = ({
 
   // API 호출 헬퍼
   const patchReport = useCallback(async (body: Record<string, unknown>) => {
-    const res = await fetch(`/api/v2/reports/${report._id}`, {
+    const res = await authFetch(`/api/v2/reports/${report._id}`, {
       method: 'PATCH',
       headers: {
         'Content-Type': 'application/json',

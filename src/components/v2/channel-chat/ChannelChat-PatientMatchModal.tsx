@@ -1,5 +1,6 @@
 'use client';
 
+import { authFetch } from '@/utils/authFetch';
 import React, { useState, useEffect } from 'react';
 import { X, Search, User, Phone, Check } from 'lucide-react';
 import { PatientV2, PATIENT_STATUS_CONFIG } from '@/types/v2';
@@ -32,7 +33,7 @@ export function ChannelChatPatientMatchModal({
     setIsLoading(true);
     try {
       // period=all로 전체 기간 검색, status 파라미터 없이 모든 상태 포함
-      const res = await fetch(`/api/v2/patients?search=${encodeURIComponent(query)}&limit=10&period=all`);
+      const res = await authFetch(`/api/v2/patients?search=${encodeURIComponent(query)}&limit=10&period=all`);
       const data = await res.json();
       // API는 { patients: [...] } 형식으로 반환
       if (data.patients) {

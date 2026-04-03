@@ -3,6 +3,7 @@
 
 'use client';
 
+import { authFetch } from '@/utils/authFetch';
 import React, { useState, useEffect, useCallback } from 'react';
 import {
   Plus,
@@ -143,7 +144,7 @@ export default function ManualSettings() {
     if (!confirm(`"${category.name}" 카테고리를 삭제하시겠습니까?`)) return;
 
     try {
-      const res = await fetch(`/api/v2/manual-categories?id=${category._id}`, {
+      const res = await authFetch(`/api/v2/manual-categories?id=${category._id}`, {
         method: 'DELETE',
       });
 
@@ -171,7 +172,7 @@ export default function ManualSettings() {
 
       if (editingManual) {
         // 수정
-        const res = await fetch(`/api/v2/manuals/${editingManual._id}`, {
+        const res = await authFetch(`/api/v2/manuals/${editingManual._id}`, {
           method: 'PATCH',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({
@@ -219,7 +220,7 @@ export default function ManualSettings() {
     if (!confirm(`"${manual.title}" 매뉴얼을 삭제하시겠습니까?`)) return;
 
     try {
-      const res = await fetch(`/api/v2/manuals/${manual._id}`, {
+      const res = await authFetch(`/api/v2/manuals/${manual._id}`, {
         method: 'DELETE',
       });
 

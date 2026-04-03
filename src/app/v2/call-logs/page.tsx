@@ -3,6 +3,7 @@
 
 export const dynamic = 'force-dynamic';
 
+import { authFetch } from '@/utils/authFetch';
 import React, { useState, useEffect, useCallback, Suspense, useRef } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import {
@@ -952,7 +953,7 @@ function CallLogsPageContent() {
         params.set('direction', directionFilter);
       }
 
-      const response = await fetch(`/api/v2/call-logs?${params.toString()}`, {
+      const response = await authFetch(`/api/v2/call-logs?${params.toString()}`, {
         signal: abortControllerRef.current.signal,
       });
       if (!response.ok) throw new Error('Failed to fetch');
@@ -1291,7 +1292,7 @@ function CallLogsPageContent() {
       if (searchQuery) params.set('search', searchQuery);
       if (directionFilter !== 'all') params.set('direction', directionFilter);
 
-      const response = await fetch(`/api/v2/call-logs?${params.toString()}`);
+      const response = await authFetch(`/api/v2/call-logs?${params.toString()}`);
       if (!response.ok) throw new Error('Failed to fetch');
 
       const data = await response.json();

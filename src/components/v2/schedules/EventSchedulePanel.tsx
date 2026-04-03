@@ -3,6 +3,7 @@
 
 'use client';
 
+import { authFetch } from '@/utils/authFetch';
 import React, { useState, useEffect, useCallback } from 'react';
 import { useRouter } from 'next/navigation';
 import {
@@ -292,7 +293,7 @@ function EventDetailPanel({
     if (!confirm('이벤트 타겟에서 해제하시겠습니까?')) return;
 
     try {
-      const response = await fetch(`/api/v2/patients/${patient.id}/marketing-target`, {
+      const response = await authFetch(`/api/v2/patients/${patient.id}/marketing-target`, {
         method: 'DELETE',
       });
       if (response.ok) {

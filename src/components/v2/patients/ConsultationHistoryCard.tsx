@@ -1,5 +1,6 @@
 'use client';
 
+import { authFetch } from '@/utils/authFetch';
 import React, { useState, useEffect } from 'react';
 import { Phone, MessageCircle, Clock, ChevronDown, Sparkles, X, Loader2, Plus, Building, Edit3, ClipboardCheck, ClipboardList, CheckCircle, XCircle, AlertCircle, PhoneMissed, Ban, Pencil, Trash2 } from 'lucide-react';
 import { format } from 'date-fns';
@@ -140,8 +141,8 @@ function ChatDetailModal({ isOpen, onClose, chatId }: ChatDetailModalProps) {
     setIsLoading(true);
     try {
       const [chatRes, messagesRes] = await Promise.all([
-        fetch(`/api/v2/channel-chats/${chatId}`),
-        fetch(`/api/v2/channel-chats/${chatId}/messages?limit=100`),
+        authFetch(`/api/v2/channel-chats/${chatId}`),
+        authFetch(`/api/v2/channel-chats/${chatId}/messages?limit=100`),
       ]);
 
       const chatData = await chatRes.json();
@@ -430,7 +431,7 @@ export function ConsultationHistoryCard({ patientId, patientName = '', className
       // 통화/채팅/수동 이력 조회 (result 필터가 아닐 때만)
       let callChatItems: ConsultationItem[] = [];
       if (filter !== 'result') {
-        const res = await fetch(`/api/v2/patients/${patientId}/consultations?type=${filter === 'all' ? 'all' : filter}&limit=20`);
+        const res = await authFetch(`/api/v2/patients/${patientId}/consultations?type=${filter === 'all' ? 'all' : filter}&limit=20`);
         const data = await res.json();
         if (data.success) {
           callChatItems = data.data;
@@ -438,7 +439,7 @@ export function ConsultationHistoryCard({ patientId, patientName = '', className
       }
 
       // 상담 결과 조회 (consultations_v2) - 항상 조회
-      const resultsRes = await fetch(`/api/v2/consultations?patientId=${patientId}&limit=50`);
+      const resultsRes = await authFetch(`/api/v2/consultations?patientId=${patientId}&limit=50`);
       const resultsData = await resultsRes.json();
       let resultItems: ConsultationItem[] = [];
       if (resultsData.success && resultsData.data?.consultations) {

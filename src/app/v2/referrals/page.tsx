@@ -1,6 +1,7 @@
 // src/app/v2/referrals/page.tsx
 'use client';
 
+import { authFetch } from '@/utils/authFetch';
 import React, { useState, useEffect, useCallback } from 'react';
 import { useRouter } from 'next/navigation';
 import { PageHeader } from '@/components/v2/layout/PageHeader';
@@ -74,7 +75,7 @@ export default function ReferralsPage() {
       if (filterThanks === 'sent') params.set('thanksSent', 'true');
       if (filterThanks === 'pending') params.set('thanksSent', 'false');
 
-      const response = await fetch(`/api/v2/referrals?${params}`);
+      const response = await authFetch(`/api/v2/referrals?${params}`);
       const result = await response.json();
 
       if (result.success) {
@@ -117,7 +118,7 @@ export default function ReferralsPage() {
     if (!confirmed) return;
 
     try {
-      const response = await fetch(`/api/v2/referrals?id=${id}`, {
+      const response = await authFetch(`/api/v2/referrals?id=${id}`, {
         method: 'DELETE',
       });
 
@@ -423,7 +424,7 @@ function AddReferralModal({
 
     try {
       // period=all로 전체 환자 검색 (기간 제한 없이)
-      const response = await fetch(`/api/v2/patients?search=${query}&limit=10&period=all`);
+      const response = await authFetch(`/api/v2/patients?search=${query}&limit=10&period=all`);
       const result = await response.json();
       // API는 { patients: [...], pagination: {...} } 형식으로 반환
       if (result.patients && result.patients.length > 0) {

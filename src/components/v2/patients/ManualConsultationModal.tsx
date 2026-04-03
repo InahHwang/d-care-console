@@ -2,6 +2,7 @@
 // 수동 상담 이력 입력 모달
 'use client';
 
+import { authFetch } from '@/utils/authFetch';
 import React, { useState, useEffect } from 'react';
 import { X, Phone, Building, MessageCircle, Calendar, Clock, Loader2, User } from 'lucide-react';
 import { format } from 'date-fns';
@@ -85,7 +86,7 @@ export function ManualConsultationModal({
     try {
       const consultationDate = new Date(`${date}T${time}`);
 
-      const response = await fetch(`/api/v2/patients/${patientId}/manual-consultations`, {
+      const response = await authFetch(`/api/v2/patients/${patientId}/manual-consultations`, {
         method: isEditMode ? 'PATCH' : 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({

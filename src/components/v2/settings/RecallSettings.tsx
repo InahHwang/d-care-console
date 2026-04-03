@@ -3,6 +3,7 @@
 
 'use client';
 
+import { authFetch } from '@/utils/authFetch';
 import React, { useState, useEffect, useCallback } from 'react';
 import {
   Plus,
@@ -131,7 +132,7 @@ export default function RecallSettings() {
     if (!confirm('이 치료 설정을 삭제하시겠습니까?')) return;
 
     try {
-      const response = await fetch(`/api/v2/recall-settings?id=${id}`, {
+      const response = await authFetch(`/api/v2/recall-settings?id=${id}`, {
         method: 'DELETE',
       });
 

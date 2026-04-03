@@ -2,6 +2,7 @@
 // 모바일용 일별 보고서 페이지 - v2 디자인 적용
 'use client';
 
+import { authFetch } from '@/utils/authFetch';
 import React, { useState, useEffect } from 'react';
 import { useParams, useRouter } from 'next/navigation';
 
@@ -338,7 +339,7 @@ function MobileDailyReportPage() {
   const fetchReport = async (date: string) => {
     try {
       setLoading(true);
-      const response = await fetch(`/api/v2/reports/daily/${date}`);
+      const response = await authFetch(`/api/v2/reports/daily/${date}`);
       const result = await response.json();
 
       if (result.success) {

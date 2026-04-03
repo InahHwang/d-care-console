@@ -1,5 +1,6 @@
 'use client';
 
+import { authFetch } from '@/utils/authFetch';
 import { useState, useEffect, useCallback } from 'react';
 import { useRouter } from 'next/navigation';
 import { useAppSelector } from '@/hooks/reduxHooks';
@@ -60,7 +61,7 @@ export default function InvitationsSettingsPage() {
         params.set('status', statusFilter);
       }
 
-      const response = await fetch(`/api/v2/invitations?${params}`, {
+      const response = await authFetch(`/api/v2/invitations?${params}`, {
         headers: {
           'Authorization': `Bearer ${token}`
         }
@@ -150,7 +151,7 @@ export default function InvitationsSettingsPage() {
 
     try {
       const token = localStorage.getItem('token');
-      const response = await fetch(`/api/v2/invitations?id=${id}`, {
+      const response = await authFetch(`/api/v2/invitations?id=${id}`, {
         method: 'DELETE',
         headers: {
           'Authorization': `Bearer ${token}`

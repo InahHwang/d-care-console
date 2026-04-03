@@ -3,6 +3,7 @@
 
 'use client';
 
+import { authFetch } from '@/utils/authFetch';
 import React, { useState, useEffect, useCallback } from 'react';
 import { Target, MessageSquare, RefreshCw, FileText, History } from 'lucide-react';
 import { MarketingTargetFilters, MarketingTargetList } from '@/components/v2/marketing';
@@ -121,7 +122,7 @@ export default function MarketingTargetsPage() {
         params.append('reason', reason);
       });
 
-      const response = await fetch(`/api/v2/marketing-targets?${params.toString()}`);
+      const response = await authFetch(`/api/v2/marketing-targets?${params.toString()}`);
       const data = await response.json();
 
       if (data.success) {

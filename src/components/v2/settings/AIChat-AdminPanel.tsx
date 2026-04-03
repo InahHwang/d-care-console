@@ -3,6 +3,7 @@
 
 'use client';
 
+import { authFetch } from '@/utils/authFetch';
 import React, { useState, useCallback, useEffect } from 'react';
 import { Sparkles, Search, ChevronDown, ChevronRight, User, MessageSquare, ChevronUp } from 'lucide-react';
 import type { AIChatConversation, AIChatMessage } from '@/types/aiChat';
@@ -60,7 +61,7 @@ export default function AIChatAdminPanel() {
     setExpandedId(null);
     try {
       const token = localStorage.getItem('token');
-      const res = await fetch(`/api/v2/ai-chat?userId=${userId}&limit=50`, {
+      const res = await authFetch(`/api/v2/ai-chat?userId=${userId}&limit=50`, {
         headers: { 'Authorization': `Bearer ${token}` },
       });
       const data = await res.json();
@@ -88,7 +89,7 @@ export default function AIChatAdminPanel() {
     setExpandedMessages([]);
     try {
       const token = localStorage.getItem('token');
-      const res = await fetch(`/api/v2/ai-chat/${convId}?limit=${MESSAGES_PER_PAGE}`, {
+      const res = await authFetch(`/api/v2/ai-chat/${convId}?limit=${MESSAGES_PER_PAGE}`, {
         headers: { 'Authorization': `Bearer ${token}` },
       });
       const data = await res.json();
@@ -111,7 +112,7 @@ export default function AIChatAdminPanel() {
     try {
       const token = localStorage.getItem('token');
       const before = expandedMessages.length;
-      const res = await fetch(`/api/v2/ai-chat/${expandedId}?limit=${MESSAGES_PER_PAGE}&before=${before}`, {
+      const res = await authFetch(`/api/v2/ai-chat/${expandedId}?limit=${MESSAGES_PER_PAGE}&before=${before}`, {
         headers: { 'Authorization': `Bearer ${token}` },
       });
       const data = await res.json();

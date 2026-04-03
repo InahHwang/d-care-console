@@ -3,6 +3,7 @@
 
 'use client';
 
+import { authFetch } from '@/utils/authFetch';
 import React, { useState, useEffect } from 'react';
 import { X, Target, Trash2 } from 'lucide-react';
 import {
@@ -87,7 +88,7 @@ export function MarketingTargetModal({
 
     setSubmitting(true);
     try {
-      const response = await fetch(`/api/v2/patients/${patientId}/marketing-target`, {
+      const response = await authFetch(`/api/v2/patients/${patientId}/marketing-target`, {
         method: 'PUT',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
@@ -121,7 +122,7 @@ export function MarketingTargetModal({
 
     setDeleting(true);
     try {
-      const response = await fetch(`/api/v2/patients/${patientId}/marketing-target`, {
+      const response = await authFetch(`/api/v2/patients/${patientId}/marketing-target`, {
         method: 'DELETE',
       });
 

@@ -1,6 +1,7 @@
 // src/app/v2/schedules/page.tsx
 'use client';
 
+import { authFetch } from '@/utils/authFetch';
 import React, { useState, useEffect, useCallback, Suspense } from 'react';
 import { useSearchParams, useRouter } from 'next/navigation';
 import {
@@ -137,7 +138,7 @@ function SchedulesContent() {
       params.set('date', selectedDate);
       if (statusFilter !== 'all') params.set('status', statusFilter);
 
-      const response = await fetch(`/api/v2/callbacks?${params}`);
+      const response = await authFetch(`/api/v2/callbacks?${params}`);
       const result = await response.json();
 
       if (result.success) {
@@ -177,7 +178,7 @@ function SchedulesContent() {
       const params = new URLSearchParams();
       if (status) params.set('status', status);
 
-      const response = await fetch(`/api/v2/recall-messages?${params}`);
+      const response = await authFetch(`/api/v2/recall-messages?${params}`);
       const result = await response.json();
 
       if (result.success) {
@@ -277,7 +278,7 @@ function SchedulesContent() {
 
   const handleRecallSend = async (id: string) => {
     try {
-      const response = await fetch(`/api/v2/recall-messages/${id}/send`, {
+      const response = await authFetch(`/api/v2/recall-messages/${id}/send`, {
         method: 'POST',
       });
       const result = await response.json();
@@ -296,7 +297,7 @@ function SchedulesContent() {
   const handleRecallCancel = async (id: string) => {
     if (!confirm('이 리콜 일정을 제거하시겠습니까?')) return;
     try {
-      const response = await fetch(`/api/v2/recall-messages/${id}/cancel`, {
+      const response = await authFetch(`/api/v2/recall-messages/${id}/cancel`, {
         method: 'POST',
       });
       if (response.ok) {
@@ -309,7 +310,7 @@ function SchedulesContent() {
 
   const handleRecallComplete = async (id: string) => {
     try {
-      const response = await fetch(`/api/v2/recall-messages/${id}/complete`, {
+      const response = await authFetch(`/api/v2/recall-messages/${id}/complete`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ result: 'contacted' }),
@@ -341,7 +342,7 @@ function SchedulesContent() {
   const handleDeleteTreatment = async (id: string) => {
     if (!confirm('이 치료 설정을 삭제하시겠습니까?')) return;
     try {
-      const response = await fetch(`/api/v2/recall-settings?id=${id}`, {
+      const response = await authFetch(`/api/v2/recall-settings?id=${id}`, {
         method: 'DELETE',
       });
       if (response.ok) {
@@ -1020,7 +1021,7 @@ function PatientInfoModal({
   useEffect(() => {
     const fetchPatient = async () => {
       try {
-        const res = await fetch(`/api/v2/patients/${patientId}`);
+        const res = await authFetch(`/api/v2/patients/${patientId}`);
         const data = await res.json();
         if (data.success || data.patient) {
           const p = data.patient || data;
@@ -1137,7 +1138,7 @@ function AddCallbackModal({ onClose, onSuccess }: { onClose: () => void; onSucce
       }
       try {
         // period=all로 전체 환자 검색 (기간 제한 없이)
-        const response = await fetch(`/api/v2/patients?search=${searchQuery}&limit=10&period=all`);
+        const response = await authFetch(`/api/v2/patients?search=${searchQuery}&limit=10&period=all`);
         const result = await response.json();
         // API는 { patients: [...], pagination: {...} } 형식으로 반환
         if (result.patients && result.patients.length > 0) {

@@ -4,6 +4,7 @@
 
 export const dynamic = 'force-dynamic';
 
+import { authFetch } from '@/utils/authFetch';
 import React, { useState, useEffect, useCallback, Suspense } from 'react';
 import { useSearchParams } from 'next/navigation';
 import { Calendar, BarChart3, ChevronLeft, ChevronRight, Plus, Trash2, FileText } from 'lucide-react';
@@ -42,7 +43,7 @@ function ReportsPageContent() {
   const fetchDailyReport = useCallback(async () => {
     setLoading(true);
     try {
-      const response = await fetch(`/api/v2/reports/daily/${selectedDate}`);
+      const response = await authFetch(`/api/v2/reports/daily/${selectedDate}`);
       if (!response.ok) throw new Error('Failed to fetch');
       const result = await response.json();
       setDailyData(result.data);
@@ -75,7 +76,7 @@ function ReportsPageContent() {
       // 보고서 목록에서 해당 월 보고서 찾기
       const match = reportList.find(r => r.yearMonth === yearMonth);
       if (match) {
-        const response = await fetch(`/api/v2/reports/${match._id}`);
+        const response = await authFetch(`/api/v2/reports/${match._id}`);
         if (response.ok) {
           const result = await response.json();
           if (result.success) {
@@ -122,7 +123,7 @@ function ReportsPageContent() {
   const handleDeleteReport = async (reportId: string) => {
     if (!confirm('이 보고서를 삭제하시겠습니까? 이 작업은 되돌릴 수 없습니다.')) return;
     try {
-      const response = await fetch(`/api/v2/reports/${reportId}`, {
+      const response = await authFetch(`/api/v2/reports/${reportId}`, {
         method: 'DELETE',
         headers: { Authorization: `Bearer ${authToken}` },
       });

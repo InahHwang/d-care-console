@@ -2,6 +2,7 @@
 // 모바일용 환자 상세 페이지
 'use client';
 
+import { authFetch } from '@/utils/authFetch';
 import { useState, useEffect } from 'react';
 import { useParams, useRouter } from 'next/navigation';
 
@@ -66,7 +67,7 @@ export default function MobilePatientDetailPage() {
   const fetchPatientData = async () => {
     try {
       setLoading(true);
-      const response = await fetch(`/api/v2/patients/${patientId}`);
+      const response = await authFetch(`/api/v2/patients/${patientId}`);
       const result = await response.json();
 
       if (result.success) {

@@ -1,6 +1,7 @@
 // src/components/v2/patients/CallDetailModal.tsx
 'use client';
 
+import { authFetch } from '@/utils/authFetch';
 import React, { useState, useEffect, useRef, useCallback } from 'react';
 import { X, Phone, Clock, FileText, Play, Pause, Volume2, AlertCircle, Loader2, Square, Sparkles, ChevronDown, ChevronUp, Target, Lightbulb, RefreshCw, Trash2 } from 'lucide-react';
 import { useAppSelector } from '@/hooks/reduxHooks';
@@ -110,7 +111,7 @@ export function CallDetailModal({
       setLoading(true);
       setError(null);
       try {
-        const response = await fetch(`/api/v2/call-logs/${callLogId}`);
+        const response = await authFetch(`/api/v2/call-logs/${callLogId}`);
         if (!response.ok) {
           throw new Error('통화 상세 정보를 불러올 수 없습니다');
         }
@@ -275,7 +276,7 @@ export function CallDetailModal({
   const handleDeleteCoaching = useCallback(async () => {
     if (!callLogId || !confirm('AI 상담 코칭 결과를 삭제하시겠습니까?')) return;
     try {
-      const response = await fetch(`/api/v2/call-analysis/coaching?callLogId=${callLogId}`, {
+      const response = await authFetch(`/api/v2/call-analysis/coaching?callLogId=${callLogId}`, {
         method: 'DELETE',
       });
       if (response.ok) {

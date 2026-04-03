@@ -1,5 +1,6 @@
 'use client';
 
+import { authFetch } from '@/utils/authFetch';
 import { useState, useEffect } from 'react';
 import { useRouter, useParams } from 'next/navigation';
 import { FiUser, FiLock, FiEye, FiEyeOff, FiMail, FiUserPlus, FiAlertCircle, FiCheckCircle } from 'react-icons/fi';
@@ -40,7 +41,7 @@ export default function InviteAcceptPage() {
   useEffect(() => {
     const verifyInvitation = async () => {
       try {
-        const response = await fetch(`/api/v2/invitations/${token}`);
+        const response = await authFetch(`/api/v2/invitations/${token}`);
         const data = await response.json();
 
         if (data.success && data.valid) {
@@ -120,7 +121,7 @@ export default function InviteAcceptPage() {
     setError(null);
 
     try {
-      const response = await fetch(`/api/v2/invitations/${token}`, {
+      const response = await authFetch(`/api/v2/invitations/${token}`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',

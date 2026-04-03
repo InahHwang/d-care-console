@@ -3,6 +3,7 @@
 
 'use client';
 
+import { authFetch } from '@/utils/authFetch';
 import React, { useState, useRef, useEffect, useCallback } from 'react';
 import { X, Send, List, Loader2, Sparkles } from 'lucide-react';
 import { usePathname } from 'next/navigation';
@@ -43,7 +44,7 @@ export default function AIChatWindow({ onClose }: Props) {
       if (patientMatch) {
         try {
           const token = localStorage.getItem('token');
-          const res = await fetch(`/api/v2/patients/${patientMatch[1]}`, {
+          const res = await authFetch(`/api/v2/patients/${patientMatch[1]}`, {
             headers: { 'Authorization': `Bearer ${token}` },
           });
           const data = await res.json();
@@ -143,7 +144,7 @@ export default function AIChatWindow({ onClose }: Props) {
     setIsLoading(true);
     try {
       const token = localStorage.getItem('token');
-      const res = await fetch(`/api/v2/ai-chat/${id}?limit=200`, {
+      const res = await authFetch(`/api/v2/ai-chat/${id}?limit=200`, {
         headers: { 'Authorization': `Bearer ${token}` },
       });
       const data = await res.json();
@@ -220,7 +221,7 @@ export default function AIChatWindow({ onClose }: Props) {
     if (!confirm('이 대화를 삭제하시겠습니까?')) return;
     try {
       const token = localStorage.getItem('token');
-      await fetch(`/api/v2/ai-chat?conversationId=${id}`, {
+      await authFetch(`/api/v2/ai-chat?conversationId=${id}`, {
         method: 'DELETE',
         headers: { 'Authorization': `Bearer ${token}` },
       });
