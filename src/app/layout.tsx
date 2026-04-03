@@ -4,7 +4,6 @@ import type { Metadata } from 'next';
 import { Inter } from 'next/font/google';
 import './globals.css';
 import { Providers } from '@/store/Providers';
-import PatientFormModal from '@/components/management/PatientFormModal'
 
 const inter = Inter({ subsets: ['latin'] });
 
@@ -23,8 +22,6 @@ export default function RootLayout({
       <body className={inter.className}>
         <Providers>
           {children}
-          {/* ★ 항상 마운트: 모든 페이지에서 환자 등록 모달 사용 가능 */}
-          <PatientFormModal />
         </Providers>
       </body>
     </html>
