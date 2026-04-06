@@ -115,6 +115,8 @@ export async function sendMessage(options: SendMessageOptions): Promise<SendMess
 }
 
 // MMS 이미지 업로드
+// SENS API 문서: POST /sms/v2/services/{serviceId}/files
+// Content-Type: multipart/form-data, 필드명: body, 파일형식: jpg, 최대 300KB
 export async function uploadImage(imageBuffer: Buffer): Promise<UploadFileResult> {
   const config = getSensConfig();
 
@@ -126,13 +128,16 @@ export async function uploadImage(imageBuffer: Buffer): Promise<UploadFileResult
   const timestamp = Date.now().toString();
   const signature = makeSignature('POST', uri, timestamp, config.accessKey, config.secretKey);
 
+  console.log('[SENS] 이미지 업로드 시작:', `${(imageBuffer.length / 1024).toFixed(1)}KB`);
+
   // multipart/form-data 생성
+  // SENS API는 필드명 "body"를 요구함
   const boundary = `----SensBoundary${Date.now()}`;
   const bodyParts: Buffer[] = [];
 
-  // File part
+  // File part — 필드명은 "body" (SENS 공식 문서 기준)
   bodyParts.push(Buffer.from(
-    `--${boundary}\r\nContent-Disposition: form-data; name="file"; filename="image.jpg"\r\nContent-Type: image/jpeg\r\n\r\n`
+    `--${boundary}\r\nContent-Disposition: form-data; name="body"; filename="image.jpg"\r\nContent-Type: image/jpeg\r\n\r\n`
   ));
   bodyParts.push(imageBuffer);
   bodyParts.push(Buffer.from('\r\n'));
@@ -162,7 +167,7 @@ export async function uploadImage(imageBuffer: Buffer): Promise<UploadFileResult
 
     const errorText = await response.text();
     console.error(`[SENS] 이미지 업로드 실패 (${response.status}):`, errorText);
-    return { success: false, error: `이미지 업로드 실패 (${response.status})` };
+    return { success: false, error: `이미지 업로드 실패 (${response.status}): ${errorText}` };
   } catch (error: any) {
     console.error('[SENS] 이미지 업로드 오류:', error.message);
     return { success: false, error: error.message };
