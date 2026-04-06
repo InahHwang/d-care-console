@@ -316,7 +316,11 @@ git commit -m "[CTIBridge] 변경 내용 요약"
   - [ ] users/invitations — Step 5(JWT) + Step 8(RBAC)과 함께 진행 예정 (사용자-병원 N:M 매핑 설계 필요)
 
 #### Step 5: 인증 강화 - JWT/쿠키 (리스크: 높음)
-- [ ] JWT 인증 미들웨어 (한 라우트씩 점진적 적용)
+- [x] Phase A: authFetch 유틸 생성 + 프론트엔드 160개 fetch 교체
+- [x] Phase C-1: 핵심 API 6개에 verifyToken 적용 (settings, recall-settings, patients, callbacks, consultations) — 19개 핸들러
+- [x] Phase C-2: dashboard, call-logs, callbacks/quick에 verifyToken 적용 (`d60999b`, 2026-04-06) — 8개 핸들러
+- [ ] Phase C-3~C-6: 나머지 API ~35개 파일에 점진적 적용
+- [ ] Phase B: 미들웨어 JWT 검증 (Phase C 완료 후)
 
 #### Step 6: PII 마스킹 - AI 전송 시 개인정보 보호 (리스크: 낮음)
 - [x] PII 마스킹 유틸리티 생성 (2026-04-02)
