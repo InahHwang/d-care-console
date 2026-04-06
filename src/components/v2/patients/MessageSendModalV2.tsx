@@ -2,7 +2,7 @@
 
 import { authFetch } from '@/utils/authFetch';
 import React, { useState, useEffect } from 'react';
-import { X, Send, Loader2, MessageSquare } from 'lucide-react';
+import { X, Send, Loader2, MessageSquare, ImageIcon } from 'lucide-react';
 
 interface MessageSendModalV2Props {
   isOpen: boolean;
@@ -19,6 +19,8 @@ interface Template {
   name?: string;  // 하위 호환
   content: string;
   category?: string;
+  type?: 'SMS' | 'LMS' | 'MMS' | 'RCS';
+  imageUrl?: string;
 }
 
 export function MessageSendModalV2({
@@ -33,6 +35,7 @@ export function MessageSendModalV2({
   const [isSending, setIsSending] = useState(false);
   const [templates, setTemplates] = useState<Template[]>([]);
   const [selectedTemplateId, setSelectedTemplateId] = useState<string>('');
+  const [imageUrl, setImageUrl] = useState<string>('');
 
   // 템플릿 목록 조회
   useEffect(() => {
@@ -53,26 +56,32 @@ export function MessageSendModalV2({
     }
   };
 
-  // 템플릿 선택 시 내용 채우기
+  // 템플릿 선택 시 내용 + 이미지 채우기
   const handleTemplateSelect = (templateId: string) => {
     setSelectedTemplateId(templateId);
     const template = templates.find(t => t.id === templateId);
     if (template) {
-      // [환자명] 치환
-      const personalizedContent = template.content.replace(/\[환자명\]/g, patientName);
+      // [환자명] ���환
+      const personalizedContent = template.content.replace(/\[환���명\]/g, patientName);
       setContent(personalizedContent);
+      setImageUrl(template.imageUrl || '');
+    } else {
+      setImageUrl('');
     }
   };
 
   // 문자 발송
   const handleSend = async () => {
     if (!content.trim()) {
-      alert('메시지 내용을 입력해주세요.');
+      alert('메시지 내���을 입력해주세요.');
       return;
     }
 
     setIsSending(true);
     try {
+      // 메시지 타입 결정: 이미지 있으면 MMS, 아니면 바이트 기반 SMS/LMS
+      const sendMessageType = imageUrl ? 'MMS' : (byteLength <= 90 ? 'SMS' : 'LMS');
+
       // 1. 문자 발송
       const sendRes = await authFetch('/api/v2/messages/send', {
         method: 'POST',
@@ -82,7 +91,8 @@ export function MessageSendModalV2({
           patientName,
           phoneNumber: patientPhone,
           content,
-          messageType: 'LMS', // 자동 결정됨
+          messageType: sendMessageType,
+          imageUrl: imageUrl || undefined,
         }),
       });
 
@@ -97,17 +107,19 @@ export function MessageSendModalV2({
           patientName,
           phoneNumber: patientPhone,
           content,
-          messageType: sendData.actualType || 'SMS',
+          messageType: sendData.actualType || sendMessageType,
           status: sendData.success ? 'success' : 'failed',
           errorMessage: sendData.success ? '' : sendData.message,
           templateName: templates.find(t => t.id === selectedTemplateId)?.title || templates.find(t => t.id === selectedTemplateId)?.name || '',
+          imageUrl: imageUrl || undefined,
         }),
       });
 
       if (sendData.success) {
-        alert('문자가 발송되었습니다.');
+        alert('문자가 발송되었습���다.');
         setContent('');
         setSelectedTemplateId('');
+        setImageUrl('');
         onSuccess?.();
         onClose();
       } else {
@@ -131,7 +143,7 @@ export function MessageSendModalV2({
   };
 
   const byteLength = getByteLength(content);
-  const messageType = byteLength <= 90 ? 'SMS' : 'LMS';
+  const messageType = imageUrl ? 'MMS' : (byteLength <= 90 ? 'SMS' : 'LMS');
 
   if (!isOpen) return null;
 
@@ -143,7 +155,7 @@ export function MessageSendModalV2({
         <div className="flex items-center justify-between p-4 border-b">
           <div className="flex items-center gap-2">
             <MessageSquare size={20} className="text-orange-500" />
-            <h2 className="text-lg font-bold text-gray-900">문자 발송</h2>
+            <h2 className="text-lg font-bold text-gray-900">��자 발송</h2>
           </div>
           <button
             onClick={onClose}
@@ -170,7 +182,7 @@ export function MessageSendModalV2({
           {templates.length > 0 && (
             <div>
               <label className="block text-sm font-medium text-gray-700 mb-2">
-                템플릿 선택 <span className="text-gray-400 text-xs">(선택)</span>
+                템플릿 선택 <span className="text-gray-400 text-xs">(���택)</span>
               </label>
               <select
                 value={selectedTemplateId}
@@ -180,10 +192,38 @@ export function MessageSendModalV2({
                 <option value="">직접 입력</option>
                 {templates.map((template) => (
                   <option key={template.id} value={template.id}>
+                    {template.type && template.type !== 'SMS' && template.type !== 'LMS' ? `[${template.type}] ` : ''}
                     {template.title || template.name}
                   </option>
                 ))}
               </select>
+            </div>
+          )}
+
+          {/* MMS 이미지 미리보기 */}
+          {imageUrl && (
+            <div className="relative">
+              <div className="flex items-center gap-1 mb-1">
+                <ImageIcon size={14} className="text-green-600" />
+                <span className="text-xs text-green-600 font-medium">MMS 이미지</span>
+              </div>
+              <div className="relative rounded-lg overflow-hidden border border-gray-200 bg-gray-50">
+                <img
+                  src={imageUrl}
+                  alt="MMS 이미지"
+                  className="w-full max-h-48 object-contain"
+                  onError={(e) => {
+                    (e.target as HTMLImageElement).style.display = 'none';
+                  }}
+                />
+              </div>
+              <button
+                onClick={() => setImageUrl('')}
+                className="absolute top-6 right-2 p-1 bg-black/50 text-white rounded-full hover:bg-black/70"
+                title="이미지 제거"
+              >
+                <X size={14} />
+              </button>
             </div>
           )}
 
@@ -193,7 +233,9 @@ export function MessageSendModalV2({
               <label className="text-sm font-medium text-gray-700">메시지 내용</label>
               <div className="flex items-center gap-2 text-xs">
                 <span className={`px-2 py-0.5 rounded ${
-                  messageType === 'SMS' ? 'bg-orange-100 text-orange-700' : 'bg-purple-100 text-purple-700'
+                  messageType === 'SMS' ? 'bg-orange-100 text-orange-700' :
+                  messageType === 'MMS' ? 'bg-green-100 text-green-700' :
+                  'bg-purple-100 text-purple-700'
                 }`}>
                   {messageType}
                 </span>
@@ -205,7 +247,7 @@ export function MessageSendModalV2({
             <textarea
               value={content}
               onChange={(e) => setContent(e.target.value)}
-              placeholder="메시지 내용을 입력하세요..."
+              placeholder="메시지 내���을 입력하세요..."
               className="w-full h-48 p-3 border border-gray-200 rounded-lg resize-none focus:outline-none focus:ring-2 focus:ring-orange-500 text-sm"
             />
           </div>
@@ -214,6 +256,7 @@ export function MessageSendModalV2({
           <div className="text-xs text-gray-400 space-y-1">
             <p>• SMS: 90바이트 이하 (한글 약 30자)</p>
             <p>• LMS: 90바이트 초과 ~ 2000바이트 (한글 약 670자)</p>
+            <p>• MMS: 이미지 포함 (JPG, 200KB 이하)</p>
           </div>
         </div>
 
