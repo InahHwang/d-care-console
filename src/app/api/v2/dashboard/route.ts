@@ -6,10 +6,14 @@ import { NextRequest, NextResponse } from 'next/server';
 // 캐싱 방지: 항상 최신 데이터 반환 (설정 변경 즉시 반영)
 export const dynamic = 'force-dynamic';
 import { connectToDatabase, getClinicId } from '@/utils/mongodb';
+import { verifyToken } from '@/lib/auth';
 
 // GET: 대시보드 데이터 조회
 export async function GET(request: NextRequest) {
   try {
+    const authResult = verifyToken(request);
+    if (authResult instanceof NextResponse) return authResult;
+
     const { db } = await connectToDatabase();
     const clinicId = getClinicId();
 

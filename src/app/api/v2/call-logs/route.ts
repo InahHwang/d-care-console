@@ -1,6 +1,7 @@
 // src/app/api/v2/call-logs/route.ts
 import { NextRequest, NextResponse } from 'next/server';
 import { connectToDatabase } from '@/utils/mongodb';
+import { verifyToken } from '@/lib/auth';
 import { ObjectId } from 'mongodb';
 
 export const dynamic = 'force-dynamic';
@@ -27,6 +28,9 @@ interface CallLogQuery {
 
 export async function GET(request: NextRequest) {
   try {
+    const authResult = verifyToken(request);
+    if (authResult instanceof NextResponse) return authResult;
+
     const searchParams = request.nextUrl.searchParams;
     const isExport = searchParams.get('export') === 'true';
     const page = parseInt(searchParams.get('page') || '1');
@@ -217,6 +221,9 @@ export async function GET(request: NextRequest) {
 // AI 분석 결과 수정 및 환자 연결
 export async function PATCH(request: NextRequest) {
   try {
+    const authResult = verifyToken(request);
+    if (authResult instanceof NextResponse) return authResult;
+
     const body = await request.json();
     console.log('[CallLogs PATCH] 요청 body:', JSON.stringify(body, null, 2));
 

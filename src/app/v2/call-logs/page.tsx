@@ -1118,7 +1118,7 @@ function CallLogsPageContent() {
 
     try {
       const recordingUrl = `/api/v2/call-logs/${selectedCall.id}/recording`;
-      const response = await fetch(recordingUrl);
+      const response = await authFetch(recordingUrl);
 
       if (!response.ok) {
         if (response.status === 404) {

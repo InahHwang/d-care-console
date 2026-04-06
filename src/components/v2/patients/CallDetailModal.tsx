@@ -183,7 +183,7 @@ export function CallDetailModal({
     try {
       // 우리 API에서 녹취 파일 가져오기
       const recordingUrl = `/api/v2/call-logs/${callLogId}/recording`;
-      const response = await fetch(recordingUrl);
+      const response = await authFetch(recordingUrl);
 
       if (!response.ok) {
         if (response.status === 404) {
