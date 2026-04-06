@@ -318,7 +318,6 @@ export async function POST(request: NextRequest) {
     
     // MMS 요청이고 이미지가 있으면 MMS로 처리 시도
     let shouldAttemptMMS = messageType === 'MMS' && imageUrl;
-    console.log('📋 [MMS 디버그] messageType:', messageType, '| imageUrl 길이:', imageUrl?.length, '| imageUrl 시작:', imageUrl?.substring(0, 50));
     if (shouldAttemptMMS) {
       console.log('🖼️ MMS 요청 - 이미지 처리 시작');
       actualMessageType = 'MMS';
