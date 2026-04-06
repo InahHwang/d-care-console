@@ -378,22 +378,10 @@ export async function POST(request: NextRequest) {
           } else {
             console.log(`✅ [${patient.name}] 이미지 최적화 완료: ${(imageProcessResult.buffer!.length / 1024).toFixed(1)}KB`);
 
-            // SENS 이미지 업로드
-            const uploadResult = await sensUploadImage(imageProcessResult.buffer!);
-
-            if (uploadResult.success && uploadResult.fileId) {
-              console.log(`✅ [${patient.name}] SENS 이미지 업로드 성공:`, uploadResult.fileId);
-              messageOptions.imageId = uploadResult.fileId;
-              messageOptions.type = 'MMS';
-              patientResult.actualType = 'MMS';
-            } else {
-              console.log(`❌ [${patient.name}] 이미지 업로드 실패, LMS로 대체:`, uploadResult.error);
-              actualMessageType = 'LMS';
-              messageOptions.type = 'LMS';
-              delete messageOptions.imageId;
-              patientResult.actualType = 'LMS';
-              patientResult.error = `이미지 업로드 실패로 LMS 발송: ${uploadResult.error}`;
-            }
+            // 이미지 버퍼를 직접 전달 (발송 시 base64로 포함)
+            messageOptions.imageBuffer = imageProcessResult.buffer!;
+            messageOptions.type = 'MMS';
+            patientResult.actualType = 'MMS';
           }
         }
 
@@ -401,7 +389,7 @@ export async function POST(request: NextRequest) {
           to: messageOptions.to,
           type: messageOptions.type,
           textLength: messageOptions.text.length,
-          hasImageId: !!messageOptions.imageId
+          hasImageBuffer: !!messageOptions.imageBuffer
         });
 
         // SENS 메시지 발송
@@ -411,6 +399,7 @@ export async function POST(request: NextRequest) {
           text: messageOptions.text,
           type: messageOptions.type,
           imageId: messageOptions.imageId,
+          imageBuffer: messageOptions.imageBuffer,
         });
 
         if (!result.success) {

@@ -19,6 +19,7 @@ interface SendMessageOptions {
   type?: 'SMS' | 'LMS' | 'MMS';
   subject?: string;
   imageId?: string;
+  imageBuffer?: Buffer; // MMS 직접 발송용 이미지 버퍼
 }
 
 interface SendMessageResult {
@@ -82,8 +83,12 @@ export async function sendMessage(options: SendMessageOptions): Promise<SendMess
     body.subject = options.subject;
   }
 
-  // MMS 이미지 첨부
-  if (options.type === 'MMS' && options.imageId) {
+  // MMS 이미지 첨부 — base64 직접 포함 방식 (별도 업로드 불필요)
+  if (options.type === 'MMS' && options.imageBuffer) {
+    const base64Body = options.imageBuffer.toString('base64');
+    body.files = [{ name: 'image.jpg', body: base64Body }];
+    console.log(`[SENS] MMS 이미지 base64 포함: ${(options.imageBuffer.length / 1024).toFixed(1)}KB`);
+  } else if (options.type === 'MMS' && options.imageId) {
     body.files = [{ fileId: options.imageId }];
   }
 
