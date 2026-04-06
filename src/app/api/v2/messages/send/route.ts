@@ -177,14 +177,18 @@ async function optimizeImageForMMS(imageInput: string | Buffer): Promise<{ succe
 
 // 네이버 클라우드 SENS
 import { sendMessage as sensSendMessage, uploadImage as sensUploadImage, isSensConfigured } from '@/utils/naverSens';
+import { verifyToken } from '@/lib/auth';
 
 export async function POST(request: NextRequest) {
   console.log('======= 메시지 발송 API 시작 =======');
   console.log('🌍 환경:', isVercel ? 'Vercel (Serverless)' : 'Local Development');
-  
+
   const currentUser = getCurrentUser(request);
-  
+
   try {
+    const authResult = verifyToken(request);
+    if (authResult instanceof NextResponse) return authResult;
+
     // SENS 설정 확인
     if (!isSensConfigured()) {
       console.error('SENS 설정 누락');

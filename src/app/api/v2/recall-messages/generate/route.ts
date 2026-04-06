@@ -3,6 +3,7 @@
 
 import { NextRequest, NextResponse } from 'next/server';
 import { connectToDatabase, getClinicId } from '@/utils/mongodb';
+import { verifyToken } from '@/lib/auth';
 import { ObjectId } from 'mongodb';
 
 export const dynamic = 'force-dynamic';
@@ -29,6 +30,9 @@ interface RecallSetting {
  */
 export async function POST(request: NextRequest) {
   try {
+    const authResult = verifyToken(request);
+    if (authResult instanceof NextResponse) return authResult;
+
     const body = await request.json();
     const { patientId, treatment, completedDate } = body;
 

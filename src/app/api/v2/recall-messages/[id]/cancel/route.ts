@@ -3,6 +3,7 @@
 
 import { NextRequest, NextResponse } from 'next/server';
 import { connectToDatabase, getClinicId } from '@/utils/mongodb';
+import { verifyToken } from '@/lib/auth';
 import { ObjectId } from 'mongodb';
 
 // POST - 발송 취소
@@ -11,6 +12,9 @@ export async function POST(
   { params }: { params: Promise<{ id: string }> }
 ) {
   try {
+    const authResult = verifyToken(request);
+    if (authResult instanceof NextResponse) return authResult;
+
     const { id } = await params;
 
     if (!id) {

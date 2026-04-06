@@ -3,6 +3,7 @@
 
 import { NextRequest, NextResponse } from 'next/server';
 import { connectToDatabase, getClinicId } from '@/utils/mongodb';
+import { verifyToken } from '@/lib/auth';
 import { ObjectId } from 'mongodb';
 import { z } from 'zod';
 
@@ -41,6 +42,9 @@ export interface RecallMessage {
 // GET - 리콜 메시지 목록 조회
 export async function GET(request: NextRequest) {
   try {
+    const authResult = verifyToken(request);
+    if (authResult instanceof NextResponse) return authResult;
+
     const { searchParams } = new URL(request.url);
     const status = searchParams.get('status') as RecallMessageStatus | null;
     const page = parseInt(searchParams.get('page') || '1');
@@ -141,6 +145,9 @@ export async function GET(request: NextRequest) {
 // POST - 리콜 메시지 생성 (환자 치료 완료 시 자동 호출)
 export async function POST(request: NextRequest) {
   try {
+    const authResult = verifyToken(request);
+    if (authResult instanceof NextResponse) return authResult;
+
     const body = await request.json();
     const parsed = recallMessageCreateSchema.safeParse(body);
 
@@ -195,6 +202,9 @@ export async function POST(request: NextRequest) {
 // PATCH - 상태 업데이트
 export async function PATCH(request: NextRequest) {
   try {
+    const authResult = verifyToken(request);
+    if (authResult instanceof NextResponse) return authResult;
+
     const body = await request.json();
     const parsed = recallMessagePatchSchema.safeParse(body);
 

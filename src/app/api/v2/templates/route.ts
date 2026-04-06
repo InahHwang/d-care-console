@@ -1,11 +1,15 @@
 // src/app/api/v2/templates/route.ts
 import { NextRequest, NextResponse } from 'next/server';
 import { connectToDatabase, getClinicId } from '@/utils/mongodb';
+import { verifyToken } from '@/lib/auth';
 import { MessageTemplate } from '@/types/messageLog';
 
 // GET: 템플릿 목록 조회
 export async function GET(request: NextRequest) {
   try {
+    const authResult = verifyToken(request);
+    if (authResult instanceof NextResponse) return authResult;
+
     const { db } = await connectToDatabase();
     const clinicId = getClinicId();
     const collection = db.collection('templates');
@@ -38,6 +42,9 @@ export async function GET(request: NextRequest) {
 // POST: 새 템플릿 추가
 export async function POST(request: NextRequest) {
   try {
+    const authResult = verifyToken(request);
+    if (authResult instanceof NextResponse) return authResult;
+
     const templateData: MessageTemplate = await request.json();
 
     if (!templateData.title || !templateData.content) {
@@ -86,6 +93,9 @@ export async function POST(request: NextRequest) {
 // PUT: 템플릿 수정
 export async function PUT(request: NextRequest) {
   try {
+    const authResult = verifyToken(request);
+    if (authResult instanceof NextResponse) return authResult;
+
     const templateData: MessageTemplate = await request.json();
 
     if (!templateData.id || !templateData.title || !templateData.content) {
@@ -133,6 +143,9 @@ export async function PUT(request: NextRequest) {
 // DELETE: 템플릿 삭제
 export async function DELETE(request: NextRequest) {
   try {
+    const authResult = verifyToken(request);
+    if (authResult instanceof NextResponse) return authResult;
+
     const { searchParams } = new URL(request.url);
     const templateId = searchParams.get('id');
 

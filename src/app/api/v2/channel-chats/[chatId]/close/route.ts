@@ -4,6 +4,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { ObjectId } from 'mongodb';
 import { connectToDatabase, getClinicId } from '@/utils/mongodb';
+import { verifyToken } from '@/lib/auth';
 import { getActiveTreatmentTypeLabels } from '@/utils/treatmentTypes';
 import OpenAI from 'openai';
 import Pusher from 'pusher';
@@ -54,6 +55,9 @@ function buildChatCloseAnalysisPrompt(treatmentLabels: string[]): string {
 
 export async function POST(request: NextRequest, { params }: RouteParams) {
   try {
+    const authResult = verifyToken(request);
+    if (authResult instanceof NextResponse) return authResult;
+
     const { chatId } = await params;
 
     if (!ObjectId.isValid(chatId)) {

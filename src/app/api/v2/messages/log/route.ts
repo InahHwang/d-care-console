@@ -1,9 +1,13 @@
 // src/app/api/v2/messages/log/route.ts
 import { NextRequest, NextResponse } from 'next/server';
 import { connectToDatabase } from '@/utils/mongodb';
+import { verifyToken } from '@/lib/auth';
 
 export async function DELETE(request: NextRequest) {
   try {
+    const authResult = verifyToken(request);
+    if (authResult instanceof NextResponse) return authResult;
+
     const { db } = await connectToDatabase();
     const result = await db.collection('messageLogs').deleteMany({});
 

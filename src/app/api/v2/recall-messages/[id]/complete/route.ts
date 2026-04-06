@@ -3,6 +3,7 @@
 
 import { NextRequest, NextResponse } from 'next/server';
 import { connectToDatabase, getClinicId } from '@/utils/mongodb';
+import { verifyToken } from '@/lib/auth';
 import { ObjectId } from 'mongodb';
 
 // POST - 전화 완료 처리
@@ -11,6 +12,9 @@ export async function POST(
   { params }: { params: Promise<{ id: string }> }
 ) {
   try {
+    const authResult = verifyToken(request);
+    if (authResult instanceof NextResponse) return authResult;
+
     const { id } = await params;
     const body = await request.json().catch(() => ({}));
     const { result, bookedAt } = body; // result: 'booked' | 'contacted' | 'no-answer'

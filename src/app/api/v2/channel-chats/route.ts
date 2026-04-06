@@ -1,6 +1,7 @@
 // src/app/api/v2/channel-chats/route.ts
 import { NextRequest, NextResponse } from 'next/server';
 import { connectToDatabase, getClinicId } from '@/utils/mongodb';
+import { verifyToken } from '@/lib/auth';
 import { ChannelType, ChatStatus } from '@/types/v2';
 import { z } from 'zod';
 
@@ -24,6 +25,9 @@ interface ChatQuery {
 // GET: 대화방 목록 조회
 export async function GET(request: NextRequest) {
   try {
+    const authResult = verifyToken(request);
+    if (authResult instanceof NextResponse) return authResult;
+
     const searchParams = request.nextUrl.searchParams;
     const channel = searchParams.get('channel') as ChannelType | 'all' | null;
     const status = searchParams.get('status') as ChatStatus | 'all' | null;
@@ -100,6 +104,9 @@ export async function GET(request: NextRequest) {
 // POST: 새 대화방 생성 (주로 웹훅에서 사용)
 export async function POST(request: NextRequest) {
   try {
+    const authResult = verifyToken(request);
+    if (authResult instanceof NextResponse) return authResult;
+
     const body = await request.json();
     const parsed = channelChatCreateSchema.safeParse(body);
 
