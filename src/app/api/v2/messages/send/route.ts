@@ -76,24 +76,39 @@ async function optimizeImageForMMS(imageInput: string | Buffer): Promise<{ succe
         const base64Data = imageInput.split(',')[1];
         imageBuffer = Buffer.from(base64Data, 'base64');
         console.log('📱 Base64 이미지 처리');
+      } else if (imageInput.startsWith('http://') || imageInput.startsWith('https://')) {
+        // HTTP URL 처리 (Vercel 환경에서 외부/내부 이미지 다운로드)
+        console.log('🌐 HTTP URL 이미지 다운로드:', imageInput);
+        try {
+          const response = await fetch(imageInput);
+          if (!response.ok) {
+            return { success: false, error: `이미지 다운로드 실패: ${response.status}` };
+          }
+          const arrayBuffer = await response.arrayBuffer();
+          imageBuffer = Buffer.from(arrayBuffer);
+          console.log('✅ HTTP 이미지 다운로드 성공:', `${(imageBuffer.length / 1024).toFixed(1)}KB`);
+        } catch (dlError: any) {
+          console.error('❌ HTTP 이미지 다운로드 오류:', dlError.message);
+          return { success: false, error: `이미지 다운로드 오류: ${dlError.message}` };
+        }
       } else {
         // 파일 경로 처리 (로컬 환경)
         let imagePath = imageInput;
-        
+
         // 상대 경로를 절대 경로로 변환
         if (imagePath.startsWith('/uploads/')) {
           imagePath = path.join(process.cwd(), 'public', imagePath);
         } else if (imagePath.startsWith('/')) {
           imagePath = path.join(process.cwd(), 'public', imagePath);
         }
-        
+
         console.log('🔍 이미지 파일 경로:', imagePath);
-        
+
         if (!fs.existsSync(imagePath)) {
           console.error('❌ 이미지 파일이 존재하지 않습니다:', imagePath);
           return { success: false, error: '이미지 파일을 찾을 수 없습니다.' };
         }
-        
+
         imageBuffer = fs.readFileSync(imagePath);
         console.log('🏠 파일 시스템에서 이미지 로드 성공');
       }
