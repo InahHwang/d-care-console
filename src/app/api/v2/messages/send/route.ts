@@ -25,13 +25,27 @@ async function logActivityToDatabase(activityData: any) {
   }
 }
 
-// 요청 헤더에서 사용자 정보 추출 (임시)
+// 요청 헤더에서 사용자 정보 추출 (JWT 기반)
 function getCurrentUser(request: NextRequest) {
-  // 실제로는 JWT 토큰에서 추출해야 함
-  return {
-    id: 'temp-user-001',
-    name: '임시 관리자'
-  };
+  try {
+    const authHeader = request.headers.get('authorization');
+    if (authHeader?.startsWith('Bearer ')) {
+      const token = authHeader.split(' ')[1];
+      const jwt = require('jsonwebtoken');
+      const decoded = jwt.verify(token, process.env.JWT_SECRET) as {
+        id: string;
+        name?: string;
+        username?: string;
+      };
+      return {
+        id: decoded.id,
+        name: decoded.name || decoded.username || 'unknown',
+      };
+    }
+  } catch {
+    // JWT 파싱 실패 시 fallback
+  }
+  return { id: 'unknown', name: 'unknown' };
 }
 
 // Vercel 환경 감지
