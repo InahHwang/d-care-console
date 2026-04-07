@@ -4,7 +4,7 @@
 
 import React, { useState, useCallback } from 'react';
 import { useQuery } from '@tanstack/react-query';
-import { Shield, Clock, User, Filter, ChevronLeft, ChevronRight, Download, Trash2 } from 'lucide-react';
+import { Shield, Clock, User, Filter, ChevronLeft, ChevronRight, Download, Trash2, AlertTriangle } from 'lucide-react';
 import { authFetch } from '@/utils/authFetch';
 
 interface ActivityLog {
@@ -93,7 +93,7 @@ export default function AuditPage() {
   const fetchLogs = useCallback(async () => {
     const params = new URLSearchParams({ page: String(page), limit: String(limit) });
     if (actionFilter) params.set('action', actionFilter);
-    if (userFilter) params.set('userId', userFilter);
+    if (userFilter) params.set('userName', userFilter);
 
     const res = await authFetch(`/api/v2/activity-logs?${params}`);
     if (!res.ok) throw new Error('Failed to fetch activity logs');
@@ -104,6 +104,38 @@ export default function AuditPage() {
     queryKey: ['activity-logs', page, actionFilter, userFilter],
     queryFn: fetchLogs,
     refetchInterval: 30000,
+  });
+
+  // 상담사별 요약 (최근 7일, 별도 쿼리)
+  const fetchUserSummary = useCallback(async () => {
+    const sevenDaysAgo = new Date(Date.now() - 7 * 24 * 60 * 60 * 1000).toISOString().slice(0, 10);
+    const res = await authFetch(`/api/v2/activity-logs?page=1&limit=100&startDate=${sevenDaysAgo}`);
+    if (!res.ok) return [];
+    const result = await res.json();
+    const recentLogs: ActivityLog[] = result?.logs || [];
+
+    // 상담사별 집계
+    const summaryMap = new Map<string, { total: number; deletes: number; statusChanges: number; lastActivity: string }>();
+    for (const log of recentLogs) {
+      const name = log.userName || 'unknown';
+      const existing = summaryMap.get(name) || { total: 0, deletes: 0, statusChanges: 0, lastActivity: '' };
+      existing.total++;
+      if (log.action.includes('delete')) existing.deletes++;
+      if (log.action.includes('status')) existing.statusChanges++;
+      if (!existing.lastActivity || log.timestamp > existing.lastActivity) existing.lastActivity = log.timestamp;
+      summaryMap.set(name, existing);
+    }
+
+    return Array.from(summaryMap.entries()).map(([userName, stats]) => ({
+      userName,
+      ...stats,
+    })).sort((a, b) => b.total - a.total);
+  }, []);
+
+  const { data: userSummary } = useQuery({
+    queryKey: ['activity-logs-user-summary'],
+    queryFn: fetchUserSummary,
+    refetchInterval: 60000,
   });
 
   const logs: ActivityLog[] = data?.logs || [];
@@ -157,6 +189,41 @@ export default function AuditPage() {
           CSV 내보내기
         </button>
       </div>
+
+      {/* 상담사별 활동 요약 (최근 7일) */}
+      {userSummary && userSummary.length > 0 && (
+        <div className="mb-6">
+          <h2 className="text-sm font-semibold text-gray-600 mb-3">최근 7일 활동 요약</h2>
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3">
+            {userSummary.map((s) => (
+              <div
+                key={s.userName}
+                className={`p-4 bg-white rounded-lg border cursor-pointer transition-colors ${
+                  userFilter === s.userName ? 'border-indigo-500 ring-1 ring-indigo-500' : 'border-gray-200 hover:border-gray-300'
+                }`}
+                onClick={() => { setUserFilter(userFilter === s.userName ? '' : s.userName); setPage(1); }}
+              >
+                <div className="flex items-center justify-between mb-2">
+                  <div className="flex items-center gap-2">
+                    <User className="w-4 h-4 text-gray-400" />
+                    <span className="font-medium text-gray-900">{s.userName}</span>
+                  </div>
+                  {s.deletes > 0 && (
+                    <span className="flex items-center gap-1 text-xs text-red-600">
+                      <AlertTriangle className="w-3 h-3" />
+                      삭제 {s.deletes}
+                    </span>
+                  )}
+                </div>
+                <div className="flex items-center gap-4 text-xs text-gray-500">
+                  <span>총 {s.total}건</span>
+                  <span>상태변경 {s.statusChanges}</span>
+                </div>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
 
       {/* 필터 */}
       <div className="flex items-center gap-3 mb-4">
@@ -217,9 +284,14 @@ export default function AuditPage() {
                     </div>
                   </td>
                   <td className="px-4 py-3">
-                    <div className="flex items-center gap-1">
+                    <div
+                      className="flex items-center gap-1 cursor-pointer hover:text-indigo-600"
+                      onClick={() => { setUserFilter(userFilter === log.userName ? '' : log.userName); setPage(1); }}
+                    >
                       <User className="w-3 h-3 text-gray-400" />
-                      <span className="font-medium text-gray-900">{log.userName}</span>
+                      <span className={`font-medium ${userFilter === log.userName ? 'text-indigo-600' : 'text-gray-900'}`}>
+                        {log.userName}
+                      </span>
                     </div>
                   </td>
                   <td className="px-4 py-3">
