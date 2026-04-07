@@ -2,7 +2,7 @@
 
 import { authFetch } from '@/utils/authFetch';
 import React, { useState, useEffect } from 'react';
-import { Phone, MessageCircle, Clock, ChevronDown, Sparkles, X, Loader2, Plus, Building, Edit3, ClipboardCheck, ClipboardList, CheckCircle, XCircle, AlertCircle, PhoneMissed, Ban, Pencil, Trash2 } from 'lucide-react';
+import { Phone, MessageCircle, Clock, ChevronDown, Sparkles, X, Loader2, Plus, Building, Edit3, ClipboardCheck, ClipboardList, CheckCircle, XCircle, AlertCircle, PhoneMissed, Ban, Pencil, Trash2, StickyNote, Check } from 'lucide-react';
 import { format } from 'date-fns';
 import { ko } from 'date-fns/locale';
 import { CHANNEL_CONFIG, ChannelType } from '@/types/v2';
@@ -350,6 +350,36 @@ export function ConsultationHistoryCard({ patientId, patientName = '', className
   const [analyzingChatId, setAnalyzingChatId] = useState<string | null>(null);
   // 자동 분석 중인 채팅 ID 목록
   const [autoAnalyzingIds, setAutoAnalyzingIds] = useState<Set<string>>(new Set());
+
+  // 메모 편집 상태
+  const [editingMemoId, setEditingMemoId] = useState<string | null>(null);
+  const [memoText, setMemoText] = useState('');
+  const [savingMemo, setSavingMemo] = useState(false);
+
+  // 메모 저장
+  const handleSaveMemo = async (callLogId: string) => {
+    setSavingMemo(true);
+    try {
+      const res = await authFetch(`/api/v2/call-logs/${callLogId}`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ memo: memoText.trim() }),
+      });
+      if (res.ok) {
+        // 로컬 state 업데이트 (재조회 없이 즉시 반영)
+        setConsultations(prev => prev.map(item =>
+          item.id === callLogId ? { ...item, memo: memoText.trim() || undefined } : item
+        ));
+        setEditingMemoId(null);
+      } else {
+        alert('메모 저장에 실패했습니다.');
+      }
+    } catch {
+      alert('메모 저장 중 오류가 발생했습니다.');
+    } finally {
+      setSavingMemo(false);
+    }
+  };
 
   // 채팅 AI 분석 (목록에서 바로 실행)
   const handleAnalyzeChat = async (chatId: string, e: React.MouseEvent) => {
@@ -920,6 +950,59 @@ export function ConsultationHistoryCard({ patientId, patientName = '', className
                       </button>
                     )
                   ) : null}
+
+                  {/* 메모 (통화/채팅 항목에만 표시) */}
+                  {(item.type === 'call' || item.type === 'chat') && (
+                    <div className="mt-2" onClick={(e) => e.stopPropagation()}>
+                      {editingMemoId === item.id ? (
+                        // 편집 모드
+                        <div className="flex flex-col gap-1.5">
+                          <textarea
+                            value={memoText}
+                            onChange={(e) => setMemoText(e.target.value)}
+                            placeholder="메모를 입력하세요..."
+                            className="w-full text-xs border border-gray-200 rounded-md px-2.5 py-1.5 resize-none focus:outline-none focus:ring-1 focus:ring-orange-300 focus:border-orange-300"
+                            rows={2}
+                            autoFocus
+                          />
+                          <div className="flex gap-1.5">
+                            <button
+                              onClick={() => handleSaveMemo(item.id)}
+                              disabled={savingMemo}
+                              className="flex items-center gap-1 px-2 py-0.5 bg-orange-500 text-white text-xs rounded hover:bg-orange-600 disabled:opacity-50"
+                            >
+                              {savingMemo ? <Loader2 size={10} className="animate-spin" /> : <Check size={10} />}
+                              저장
+                            </button>
+                            <button
+                              onClick={() => setEditingMemoId(null)}
+                              className="px-2 py-0.5 text-gray-500 text-xs rounded hover:bg-gray-100"
+                            >
+                              취소
+                            </button>
+                          </div>
+                        </div>
+                      ) : item.memo ? (
+                        // 메모 표시
+                        <div
+                          className="flex items-start gap-1.5 bg-amber-50 border border-amber-100 rounded-md px-2.5 py-1.5 cursor-pointer hover:bg-amber-100 transition-colors"
+                          onClick={(e) => { e.stopPropagation(); setEditingMemoId(item.id); setMemoText(item.memo || ''); }}
+                        >
+                          <StickyNote size={12} className="text-amber-500 mt-0.5 flex-shrink-0" />
+                          <span className="text-xs text-gray-700 whitespace-pre-wrap">{item.memo}</span>
+                        </div>
+                      ) : (
+                        // 메모 추가 버튼
+                        <button
+                          onClick={(e) => { e.stopPropagation(); setEditingMemoId(item.id); setMemoText(''); }}
+                          className="flex items-center gap-1 text-xs text-gray-400 hover:text-orange-500 transition-colors"
+                        >
+                          <StickyNote size={11} />
+                          <span>+ 메모</span>
+                        </button>
+                      )}
+                    </div>
+                  )}
                 </div>
 
                 {/* 상세보기 안내 (수동, 상담결과 제외) */}

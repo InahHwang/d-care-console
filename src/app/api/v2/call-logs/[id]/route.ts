@@ -114,6 +114,7 @@ export async function GET(
         transcript: callLog.aiAnalysis.transcript || null, // 전사 텍스트 전문
       } : null,
       aiCoaching: callLog.aiCoaching || undefined,
+      memo: callLog.memo || null,
       createdAt: callLog.createdAt,
     });
   } catch (error) {
@@ -141,7 +142,7 @@ export async function PATCH(
     }
 
     const body = await request.json();
-    const { recordingUrl, duration, status, triggerAnalysis } = body;
+    const { recordingUrl, duration, status, triggerAnalysis, memo } = body;
 
     const { db } = await connectToDatabase();
     const now = new Date();
@@ -157,6 +158,9 @@ export async function PATCH(
     }
     if (status !== undefined) {
       updateFields.status = status;
+    }
+    if (memo !== undefined) {
+      updateFields.memo = memo;
     }
 
     // AI 분석 트리거 요청 시 상태 초기화
