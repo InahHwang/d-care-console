@@ -3,6 +3,7 @@
 
 import { NextRequest, NextResponse } from 'next/server';
 import { connectToDatabase } from '@/utils/mongodb';
+import { verifyToken } from '@/lib/auth';
 
 export const dynamic = 'force-dynamic';
 
@@ -10,6 +11,11 @@ const COLLECTION = 'activityLogs_v2';
 
 export async function DELETE(request: NextRequest) {
   try {
+    const auth = verifyToken(request);
+    if (!auth.success) {
+      return NextResponse.json({ error: auth.error }, { status: auth.status });
+    }
+
     const searchParams = request.nextUrl.searchParams;
     const type = searchParams.get('type');
     const days = parseInt(searchParams.get('days') || '30');

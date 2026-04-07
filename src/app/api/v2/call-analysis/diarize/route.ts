@@ -2,9 +2,10 @@
 // 기존 통화 녹취에 화자분리를 적용하는 API
 
 import { NextRequest, NextResponse } from 'next/server';
-import { connectToDatabase, getClinicId } from '@/utils/mongodb';
+import { connectToDatabase } from '@/utils/mongodb';
 import { ObjectId } from 'mongodb';
 import { PIIMasker } from '@/utils/piiMasker';
+import { verifyToken } from '@/lib/auth';
 
 export const maxDuration = 120;
 
@@ -91,6 +92,11 @@ async function diarizeWithGPT(plainText: string, direction: string): Promise<str
 
 export async function POST(request: NextRequest) {
   try {
+    const auth = verifyToken(request);
+    if (!auth.success) {
+      return NextResponse.json({ success: false, message: auth.error }, { status: auth.status });
+    }
+
     const body = await request.json();
     const { callLogId, force } = body;
 
@@ -102,7 +108,7 @@ export async function POST(request: NextRequest) {
     }
 
     const { db } = await connectToDatabase();
-    const clinicId = getClinicId();
+    const clinicId = auth.user.clinicId;
 
     const callLog = await db.collection('callLogs_v2').findOne({
       _id: new ObjectId(callLogId),

@@ -2,18 +2,24 @@
 // 분석 상태 폴링용 API - 대시보드 실시간 업데이트 + 디버그
 
 import { NextRequest, NextResponse } from 'next/server';
-import { connectToDatabase, getClinicId } from '@/utils/mongodb';
+import { connectToDatabase } from '@/utils/mongodb';
 import { ObjectId } from 'mongodb';
 import { waitUntil } from '@vercel/functions';
+import { verifyToken } from '@/lib/auth';
 
 export async function GET(request: NextRequest) {
   try {
+    const auth = verifyToken(request);
+    if (!auth.success) {
+      return NextResponse.json({ success: false, message: auth.error }, { status: auth.status });
+    }
+
     const { searchParams } = new URL(request.url);
     const since = searchParams.get('since'); // ISO timestamp
     const callLogIds = searchParams.get('ids')?.split(',').filter(Boolean);
 
     const { db } = await connectToDatabase();
-    const clinicId = getClinicId();
+    const clinicId = auth.user.clinicId;
 
     // 특정 ID들의 상태 조회
     if (callLogIds && callLogIds.length > 0) {
@@ -124,6 +130,11 @@ export async function GET(request: NextRequest) {
 // POST - 디버그: 수동으로 분석 파이프라인 트리거
 export async function POST(request: NextRequest) {
   try {
+    const auth = verifyToken(request);
+    if (!auth.success) {
+      return NextResponse.json({ success: false, message: auth.error }, { status: auth.status });
+    }
+
     const body = await request.json();
     const { action, callLogId } = body;
 
@@ -132,7 +143,7 @@ export async function POST(request: NextRequest) {
     console.log('='.repeat(50));
 
     const { db } = await connectToDatabase();
-    const clinicId = getClinicId();
+    const clinicId = auth.user.clinicId;
 
     // 시스템 상태 확인
     if (action === 'debug') {

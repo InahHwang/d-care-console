@@ -2,10 +2,11 @@
 // 통화 녹취 기반 AI 상담 코칭 분석
 
 import { NextRequest, NextResponse } from 'next/server';
-import { connectToDatabase, getClinicId } from '@/utils/mongodb';
+import { connectToDatabase } from '@/utils/mongodb';
 import { ObjectId } from 'mongodb';
 import type { AICoachingResult } from '@/types/v2';
 import { PIIMasker } from '@/utils/piiMasker';
+import { verifyToken } from '@/lib/auth';
 
 // Vercel Function 타임아웃 설정 (gpt-5.2는 응답이 느릴 수 있음)
 export const maxDuration = 120;
@@ -283,6 +284,11 @@ async function analyzeCoachingWithGPT(
 
 export async function POST(request: NextRequest) {
   try {
+    const auth = verifyToken(request);
+    if (!auth.success) {
+      return NextResponse.json({ success: false, message: auth.error }, { status: auth.status });
+    }
+
     const body = await request.json();
     const { callLogId, force, preview, apply, coachingData, requestedBy } = body;
 
@@ -296,7 +302,7 @@ export async function POST(request: NextRequest) {
     }
 
     const { db } = await connectToDatabase();
-    const clinicId = getClinicId();
+    const clinicId = auth.user.clinicId;
 
     // apply 모드: 미리보기 결과를 DB에 저장
     if (apply && coachingData) {
@@ -544,6 +550,11 @@ export async function POST(request: NextRequest) {
 // AI 코칭 결과 삭제
 export async function DELETE(request: NextRequest) {
   try {
+    const auth = verifyToken(request);
+    if (!auth.success) {
+      return NextResponse.json({ success: false, message: auth.error }, { status: auth.status });
+    }
+
     const { searchParams } = request.nextUrl;
     const callLogId = searchParams.get('callLogId');
 
@@ -552,7 +563,7 @@ export async function DELETE(request: NextRequest) {
     }
 
     const { db } = await connectToDatabase();
-    const clinicId = getClinicId();
+    const clinicId = auth.user.clinicId;
 
     const callLog = await db.collection('callLogs_v2').findOne(
       { _id: new ObjectId(callLogId), clinicId },
