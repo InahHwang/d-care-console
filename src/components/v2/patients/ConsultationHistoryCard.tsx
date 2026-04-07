@@ -408,7 +408,7 @@ export function ConsultationHistoryCard({ patientId, patientName = '', className
     if (!confirm('이 상담 이력을 삭제하시겠습니까?')) return;
 
     try {
-      const res = await fetch(
+      const res = await authFetch(
         `/api/v2/patients/${patientId}/manual-consultations?consultationId=${item.id}`,
         { method: 'DELETE' }
       );

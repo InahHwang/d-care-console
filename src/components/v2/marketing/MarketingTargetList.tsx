@@ -17,6 +17,7 @@ import {
   MARKETING_TARGET_REASON_OPTIONS,
   MarketingInfo,
 } from '@/types/v2';
+import { authFetch } from '@/utils/authFetch';
 
 interface MarketingPatient {
   id: string;
@@ -144,7 +145,7 @@ export function MarketingTargetList({
     }
 
     try {
-      const response = await fetch(
+      const response = await authFetch(
         `/api/v2/patients/${patientId}/marketing-target`,
         { method: 'DELETE' }
       );

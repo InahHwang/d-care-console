@@ -212,7 +212,7 @@ export default function PatientCategorySettings() {
 
     setIsSaving(true);
     try {
-      const response = await fetch(
+      const response = await authFetch(
         `/api/v2/settings/categories?categoryType=${activeCategory}&itemId=${itemId}`,
         { method: 'DELETE' }
       );

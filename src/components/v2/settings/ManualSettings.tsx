@@ -113,7 +113,7 @@ export default function ManualSettings() {
         ? { id: editingCategory._id, name: categoryForm.name }
         : { name: categoryForm.name };
 
-      const res = await fetch(url, {
+      const res = await authFetch(url, {
         method,
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(body),
