@@ -54,6 +54,7 @@ export async function GET(request: NextRequest) {
       callbackFilter.scheduledAt = { $gte: startOfDay, $lte: endOfDay };
     }
     if (status) callbackFilter.status = status;
+    else callbackFilter.status = { $ne: 'cancelled' };
     if (type) callbackFilter.type = type;
     if (patientId) callbackFilter.patientId = patientId;
 
@@ -273,6 +274,12 @@ export async function POST(request: NextRequest) {
       note,
       createdAt: now,
     };
+
+    // 기존 pending 콜백 취소 처리
+    await db.collection('callbacks_v2').updateMany(
+      { patientId, clinicId, status: 'pending' },
+      { $set: { status: 'cancelled', cancelledAt: now, cancelReason: 'new_callback' } }
+    );
 
     const result = await db.collection('callbacks_v2').insertOne(newCallback);
 

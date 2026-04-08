@@ -293,7 +293,7 @@ export interface CallLogV2 {
 // ============================================
 
 export type CallbackType = 'callback' | 'recall' | 'thanks';
-export type CallbackStatus = 'pending' | 'completed' | 'missed';
+export type CallbackStatus = 'pending' | 'completed' | 'missed' | 'cancelled';
 
 export interface CallbackV2 {
   _id?: ObjectId | string;

@@ -471,6 +471,7 @@ export async function POST(request: NextRequest) {
 
       patientUpdate.nextAction = '콜백';
       patientUpdate.nextActionDate = callbackDate;
+      patientUpdate.nextActionNote = fullNote;
 
       // 활성 여정의 nextActionDate도 동기화
       if (currentPatient?.activeJourneyId) {
@@ -484,7 +485,12 @@ export async function POST(request: NextRequest) {
         );
       }
 
-      // callbacks_v2에도 추가
+      // 기존 pending 콜백 취소 처리 후 새 콜백 추가
+      await db.collection('callbacks_v2').updateMany(
+        { patientId, clinicId, status: 'pending' },
+        { $set: { status: 'cancelled', cancelledAt: nowISO, cancelReason: 'new_callback' } }
+      );
+
       await db.collection('callbacks_v2').insertOne({
         clinicId,
         patientId,
@@ -683,6 +689,7 @@ export async function PATCH(request: NextRequest) {
           if (appointmentDate) {
             patientUpdate.nextAction = consultationType === 'phone' ? '내원예약' : '치료예약';
             patientUpdate.nextActionDate = appointmentDate;
+            patientUpdate.nextActionNote = patientUpdate.nextAction;
           }
         }
 
@@ -699,6 +706,7 @@ export async function PATCH(request: NextRequest) {
         if (callbackDate) {
           patientUpdate.nextAction = '콜백';
           patientUpdate.nextActionDate = callbackDate;
+          patientUpdate.nextActionNote = updateData.memo ? `콜백\n메모: ${updateData.memo}` : '콜백';
         }
       }
 

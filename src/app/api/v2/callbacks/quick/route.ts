@@ -67,7 +67,12 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    // 4. callbacks_v2에 추가
+    // 4. 기존 pending 콜백 취소 처리 후 새 콜백 추가
+    await db.collection('callbacks_v2').updateMany(
+      { patientId, clinicId, status: 'pending' },
+      { $set: { status: 'cancelled', cancelledAt: nowISO, cancelReason: 'new_callback' } }
+    );
+
     const result = await db.collection('callbacks_v2').insertOne({
       clinicId,
       patientId,
