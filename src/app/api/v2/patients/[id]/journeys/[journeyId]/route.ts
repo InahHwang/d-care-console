@@ -4,6 +4,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { connectToDatabase } from '@/utils/mongodb';
 import { ObjectId } from 'mongodb';
 import { PatientStatus } from '@/types/v2';
+import { verifyToken } from '@/lib/auth';
 
 export const dynamic = 'force-dynamic';
 
@@ -13,6 +14,11 @@ export async function GET(
   { params }: { params: Promise<{ id: string; journeyId: string }> }
 ) {
   try {
+    const auth = verifyToken(request);
+    if (!auth.success) {
+      return NextResponse.json({ error: auth.error }, { status: auth.status });
+    }
+
     const { id, journeyId } = await params;
 
     if (!ObjectId.isValid(id)) {
@@ -55,6 +61,11 @@ export async function PATCH(
   { params }: { params: Promise<{ id: string; journeyId: string }> }
 ) {
   try {
+    const auth = verifyToken(request);
+    if (!auth.success) {
+      return NextResponse.json({ error: auth.error }, { status: auth.status });
+    }
+
     const { id, journeyId } = await params;
 
     if (!ObjectId.isValid(id)) {
@@ -219,6 +230,11 @@ export async function DELETE(
   { params }: { params: Promise<{ id: string; journeyId: string }> }
 ) {
   try {
+    const auth = verifyToken(request);
+    if (!auth.success) {
+      return NextResponse.json({ error: auth.error }, { status: auth.status });
+    }
+
     const { id, journeyId } = await params;
 
     if (!ObjectId.isValid(id)) {

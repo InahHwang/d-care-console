@@ -4,12 +4,18 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { connectToDatabase } from '@/utils/mongodb';
 import { Manual, ManualCategory } from '@/types/v2/manual';
+import { verifyToken } from '@/lib/auth';
 
 const COLLECTION = 'manuals_v2';
 
 // 매뉴얼 목록 조회
 export async function GET(request: NextRequest) {
   try {
+    const auth = verifyToken(request);
+    if (!auth.success) {
+      return NextResponse.json({ success: false, message: auth.error }, { status: auth.status });
+    }
+
     const { searchParams } = new URL(request.url);
     const categoryId = searchParams.get('categoryId');
     const keyword = searchParams.get('keyword');
@@ -18,7 +24,7 @@ export async function GET(request: NextRequest) {
     const limit = parseInt(searchParams.get('limit') || '50');
 
     const { db } = await connectToDatabase();
-    const clinicId = 'default';
+    const clinicId = auth.user.clinicId;
 
     // 쿼리 빌드
     const query: Record<string, unknown> = { clinicId };
@@ -122,8 +128,13 @@ export async function POST(request: NextRequest) {
       );
     }
 
+    const auth = verifyToken(request);
+    if (!auth.success) {
+      return NextResponse.json({ success: false, message: auth.error }, { status: auth.status });
+    }
+
     const { db } = await connectToDatabase();
-    const clinicId = 'default';
+    const clinicId = auth.user.clinicId;
     const now = new Date().toISOString();
 
     // 마지막 순서 조회

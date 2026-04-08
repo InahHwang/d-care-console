@@ -4,6 +4,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { ObjectId } from 'mongodb';
 import { connectToDatabase } from '@/utils/mongodb';
+import { verifyToken } from '@/lib/auth';
 
 export const dynamic = 'force-dynamic';
 
@@ -14,6 +15,11 @@ interface RouteParams {
 // GET: 수동 상담 이력 조회
 export async function GET(request: NextRequest, { params }: RouteParams) {
   try {
+    const auth = verifyToken(request);
+    if (!auth.success) {
+      return NextResponse.json({ success: false, message: auth.error }, { status: auth.status });
+    }
+
     const { id: patientId } = await params;
 
     if (!ObjectId.isValid(patientId)) {
@@ -55,6 +61,11 @@ export async function GET(request: NextRequest, { params }: RouteParams) {
 // POST: 수동 상담 이력 추가
 export async function POST(request: NextRequest, { params }: RouteParams) {
   try {
+    const auth = verifyToken(request);
+    if (!auth.success) {
+      return NextResponse.json({ success: false, message: auth.error }, { status: auth.status });
+    }
+
     const { id: patientId } = await params;
     const body = await request.json();
     const { type, date, content, consultantName } = body;
@@ -128,6 +139,11 @@ export async function POST(request: NextRequest, { params }: RouteParams) {
 // PATCH: 수동 상담 이력 수정
 export async function PATCH(request: NextRequest, { params }: RouteParams) {
   try {
+    const auth = verifyToken(request);
+    if (!auth.success) {
+      return NextResponse.json({ success: false, message: auth.error }, { status: auth.status });
+    }
+
     const { id: patientId } = await params;
     const body = await request.json();
     const { consultationId, type, date, content, consultantName } = body;
@@ -200,6 +216,11 @@ export async function PATCH(request: NextRequest, { params }: RouteParams) {
 // DELETE: 수동 상담 이력 삭제
 export async function DELETE(request: NextRequest, { params }: RouteParams) {
   try {
+    const auth = verifyToken(request);
+    if (!auth.success) {
+      return NextResponse.json({ success: false, message: auth.error }, { status: auth.status });
+    }
+
     const { id: patientId } = await params;
     const { searchParams } = new URL(request.url);
     const consultationId = searchParams.get('consultationId');

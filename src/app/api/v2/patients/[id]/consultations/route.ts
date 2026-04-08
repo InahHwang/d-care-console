@@ -4,6 +4,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { ObjectId } from 'mongodb';
 import { connectToDatabase } from '@/utils/mongodb';
+import { verifyToken } from '@/lib/auth';
 
 export const dynamic = 'force-dynamic';
 
@@ -37,6 +38,11 @@ interface ConsultationItem {
 
 export async function GET(request: NextRequest, { params }: RouteParams) {
   try {
+    const auth = verifyToken(request);
+    if (!auth.success) {
+      return NextResponse.json({ success: false, message: auth.error }, { status: auth.status });
+    }
+
     const { id: patientId } = await params;
     const searchParams = request.nextUrl.searchParams;
     const type = searchParams.get('type') as 'all' | 'call' | 'chat' | 'manual' | null;

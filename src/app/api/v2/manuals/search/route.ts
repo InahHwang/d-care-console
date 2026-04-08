@@ -4,11 +4,17 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { connectToDatabase } from '@/utils/mongodb';
 import { Manual, ManualCategory } from '@/types/v2/manual';
+import { verifyToken } from '@/lib/auth';
 
 const COLLECTION = 'manuals_v2';
 
 export async function GET(request: NextRequest) {
   try {
+    const auth = verifyToken(request);
+    if (!auth.success) {
+      return NextResponse.json({ success: false, message: auth.error }, { status: auth.status });
+    }
+
     const { searchParams } = new URL(request.url);
     const keyword = searchParams.get('keyword') || searchParams.get('q');
     const categoryId = searchParams.get('categoryId');
@@ -22,7 +28,7 @@ export async function GET(request: NextRequest) {
     }
 
     const { db } = await connectToDatabase();
-    const clinicId = 'default';
+    const clinicId = auth.user.clinicId;
 
     // 검색 쿼리 (제목, 키워드, 스크립트에서 검색)
     const query: Record<string, unknown> = {

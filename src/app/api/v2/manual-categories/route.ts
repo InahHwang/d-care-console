@@ -5,14 +5,20 @@ import { NextRequest, NextResponse } from 'next/server';
 import { connectToDatabase } from '@/utils/mongodb';
 import { ObjectId } from 'mongodb';
 import { ManualCategory, DEFAULT_MANUAL_CATEGORIES } from '@/types/v2/manual';
+import { verifyToken } from '@/lib/auth';
 
 const COLLECTION = 'manual_categories_v2';
 
 // 카테고리 목록 조회
-export async function GET() {
+export async function GET(request: NextRequest) {
   try {
+    const auth = verifyToken(request);
+    if (!auth.success) {
+      return NextResponse.json({ success: false, message: auth.error }, { status: auth.status });
+    }
+
     const { db } = await connectToDatabase();
-    const clinicId = 'default';
+    const clinicId = auth.user.clinicId;
 
     let categories = await db
       .collection<ManualCategory>(COLLECTION)
@@ -56,6 +62,11 @@ export async function GET() {
 // 카테고리 생성
 export async function POST(request: NextRequest) {
   try {
+    const auth = verifyToken(request);
+    if (!auth.success) {
+      return NextResponse.json({ success: false, message: auth.error }, { status: auth.status });
+    }
+
     const body = await request.json();
     const { name, order } = body;
 
@@ -67,7 +78,7 @@ export async function POST(request: NextRequest) {
     }
 
     const { db } = await connectToDatabase();
-    const clinicId = 'default';
+    const clinicId = auth.user.clinicId;
     const now = new Date().toISOString();
 
     // 마지막 순서 조회
@@ -102,6 +113,11 @@ export async function POST(request: NextRequest) {
 // 카테고리 수정
 export async function PATCH(request: NextRequest) {
   try {
+    const auth = verifyToken(request);
+    if (!auth.success) {
+      return NextResponse.json({ success: false, message: auth.error }, { status: auth.status });
+    }
+
     const body = await request.json();
     const { id, name, order, isActive } = body;
 
@@ -149,6 +165,11 @@ export async function PATCH(request: NextRequest) {
 // 카테고리 삭제
 export async function DELETE(request: NextRequest) {
   try {
+    const auth = verifyToken(request);
+    if (!auth.success) {
+      return NextResponse.json({ success: false, message: auth.error }, { status: auth.status });
+    }
+
     const { searchParams } = new URL(request.url);
     const id = searchParams.get('id');
 

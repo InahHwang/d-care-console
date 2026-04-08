@@ -5,6 +5,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { connectToDatabase } from '@/utils/mongodb';
 import { ObjectId } from 'mongodb';
 import type { MarketingInfo, MarketingTargetReason } from '@/types/v2';
+import { verifyToken } from '@/lib/auth';
 
 export const dynamic = 'force-dynamic';
 
@@ -15,6 +16,11 @@ interface RouteParams {
 // PUT: 이벤트 타겟 지정/수정
 export async function PUT(request: NextRequest, { params }: RouteParams) {
   try {
+    const auth = verifyToken(request);
+    if (!auth.success) {
+      return NextResponse.json({ success: false, message: auth.error }, { status: auth.status });
+    }
+
     const { id } = await params;
 
     if (!id || !ObjectId.isValid(id)) {
@@ -107,6 +113,11 @@ export async function PUT(request: NextRequest, { params }: RouteParams) {
 // DELETE: 이벤트 타겟 해제
 export async function DELETE(request: NextRequest, { params }: RouteParams) {
   try {
+    const auth = verifyToken(request);
+    if (!auth.success) {
+      return NextResponse.json({ success: false, message: auth.error }, { status: auth.status });
+    }
+
     const { id } = await params;
 
     if (!id || !ObjectId.isValid(id)) {
@@ -156,6 +167,11 @@ export async function DELETE(request: NextRequest, { params }: RouteParams) {
 // GET: 특정 환자의 마케팅 타겟 정보 조회
 export async function GET(request: NextRequest, { params }: RouteParams) {
   try {
+    const auth = verifyToken(request);
+    if (!auth.success) {
+      return NextResponse.json({ success: false, message: auth.error }, { status: auth.status });
+    }
+
     const { id } = await params;
 
     if (!id || !ObjectId.isValid(id)) {

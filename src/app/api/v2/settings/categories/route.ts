@@ -3,6 +3,7 @@
 
 import { NextRequest, NextResponse } from 'next/server';
 import { connectToDatabase } from '@/utils/mongodb';
+import { verifyToken } from '@/lib/auth';
 
 // 기본 카테고리 값들
 const DEFAULT_CATEGORIES = {
@@ -49,6 +50,11 @@ const DEFAULT_CATEGORIES = {
 // GET: 카테고리 목록 조회
 export async function GET(request: NextRequest) {
   try {
+    const auth = verifyToken(request);
+    if (!auth.success) {
+      return NextResponse.json({ success: false, message: auth.error }, { status: auth.status });
+    }
+
     const { db } = await connectToDatabase();
 
     // settings 컬렉션에서 categories 문서 조회
@@ -132,6 +138,11 @@ async function ensureUncategorizedItem(db: any) {
 // PUT: 카테고리 업데이트
 export async function PUT(request: NextRequest) {
   try {
+    const auth = verifyToken(request);
+    if (!auth.success) {
+      return NextResponse.json({ success: false, message: auth.error }, { status: auth.status });
+    }
+
     const { db } = await connectToDatabase();
     const body = await request.json();
 
@@ -224,6 +235,11 @@ export async function PUT(request: NextRequest) {
 // POST: 새 카테고리 항목 추가
 export async function POST(request: NextRequest) {
   try {
+    const auth = verifyToken(request);
+    if (!auth.success) {
+      return NextResponse.json({ success: false, message: auth.error }, { status: auth.status });
+    }
+
     const { db } = await connectToDatabase();
     const body = await request.json();
 
@@ -298,6 +314,11 @@ export async function POST(request: NextRequest) {
 // DELETE: 카테고리 항목 삭제
 export async function DELETE(request: NextRequest) {
   try {
+    const auth = verifyToken(request);
+    if (!auth.success) {
+      return NextResponse.json({ success: false, message: auth.error }, { status: auth.status });
+    }
+
     const { db } = await connectToDatabase();
     const { searchParams } = new URL(request.url);
     const categoryType = searchParams.get('categoryType');
