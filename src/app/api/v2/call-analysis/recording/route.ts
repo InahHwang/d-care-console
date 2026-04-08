@@ -7,6 +7,7 @@ import { waitUntil } from '@vercel/functions';
 import { connectToDatabase, getClinicId } from '@/utils/mongodb';
 import { ObjectId } from 'mongodb';
 import { z } from 'zod';
+import { verifyToken } from '@/lib/auth';
 
 const recordingSchema = z.object({
   callerNumber: z.string().min(1, 'callerNumber is required'),
@@ -288,6 +289,11 @@ export async function POST(request: NextRequest) {
 // GET - 분석 상태 조회
 export async function GET(request: NextRequest) {
   try {
+    const auth = verifyToken(request);
+    if (!auth.success) {
+      return NextResponse.json({ success: false, message: auth.error }, { status: auth.status });
+    }
+
     const { searchParams } = new URL(request.url);
     const callLogId = searchParams.get('callLogId');
 
@@ -299,7 +305,7 @@ export async function GET(request: NextRequest) {
     }
 
     const { db } = await connectToDatabase();
-    const clinicId = getClinicId();
+    const clinicId = auth.user.clinicId;
     const callLog = await db.collection('callLogs_v2').findOne(
       { _id: new ObjectId(callLogId), clinicId },
       { projection: { aiStatus: 1, aiAnalysis: 1, aiCompletedAt: 1 } }
