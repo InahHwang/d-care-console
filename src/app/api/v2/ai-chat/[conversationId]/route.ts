@@ -5,6 +5,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { connectToDatabase } from '@/utils/mongodb';
 import { ObjectId } from 'mongodb';
 import { extractUserFromRequest } from '@/utils/auditLog';
+import { verifyToken } from '@/lib/auth';
 
 const DEFAULT_LIMIT = 30; // 한 번에 가져올 메시지 수
 
@@ -14,10 +15,12 @@ export async function GET(
   { params }: { params: Promise<{ conversationId: string }> }
 ) {
   try {
-    const user = extractUserFromRequest(request);
-    if (!user) {
-      return NextResponse.json({ success: false, error: '인증이 필요합니다.' }, { status: 401 });
+    const auth = verifyToken(request);
+    if (!auth.success) {
+      return NextResponse.json({ success: false, message: auth.error }, { status: auth.status });
     }
+
+    const user = extractUserFromRequest(request);
 
     const { conversationId } = await params;
     const { searchParams } = request.nextUrl;
@@ -29,12 +32,12 @@ export async function GET(
     }
 
     const { db } = await connectToDatabase();
-    const isAdmin = user.userRole === 'admin' || user.userRole === 'master';
+    const isAdmin = auth.user.role === 'admin' || auth.user.role === 'master';
 
     // 관리자는 모든 대화 조회 가능, 일반 사용자는 본인 대화만
     const query: Record<string, unknown> = { _id: new ObjectId(conversationId) };
     if (!isAdmin) {
-      query.userId = user.userId;
+      query.userId = user?.userId || auth.user.id;
     }
 
     // 전체 메시지 수 먼저 확인 (메타데이터만)

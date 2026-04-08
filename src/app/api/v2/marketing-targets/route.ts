@@ -2,13 +2,19 @@
 // 이벤트 타겟 환자 목록 조회 API
 
 import { NextRequest, NextResponse } from 'next/server';
-import { connectToDatabase, getClinicId } from '@/utils/mongodb';
+import { connectToDatabase } from '@/utils/mongodb';
 import type { MarketingTargetReason } from '@/types/v2';
+import { verifyToken } from '@/lib/auth';
 
 export const dynamic = 'force-dynamic';
 
 export async function GET(request: NextRequest) {
   try {
+    const auth = verifyToken(request);
+    if (!auth.success) {
+      return NextResponse.json({ success: false, message: auth.error }, { status: auth.status });
+    }
+
     const searchParams = request.nextUrl.searchParams;
 
     // 쿼리 파라미터 파싱
@@ -21,7 +27,7 @@ export async function GET(request: NextRequest) {
     const sortOrder = searchParams.get('sortOrder') || 'asc'; // 'asc' | 'desc'
 
     const { db } = await connectToDatabase();
-    const clinicId = getClinicId();
+    const clinicId = auth.user.clinicId;
 
     // 기본 필터: 이벤트 타겟으로 지정된 환자만
     const filter: Record<string, unknown> = {

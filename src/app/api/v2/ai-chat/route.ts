@@ -2,10 +2,11 @@
 // AI 채팅 API — GPT-5.2 기반 치과 상담 어시스턴트
 
 import { NextRequest, NextResponse } from 'next/server';
-import { connectToDatabase, getClinicId } from '@/utils/mongodb';
+import { connectToDatabase } from '@/utils/mongodb';
 import { ObjectId } from 'mongodb';
 import { extractUserFromRequest } from '@/utils/auditLog';
 import { PIIMasker } from '@/utils/piiMasker';
+import { verifyToken } from '@/lib/auth';
 
 // Vercel Function 타임아웃 설정 (GPT-5.2는 응답이 느릴 수 있음)
 export const maxDuration = 120;
@@ -345,10 +346,12 @@ function generateTitle(firstMessage: string): string {
 // GET: 대화 목록 조회
 export async function GET(request: NextRequest) {
   try {
-    const user = extractUserFromRequest(request);
-    if (!user) {
-      return NextResponse.json({ success: false, error: '인증이 필요합니다.' }, { status: 401 });
+    const auth = verifyToken(request);
+    if (!auth.success) {
+      return NextResponse.json({ success: false, message: auth.error }, { status: auth.status });
     }
+
+    const user = extractUserFromRequest(request);
 
     const { searchParams } = request.nextUrl;
     const page = parseInt(searchParams.get('page') || '1');
@@ -356,10 +359,10 @@ export async function GET(request: NextRequest) {
     const targetUserId = searchParams.get('userId');
 
     const { db } = await connectToDatabase();
-    const clinicId = getClinicId();
+    const clinicId = auth.user.clinicId;
 
     // 관리자는 다른 사용자의 대화도 조회 가능
-    const isAdmin = user.userRole === 'admin' || user.userRole === 'master';
+    const isAdmin = auth.user.role === 'admin' || auth.user.role === 'master';
 
     let userIdFilter: any;
 
@@ -409,7 +412,7 @@ export async function GET(request: NextRequest) {
         ? { userId: uniqueIds[0] }
         : { userId: { $in: uniqueIds } };
     } else {
-      userIdFilter = { userId: user.userId };
+      userIdFilter = { userId: user?.userId || auth.user.id };
     }
 
     // clinicId가 없는 기존 데이터도 포함 (마이그레이션 누락 호환)
@@ -450,10 +453,12 @@ export async function GET(request: NextRequest) {
 // POST: 메시지 전송 및 AI 응답
 export async function POST(request: NextRequest) {
   try {
-    const user = extractUserFromRequest(request);
-    if (!user) {
-      return NextResponse.json({ success: false, error: '인증이 필요합니다.' }, { status: 401 });
+    const auth = verifyToken(request);
+    if (!auth.success) {
+      return NextResponse.json({ success: false, message: auth.error }, { status: auth.status });
     }
+
+    const user = extractUserFromRequest(request);
 
     const body = await request.json();
     const { conversationId, message, pageContext, pageTitle, contextData } = body;
@@ -468,7 +473,7 @@ export async function POST(request: NextRequest) {
     }
 
     const { db } = await connectToDatabase();
-    const clinicId = getClinicId();
+    const clinicId = auth.user.clinicId;
     const now = new Date().toISOString();
 
     // 새 메시지 객체
@@ -483,10 +488,13 @@ export async function POST(request: NextRequest) {
     let isNewConversation = false;
 
     // 기존 대화 로드 또는 새 대화 생성
+    const userId = user?.userId || auth.user.id;
+    const userName = user?.userName || auth.user.name;
+
     if (conversationId) {
       conversation = await db.collection('ai_chats_v2').findOne({
         _id: new ObjectId(conversationId),
-        userId: user.userId,
+        userId,
       });
     }
 
@@ -494,8 +502,8 @@ export async function POST(request: NextRequest) {
       isNewConversation = true;
       const newConversation = {
         clinicId,
-        userId: user.userId,
-        userName: user.userName,
+        userId,
+        userName,
         title: generateTitle(message),
         pageContext: pageContext || '',
         pageTitle: pageTitle || '',
@@ -608,10 +616,12 @@ export async function POST(request: NextRequest) {
 // DELETE: 대화 삭제 (아카이브)
 export async function DELETE(request: NextRequest) {
   try {
-    const user = extractUserFromRequest(request);
-    if (!user) {
-      return NextResponse.json({ success: false, error: '인증이 필요합니다.' }, { status: 401 });
+    const auth = verifyToken(request);
+    if (!auth.success) {
+      return NextResponse.json({ success: false, message: auth.error }, { status: auth.status });
     }
+
+    const user = extractUserFromRequest(request);
 
     const { searchParams } = request.nextUrl;
     const conversationId = searchParams.get('conversationId');
@@ -623,7 +633,7 @@ export async function DELETE(request: NextRequest) {
     const { db } = await connectToDatabase();
 
     const result = await db.collection('ai_chats_v2').updateOne(
-      { _id: new ObjectId(conversationId), userId: user.userId },
+      { _id: new ObjectId(conversationId), userId: user?.userId || auth.user.id },
       { $set: { isArchived: true, updatedAt: new Date().toISOString() } }
     );
 

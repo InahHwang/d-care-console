@@ -2,19 +2,25 @@
 // 소개 환자 관리 API
 
 import { NextRequest, NextResponse } from 'next/server';
-import { connectToDatabase, getClinicId } from '@/utils/mongodb';
+import { connectToDatabase } from '@/utils/mongodb';
 import { ObjectId } from 'mongodb';
 import type { ReferralV2 } from '@/types/v2';
+import { verifyToken } from '@/lib/auth';
 
 export async function GET(request: NextRequest) {
   try {
+    const auth = verifyToken(request);
+    if (!auth.success) {
+      return NextResponse.json({ success: false, message: auth.error }, { status: auth.status });
+    }
+
     const { searchParams } = new URL(request.url);
     const page = parseInt(searchParams.get('page') || '1');
     const limit = parseInt(searchParams.get('limit') || '20');
     const thanksSent = searchParams.get('thanksSent'); // 'true' | 'false' | null
 
     const { db } = await connectToDatabase();
-    const clinicId = getClinicId();
+    const clinicId = auth.user.clinicId;
 
     // 필터 조건 구성
     const filter: Record<string, unknown> = { clinicId };
@@ -146,6 +152,11 @@ export async function GET(request: NextRequest) {
 // POST - 소개 관계 등록
 export async function POST(request: NextRequest) {
   try {
+    const auth = verifyToken(request);
+    if (!auth.success) {
+      return NextResponse.json({ success: false, message: auth.error }, { status: auth.status });
+    }
+
     const body = await request.json();
     const { referrerId, referredId } = body;
 
@@ -157,7 +168,7 @@ export async function POST(request: NextRequest) {
     }
 
     const { db } = await connectToDatabase();
-    const clinicId = getClinicId();
+    const clinicId = auth.user.clinicId;
 
     // 이미 등록된 관계인지 확인
     const existing = await db.collection('referrals_v2').findOne({
@@ -216,6 +227,11 @@ export async function POST(request: NextRequest) {
 // PATCH - 감사 연락 상태 업데이트
 export async function PATCH(request: NextRequest) {
   try {
+    const auth = verifyToken(request);
+    if (!auth.success) {
+      return NextResponse.json({ success: false, message: auth.error }, { status: auth.status });
+    }
+
     const body = await request.json();
     const { id, thanksSent } = body;
 
@@ -227,7 +243,7 @@ export async function PATCH(request: NextRequest) {
     }
 
     const { db } = await connectToDatabase();
-    const clinicId = getClinicId();
+    const clinicId = auth.user.clinicId;
     const now = new Date().toISOString();
 
     const updateData: Record<string, unknown> = {};
@@ -270,6 +286,11 @@ export async function PATCH(request: NextRequest) {
 // DELETE - 소개 관계 삭제
 export async function DELETE(request: NextRequest) {
   try {
+    const auth = verifyToken(request);
+    if (!auth.success) {
+      return NextResponse.json({ success: false, message: auth.error }, { status: auth.status });
+    }
+
     const { searchParams } = new URL(request.url);
     const id = searchParams.get('id');
 
@@ -281,7 +302,7 @@ export async function DELETE(request: NextRequest) {
     }
 
     const { db } = await connectToDatabase();
-    const clinicId = getClinicId();
+    const clinicId = auth.user.clinicId;
 
     const result = await db.collection('referrals_v2').deleteOne({
       _id: new ObjectId(id),
