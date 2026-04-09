@@ -48,6 +48,7 @@ export function ManualConsultationModal({
   const isEditMode = !!editData;
 
   const [type, setType] = useState<ConsultationType>('phone');
+  const [direction, setDirection] = useState<'inbound' | 'outbound'>('outbound');
   const [date, setDate] = useState('');
   const [time, setTime] = useState('');
   const [content, setContent] = useState('');
@@ -61,6 +62,7 @@ export function ManualConsultationModal({
       if (editData) {
         const editDate = new Date(editData.date);
         setType(editData.type || 'phone');
+        setDirection((editData as any).direction || 'outbound');
         setDate(format(editDate, 'yyyy-MM-dd'));
         setTime(format(editDate, 'HH:mm'));
         setContent(editData.content || '');
@@ -69,6 +71,7 @@ export function ManualConsultationModal({
         setDate(format(now, 'yyyy-MM-dd'));
         setTime(format(now, 'HH:mm'));
         setType('phone');
+        setDirection('outbound');
         setContent('');
       }
     }
@@ -92,6 +95,7 @@ export function ManualConsultationModal({
         body: JSON.stringify({
           ...(isEditMode && { consultationId: editData!.id }),
           type,
+          ...(type === 'phone' && { direction }),
           date: consultationDate.toISOString(),
           content: content.trim(),
           consultantName,
@@ -164,6 +168,39 @@ export function ManualConsultationModal({
               ))}
             </div>
           </div>
+
+          {/* 수신/발신 선택 (전화 타입일 때만) */}
+          {type === 'phone' && (
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-2">통화 방향</label>
+              <div className="flex gap-2">
+                <button
+                  onClick={() => setDirection('inbound')}
+                  disabled={isSaving}
+                  className={`flex-1 flex items-center justify-center gap-2 px-4 py-2.5 rounded-lg text-sm font-medium transition-colors ${
+                    direction === 'inbound'
+                      ? 'bg-blue-500 text-white'
+                      : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
+                  } disabled:opacity-50`}
+                >
+                  <Phone size={14} />
+                  수신
+                </button>
+                <button
+                  onClick={() => setDirection('outbound')}
+                  disabled={isSaving}
+                  className={`flex-1 flex items-center justify-center gap-2 px-4 py-2.5 rounded-lg text-sm font-medium transition-colors ${
+                    direction === 'outbound'
+                      ? 'bg-violet-500 text-white'
+                      : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
+                  } disabled:opacity-50`}
+                >
+                  <Phone size={14} />
+                  발신
+                </button>
+              </div>
+            </div>
+          )}
 
           {/* 상담 일시 */}
           <div className="grid grid-cols-2 gap-3">

@@ -3,8 +3,8 @@
 'use client';
 
 import React from 'react';
-import { Target, TrendingUp, TrendingDown, Lightbulb, AlertTriangle, Sparkles } from 'lucide-react';
-import type { MonthlyStatsV2, ChangeIndicator } from './MonthlyReport-Types';
+import { Target, TrendingUp, TrendingDown, Lightbulb, AlertTriangle, Sparkles, Users, PhoneOff, DoorOpen, CheckCircle2 } from 'lucide-react';
+import type { MonthlyStatsV2, ChangeIndicator, ConversionPatternInsight } from './MonthlyReport-Types';
 import { formatAmount } from './MonthlyReport-Utils';
 
 // ============================================
@@ -124,6 +124,108 @@ function BigMetricCard({
 }
 
 // ============================================
+// 전환 패턴 카드
+// ============================================
+
+const PATTERN_GROUP_CONFIG: Record<string, {
+  icon: React.ReactNode;
+  borderColor: string;
+  bgColor: string;
+  headerBg: string;
+  headerText: string;
+  tagColor: string;
+}> = {
+  converted: {
+    icon: <CheckCircle2 className="w-4 h-4" />,
+    borderColor: 'border-green-200',
+    bgColor: 'bg-green-50',
+    headerBg: 'bg-green-600',
+    headerText: 'text-white',
+    tagColor: 'bg-green-100 text-green-700',
+  },
+  phoneChurned: {
+    icon: <PhoneOff className="w-4 h-4" />,
+    borderColor: 'border-orange-200',
+    bgColor: 'bg-orange-50',
+    headerBg: 'bg-orange-500',
+    headerText: 'text-white',
+    tagColor: 'bg-orange-100 text-orange-700',
+  },
+  visitChurned: {
+    icon: <DoorOpen className="w-4 h-4" />,
+    borderColor: 'border-red-200',
+    bgColor: 'bg-red-50',
+    headerBg: 'bg-red-500',
+    headerText: 'text-white',
+    tagColor: 'bg-red-100 text-red-700',
+  },
+};
+
+function ConversionPatternCard({ pattern }: { pattern: ConversionPatternInsight }) {
+  const config = PATTERN_GROUP_CONFIG[pattern.groupKey] || PATTERN_GROUP_CONFIG.converted;
+
+  if (pattern.patientCount === 0) {
+    return (
+      <div className={`rounded-lg border ${config.borderColor} overflow-hidden opacity-60`}>
+        <div className={`${config.headerBg} ${config.headerText} px-4 py-2.5 flex items-center gap-2`}>
+          {config.icon}
+          <span className="text-sm font-semibold">{pattern.groupName}</span>
+          <span className="text-xs opacity-80 ml-auto">0명</span>
+        </div>
+        <div className="px-4 py-6 text-center text-sm text-gray-400">
+          해당 월 데이터 없음
+        </div>
+      </div>
+    );
+  }
+
+  return (
+    <div className={`rounded-lg border ${config.borderColor} overflow-hidden`}>
+      {/* 헤더 */}
+      <div className={`${config.headerBg} ${config.headerText} px-4 py-2.5 flex items-center gap-2`}>
+        {config.icon}
+        <span className="text-sm font-semibold">{pattern.groupName}</span>
+        <span className="text-xs opacity-80 ml-auto">{pattern.patientCount}명</span>
+      </div>
+
+      <div className="px-4 py-3 space-y-3">
+        {/* 요약 */}
+        <p className="text-sm text-gray-700 leading-relaxed">
+          {pattern.summary}
+        </p>
+
+        {/* 공통점 */}
+        {pattern.commonPatterns.length > 0 && (
+          <div>
+            <p className="text-xs font-semibold text-gray-500 mb-1.5">공통 패턴</p>
+            <ul className="space-y-1">
+              {pattern.commonPatterns.map((cp, i) => (
+                <li key={i} className="flex items-start gap-1.5 text-xs text-gray-600">
+                  <span className={`inline-block w-1.5 h-1.5 rounded-full mt-1.5 flex-shrink-0 ${config.headerBg}`} />
+                  {cp}
+                </li>
+              ))}
+            </ul>
+          </div>
+        )}
+
+        {/* 실행 제안 */}
+        {pattern.actionItems.length > 0 && (
+          <div className={`${config.bgColor} rounded-md px-3 py-2`}>
+            <p className="text-xs font-semibold text-gray-500 mb-1">실행 제안</p>
+            {pattern.actionItems.map((action, i) => (
+              <p key={i} className="text-xs text-gray-700 leading-relaxed">
+                → {action}
+              </p>
+            ))}
+          </div>
+        )}
+      </div>
+    </div>
+  );
+}
+
+// ============================================
 // Main Component
 // ============================================
 
@@ -143,6 +245,8 @@ const MonthlyReportExecutiveSummary: React.FC<MonthlyReportExecutiveSummaryProps
     : (stats.executiveInsights || []);
   const structuredInsights = hasStructuredAI ? stats.aiInsights!.structuredInsights! : [];
   const hasInsights = displayInsights.length > 0 || structuredInsights.length > 0;
+  const conversionPatterns = stats.aiInsights?.conversionPatterns || [];
+  const hasConversionPatterns = conversionPatterns.length > 0;
 
   return (
     <div className="bg-white rounded-lg shadow-sm border mb-6 overflow-hidden">
@@ -271,6 +375,24 @@ const MonthlyReportExecutiveSummary: React.FC<MonthlyReportExecutiveSummaryProps
             </p>
           )}
         </div>
+
+        {/* 전환 패턴 분석 */}
+        {hasConversionPatterns && (
+          <div className="border-t pt-6">
+            <h3 className="text-base font-bold text-gray-900 flex items-center gap-2 mb-4">
+              <Users className="w-5 h-5 text-blue-500" />
+              전환 패턴 분석
+              <span className="text-xs bg-blue-100 text-blue-700 px-2 py-0.5 rounded-full font-medium">
+                AI 패턴 매칭
+              </span>
+            </h3>
+            <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
+              {conversionPatterns.map((pattern) => (
+                <ConversionPatternCard key={pattern.groupKey} pattern={pattern} />
+              ))}
+            </div>
+          </div>
+        )}
       </div>
     </div>
   );

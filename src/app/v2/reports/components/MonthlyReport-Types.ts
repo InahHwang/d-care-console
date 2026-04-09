@@ -316,9 +316,23 @@ export interface MonthlyStatsV2 {
       detail: string;
       action: string;
     }>;
+    conversionPatterns?: ConversionPatternInsight[];
     generatedAt: string;
     model: string;
   };
+}
+
+// ============================================
+// 전환 패턴 분석 (그룹별 상담 패턴 공통점)
+// ============================================
+
+export interface ConversionPatternInsight {
+  groupName: string;        // '치료전환 성공', '전화상담 이탈', '내원후 이탈'
+  groupKey: 'converted' | 'phoneChurned' | 'visitChurned';
+  patientCount: number;
+  summary: string;          // AI가 분석한 패턴 요약
+  commonPatterns: string[]; // 공통점 목록
+  actionItems: string[];    // 실행 제안
 }
 
 // ============================================

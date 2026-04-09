@@ -42,6 +42,7 @@ export async function GET(request: NextRequest, { params }: RouteParams) {
       data: consultations.map((c) => ({
         id: c._id.toString(),
         type: c.type,
+        direction: c.direction,
         date: c.date,
         content: c.content,
         consultantName: c.consultantName,
@@ -68,7 +69,7 @@ export async function POST(request: NextRequest, { params }: RouteParams) {
 
     const { id: patientId } = await params;
     const body = await request.json();
-    const { type, date, content, consultantName } = body;
+    const { type, direction, date, content, consultantName } = body;
 
     if (!ObjectId.isValid(patientId)) {
       return NextResponse.json(
@@ -99,7 +100,7 @@ export async function POST(request: NextRequest, { params }: RouteParams) {
     }
 
     const now = new Date();
-    const newConsultation = {
+    const newConsultation: Record<string, unknown> = {
       patientId,
       type: type || 'other',
       date: date ? new Date(date) : now,
@@ -109,6 +110,10 @@ export async function POST(request: NextRequest, { params }: RouteParams) {
       createdAt: now,
       updatedAt: now,
     };
+    // 전화 타입이면 수신/발신 방향 저장
+    if (type === 'phone' && direction) {
+      newConsultation.direction = direction;
+    }
 
     const result = await db.collection('manualConsultations_v2').insertOne(newConsultation);
 
@@ -146,7 +151,7 @@ export async function PATCH(request: NextRequest, { params }: RouteParams) {
 
     const { id: patientId } = await params;
     const body = await request.json();
-    const { consultationId, type, date, content, consultantName } = body;
+    const { consultationId, type, direction, date, content, consultantName } = body;
 
     if (!ObjectId.isValid(patientId)) {
       return NextResponse.json(
@@ -190,6 +195,7 @@ export async function PATCH(request: NextRequest, { params }: RouteParams) {
       updatedAt: now,
     };
     if (type) updateData.type = type;
+    if (type === 'phone' && direction) updateData.direction = direction;
     if (date) updateData.date = new Date(date);
     if (consultantName) updateData.consultantName = consultantName;
 

@@ -147,6 +147,7 @@ export async function GET(request: NextRequest, { params }: RouteParams) {
           id: manual._id.toString(),
           type: 'manual',
           manualType: manual.type,  // 'visit', 'phone', 'other' 등
+          direction: manual.direction,  // 수동 전화의 수신/발신 방향
           date: manual.date,
           content: manual.content,
           summary: manual.content,

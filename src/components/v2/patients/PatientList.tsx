@@ -485,7 +485,7 @@ export function PatientList({ patients, onPatientClick, onCallClick, loading, co
                       </span>
                     </div>
                     {patient.nextActionNote && (
-                      <span className="text-xs text-gray-600 bg-amber-50 px-1.5 py-0.5 rounded truncate" title={patient.nextActionNote}>
+                      <span className="text-xs text-gray-600 bg-amber-50 px-1.5 py-0.5 rounded whitespace-pre-line line-clamp-2" title={patient.nextActionNote}>
                         {patient.nextActionNote}
                       </span>
                     )}

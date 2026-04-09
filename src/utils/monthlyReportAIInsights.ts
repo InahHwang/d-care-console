@@ -1,7 +1,7 @@
 // src/utils/monthlyReportAIInsights.ts
 // 월간 보고서 AI 인사이트 생성 - OpenAI GPT-5.2 활용
 
-import type { MonthlyStatsV2 } from '@/app/v2/reports/components/MonthlyReport-Types';
+import type { MonthlyStatsV2, PatientSummaryV2, ConversionPatternInsight } from '@/app/v2/reports/components/MonthlyReport-Types';
 
 // ============================================
 // Types
@@ -16,8 +16,120 @@ export interface AIInsightItem {
 export interface AIInsightResult {
   insights: string[];           // 하위 호환 (레거시)
   structuredInsights: AIInsightItem[];  // 구조화된 인사이트
+  conversionPatterns?: ConversionPatternInsight[];  // 전환 패턴 분석
   generatedAt: string;
   model: string;
+}
+
+// ============================================
+// 전환 패턴 데이터 추출 (PII 제거, 집계만)
+// ============================================
+
+interface PatternGroupData {
+  groupName: string;
+  groupKey: 'converted' | 'phoneChurned' | 'visitChurned';
+  count: number;
+  interests: Record<string, number>;
+  consultationTypes: { inbound: number; outbound: number; returning: number };
+  hasPhoneConsult: number;
+  hasVisitConsult: number;
+  hasBothConsult: number;
+  avgEstimatedAmount: number;
+  avgFinalAmount: number;
+  hasActiveCallback: number;
+  ageGroups: Record<string, number>;
+  genderSplit: { male: number; female: number; unknown: number };
+}
+
+function buildPatternGroup(
+  name: string,
+  key: 'converted' | 'phoneChurned' | 'visitChurned',
+  patients: PatientSummaryV2[],
+): PatternGroupData {
+  const count = patients.length;
+  if (count === 0) {
+    return {
+      groupName: name, groupKey: key, count: 0,
+      interests: {}, consultationTypes: { inbound: 0, outbound: 0, returning: 0 },
+      hasPhoneConsult: 0, hasVisitConsult: 0, hasBothConsult: 0,
+      avgEstimatedAmount: 0, avgFinalAmount: 0, hasActiveCallback: 0,
+      ageGroups: {}, genderSplit: { male: 0, female: 0, unknown: 0 },
+    };
+  }
+
+  const interests: Record<string, number> = {};
+  const consultationTypes = { inbound: 0, outbound: 0, returning: 0 };
+  let phoneCount = 0, visitCount = 0, bothCount = 0, callbackCount = 0;
+  let totalEstimated = 0, totalFinal = 0;
+  const ageGroups: Record<string, number> = {};
+  const genderSplit = { male: 0, female: 0, unknown: 0 };
+
+  for (const p of patients) {
+    // 관심분야
+    interests[p.interest] = (interests[p.interest] || 0) + 1;
+    // 상담 유형
+    if (p.consultationType === 'inbound') consultationTypes.inbound++;
+    else if (p.consultationType === 'outbound') consultationTypes.outbound++;
+    else if (p.consultationType === 'returning') consultationTypes.returning++;
+    // 상담 방식
+    if (p.hasPhoneConsultation) phoneCount++;
+    if (p.hasVisitConsultation) visitCount++;
+    if (p.hasPhoneConsultation && p.hasVisitConsultation) bothCount++;
+    // 콜백
+    if (p.hasActiveCallback) callbackCount++;
+    // 금액
+    totalEstimated += p.estimatedAmount || 0;
+    totalFinal += p.finalAmount || 0;
+    // 연령대
+    if (p.age) {
+      const bracket = p.age < 20 ? '10대' : p.age < 30 ? '20대' : p.age < 40 ? '30대'
+        : p.age < 50 ? '40대' : p.age < 60 ? '50대' : '60대+';
+      ageGroups[bracket] = (ageGroups[bracket] || 0) + 1;
+    }
+    // 성별
+    if (p.gender === '남') genderSplit.male++;
+    else if (p.gender === '여') genderSplit.female++;
+    else genderSplit.unknown++;
+  }
+
+  return {
+    groupName: name,
+    groupKey: key,
+    count,
+    interests,
+    consultationTypes,
+    hasPhoneConsult: phoneCount,
+    hasVisitConsult: visitCount,
+    hasBothConsult: bothCount,
+    avgEstimatedAmount: Math.round(totalEstimated / count),
+    avgFinalAmount: Math.round(totalFinal / count),
+    hasActiveCallback: callbackCount,
+    ageGroups,
+    genderSplit,
+  };
+}
+
+function buildConversionPatternData(stats: MonthlyStatsV2): PatternGroupData[] {
+  const summaries = stats.patientSummaries || [];
+
+  // 치료 전환 성공: treatment, completed, followup
+  const converted = summaries.filter(p =>
+    ['treatment', 'completed', 'followup'].includes(p.status)
+  );
+  // 전화상담 이탈: closed + 내원상담 없음
+  const phoneChurned = summaries.filter(p =>
+    p.status === 'closed' && !p.hasVisitConsultation
+  );
+  // 내원 후 이탈: closed + 내원상담 있음
+  const visitChurned = summaries.filter(p =>
+    p.status === 'closed' && p.hasVisitConsultation
+  );
+
+  return [
+    buildPatternGroup('치료전환 성공', 'converted', converted),
+    buildPatternGroup('전화상담 이탈', 'phoneChurned', phoneChurned),
+    buildPatternGroup('내원후 이탈', 'visitChurned', visitChurned),
+  ];
 }
 
 // ============================================
@@ -56,10 +168,16 @@ function buildInsightPrompt(stats: MonthlyStatsV2): string {
     interestBreakdown: stats.interestBreakdown,
   };
 
+  // 전환 패턴 데이터 (PII 없는 집계)
+  const patternData = buildConversionPatternData(stats);
+
   return `당신은 치과 경영 컨설턴트입니다. 아래 월간 리포트 통계 데이터를 분석하여 원장님에게 보고할 핵심 인사이트를 생성하세요.
 
 ## 데이터
 ${JSON.stringify(safeData, null, 2)}
+
+## 전환 패턴 데이터 (환자 그룹별 익명 집계)
+${JSON.stringify(patternData, null, 2)}
 
 ## 분석 요청
 위 데이터를 분석하여 다음 JSON 형식으로 응답해주세요. 반드시 유효한 JSON만 출력하세요.
@@ -70,6 +188,16 @@ ${JSON.stringify(safeData, null, 2)}
       "title": "핵심 요약 (한 줄)",
       "detail": "데이터 근거와 분석 (수치 포함)",
       "action": "구체적 실행 제안"
+    }
+  ],
+  "conversionPatterns": [
+    {
+      "groupKey": "converted",
+      "groupName": "치료전환 성공",
+      "patientCount": 0,
+      "summary": "이 그룹의 상담 패턴 요약 (2~3줄)",
+      "commonPatterns": ["공통점 1", "공통점 2", "공통점 3"],
+      "actionItems": ["실행 제안 1", "실행 제안 2"]
     }
   ]
 }
@@ -88,6 +216,14 @@ ${JSON.stringify(safeData, null, 2)}
 3. **매출 기회**: 잠재환자 전환 시 추가 가능 매출, 고액 치료 전환율 분석
 4. **이탈 원인**: 미동의 사유와 종결 사유를 종합하여 해결 가능한 이탈 원인 제시
 5. **운영 최적화**: 요일별 패턴, 인력 배치, 피크타임 관리
+
+### 전환 패턴 분석 가이드라인 (conversionPatterns)
+각 그룹(치료전환 성공 / 전화상담 이탈 / 내원후 이탈)에 대해:
+1. **summary**: 해당 그룹 환자들의 상담 패턴 공통점을 2~3줄로 요약. 데이터의 수치를 근거로 서술
+2. **commonPatterns**: 3~5개의 구체적 공통점 (예: "인바운드 유입 비율 80%로 자발적 문의가 대다수", "전화+내원 병행 상담 비율 60%")
+3. **actionItems**: 해당 그룹 분석에서 도출된 실행 가능한 제안 1~3개
+4. 데이터가 0명인 그룹은 patientCount: 0, summary: "해당 월 데이터 없음"으로 처리
+5. **그룹 간 비교**를 통해 전환 성공 그룹과 이탈 그룹의 차이점을 명확히 제시
 
 JSON만 출력하세요.`;
 }
@@ -124,7 +260,7 @@ export async function generateAIInsights(
           content: prompt,
         },
       ],
-      max_completion_tokens: 3000,
+      max_completion_tokens: 5000,
     }),
   });
 
@@ -173,9 +309,32 @@ export async function generateAIInsights(
     }
   }
 
+  // 전환 패턴 분석 파싱
+  const conversionPatterns: ConversionPatternInsight[] = [];
+  if (Array.isArray(result.conversionPatterns)) {
+    for (const cp of result.conversionPatterns) {
+      if (typeof cp === 'object' && cp !== null) {
+        const obj = cp as Record<string, unknown>;
+        conversionPatterns.push({
+          groupName: String(obj.groupName || ''),
+          groupKey: (obj.groupKey as ConversionPatternInsight['groupKey']) || 'converted',
+          patientCount: Number(obj.patientCount || 0),
+          summary: String(obj.summary || ''),
+          commonPatterns: Array.isArray(obj.commonPatterns)
+            ? obj.commonPatterns.map(String)
+            : [],
+          actionItems: Array.isArray(obj.actionItems)
+            ? obj.actionItems.map(String)
+            : [],
+        });
+      }
+    }
+  }
+
   return {
     insights: flatInsights.slice(0, 7),
     structuredInsights: structuredInsights.slice(0, 7),
+    conversionPatterns: conversionPatterns.length > 0 ? conversionPatterns : undefined,
     generatedAt: new Date().toISOString(),
     model: 'gpt-5.2',
   };

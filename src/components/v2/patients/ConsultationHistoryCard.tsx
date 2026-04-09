@@ -155,14 +155,38 @@ function getItemDisplay(item: ConsultationItem): {
       labelColor: 'bg-emerald-100 text-emerald-700',
     };
   }
-  // 수동 (전화/기타)
+  // 수동 전화 (direction 있으면 수신/발신 표시)
+  if (item.type === 'manual' && item.manualType === 'phone') {
+    if (item.direction === 'inbound') {
+      return {
+        icon: <Phone size={14} className="text-blue-600" />,
+        iconBg: 'bg-blue-100',
+        label: '수신',
+        labelColor: 'bg-blue-100 text-blue-700',
+      };
+    }
+    if (item.direction === 'outbound') {
+      return {
+        icon: <Phone size={14} className="text-violet-600" />,
+        iconBg: 'bg-violet-100',
+        label: '발신',
+        labelColor: 'bg-violet-100 text-violet-700',
+      };
+    }
+    // direction 없는 과거 데이터
+    return {
+      icon: <Phone size={14} className="text-amber-600" />,
+      iconBg: 'bg-amber-100',
+      label: '전화',
+      labelColor: 'bg-amber-100 text-amber-700',
+    };
+  }
+  // 수동 (기타)
   if (item.type === 'manual') {
     return {
-      icon: item.manualType === 'phone'
-        ? <Phone size={14} className="text-amber-600" />
-        : <Edit3 size={14} className="text-amber-600" />,
+      icon: <Edit3 size={14} className="text-amber-600" />,
       iconBg: 'bg-amber-100',
-      label: item.manualType === 'phone' ? '수동 전화' : '수동',
+      label: '수동',
       labelColor: 'bg-amber-100 text-amber-700',
     };
   }
@@ -820,9 +844,9 @@ export function ConsultationHistoryCard({ patientId, patientName = '', className
                     )}
 
                     {/* 자동/수동 구분 */}
-                    {item.type === 'call' && (
+                    {(item.type === 'call' || item.type === 'manual') && (
                       <span className="px-1 py-0.5 rounded text-[10px] bg-gray-100 text-gray-500">
-                        {item.source === 'manual' ? '수동' : '자동'}
+                        {item.type === 'manual' ? '수동' : '자동'}
                       </span>
                     )}
 

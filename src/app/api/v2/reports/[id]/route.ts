@@ -153,6 +153,7 @@ export async function PATCH(
         const aiInsightsData = {
           insights: aiResult.insights,
           structuredInsights: aiResult.structuredInsights,
+          conversionPatterns: aiResult.conversionPatterns,
           generatedAt: aiResult.generatedAt,
           model: aiResult.model,
         };
