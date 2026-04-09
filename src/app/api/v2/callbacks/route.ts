@@ -291,16 +291,30 @@ export async function POST(request: NextRequest) {
     ]);
 
     // 환자의 nextAction 업데이트
+    const nextActionLabel = type === 'callback' ? '콜백' : type === 'recall' ? '리콜' : '감사전화';
     await db.collection('patients_v2').updateOne(
       { _id: new ObjectId(patientId), clinicId },
       {
         $set: {
-          nextAction: type === 'callback' ? '콜백' : type === 'recall' ? '리콜' : '감사전화',
+          nextAction: nextActionLabel,
           nextActionDate: scheduledAt,
           updatedAt: now,
         },
       }
     );
+
+    // 활성 여정의 nextActionDate도 동기화
+    const patient = await db.collection('patients_v2').findOne(
+      { _id: new ObjectId(patientId), clinicId },
+      { projection: { activeJourneyId: 1 } }
+    );
+    if (patient?.activeJourneyId) {
+      await db.collection('patients_v2').updateOne(
+        { _id: new ObjectId(patientId), clinicId },
+        { $set: { 'journeys.$[journey].nextActionDate': scheduledAt } },
+        { arrayFilters: [{ 'journey.id': patient.activeJourneyId }] }
+      );
+    }
 
     return NextResponse.json({
       success: true,
@@ -407,6 +421,15 @@ export async function PATCH(request: NextRequest) {
             $set: { updatedAt: now },
           }
         );
+
+        // 활성 여정의 nextActionDate도 클리어
+        if (patient.activeJourneyId) {
+          await db.collection('patients_v2').updateOne(
+            { _id: new ObjectId(id), clinicId },
+            { $set: { 'journeys.$[journey].nextActionDate': null } },
+            { arrayFilters: [{ 'journey.id': patient.activeJourneyId }] }
+          );
+        }
 
         return NextResponse.json({
           success: true,

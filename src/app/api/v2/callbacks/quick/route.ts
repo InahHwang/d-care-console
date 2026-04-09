@@ -58,11 +58,14 @@ export async function POST(request: NextRequest) {
       }
     );
 
-    // 3. 활성 여정의 callbackHistory에도 추가
+    // 3. 활성 여정의 nextActionDate + callbackHistory도 동기화
     if (currentPatient.activeJourneyId) {
       await db.collection('patients_v2').updateOne(
         { _id: new ObjectId(patientId), clinicId },
-        { $push: { 'journeys.$[journey].callbackHistory': callbackHistoryEntry } as any },
+        {
+          $set: { 'journeys.$[journey].nextActionDate': scheduledAt },
+          $push: { 'journeys.$[journey].callbackHistory': callbackHistoryEntry } as any,
+        },
         { arrayFilters: [{ 'journey.id': currentPatient.activeJourneyId }] }
       );
     }
