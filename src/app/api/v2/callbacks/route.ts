@@ -162,12 +162,13 @@ export async function GET(request: NextRequest) {
     const tomorrow = new Date(today.getTime() + 24 * 60 * 60 * 1000);
     const todayStr = `${kstNow.getUTCFullYear()}-${String(kstNow.getUTCMonth() + 1).padStart(2, '0')}-${String(kstNow.getUTCDate()).padStart(2, '0')}`;
 
-    // callbacks_v2 통계
+    // callbacks_v2 통계 (cancelled 제외)
     const [callbackStats] = await db.collection('callbacks_v2').aggregate([
       {
         $match: {
           clinicId,
-          scheduledAt: { $gte: today, $lt: tomorrow }
+          scheduledAt: { $gte: today, $lt: tomorrow },
+          status: { $ne: 'cancelled' }
         }
       },
       {
@@ -184,8 +185,16 @@ export async function GET(request: NextRequest) {
       }
     ]).toArray();
 
-    // patients_v2 통계 (오늘 nextActionDate인 환자)
-    const patientTodayCount = await db.collection('patients_v2').countDocuments({
+    // patients_v2 통계 (오늘 nextActionDate인 환자, callbacks_v2에 이미 있는 환자는 제외)
+    const todayCallbackPatientIds = await db.collection('callbacks_v2')
+      .find({ clinicId, scheduledAt: { $gte: today, $lt: tomorrow }, status: { $ne: 'cancelled' } })
+      .project({ patientId: 1 })
+      .toArray();
+    const excludeIds = todayCallbackPatientIds.map(cb => {
+      try { return new ObjectId(cb.patientId); } catch { return cb.patientId; }
+    });
+
+    const patientStatsFilter: Record<string, unknown> = {
       clinicId,
       deletedAt: { $exists: false },
       $or: [
@@ -193,7 +202,11 @@ export async function GET(request: NextRequest) {
         { nextActionDate: { $gte: today.toISOString(), $lt: tomorrow.toISOString() } },
         { nextActionDate: { $regex: `^${todayStr}` } }
       ]
-    });
+    };
+    if (excludeIds.length > 0) {
+      patientStatsFilter._id = { $nin: excludeIds };
+    }
+    const patientTodayCount = await db.collection('patients_v2').countDocuments(patientStatsFilter);
 
     const baseStats = callbackStats || { total: 0, pending: 0, completed: 0, missed: 0, callback: 0, recall: 0, thanks: 0 };
 
