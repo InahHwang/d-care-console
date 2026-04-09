@@ -116,7 +116,64 @@ interface ConsultationHistoryCardProps {
   onDeleteResult?: (resultId: string) => void;
 }
 
-type FilterType = 'all' | 'call' | 'chat' | 'manual' | 'result';
+type FilterType = 'all' | 'call' | 'chat' | 'manual';
+
+// 상담결과 상태 뱃지
+function getResultStatusBadge(status?: string): { label: string; className: string } {
+  switch (status) {
+    case 'agreed': return { label: '동의', className: 'bg-emerald-100 text-emerald-700' };
+    case 'disagreed': return { label: '미동의', className: 'bg-rose-100 text-rose-700' };
+    case 'no_answer': return { label: '부재중', className: 'bg-slate-100 text-slate-700' };
+    case 'closed': return { label: '종결', className: 'bg-gray-200 text-gray-700' };
+    default: return { label: '보류', className: 'bg-amber-100 text-amber-700' };
+  }
+}
+
+// 항목별 아이콘/라벨 통일
+function getItemDisplay(item: ConsultationItem): {
+  icon: React.ReactNode;
+  iconBg: string;
+  label: string;
+  labelColor: string;
+} {
+  // 통화
+  if (item.type === 'call') {
+    const isInbound = item.direction === 'inbound';
+    return {
+      icon: <Phone size={14} className={isInbound ? 'text-blue-600' : 'text-violet-600'} />,
+      iconBg: isInbound ? 'bg-blue-100' : 'bg-violet-100',
+      label: isInbound ? '수신' : '발신',
+      labelColor: isInbound ? 'bg-blue-100 text-blue-700' : 'bg-violet-100 text-violet-700',
+    };
+  }
+  // 내원상담 (수동 visit)
+  if (item.type === 'manual' && (item.manualType === 'visit' || item.source === 'consultation_result')) {
+    return {
+      icon: <Building size={14} className="text-emerald-600" />,
+      iconBg: 'bg-emerald-100',
+      label: '내원상담',
+      labelColor: 'bg-emerald-100 text-emerald-700',
+    };
+  }
+  // 수동 (전화/기타)
+  if (item.type === 'manual') {
+    return {
+      icon: item.manualType === 'phone'
+        ? <Phone size={14} className="text-amber-600" />
+        : <Edit3 size={14} className="text-amber-600" />,
+      iconBg: 'bg-amber-100',
+      label: item.manualType === 'phone' ? '수동 전화' : '수동',
+      labelColor: 'bg-amber-100 text-amber-700',
+    };
+  }
+  // 채팅
+  return {
+    icon: <span className="text-sm">{CHANNEL_CONFIG[item.channel as ChannelType]?.icon || '💬'}</span>,
+    iconBg: 'bg-green-100',
+    label: CHANNEL_CONFIG[item.channel as ChannelType]?.label || '채팅',
+    labelColor: CHANNEL_CONFIG[item.channel as ChannelType]?.bgColor || 'bg-gray-100 text-gray-700',
+  };
+}
 
 // 채팅 상세 모달 컴포넌트
 interface ChatDetailModalProps {
@@ -458,14 +515,12 @@ export function ConsultationHistoryCard({ patientId, patientName = '', className
   const fetchConsultations = async () => {
     setIsLoading(true);
     try {
-      // 통화/채팅/수동 이력 조회 (result 필터가 아닐 때만)
+      // 통화/채팅/수동 이력 조회
       let callChatItems: ConsultationItem[] = [];
-      if (filter !== 'result') {
-        const res = await authFetch(`/api/v2/patients/${patientId}/consultations?type=${filter === 'all' ? 'all' : filter}&limit=20`);
-        const data = await res.json();
-        if (data.success) {
-          callChatItems = data.data;
-        }
+      const res = await authFetch(`/api/v2/patients/${patientId}/consultations?type=${filter === 'all' ? 'all' : filter}&limit=20`);
+      const resData = await res.json();
+      if (resData.success) {
+        callChatItems = resData.data;
       }
 
       // 상담 결과 조회 (consultations_v2) - 항상 조회
@@ -580,13 +635,10 @@ export function ConsultationHistoryCard({ patientId, patientName = '', className
         return item;
       });
 
-      // 필터에 따라 목록 구성
+      // 필터에 따라 목록 구성 (독립 result 항목은 표시하지 않음 — 반드시 활동에 연결)
       let mergedItems: ConsultationItem[] = [];
-      if (filter === 'result') {
-        mergedItems = resultItems;
-      } else if (filter === 'all') {
-        // 연결된 결과는 활동 밑에 표시하므로 unlinkedResults만 독립 표시
-        mergedItems = [...enrichedItems, ...unlinkedResults].sort(
+      if (filter === 'all') {
+        mergedItems = enrichedItems.sort(
           (a, b) => new Date(b.date).getTime() - new Date(a.date).getTime()
         );
       } else {
@@ -683,7 +735,6 @@ export function ConsultationHistoryCard({ patientId, patientName = '', className
         <div className="flex gap-1 mt-3 flex-wrap">
           {[
             { value: 'all' as FilterType, label: '전체' },
-            { value: 'result' as FilterType, label: '📋 상담결과' },
             { value: 'call' as FilterType, label: '📞 전화' },
             { value: 'chat' as FilterType, label: '💬 채팅' },
             { value: 'manual' as FilterType, label: '✏️ 수동' },
@@ -722,130 +773,41 @@ export function ConsultationHistoryCard({ patientId, patientName = '', className
                 }
                 // manual 타입은 클릭 동작 없음
               }}
-              className={`w-full p-4 text-left ${item.type !== 'manual' && item.type !== 'result' ? 'hover:bg-gray-50 cursor-pointer' : ''} transition-colors`}
+              className={`w-full p-4 text-left ${item.type !== 'manual' ? 'hover:bg-gray-50 cursor-pointer' : ''} transition-colors`}
             >
               <div className="flex items-start gap-3">
                 {/* 아이콘 */}
-                <div
-                  className={`w-8 h-8 rounded-full flex items-center justify-center flex-shrink-0 ${
-                    item.type === 'call' ? 'bg-orange-100'
-                    : item.type === 'manual' ? 'bg-amber-100'
-                    : item.type === 'result' ? (
-                      item.resultStatus === 'agreed' ? 'bg-emerald-100'
-                      : item.resultStatus === 'disagreed' ? 'bg-rose-100'
-                      : item.resultStatus === 'no_answer' ? 'bg-slate-100'
-                      : item.resultStatus === 'closed' ? 'bg-gray-100'
-                      : 'bg-amber-100'
-                    )
-                    : 'bg-green-100'
-                  }`}
-                >
-                  {item.type === 'call' ? (
-                    <Phone size={14} className="text-orange-600" />
-                  ) : item.type === 'manual' ? (
-                    item.manualType === 'phone' ? (
-                      <Phone size={14} className="text-amber-600" />
-                    ) : item.manualType === 'visit' ? (
-                      <Building size={14} className="text-amber-600" />
-                    ) : (
-                      <Edit3 size={14} className="text-amber-600" />
-                    )
-                  ) : item.type === 'result' ? (
-                    item.resultStatus === 'agreed' ? (
-                      <CheckCircle size={14} className="text-emerald-600" />
-                    ) : item.resultStatus === 'disagreed' ? (
-                      <XCircle size={14} className="text-rose-600" />
-                    ) : item.resultStatus === 'no_answer' ? (
-                      <PhoneMissed size={14} className="text-slate-600" />
-                    ) : item.resultStatus === 'closed' ? (
-                      <Ban size={14} className="text-gray-600" />
-                    ) : (
-                      <AlertCircle size={14} className="text-amber-600" />
-                    )
-                  ) : (
-                    <span className="text-sm">
-                      {CHANNEL_CONFIG[item.channel as ChannelType]?.icon || '💬'}
-                    </span>
-                  )}
-                </div>
+                {(() => {
+                  const display = getItemDisplay(item);
+                  return (
+                    <div className={`w-8 h-8 rounded-full flex items-center justify-center flex-shrink-0 ${display.iconBg}`}>
+                      {display.icon}
+                    </div>
+                  );
+                })()}
 
                 {/* 내용 */}
                 <div className="flex-1 min-w-0">
                   <div className="flex items-center gap-2 text-sm flex-wrap">
-                    {/* 타입 뱃지 */}
-                    {item.type === 'call' ? (
-                      <span
-                        className={`px-1.5 py-0.5 rounded text-xs ${
-                          item.direction === 'inbound'
-                            ? 'bg-orange-100 text-orange-700'
-                            : 'bg-purple-100 text-purple-700'
-                        }`}
-                      >
-                        {item.direction === 'inbound' ? '수신' : '발신'}
-                      </span>
-                    ) : item.type === 'manual' ? (
-                      <>
-                        {/* 내원상담 결과에서 자동 생성된 경우 */}
-                        {item.manualType === 'visit' && item.source === 'consultation_result' ? (
-                          <>
-                            <span className="px-1.5 py-0.5 rounded text-xs bg-purple-100 text-purple-700">
-                              내원상담
-                            </span>
-                            {item.status && (
-                              <span className={`px-2 py-0.5 rounded-full text-xs font-medium ${
-                                item.status === 'agreed' ? 'bg-emerald-100 text-emerald-700'
-                                : item.status === 'disagreed' ? 'bg-rose-100 text-rose-700'
-                                : item.status === 'closed' ? 'bg-gray-200 text-gray-700'
-                                : 'bg-amber-100 text-amber-700'
-                              }`}>
-                                {item.status === 'agreed' ? '동의'
-                                 : item.status === 'disagreed' ? '미동의'
-                                 : item.status === 'closed' ? '종결'
-                                 : '보류'}
-                              </span>
-                            )}
-                          </>
-                        ) : (
-                          <>
-                            <span className="px-1.5 py-0.5 rounded text-xs bg-amber-100 text-amber-700">
-                              수동
-                            </span>
-                            <span className="px-1.5 py-0.5 rounded text-xs bg-gray-100 text-gray-600">
-                              {item.manualType === 'phone' ? '전화' : item.manualType === 'visit' ? '내원' : '기타'}
-                            </span>
-                          </>
-                        )}
-                      </>
-                    ) : item.type === 'result' ? (
-                      <>
-                        <span className={`px-1.5 py-0.5 rounded text-xs ${
-                          item.resultType === 'phone' ? 'bg-orange-100 text-orange-700' : 'bg-purple-100 text-purple-700'
-                        }`}>
-                          {item.resultType === 'phone' ? '전화상담' : '내원상담'}
+                    {/* 타입 라벨 (통일) */}
+                    {(() => {
+                      const display = getItemDisplay(item);
+                      return (
+                        <span className={`px-1.5 py-0.5 rounded text-xs font-medium ${display.labelColor}`}>
+                          {display.label}
                         </span>
-                        <span className={`px-2 py-0.5 rounded-full text-xs font-medium ${
-                          item.resultStatus === 'agreed' ? 'bg-emerald-100 text-emerald-700'
-                          : item.resultStatus === 'disagreed' ? 'bg-rose-100 text-rose-700'
-                          : item.resultStatus === 'no_answer' ? 'bg-slate-100 text-slate-700'
-                          : item.resultStatus === 'closed' ? 'bg-gray-200 text-gray-700'
-                          : 'bg-amber-100 text-amber-700'
-                        }`}>
-                          {item.resultStatus === 'agreed' ? '동의'
-                           : item.resultStatus === 'disagreed' ? '미동의'
-                           : item.resultStatus === 'no_answer' ? '부재중'
-                           : item.resultStatus === 'closed' ? '종결'
-                           : '보류'}
+                      );
+                    })()}
+
+                    {/* 내원상담 결과 상태 뱃지 */}
+                    {item.type === 'manual' && item.source === 'consultation_result' && item.status && (() => {
+                      const badge = getResultStatusBadge(item.status);
+                      return (
+                        <span className={`px-2 py-0.5 rounded-full text-xs font-medium ${badge.className}`}>
+                          {badge.label}
                         </span>
-                      </>
-                    ) : (
-                      <span
-                        className={`px-1.5 py-0.5 rounded text-xs ${
-                          CHANNEL_CONFIG[item.channel as ChannelType]?.bgColor || 'bg-gray-100 text-gray-700'
-                        }`}
-                      >
-                        {CHANNEL_CONFIG[item.channel as ChannelType]?.label || '채팅'}
-                      </span>
-                    )}
+                      );
+                    })()}
 
                     {/* 날짜/시간 */}
                     <span className="text-gray-500">
@@ -857,8 +819,15 @@ export function ConsultationHistoryCard({ patientId, patientName = '', className
                       <span className="text-gray-400">({formatTime(item.duration)})</span>
                     )}
 
+                    {/* 자동/수동 구분 */}
+                    {item.type === 'call' && (
+                      <span className="px-1 py-0.5 rounded text-[10px] bg-gray-100 text-gray-500">
+                        {item.source === 'manual' ? '수동' : '자동'}
+                      </span>
+                    )}
+
                     {/* 통화 상태 */}
-                    {item.type === 'call' && item.status === 'missed' && (
+                    {item.status === 'missed' && (
                       <span className="text-xs text-red-500">부재중</span>
                     )}
 
@@ -868,49 +837,13 @@ export function ConsultationHistoryCard({ patientId, patientName = '', className
                         ✨ AI 코칭
                       </span>
                     )}
-
-                    {/* 상담 결과 담당자 */}
-                    {item.type === 'result' && item.consultantName && (
-                      <span className="text-gray-400 text-xs">({item.consultantName})</span>
-                    )}
                   </div>
 
-                  {/* 요약 - 수동 입력은 원문 그대로, 상담결과는 상세 정보, 나머지는 bullet point */}
+                  {/* 요약 - 수동 입력은 원문 그대로, 나머지는 bullet point */}
                   {item.type === 'manual' && item.content ? (
                     <p className="mt-1 text-sm text-gray-700 whitespace-pre-wrap">
                       {item.content}
                     </p>
-                  ) : item.type === 'result' ? (
-                    <div className="mt-1 space-y-1 text-sm text-gray-700">
-                      {/* 치료/관심항목 */}
-                      {item.treatment && (
-                        <p><span className="text-gray-500">치료:</span> {item.treatment}</p>
-                      )}
-                      {/* 금액 정보 (동의 시) */}
-                      {item.resultStatus === 'agreed' && item.finalAmount !== undefined && item.finalAmount > 0 && (
-                        <p><span className="text-gray-500">금액:</span> {item.finalAmount.toLocaleString()}원</p>
-                      )}
-                      {/* 미동의 사유 */}
-                      {item.resultStatus === 'disagreed' && item.disagreeReasons && item.disagreeReasons.length > 0 && (
-                        <p><span className="text-gray-500">사유:</span> {item.disagreeReasons.join(', ')}</p>
-                      )}
-                      {/* 종결 사유 */}
-                      {item.resultStatus === 'closed' && item.closedReason && (
-                        <p><span className="text-gray-500">종결 사유:</span> {item.closedReason === '기타' && item.closedReasonCustom ? item.closedReasonCustom : item.closedReason}</p>
-                      )}
-                      {/* 예약일 (동의 시) */}
-                      {item.resultStatus === 'agreed' && item.appointmentDate && (
-                        <p><span className="text-gray-500">예약일:</span> {format(new Date(item.appointmentDate), 'M/d (EEE) HH:mm', { locale: ko })}</p>
-                      )}
-                      {/* 콜백 예정일 (미동의/보류/부재중 시) */}
-                      {(item.resultStatus === 'disagreed' || item.resultStatus === 'pending' || item.resultStatus === 'no_answer') && item.callbackDate && (
-                        <p><span className="text-gray-500">콜백:</span> {format(new Date(item.callbackDate), 'M/d (EEE)', { locale: ko })}</p>
-                      )}
-                      {/* 메모 */}
-                      {item.memo && (
-                        <p className="text-gray-500 text-xs">{item.memo}</p>
-                      )}
-                    </div>
                   ) : item.summary && (
                     <ul className="mt-1 space-y-0.5">
                       {formatSummaryWithBullets(item.summary).slice(0, 3).map((text, idx) => (
@@ -1005,115 +938,78 @@ export function ConsultationHistoryCard({ patientId, patientName = '', className
                   )}
                 </div>
 
-                {/* 상세보기 안내 (수동, 상담결과 제외) */}
-                {item.type !== 'manual' && item.type !== 'result' && (
-                  <div className="text-xs text-orange-500 flex-shrink-0 self-center">
-                    상세보기
-                  </div>
-                )}
-                {/* 수동 입력: 상담자 + 수정/삭제 버튼 */}
-                {item.type === 'manual' && item.source !== 'consultation_result' && (
-                  <div className="flex items-center gap-1 flex-shrink-0 self-center">
-                    {item.consultantName && (
-                      <span className="text-xs text-gray-400 mr-1">{item.consultantName}</span>
-                    )}
-                    <button
-                      onClick={(e) => handleEditManual(item, e)}
-                      className="p-1 text-gray-400 hover:text-orange-600 hover:bg-orange-50 rounded transition-colors"
-                      title="수정"
-                    >
-                      <Pencil size={13} />
-                    </button>
-                    <button
-                      onClick={(e) => handleDeleteManual(item, e)}
-                      className="p-1 text-gray-400 hover:text-red-600 hover:bg-red-50 rounded transition-colors"
-                      title="삭제"
-                    >
-                      <Trash2 size={13} />
-                    </button>
-                  </div>
-                )}
-                {/* 상담 결과: 수정/삭제 버튼 */}
-                {item.type === 'result' && (onEditResult || onDeleteResult) && (
-                  <div className="flex items-center gap-1 flex-shrink-0 self-center">
-                    {item.consultantName && (
-                      <span className="text-xs text-gray-400 mr-1">{item.consultantName}</span>
-                    )}
-                    {onEditResult && (
+                {/* 우측: 상담사명 + 액션 버튼 */}
+                <div className="flex items-center gap-1 flex-shrink-0 self-center">
+                  {/* 상담사명 (한번만 표시) */}
+                  {item.consultantName && (
+                    <span className="text-xs text-gray-400 mr-1">{item.consultantName}</span>
+                  )}
+                  {/* 상세보기 (통화/채팅) */}
+                  {item.type !== 'manual' && (
+                    <span className="text-xs text-orange-500">상세보기</span>
+                  )}
+                  {/* 수동 입력: 수정/삭제 */}
+                  {item.type === 'manual' && item.source !== 'consultation_result' && (
+                    <>
                       <button
-                        onClick={(e) => { e.stopPropagation(); onEditResult(item.id.replace('result_', ''), item); }}
+                        onClick={(e) => handleEditManual(item, e)}
                         className="p-1 text-gray-400 hover:text-orange-600 hover:bg-orange-50 rounded transition-colors"
                         title="수정"
                       >
                         <Pencil size={13} />
                       </button>
-                    )}
-                    {onDeleteResult && (
                       <button
-                        onClick={(e) => {
-                          e.stopPropagation();
-                          if (confirm('이 상담 결과를 삭제하시겠습니까?')) {
-                            onDeleteResult(item.id.replace('result_', ''));
-                          }
-                        }}
+                        onClick={(e) => handleDeleteManual(item, e)}
                         className="p-1 text-gray-400 hover:text-red-600 hover:bg-red-50 rounded transition-colors"
                         title="삭제"
                       >
                         <Trash2 size={13} />
                       </button>
-                    )}
-                  </div>
-                )}
-                {/* 상담결과에서 생성된 내원상담: 상담자 + 수정/삭제 버튼 */}
-                {item.type === 'manual' && item.source === 'consultation_result' && (
-                  <div className="flex items-center gap-1 flex-shrink-0 self-center">
-                    {item.consultantName && (
-                      <span className="text-xs text-gray-400 mr-1">{item.consultantName}</span>
-                    )}
-                    {item.consultationResultId && onEditResult && (
-                      <button
-                        onClick={(e) => { e.stopPropagation(); onEditResult(item.consultationResultId!, item.consultationResultData!); }}
-                        className="p-1 text-gray-400 hover:text-orange-600 hover:bg-orange-50 rounded transition-colors"
-                        title="수정"
-                      >
-                        <Pencil size={13} />
-                      </button>
-                    )}
-                    {item.consultationResultId && onDeleteResult && (
-                      <button
-                        onClick={(e) => {
-                          e.stopPropagation();
-                          if (confirm('이 상담 결과를 삭제하시겠습니까?')) {
-                            onDeleteResult(item.consultationResultId!);
-                          }
-                        }}
-                        className="p-1 text-gray-400 hover:text-red-600 hover:bg-red-50 rounded transition-colors"
-                        title="삭제"
-                      >
-                        <Trash2 size={13} />
-                      </button>
-                    )}
-                  </div>
-                )}
+                    </>
+                  )}
+                  {/* 내원상담 결과에서 생성된 항목: 수정/삭제 */}
+                  {item.type === 'manual' && item.source === 'consultation_result' && item.consultationResultId && (
+                    <>
+                      {onEditResult && (
+                        <button
+                          onClick={(e) => { e.stopPropagation(); onEditResult(item.consultationResultId!, item.consultationResultData!); }}
+                          className="p-1 text-gray-400 hover:text-orange-600 hover:bg-orange-50 rounded transition-colors"
+                          title="수정"
+                        >
+                          <Pencil size={13} />
+                        </button>
+                      )}
+                      {onDeleteResult && (
+                        <button
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            if (confirm('이 상담 결과를 삭제하시겠습니까?')) {
+                              onDeleteResult(item.consultationResultId!);
+                            }
+                          }}
+                          className="p-1 text-gray-400 hover:text-red-600 hover:bg-red-50 rounded transition-colors"
+                          title="삭제"
+                        >
+                          <Trash2 size={13} />
+                        </button>
+                      )}
+                    </>
+                  )}
+                </div>
               </div>
 
-              {/* 연결된 상담 결과 (중첩 표시) */}
+              {/* 연결된 상담 결과 (활동 하단에 중첩 표시) */}
               {item.linkedResult && (
                 <div className="ml-11 mt-1 mb-2 pl-3 border-l-2 border-gray-200">
-                  <div className="flex items-center gap-2 text-sm py-1.5">
-                    <span className={`px-2 py-0.5 rounded-full text-xs font-medium ${
-                      item.linkedResult.resultStatus === 'agreed' ? 'bg-emerald-100 text-emerald-700'
-                      : item.linkedResult.resultStatus === 'disagreed' ? 'bg-rose-100 text-rose-700'
-                      : item.linkedResult.resultStatus === 'no_answer' ? 'bg-slate-100 text-slate-700'
-                      : item.linkedResult.resultStatus === 'closed' ? 'bg-gray-200 text-gray-700'
-                      : 'bg-amber-100 text-amber-700'
-                    }`}>
-                      {item.linkedResult.resultStatus === 'agreed' ? '동의'
-                       : item.linkedResult.resultStatus === 'disagreed' ? '미동의'
-                       : item.linkedResult.resultStatus === 'no_answer' ? '부재중'
-                       : item.linkedResult.resultStatus === 'closed' ? '종결'
-                       : '보류'}
-                    </span>
+                  <div className="flex items-center gap-2 text-sm py-1.5 flex-wrap">
+                    {(() => {
+                      const badge = getResultStatusBadge(item.linkedResult!.resultStatus);
+                      return (
+                        <span className={`px-2 py-0.5 rounded-full text-xs font-medium ${badge.className}`}>
+                          {badge.label}
+                        </span>
+                      );
+                    })()}
                     {item.linkedResult.treatment && (
                       <span className="text-gray-600">{item.linkedResult.treatment}</span>
                     )}

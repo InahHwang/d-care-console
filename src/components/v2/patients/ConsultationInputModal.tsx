@@ -167,8 +167,12 @@ export function ConsultationInputModal({
         // 종결 초기화
         setClosedReason('');
         setClosedReasonCustom('');
-        // 상담 활동 선택 초기화
-        setSelectedActivityId(preselectedActivityId || null);
+        // 상담 활동 선택 초기화 (기본값: 지정된 활동 또는 결과 없는 가장 최근 활동)
+        setSelectedActivityId(
+          preselectedActivityId
+          || sourceActivities?.find(a => !a.hasResult)?.id
+          || null
+        );
         // 마케팅 타겟 초기화
         setIsMarketingTarget(false);
         setMarketingTargetData({
@@ -197,6 +201,12 @@ export function ConsultationInputModal({
   const finalAmount = type === 'visit' ? originalAmount - discountAmount : originalAmount;
 
   const handleSubmit = async () => {
+    // 활동 연결 필수 (신규 모드, 활동 목록 있을 때)
+    if (!existingData && sourceActivities && sourceActivities.length > 0 && !selectedActivityId) {
+      alert('상담 활동을 선택해주세요.');
+      return;
+    }
+
     if (!status) {
       alert('상담 결과를 선택해주세요.');
       return;
@@ -282,7 +292,12 @@ export function ConsultationInputModal({
 
         {/* 본문 */}
         <div className="p-6 overflow-y-auto max-h-[calc(90vh-140px)] space-y-6">
-          {/* 0. 상담 활동 선택 (어떤 상담의 결과인지) */}
+          {/* 0. 상담 활동 선택 (어떤 상담의 결과인지) — 필수 */}
+          {sourceActivities && sourceActivities.length === 0 && !isEditMode && (
+            <div className="p-3 bg-amber-50 border border-amber-200 rounded-lg text-sm text-amber-700">
+              연결할 수 있는 상담 활동이 없습니다. 먼저 통화 또는 수동 상담을 등록해주세요.
+            </div>
+          )}
           {sourceActivities && sourceActivities.length > 0 && !isEditMode && (
             <div>
               <label className="block text-sm font-medium text-gray-700 mb-2">
@@ -301,7 +316,7 @@ export function ConsultationInputModal({
                   return (
                     <button
                       key={activity.id}
-                      onClick={() => !activity.hasResult && setSelectedActivityId(isSelected ? null : activity.id)}
+                      onClick={() => !activity.hasResult && setSelectedActivityId(activity.id)}
                       disabled={activity.hasResult}
                       className={`w-full flex items-center gap-2.5 px-3 py-2 rounded-lg text-left text-sm transition-colors ${
                         activity.hasResult
@@ -313,12 +328,14 @@ export function ConsultationInputModal({
                     >
                       {/* 아이콘 */}
                       <div className={`w-7 h-7 rounded-full flex items-center justify-center flex-shrink-0 ${
-                        activity.type === 'call' ? 'bg-orange-100' : 'bg-amber-100'
+                        activity.type === 'call'
+                          ? (activity.direction === 'inbound' ? 'bg-blue-100' : 'bg-violet-100')
+                          : activity.manualType === 'visit' ? 'bg-emerald-100' : 'bg-amber-100'
                       }`}>
                         {activity.type === 'call' ? (
-                          <Phone size={13} className="text-orange-600" />
+                          <Phone size={13} className={activity.direction === 'inbound' ? 'text-blue-600' : 'text-violet-600'} />
                         ) : activity.manualType === 'visit' ? (
-                          <Building size={13} className="text-amber-600" />
+                          <Building size={13} className="text-emerald-600" />
                         ) : (
                           <Edit3 size={13} className="text-amber-600" />
                         )}
@@ -328,14 +345,16 @@ export function ConsultationInputModal({
                       <div className="flex-1 min-w-0">
                         <div className="flex items-center gap-1.5">
                           {activity.type === 'call' ? (
-                            <span className={`text-xs px-1.5 py-0.5 rounded ${
-                              activity.direction === 'inbound' ? 'bg-orange-100 text-orange-700' : 'bg-purple-100 text-purple-700'
+                            <span className={`text-xs px-1.5 py-0.5 rounded font-medium ${
+                              activity.direction === 'inbound' ? 'bg-blue-100 text-blue-700' : 'bg-violet-100 text-violet-700'
                             }`}>
                               {activity.direction === 'inbound' ? '수신' : '발신'}
                             </span>
                           ) : (
-                            <span className="text-xs px-1.5 py-0.5 rounded bg-amber-100 text-amber-700">
-                              {activity.manualType === 'visit' ? '내원' : activity.manualType === 'phone' ? '전화' : '수동'}
+                            <span className={`text-xs px-1.5 py-0.5 rounded font-medium ${
+                              activity.manualType === 'visit' ? 'bg-emerald-100 text-emerald-700' : 'bg-amber-100 text-amber-700'
+                            }`}>
+                              {activity.manualType === 'visit' ? '내원상담' : activity.manualType === 'phone' ? '수동 전화' : '수동'}
                             </span>
                           )}
                           <span className="text-gray-500">{dateStr} {timeStr}</span>
@@ -357,20 +376,12 @@ export function ConsultationInputModal({
                   );
                 })}
 
-                {/* 상담 활동 없이 직접 입력 옵션 */}
-                <button
-                  onClick={() => setSelectedActivityId(null)}
-                  className={`w-full flex items-center gap-2.5 px-3 py-2 rounded-lg text-left text-sm transition-colors ${
-                    selectedActivityId === null
-                      ? 'bg-orange-50 ring-2 ring-orange-400'
-                      : 'hover:bg-gray-50'
-                  }`}
-                >
-                  <div className="w-7 h-7 rounded-full flex items-center justify-center flex-shrink-0 bg-gray-100">
-                    <Edit3 size={13} className="text-gray-500" />
+                {/* 활동 목록이 모두 입력완료일 때 안내 */}
+                {sourceActivities.every(a => a.hasResult) && (
+                  <div className="px-3 py-2 text-xs text-gray-400 text-center">
+                    모든 상담 활동에 결과가 입력되어 있습니다
                   </div>
-                  <span className="text-gray-600">상담 활동 없이 직접 입력</span>
-                </button>
+                )}
               </div>
             </div>
           )}
