@@ -107,9 +107,9 @@ export async function GET(request: NextRequest) {
         .toArray(),
       callLogs: await db.collection('callLogs_v2')
         .find({ patientId: patient._id.toString() })
-        .sort({ callTime: -1 })
+        .sort({ startedAt: -1 })
         .limit(10)
-        .project({ callType: 1, callTime: 1, duration: 1, summary: 1 })
+        .project({ direction: 1, startedAt: 1, duration: 1, status: 1 })
         .toArray(),
       callCount: patient.callCount || (await db.collection('callLogs_v2').countDocuments({ patientId: patient._id.toString() })),
     });
