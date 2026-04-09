@@ -863,20 +863,11 @@ export function ConsultationHistoryCard({ patientId, patientName = '', className
                     )}
                   </div>
 
-                  {/* 요약 - 수동 입력은 원문 그대로, 나머지는 bullet point */}
-                  {item.type === 'manual' && item.content ? (
+                  {/* 수동 입력은 원문 표시 */}
+                  {item.type === 'manual' && item.content && (
                     <p className="mt-1 text-sm text-gray-700 whitespace-pre-wrap">
                       {item.content}
                     </p>
-                  ) : item.summary && (
-                    <ul className="mt-1 space-y-0.5">
-                      {formatSummaryWithBullets(item.summary).slice(0, 3).map((text, idx) => (
-                        <li key={idx} className="text-sm text-gray-700 flex items-start gap-1.5">
-                          <span className="text-purple-400 mt-0.5">•</span>
-                          <span className="line-clamp-1">{text}</span>
-                        </li>
-                      ))}
-                    </ul>
                   )}
 
                   {/* AI 분석 - 채팅만 버튼/로딩 표시 */}
