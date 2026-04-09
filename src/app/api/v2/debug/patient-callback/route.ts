@@ -1,18 +1,64 @@
-// 임시 디버그 API - 환자 nextActionDate vs callbacks_v2 비교
+// 임시 디버그 API - 환자 nextActionDate vs callbacks_v2 불일치 전체 조회
 import { NextRequest, NextResponse } from 'next/server';
 import { connectToDatabase } from '@/utils/mongodb';
 
 export async function GET(request: NextRequest) {
   try {
     const { searchParams } = new URL(request.url);
+    const mode = searchParams.get('mode') || 'single';
     const name = searchParams.get('name');
+
+    const { db } = await connectToDatabase();
+
+    // mode=desync: 전체 불일치 조회
+    if (mode === 'desync') {
+      // pending 콜백이 있는 환자 목록
+      const pendingCallbacks = await db.collection('callbacks_v2')
+        .find({ status: 'pending' })
+        .toArray();
+
+      const desyncList = [];
+
+      for (const cb of pendingCallbacks) {
+        const patient = await db.collection('patients_v2').findOne(
+          { _id: new (await import('mongodb')).ObjectId(cb.patientId), deletedAt: { $exists: false } },
+          { projection: { name: 1, nextActionDate: 1, activeJourneyId: 1, journeys: 1 } }
+        );
+
+        if (!patient) continue;
+
+        const activeJourney = patient.journeys?.find((j: { id: string }) => j.id === patient.activeJourneyId);
+        const patientDate = patient.nextActionDate ? new Date(patient.nextActionDate).toISOString().slice(0, 10) : null;
+        const journeyDate = activeJourney?.nextActionDate ? new Date(activeJourney.nextActionDate).toISOString().slice(0, 10) : null;
+        const callbackDate = new Date(cb.scheduledAt).toISOString().slice(0, 10);
+
+        // 불일치: 콜백 날짜와 환자/여정 날짜가 다르면
+        if (patientDate !== callbackDate || journeyDate !== callbackDate) {
+          desyncList.push({
+            patientId: cb.patientId,
+            name: patient.name,
+            callbackDate,
+            patientNextActionDate: patientDate,
+            journeyNextActionDate: journeyDate,
+            callbackId: cb._id,
+            callbackType: cb.type,
+          });
+        }
+      }
+
+      return NextResponse.json({
+        total: desyncList.length,
+        desyncList,
+      });
+    }
+
+    // mode=single: 기존 단건 조회
     if (!name) {
       return NextResponse.json({ error: 'name 파라미터 필요' }, { status: 400 });
     }
 
-    const { db } = await connectToDatabase();
+    const { ObjectId } = await import('mongodb');
 
-    // 1. 환자 조회
     const patient = await db.collection('patients_v2').findOne(
       { name, deletedAt: { $exists: false } },
       { projection: { name: 1, nextAction: 1, nextActionDate: 1, activeJourneyId: 1, journeys: 1, status: 1 } }
@@ -22,14 +68,12 @@ export async function GET(request: NextRequest) {
       return NextResponse.json({ error: '환자를 찾을 수 없음' }, { status: 404 });
     }
 
-    // 2. 해당 환자의 callbacks_v2 조회
     const callbacks = await db.collection('callbacks_v2')
       .find({ patientId: patient._id.toString() })
       .sort({ scheduledAt: -1 })
       .limit(10)
       .toArray();
 
-    // 3. 활성 여정 정보
     const activeJourney = patient.journeys?.find((j: { id: string }) => j.id === patient.activeJourneyId);
 
     return NextResponse.json({
@@ -47,13 +91,7 @@ export async function GET(request: NextRequest) {
         nextActionDate: activeJourney.nextActionDate,
         isActive: activeJourney.isActive,
       } : null,
-      allJourneys: patient.journeys?.map((j: { id: string; treatmentType?: string; nextActionDate?: string; isActive?: boolean }) => ({
-        id: j.id,
-        treatmentType: j.treatmentType,
-        nextActionDate: j.nextActionDate,
-        isActive: j.isActive,
-      })),
-      callbacks: callbacks.map(cb => ({
+      callbacks: callbacks.map((cb: Record<string, unknown>) => ({
         _id: cb._id,
         type: cb.type,
         status: cb.status,

@@ -385,6 +385,34 @@ export async function PATCH(request: NextRequest) {
         { field: 'status', oldValue: result?.status, newValue: status },
       ]);
 
+      // 완료/미연결 시 patients_v2.nextActionDate + 여정 동기화
+      if (status === 'completed' || status === 'missed') {
+        const callbackPatientId = result?.patientId;
+        if (callbackPatientId) {
+          // nextActionDate 클리어
+          await db.collection('patients_v2').updateOne(
+            { _id: new ObjectId(callbackPatientId), clinicId },
+            {
+              $unset: { nextActionDate: '', nextAction: '', nextActionNote: '' },
+              $set: { updatedAt: now },
+            }
+          );
+
+          // 활성 여정의 nextActionDate도 클리어
+          const callbackPatient = await db.collection('patients_v2').findOne(
+            { _id: new ObjectId(callbackPatientId), clinicId },
+            { projection: { activeJourneyId: 1 } }
+          );
+          if (callbackPatient?.activeJourneyId) {
+            await db.collection('patients_v2').updateOne(
+              { _id: new ObjectId(callbackPatientId), clinicId },
+              { $set: { 'journeys.$[journey].nextActionDate': null, 'journeys.$[journey].nextActionNote': null } },
+              { arrayFilters: [{ 'journey.id': callbackPatient.activeJourneyId }] }
+            );
+          }
+        }
+      }
+
       return NextResponse.json({
         success: true,
         data: result,
