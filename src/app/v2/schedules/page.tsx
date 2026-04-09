@@ -468,12 +468,14 @@ function SchedulesContent() {
   const [selectedItem, setSelectedItem] = useState<CallbackItem | null>(null);
   const [selectedRecallItem, setSelectedRecallItem] = useState<RecallMessage | null>(null);
 
-  // 첫 번째 항목 자동 선택 (콜백)
+  // 날짜/필터 변경 시 첫 번째 항목 자동 선택 (콜백)
   useEffect(() => {
-    if (callbacks.length > 0 && !selectedItem) {
+    if (callbacks.length > 0) {
       setSelectedItem(callbacks[0]);
+    } else {
+      setSelectedItem(null);
     }
-  }, [callbacks, selectedItem]);
+  }, [callbacks]);
 
   // 첫 번째 항목 자동 선택 (리콜)
   useEffect(() => {
