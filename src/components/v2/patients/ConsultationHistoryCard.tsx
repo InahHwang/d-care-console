@@ -879,16 +879,8 @@ export function ConsultationHistoryCard({ patientId, patientName = '', className
                     </ul>
                   )}
 
-                  {/* AI 분석 - 실제 분석 내용이 있을 때만 표시 */}
-                  {item.aiAnalysis && (item.aiAnalysis.interest || item.aiAnalysis.followUp || item.aiAnalysis.summary) ? (
-                    <div className="flex items-center gap-2 mt-2">
-                      <Sparkles size={12} className="text-purple-500" />
-                      <span className="text-xs text-purple-600">
-                        {item.aiAnalysis.interest && `관심: ${item.aiAnalysis.interest}`}
-                        {item.aiAnalysis.followUp && ` · ${item.aiAnalysis.followUp}`}
-                      </span>
-                    </div>
-                  ) : item.type === 'chat' ? (
+                  {/* AI 분석 - 채팅만 버튼/로딩 표시 */}
+                  {item.type === 'chat' && !(item.aiAnalysis && (item.aiAnalysis.interest || item.aiAnalysis.followUp || item.aiAnalysis.summary)) ? (
                     // 채팅인데 AI 분석이 없는 경우
                     autoAnalyzingIds.has(item.id) || analyzingChatId === item.id ? (
                       // 자동 분석 중이면 로딩 표시
