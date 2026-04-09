@@ -99,6 +99,19 @@ export async function GET(request: NextRequest) {
         note: cb.note,
         createdAt: cb.createdAt,
       })),
+      consultations: await db.collection('consultations_v2')
+        .find({ patientId: patient._id.toString() })
+        .sort({ createdAt: -1 })
+        .limit(10)
+        .project({ type: 1, status: 1, treatment: 1, callLogId: 1, createdAt: 1, memo: 1 })
+        .toArray(),
+      callLogs: await db.collection('callLogs_v2')
+        .find({ patientId: patient._id.toString() })
+        .sort({ callTime: -1 })
+        .limit(10)
+        .project({ callType: 1, callTime: 1, duration: 1, summary: 1 })
+        .toArray(),
+      callCount: patient.callCount || (await db.collection('callLogs_v2').countDocuments({ patientId: patient._id.toString() })),
     });
   } catch (error) {
     console.error('[Debug] error:', error);
