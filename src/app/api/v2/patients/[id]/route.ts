@@ -63,7 +63,7 @@ export async function GET(
     const clinicId = auth.user.clinicId;
 
     // 환자 정보와 통화 이력을 병렬로 조회
-    const [patient, callLogs] = await Promise.all([
+    const [patient, callLogs, callLogTotal, callLogMissed] = await Promise.all([
       db.collection('patients_v2').findOne({ _id: new ObjectId(id), clinicId, deletedAt: { $exists: false } }),
       db.collection('callLogs_v2')
         .find({ clinicId, patientId: id })
@@ -80,6 +80,8 @@ export async function GET(
           callbackId: 1,
         })
         .toArray(),
+      db.collection('callLogs_v2').countDocuments({ clinicId, patientId: id }),
+      db.collection('callLogs_v2').countDocuments({ clinicId, patientId: id, $or: [{ duration: 0 }, { duration: { $exists: false } }] }),
     ]);
 
     if (!patient) {
@@ -137,6 +139,7 @@ export async function GET(
         callbackType: log.callbackType || null,
         callbackId: log.callbackId || null,
       })),
+      callLogStats: { total: callLogTotal, missed: callLogMissed },
     });
   } catch (error) {
     console.error('Error fetching patient:', error);

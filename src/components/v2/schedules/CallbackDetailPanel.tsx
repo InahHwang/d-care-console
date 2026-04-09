@@ -66,6 +66,7 @@ interface ConsultationRecord {
 interface PatientContext {
   memo: string;
   callCount: number;
+  callLogStats: { total: number; missed: number };
   lastContactAt?: string;
   createdAt: string;
   callLogs: CallLogEntry[];
@@ -157,6 +158,7 @@ export function CallbackDetailPanel({
         setContext({
           memo: p?.memo || '',
           callCount: p?.callCount || 0,
+          callLogStats: patientRes?.callLogStats || { total: 0, missed: 0 },
           lastContactAt: p?.lastContactAt || undefined,
           createdAt: p?.createdAt || '',
           callLogs: (patientRes?.callLogs || []).map((log: Record<string, unknown>) => ({
@@ -341,9 +343,14 @@ export function CallbackDetailPanel({
                   <p className="text-[11px] text-gray-400 mb-1">통화 이력</p>
                   <div className="flex items-center justify-center gap-1">
                     <Hash size={13} className="text-orange-500" />
-                    <span className="text-lg font-bold text-gray-800">{context.callCount}</span>
-                    <span className="text-xs text-gray-400">회</span>
+                    <span className="text-lg font-bold text-gray-800">{context.callLogStats.total}</span>
+                    <span className="text-xs text-gray-400">건</span>
                   </div>
+                  {context.callLogStats.missed > 0 && (
+                    <p className="text-[11px] text-red-400 mt-0.5">
+                      부재중 {context.callLogStats.missed}건
+                    </p>
+                  )}
                 </div>
 
                 {/* 마지막 통화 */}
