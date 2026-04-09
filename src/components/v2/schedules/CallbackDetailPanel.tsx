@@ -377,48 +377,6 @@ export function CallbackDetailPanel({
               </div>
             )}
 
-            {/* ===== 최근 통화 기록 ===== */}
-            {recentCalls.length > 0 && (
-              <div className="px-4 py-3 border-b">
-                <h4 className="text-xs font-medium text-gray-400 uppercase tracking-wider mb-2 flex items-center gap-1.5">
-                  <Phone size={12} />
-                  최근 통화
-                </h4>
-                <div className="space-y-2">
-                  {recentCalls.map((log) => (
-                    <div key={log.id} className="bg-gray-50 rounded-lg px-3 py-2">
-                      {/* 상단: 날짜 + 방향 + 통화시간 */}
-                      <div className="flex items-center gap-2 mb-1">
-                        {log.callType === 'inbound' ? (
-                          <span className="inline-flex items-center gap-1 text-xs text-orange-600">
-                            <PhoneIncoming size={12} />
-                            수신
-                          </span>
-                        ) : (
-                          <span className="inline-flex items-center gap-1 text-xs text-emerald-600">
-                            <PhoneOutgoing size={12} />
-                            발신
-                          </span>
-                        )}
-                        <span className="text-xs text-gray-400">
-                          {formatShortDate(log.callTime)}
-                        </span>
-                        <span className="text-xs text-gray-400">
-                          {formatDuration(log.duration)}
-                        </span>
-                      </div>
-                      {/* 하단: AI 요약 */}
-                      {log.summary && (
-                        <p className="text-sm text-gray-700 leading-relaxed line-clamp-2">
-                          {log.summary}
-                        </p>
-                      )}
-                    </div>
-                  ))}
-                </div>
-              </div>
-            )}
-
             {/* ===== 상담 이력 ===== */}
             <div className="px-4 py-3">
               <h4 className="text-xs font-medium text-gray-400 uppercase tracking-wider mb-2 flex items-center gap-1.5">
