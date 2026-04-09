@@ -645,6 +645,28 @@ export function ConsultationHistoryCard({ patientId, patientName = '', className
         }
       }
 
+      // callLogId 없는 phone 결과 → 가장 가까운 통화 기록에 날짜 매칭 (레거시 데이터 호환)
+      if (unlinkedResults.length > 0) {
+        const callItems = callChatItems.filter((item) => item.type === 'call' && !linkedResultMap.has(item.id));
+        for (const result of [...unlinkedResults]) {
+          if (result.resultType !== 'phone') continue;
+          const resultTime = new Date(result.date).getTime();
+          // 같은 날(24시간 이내) 가장 가까운 통화 찾기
+          let bestMatch: { id: string; diff: number } | null = null;
+          for (const call of callItems) {
+            const diff = Math.abs(new Date(call.date).getTime() - resultTime);
+            if (diff < 24 * 60 * 60 * 1000 && (!bestMatch || diff < bestMatch.diff)) {
+              bestMatch = { id: call.id, diff };
+            }
+          }
+          if (bestMatch && !linkedResultMap.has(bestMatch.id)) {
+            linkedResultMap.set(bestMatch.id, result);
+            const idx = unlinkedResults.indexOf(result);
+            if (idx >= 0) unlinkedResults.splice(idx, 1);
+          }
+        }
+      }
+
       // 활동 항목에 linkedResult 연결 + 내원상담 수동항목에 consultationResultId 추가
       const enrichedItems = callChatItems.map((item) => {
         const linkedResult = linkedResultMap.get(item.id);
