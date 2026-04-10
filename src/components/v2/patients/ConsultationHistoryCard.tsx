@@ -888,7 +888,7 @@ export function ConsultationHistoryCard({ patientId, patientName = '', className
                   {/* 통화 AI 요약 미리보기 */}
                   {item.type === 'call' && item.summary && (
                     <ul className="mt-1 space-y-0.5">
-                      {formatSummaryWithBullets(item.summary).slice(0, 3).map((point, idx) => (
+                      {formatSummaryWithBullets(item.summary).map((point, idx) => (
                         <li key={idx} className="text-sm text-gray-600 flex items-start gap-1.5">
                           <span className="text-gray-400 mt-0.5 flex-shrink-0">•</span>
                           <span className="line-clamp-1">{point}</span>
