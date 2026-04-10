@@ -150,6 +150,53 @@ async function autoCompleteCallbackForOutbound(
   }
 }
 
+// ★ 발신 부재중 시 오늘 예정된 콜백 자동 미연결 처리
+async function autoMissCallbackForOutbound(
+  db: Awaited<ReturnType<typeof connectToDatabase>>['db'],
+  patientId: string,
+  callLogId: string,
+  clinicId: string
+): Promise<{ missed: boolean; callbackId?: string }> {
+  const now = new Date();
+  const nowIso = now.toISOString();
+
+  // KST 기준 오늘 범위 (UTC+9)
+  const kstOffset = 9 * 60 * 60 * 1000;
+  const kstNow = new Date(now.getTime() + kstOffset);
+  const kstDateStr = kstNow.toISOString().split('T')[0];
+  const todayStart = new Date(`${kstDateStr}T00:00:00+09:00`);
+  const todayEnd = new Date(`${kstDateStr}T23:59:59.999+09:00`);
+
+  try {
+    // callbacks_v2에서 오늘 pending 콜백 찾기
+    const pendingCallback = await db.collection('callbacks_v2').findOne({
+      clinicId,
+      patientId,
+      status: 'pending',
+      scheduledAt: { $gte: todayStart, $lte: todayEnd },
+    });
+
+    if (pendingCallback) {
+      await db.collection('callbacks_v2').updateOne(
+        { _id: pendingCallback._id },
+        { $set: { status: 'missed', updatedAt: nowIso } }
+      );
+      // 콜로그에 콜백 연결
+      await db.collection('callLogs_v2').updateOne(
+        { _id: new ObjectId(callLogId) },
+        { $set: { callbackType: pendingCallback.type, callbackId: pendingCallback._id.toString() } }
+      );
+      console.log(`[CallLogs V2] 콜백 자동 미연결: ${pendingCallback._id} (환자: ${patientId})`);
+      return { missed: true, callbackId: pendingCallback._id.toString() };
+    }
+
+    return { missed: false };
+  } catch (error) {
+    console.error(`[CallLogs V2] 콜백 자동 미연결 오류 (환자: ${patientId}):`, error);
+    return { missed: false };
+  }
+}
+
 // callLogId 또는 전화번호로 통화기록 검색
 async function findCallLog(
   db: Awaited<ReturnType<typeof connectToDatabase>>['db'],
@@ -387,6 +434,13 @@ export async function POST(request: NextRequest) {
         );
         console.log(`[CallLogs V2] 발신 ${eventType}: ${callLog._id} → ${isMissed ? 'missed' : 'ended'}`);
 
+        // ★ 발신 부재중 시 오늘 예정 콜백 자동 미연결 처리
+        let autoMissedCallbackId: string | undefined;
+        if (isMissed && callLog.patientId) {
+          const result = await autoMissCallbackForOutbound(db, callLog.patientId, callLog._id.toString(), clinicId);
+          autoMissedCallbackId = result.callbackId;
+        }
+
         // Pusher 알림
         try {
           await pusher.trigger('cti-v2', 'call-ended', {
@@ -395,12 +449,13 @@ export async function POST(request: NextRequest) {
             duration: 0,
             status: isMissed ? 'missed' : 'connected',
             patientId: callLog.patientId,
+            autoMissedCallbackId,
           });
         } catch (pusherError) {
           console.error('[CallLogs V2] Pusher 오류:', pusherError);
         }
 
-        return NextResponse.json({ success: true, message: `${eventType} processed`, callLogId: callLog._id.toString() });
+        return NextResponse.json({ success: true, message: `${eventType} processed`, callLogId: callLog._id.toString(), autoMissedCallbackId });
       }
 
       console.log(`[CallLogs V2] ${eventType}: 매칭 발신 통화 없음`);
