@@ -190,6 +190,23 @@ function getItemDisplay(item: ConsultationItem): {
       labelColor: 'bg-amber-100 text-amber-700',
     };
   }
+  // 독립 상담결과 (callLogId 없는 레거시)
+  if (item.type === 'result') {
+    if (item.resultType === 'visit') {
+      return {
+        icon: <Building size={14} className="text-emerald-600" />,
+        iconBg: 'bg-emerald-100',
+        label: '내원상담',
+        labelColor: 'bg-emerald-100 text-emerald-700',
+      };
+    }
+    return {
+      icon: <ClipboardCheck size={14} className="text-orange-600" />,
+      iconBg: 'bg-orange-100',
+      label: '상담결과',
+      labelColor: 'bg-orange-100 text-orange-700',
+    };
+  }
   // 채팅
   return {
     icon: <span className="text-sm">{CHANNEL_CONFIG[item.channel as ChannelType]?.icon || '💬'}</span>,
@@ -681,15 +698,11 @@ export function ConsultationHistoryCard({ patientId, patientName = '', className
         return item;
       });
 
-      // 필터에 따라 목록 구성 (독립 result 항목은 표시하지 않음 — 반드시 활동에 연결)
-      let mergedItems: ConsultationItem[] = [];
-      if (filter === 'all') {
-        mergedItems = enrichedItems.sort(
-          (a, b) => new Date(b.date).getTime() - new Date(a.date).getTime()
-        );
-      } else {
-        mergedItems = enrichedItems;
-      }
+      // 매칭 안 된 상담결과도 독립 항목으로 포함 (레거시 데이터 호환)
+      let mergedItems: ConsultationItem[] = [...enrichedItems, ...unlinkedResults];
+      mergedItems.sort(
+        (a, b) => new Date(b.date).getTime() - new Date(a.date).getTime()
+      );
 
       setConsultations(mergedItems);
 
@@ -855,6 +868,16 @@ export function ConsultationHistoryCard({ patientId, patientName = '', className
                       );
                     })()}
 
+                    {/* 독립 상담결과 상태 뱃지 */}
+                    {item.type === 'result' && item.resultStatus && (() => {
+                      const badge = getResultStatusBadge(item.resultStatus);
+                      return (
+                        <span className={`px-2 py-0.5 rounded-full text-xs font-medium ${badge.className}`}>
+                          {badge.label}
+                        </span>
+                      );
+                    })()}
+
                     {/* 날짜/시간 */}
                     <span className="text-gray-500">
                       {format(new Date(item.date), 'M/d HH:mm', { locale: ko })}
@@ -895,6 +918,33 @@ export function ConsultationHistoryCard({ patientId, patientName = '', className
                         </li>
                       ))}
                     </ul>
+                  )}
+
+                  {/* 독립 상담결과 상세 표시 */}
+                  {item.type === 'result' && (
+                    <div className="mt-1 flex flex-wrap items-center gap-2 text-xs">
+                      {item.treatment && (
+                        <span className="text-gray-600">{item.treatment}</span>
+                      )}
+                      {item.resultStatus === 'agreed' && item.finalAmount !== undefined && item.finalAmount > 0 && (
+                        <span className="text-emerald-600">{item.finalAmount.toLocaleString()}원</span>
+                      )}
+                      {item.resultStatus === 'disagreed' && item.disagreeReasons && item.disagreeReasons.length > 0 && (
+                        <span className="text-rose-500">{item.disagreeReasons.join(', ')}</span>
+                      )}
+                      {item.resultStatus === 'agreed' && item.appointmentDate && (
+                        <span className="text-emerald-500">예약 {format(new Date(item.appointmentDate), 'M/d', { locale: ko })}</span>
+                      )}
+                      {item.callbackDate && (
+                        <span className="text-amber-500">콜백 {format(new Date(item.callbackDate), 'M/d', { locale: ko })}</span>
+                      )}
+                      {item.consultantName && (
+                        <span className="text-gray-400">({item.consultantName})</span>
+                      )}
+                    </div>
+                  )}
+                  {item.type === 'result' && item.memo && (
+                    <p className="mt-1 text-xs text-gray-500 line-clamp-2">{item.memo}</p>
                   )}
 
                   {/* 수동 입력은 원문 표시 */}
