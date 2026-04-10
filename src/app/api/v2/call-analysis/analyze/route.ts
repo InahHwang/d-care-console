@@ -556,18 +556,19 @@ async function autoRegisterPatient(
     const autoName = `신환-${String(autoCount + 1).padStart(3, '0')}`;
 
     // 여정(Journey) 생성
-    const now = new Date().toISOString();
+    const now = new Date();
     const journeyId = new ObjectId().toString();
+    const consultDate = callLog.createdAt ? new Date(callLog.createdAt) : now;
     const firstJourney = {
       id: journeyId,
       treatmentType,
       status: 'consulting',
-      startedAt: callLog.createdAt || now,
+      startedAt: consultDate,
       paymentStatus: 'none',
       statusHistory: [{
         from: 'consulting',
         to: 'consulting',
-        eventDate: callLog.createdAt || now,
+        eventDate: consultDate,
         changedAt: now,
         changedBy: '자동등록',
       }],
@@ -600,7 +601,7 @@ async function autoRegisterPatient(
       journeys: [firstJourney],
       activeJourneyId: journeyId,
       lastCallDirection: callLog.direction || 'inbound',
-      lastContactAt: callLog.createdAt || now,
+      lastContactAt: consultDate,
       callCount: 1,
       createdAt: now,
       updatedAt: now,
