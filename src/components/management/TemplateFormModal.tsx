@@ -135,7 +135,7 @@ export default function TemplateFormModal({
       const formData = new FormData();
       formData.append('file', file);
       
-      const response = await authFetch('/api/upload', {
+      const response = await authFetch('/api/v2/upload', {
         method: 'POST',
         body: formData
       });
