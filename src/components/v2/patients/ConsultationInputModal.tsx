@@ -48,6 +48,9 @@ interface ConsultationInputModalProps {
   // 상담 활동 연결
   sourceActivities?: SourceActivity[];
   preselectedActivityId?: string;  // 이력카드에서 직접 선택한 경우
+  // 직접 연결 ID (sourceActivities에 없는 경우 fallback)
+  directCallLogId?: string;
+  directManualConsultationId?: string;
 }
 
 export interface ConsultationFormData {
@@ -100,6 +103,8 @@ export function ConsultationInputModal({
   existingData,
   sourceActivities,
   preselectedActivityId,
+  directCallLogId,
+  directManualConsultationId,
 }: ConsultationInputModalProps) {
   // 수정 모드 여부
   const isEditMode = !!existingData;
@@ -236,8 +241,13 @@ export function ConsultationInputModal({
     try {
       // 선택된 상담 활동 연결 ID 결정
       const selectedActivity = sourceActivities?.find(a => a.id === selectedActivityId);
-      const callLogId = selectedActivity?.type === 'call' ? selectedActivity.id : undefined;
-      const manualConsultationId = selectedActivity?.type === 'manual' ? selectedActivity.id : undefined;
+      // sourceActivities에 없는 활동 (예: 10건 제한 초과)인 경우 직접 전달된 ID 사용
+      const callLogId = selectedActivity?.type === 'call' ? selectedActivity.id
+        : !selectedActivity && directCallLogId ? directCallLogId
+        : undefined;
+      const manualConsultationId = selectedActivity?.type === 'manual' ? selectedActivity.id
+        : !selectedActivity && directManualConsultationId ? directManualConsultationId
+        : undefined;
 
       await onSubmit({
         type,

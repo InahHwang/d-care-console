@@ -211,6 +211,8 @@ export default function PatientDetailPage() {
   const [existingConsultation, setExistingConsultation] = useState<ExistingConsultationData | undefined>(undefined);
   const [sourceActivities, setSourceActivities] = useState<SourceActivity[]>([]);
   const [preselectedActivityId, setPreselectedActivityId] = useState<string | undefined>(undefined);
+  const [directCallLogId, setDirectCallLogId] = useState<string | undefined>(undefined);
+  const [directManualConsultationId, setDirectManualConsultationId] = useState<string | undefined>(undefined);
 
   // 상담 이력
   const [consultations, setConsultations] = useState<any[]>([]);
@@ -511,10 +513,13 @@ export default function PatientDetailPage() {
   };
 
   // 상담 결과 입력 모달 열기 - 항상 신규 입력 모드
-  const openConsultationModal = async (type: 'phone' | 'visit', activityId?: string) => {
+  const openConsultationModal = async (type: 'phone' | 'visit', activityId?: string, activityType?: 'call' | 'manual') => {
     setConsultationType(type);
     setExistingConsultation(undefined);
     setPreselectedActivityId(activityId);
+    // 직접 연결 ID 설정 (sourceActivities에 없는 경우 fallback용)
+    setDirectCallLogId(activityType === 'call' ? activityId : undefined);
+    setDirectManualConsultationId(activityType === 'manual' ? activityId : undefined);
     const activities = await buildSourceActivities();
     setSourceActivities(activities);
     setConsultationModalOpen(true);
@@ -1633,7 +1638,7 @@ export default function PatientDetailPage() {
                   setCallDetailModalOpen(true);
                 }}
                 onAddResult={(activityId, activityType) => {
-                  openConsultationModal(activityType === 'call' ? 'phone' : 'visit', activityId);
+                  openConsultationModal(activityType === 'call' ? 'phone' : 'visit', activityId, activityType);
                 }}
                 onEditResult={async (resultId, resultData) => {
                   // 기존 결과 데이터로 수정 모달 열기
@@ -1852,6 +1857,8 @@ export default function PatientDetailPage() {
         existingData={existingConsultation}
         sourceActivities={sourceActivities}
         preselectedActivityId={preselectedActivityId}
+        directCallLogId={directCallLogId}
+        directManualConsultationId={directManualConsultationId}
       />
 
       {/* 🆕 새 여정 시작 모달 */}
