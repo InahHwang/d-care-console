@@ -66,6 +66,7 @@ export async function POST(request: NextRequest) {
     if (needsProcessing || imageBuffer.length > 200 * 1024) {
       while (quality > 20) {
         finalBuffer = await sharp(imageBuffer)
+          .flatten({ background: { r: 255, g: 255, b: 255 } })
           .resize(1500, 1440, { fit: 'inside', withoutEnlargement: true })
           .jpeg({ quality })
           .toBuffer();
@@ -81,7 +82,10 @@ export async function POST(request: NextRequest) {
         );
       }
     } else {
-      finalBuffer = await processedImage.toBuffer();
+      finalBuffer = await processedImage
+        .flatten({ background: { r: 255, g: 255, b: 255 } })
+        .jpeg({ quality: 85 })
+        .toBuffer();
     }
 
     // 최적화 후 메타데이터
