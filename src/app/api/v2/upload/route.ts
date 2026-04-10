@@ -95,10 +95,7 @@ export async function POST(request: NextRequest) {
       imageUrl,
       originalSize,
       optimizedSize: finalBuffer.length,
-      dimensions: {
-        width: finalMetadata.width,
-        height: finalMetadata.height,
-      },
+      dimensions: `${finalMetadata.width}x${finalMetadata.height}`,
       format: 'jpeg',
       message: originalSize !== finalBuffer.length
         ? `이미지가 최적화되었습니다. (${(originalSize / 1024).toFixed(1)}KB → ${(finalBuffer.length / 1024).toFixed(1)}KB)`
