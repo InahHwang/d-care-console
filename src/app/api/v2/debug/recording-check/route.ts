@@ -2,109 +2,98 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { connectToDatabase } from '@/utils/mongodb';
 
+function normalizePhone(phone: string): string {
+  return (phone || '').replace(/\D/g, '');
+}
+
+function formatPhone(phone: string): string {
+  const n = normalizePhone(phone);
+  if (n.length === 11) return `${n.slice(0, 3)}-${n.slice(3, 7)}-${n.slice(7)}`;
+  if (n.length === 10) return `${n.slice(0, 3)}-${n.slice(3, 6)}-${n.slice(6)}`;
+  return phone;
+}
+
 export async function GET(request: NextRequest) {
   try {
     const { searchParams } = new URL(request.url);
-    const name = searchParams.get('name');
+    const phone = searchParams.get('phone');
     const date = searchParams.get('date'); // YYYY-MM-DD
+
+    if (!phone) {
+      return NextResponse.json({ success: false, error: 'phone parameter required' });
+    }
 
     const { db } = await connectToDatabase();
     const clinicId = 'default';
+    const formatted = formatPhone(phone);
+    const normalized = normalizePhone(phone);
 
-    // 1. 환자 찾기
-    const query: Record<string, unknown> = { clinicId, deletedAt: { $exists: false } };
-    if (name) {
-      query.name = { $regex: name, $options: 'i' };
+    // 통화기록 직접 검색
+    const callLogQuery: Record<string, unknown> = {
+      clinicId,
+      $or: [
+        { phone: formatted },
+        { phone: normalized },
+        { phone: phone },
+      ],
+    };
+
+    if (date) {
+      const startOfDay = new Date(`${date}T00:00:00+09:00`);
+      const endOfDay = new Date(`${date}T23:59:59+09:00`);
+      callLogQuery.startedAt = { $gte: startOfDay, $lte: endOfDay };
     }
 
-    const patients = await db.collection('patients_v2')
-      .find(query, { projection: { name: 1, phone: 1 } })
+    const callLogs = await db.collection('callLogs_v2')
+      .find(callLogQuery)
+      .sort({ startedAt: -1 })
       .limit(10)
       .toArray();
 
-    if (patients.length === 0) {
-      return NextResponse.json({ success: false, error: 'Patient not found', query });
-    }
+    // 환자 정보도 함께 조회
+    const patient = await db.collection('patients_v2').findOne({
+      clinicId,
+      phone: formatted,
+      deletedAt: { $exists: false },
+    }, { projection: { name: 1, phone: 1 } });
 
-    // 2. 해당 환자의 통화기록 조회
-    const results = [];
-    for (const patient of patients) {
-      const callLogQuery: Record<string, unknown> = {
-        clinicId,
-        $or: [
-          { phone: patient.phone },
-          { patientId: patient._id.toString() },
-        ],
-      };
+    const callLogsWithRecordings = [];
+    for (const log of callLogs) {
+      const rec = await db.collection('callRecordings_v2').findOne({
+        callLogId: log._id.toString(),
+      });
 
-      // 날짜 필터
-      if (date) {
-        const startOfDay = new Date(`${date}T00:00:00+09:00`);
-        const endOfDay = new Date(`${date}T23:59:59+09:00`);
-        callLogQuery.$or = [
-          { phone: patient.phone, startedAt: { $gte: startOfDay, $lte: endOfDay } },
-          { phone: patient.phone, createdAt: { $gte: startOfDay.toISOString(), $lte: endOfDay.toISOString() } },
-          { patientId: patient._id.toString(), startedAt: { $gte: startOfDay, $lte: endOfDay } },
-          { patientId: patient._id.toString(), createdAt: { $gte: startOfDay.toISOString(), $lte: endOfDay.toISOString() } },
-        ];
-      }
-
-      const callLogs = await db.collection('callLogs_v2')
-        .find(callLogQuery)
-        .sort({ startedAt: -1 })
-        .limit(10)
-        .toArray();
-
-      const callLogsWithRecordings = [];
-      for (const log of callLogs) {
-        // 녹음 데이터 확인
-        const recording = await db.collection('callRecordings_v2').findOne({
-          callLogId: log._id.toString(),
-        });
-
-        callLogsWithRecordings.push({
-          _id: log._id.toString(),
-          phone: log.phone,
-          direction: log.direction,
-          status: log.status,
-          duration: log.duration,
-          startedAt: log.startedAt,
-          endedAt: log.endedAt,
-          createdAt: log.createdAt,
-          // 녹취 관련
-          recordingUrl: log.recordingUrl || null,
-          recordingFileName: log.recordingFileName || null,
-          // AI 분석 관련
-          aiStatus: log.aiStatus || null,
-          aiError: log.aiAnalysis?.error || null,
-          aiSkipReason: log.aiAnalysis?.skipReason || null,
-          hasTranscript: !!log.aiAnalysis?.transcript,
-          transcriptPreview: log.aiAnalysis?.transcript?.substring(0, 150) || null,
-          hasSummary: !!log.aiAnalysis?.summary,
-          summary: log.aiAnalysis?.summary || null,
-          classification: log.aiAnalysis?.classification || null,
-          // 녹음 base64 데이터
-          hasBase64Recording: !!recording?.recordingBase64,
-          base64Length: recording?.recordingBase64?.length || 0,
-          recordingCreatedAt: recording?.createdAt || null,
-        });
-      }
-
-      results.push({
-        patient: {
-          _id: patient._id.toString(),
-          name: patient.name,
-          phone: patient.phone,
-        },
-        callLogs: callLogsWithRecordings,
-        callLogCount: callLogsWithRecordings.length,
+      callLogsWithRecordings.push({
+        _id: log._id.toString(),
+        phone: log.phone,
+        direction: log.direction,
+        status: log.status,
+        duration: log.duration,
+        startedAt: log.startedAt,
+        endedAt: log.endedAt,
+        createdAt: log.createdAt,
+        recordingUrl: log.recordingUrl || null,
+        recordingFileName: log.recordingFileName || null,
+        aiStatus: log.aiStatus || null,
+        aiError: log.aiAnalysis?.error || null,
+        aiSkipReason: log.aiAnalysis?.skipReason || null,
+        hasTranscript: !!log.aiAnalysis?.transcript,
+        transcriptPreview: log.aiAnalysis?.transcript?.substring(0, 150) || null,
+        hasSummary: !!log.aiAnalysis?.summary,
+        summary: log.aiAnalysis?.summary || null,
+        classification: log.aiAnalysis?.classification || null,
+        hasBase64Recording: !!rec?.recordingBase64,
+        base64Length: rec?.recordingBase64?.length || 0,
+        recordingCreatedAt: rec?.createdAt || null,
       });
     }
 
     return NextResponse.json({
       success: true,
-      searchParams: { name, date },
-      results,
+      searchParams: { phone, date, formatted },
+      patient: patient ? { name: patient.name, phone: patient.phone } : null,
+      callLogCount: callLogsWithRecordings.length,
+      callLogs: callLogsWithRecordings,
       serverTime: new Date().toISOString(),
     });
   } catch (error) {
