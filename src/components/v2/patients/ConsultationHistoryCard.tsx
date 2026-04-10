@@ -885,6 +885,13 @@ export function ConsultationHistoryCard({ patientId, patientName = '', className
                     )}
                   </div>
 
+                  {/* 통화 AI 요약 미리보기 */}
+                  {item.type === 'call' && item.summary && (
+                    <p className="mt-1 text-sm text-gray-600 line-clamp-2">
+                      {item.summary}
+                    </p>
+                  )}
+
                   {/* 수동 입력은 원문 표시 */}
                   {item.type === 'manual' && item.content && (
                     <p className="mt-1 text-sm text-gray-700 whitespace-pre-wrap">
