@@ -112,6 +112,38 @@ export async function GET(request: NextRequest) {
         .project({ direction: 1, startedAt: 1, duration: 1, status: 1 })
         .toArray(),
       callCount: patient.callCount || (await db.collection('callLogs_v2').countDocuments({ patientId: patient._id.toString() })),
+      // 매칭 분석: callLogId null인 상담결과 vs 통화기록 시간차
+      matchAnalysis: await (async () => {
+        const nullConsults = await db.collection('consultations_v2')
+          .find({ patientId: patient._id.toString(), $or: [{ callLogId: null }, { callLogId: { $exists: false } }] })
+          .toArray();
+        const calls = await db.collection('callLogs_v2')
+          .find({ patientId: patient._id.toString() })
+          .sort({ startedAt: -1 })
+          .toArray();
+        return nullConsults.map((c: any) => {
+          const cTime = new Date(c.createdAt).getTime();
+          const diffs = calls.map((cl: any) => ({
+            callLogId: cl._id.toString(),
+            startedAt: cl.startedAt,
+            startedAtType: typeof cl.startedAt,
+            startedAtParsed: new Date(cl.startedAt).toISOString(),
+            diffHours: Math.abs(new Date(cl.startedAt).getTime() - cTime) / (1000 * 60 * 60),
+            diffMs: Math.abs(new Date(cl.startedAt).getTime() - cTime),
+          }));
+          diffs.sort((a: any, b: any) => a.diffMs - b.diffMs);
+          return {
+            consultId: c._id.toString(),
+            status: c.status,
+            type: c.type,
+            createdAt: c.createdAt,
+            createdAtType: typeof c.createdAt,
+            createdAtParsed: new Date(c.createdAt).toISOString(),
+            callLogId: c.callLogId,
+            closestCalls: diffs.slice(0, 3),
+          };
+        });
+      })(),
     });
   } catch (error) {
     console.error('[Debug] error:', error);
