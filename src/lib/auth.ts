@@ -91,6 +91,44 @@ export function requireRole(user: JwtPayload, ...allowedRoles: string[]): AuthEr
 }
 
 /**
+ * 내부 API 시크릿 또는 JWT 토큰 검증
+ *
+ * 서버 간 호출(recording→analyze, status→transcribe 등)에서 사용.
+ * 1순위: JWT Bearer 토큰 → verifyToken()
+ * 2순위: X-Internal-Secret 헤더 → 환경변수 INTERNAL_API_SECRET과 비교
+ *
+ * 내부 시크릿으로 인증 시 clinicId는 'default' (서버 간 호출은 이미 clinicId를 직접 사용)
+ */
+export function verifyInternalOrToken(request: NextRequest): AuthResult | AuthError {
+  // 1순위: JWT 토큰
+  const authorization = request.headers.get('authorization');
+  if (authorization && authorization.startsWith('Bearer ')) {
+    return verifyToken(request);
+  }
+
+  // 2순위: 내부 API 시크릿
+  const internalSecret = request.headers.get('x-internal-secret');
+  const expectedSecret = process.env.INTERNAL_API_SECRET;
+
+  if (expectedSecret && internalSecret === expectedSecret) {
+    return {
+      success: true,
+      user: {
+        id: 'internal',
+        username: 'internal',
+        email: '',
+        name: 'Internal API',
+        role: 'master',
+        clinicId: 'default',
+      },
+    };
+  }
+
+  // 둘 다 없으면 401
+  return { success: false, error: '인증 토큰이 필요합니다.', status: 401 };
+}
+
+/**
  * Request에서 clinicId 추출 (JWT 기반, fallback 'default')
  *
  * API 라우트에서 clinicId가 필요할 때 사용.

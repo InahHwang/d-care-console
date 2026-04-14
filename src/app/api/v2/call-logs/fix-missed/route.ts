@@ -3,11 +3,21 @@
 
 import { NextRequest, NextResponse } from 'next/server';
 import { connectToDatabase } from '@/utils/mongodb';
+import { verifyToken, requireRole } from '@/lib/auth';
 
 export const dynamic = 'force-dynamic';
 
 export async function POST(request: NextRequest) {
   try {
+    const auth = verifyToken(request);
+    if (!auth.success) {
+      return NextResponse.json({ success: false, message: auth.error }, { status: auth.status });
+    }
+    const roleCheck = requireRole(auth.user, 'master');
+    if (roleCheck) {
+      return NextResponse.json({ success: false, message: roleCheck.error }, { status: roleCheck.status });
+    }
+
     const { db } = await connectToDatabase();
 
     // duration=0인데 분류가 없거나 unknown인 통화 찾기 (수신/발신 모두)
@@ -79,8 +89,13 @@ export async function POST(request: NextRequest) {
 }
 
 // GET으로 현재 상태 확인
-export async function GET() {
+export async function GET(request: NextRequest) {
   try {
+    const auth = verifyToken(request);
+    if (!auth.success) {
+      return NextResponse.json({ success: false, message: auth.error }, { status: auth.status });
+    }
+
     const { db } = await connectToDatabase();
 
     // duration=0인 통화 통계

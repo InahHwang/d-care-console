@@ -2,7 +2,8 @@
 // OpenAI Whisper API를 사용한 STT 변환
 
 import { NextRequest, NextResponse } from 'next/server';
-import { connectToDatabase, getClinicId } from '@/utils/mongodb';
+import { connectToDatabase } from '@/utils/mongodb';
+import { verifyInternalOrToken } from '@/lib/auth';
 import { ObjectId } from 'mongodb';
 import { PIIMasker } from '@/utils/piiMasker';
 
@@ -207,6 +208,11 @@ export async function POST(request: NextRequest) {
   let callLogIdForError: string | null = null;
 
   try {
+    const auth = verifyInternalOrToken(request);
+    if (!auth.success) {
+      return NextResponse.json({ success: false, message: auth.error }, { status: auth.status });
+    }
+
     const body = await request.json();
     const { callLogId } = body;
     callLogIdForError = callLogId;
@@ -233,7 +239,7 @@ export async function POST(request: NextRequest) {
     }
 
     const { db } = await connectToDatabase();
-    const clinicId = getClinicId();
+    const clinicId = auth.user.clinicId;
     const now = new Date().toISOString();
     console.log('[STT v2] DB 연결 성공');
 

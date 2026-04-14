@@ -3,11 +3,21 @@
 
 import { NextRequest, NextResponse } from 'next/server';
 import { connectToDatabase } from '@/utils/mongodb';
+import { verifyToken, requireRole } from '@/lib/auth';
 
 export const dynamic = 'force-dynamic';
 
 export async function POST(request: NextRequest) {
   try {
+    const auth = verifyToken(request);
+    if (!auth.success) {
+      return NextResponse.json({ success: false, message: auth.error }, { status: auth.status });
+    }
+    const roleCheck = requireRole(auth.user, 'master');
+    if (roleCheck) {
+      return NextResponse.json({ success: false, message: roleCheck.error }, { status: roleCheck.status });
+    }
+
     const { db } = await connectToDatabase();
     const collection = db.collection('callLogs_v2');
 

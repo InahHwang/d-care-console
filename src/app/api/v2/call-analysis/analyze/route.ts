@@ -2,7 +2,8 @@
 // Claude/GPT API를 사용한 통화 내용 AI 분석 - v2 타입 시스템 통합
 
 import { NextRequest, NextResponse } from 'next/server';
-import { connectToDatabase, getClinicId } from '@/utils/mongodb';
+import { connectToDatabase } from '@/utils/mongodb';
+import { verifyInternalOrToken } from '@/lib/auth';
 import { getActiveInterestedServiceLabels } from '@/utils/treatmentTypes';
 
 import { ObjectId } from 'mongodb';
@@ -311,6 +312,11 @@ async function analyzeWithGPT(transcript: string, treatmentLabels: string[]): Pr
 
 export async function POST(request: NextRequest) {
   try {
+    const auth = verifyInternalOrToken(request);
+    if (!auth.success) {
+      return NextResponse.json({ success: false, message: auth.error }, { status: auth.status });
+    }
+
     const body = await request.json();
     const parsed = analyzeSchema.safeParse(body);
 
@@ -326,7 +332,7 @@ export async function POST(request: NextRequest) {
     console.log(`[Analyze v2] 분석 시작: ${callLogId}`);
 
     const { db } = await connectToDatabase();
-    const clinicId = getClinicId();
+    const clinicId = auth.user.clinicId;
     const now = new Date().toISOString();
 
     // 통화 기록 조회
