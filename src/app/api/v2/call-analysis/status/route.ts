@@ -277,7 +277,7 @@ export async function POST(request: NextRequest) {
             console.log(`[Status v2] STT 시작: ${callLogId}`);
             const sttResponse = await fetch(`${baseUrl}/api/v2/call-analysis/transcribe`, {
               method: 'POST',
-              headers: { 'Content-Type': 'application/json', 'X-Internal-Secret': process.env.INTERNAL_API_SECRET || '' },
+              headers: { 'Content-Type': 'application/json', 'X-Internal-Secret': (process.env.INTERNAL_API_SECRET || '').trim() },
               body: JSON.stringify({ callLogId }),
             });
 
@@ -291,7 +291,7 @@ export async function POST(request: NextRequest) {
             console.log(`[Status v2] AI 분석 시작: ${callLogId}`);
             const analyzeResponse = await fetch(`${baseUrl}/api/v2/call-analysis/analyze`, {
               method: 'POST',
-              headers: { 'Content-Type': 'application/json', 'X-Internal-Secret': process.env.INTERNAL_API_SECRET || '' },
+              headers: { 'Content-Type': 'application/json', 'X-Internal-Secret': (process.env.INTERNAL_API_SECRET || '').trim() },
               body: JSON.stringify({ callLogId }),
             });
 
@@ -390,7 +390,7 @@ export async function POST(request: NextRequest) {
 
               const sttRes = await fetch(`${baseUrl}/api/v2/call-analysis/transcribe`, {
                 method: 'POST',
-                headers: { 'Content-Type': 'application/json', 'X-Internal-Secret': process.env.INTERNAL_API_SECRET || '' },
+                headers: { 'Content-Type': 'application/json', 'X-Internal-Secret': (process.env.INTERNAL_API_SECRET || '').trim() },
                 body: JSON.stringify({ callLogId: target.id }),
               });
               const sttResult = await sttRes.json();
@@ -404,7 +404,7 @@ export async function POST(request: NextRequest) {
 
               const analyzeRes = await fetch(`${baseUrl}/api/v2/call-analysis/analyze`, {
                 method: 'POST',
-                headers: { 'Content-Type': 'application/json', 'X-Internal-Secret': process.env.INTERNAL_API_SECRET || '' },
+                headers: { 'Content-Type': 'application/json', 'X-Internal-Secret': (process.env.INTERNAL_API_SECRET || '').trim() },
                 body: JSON.stringify({ callLogId: target.id }),
               });
               const analyzeResult = await analyzeRes.json();

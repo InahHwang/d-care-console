@@ -16,7 +16,7 @@ async function triggerV2AnalysisPipeline(callLogId: string) {
     // 1. STT 변환
     const sttResponse = await fetch(`${baseUrl}/api/v2/call-analysis/transcribe`, {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json', 'X-Internal-Secret': process.env.INTERNAL_API_SECRET || '' },
+      headers: { 'Content-Type': 'application/json', 'X-Internal-Secret': (process.env.INTERNAL_API_SECRET || '').trim() },
       body: JSON.stringify({ callLogId }),
     });
 
@@ -28,7 +28,7 @@ async function triggerV2AnalysisPipeline(callLogId: string) {
     // 2. AI 분석
     const analyzeResponse = await fetch(`${baseUrl}/api/v2/call-analysis/analyze`, {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json', 'X-Internal-Secret': process.env.INTERNAL_API_SECRET || '' },
+      headers: { 'Content-Type': 'application/json', 'X-Internal-Secret': (process.env.INTERNAL_API_SECRET || '').trim() },
       body: JSON.stringify({ callLogId }),
     });
 

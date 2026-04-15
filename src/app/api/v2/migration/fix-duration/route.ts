@@ -131,7 +131,7 @@ export async function POST(request: NextRequest) {
             // STT → AI 분석 파이프라인
             const sttRes = await fetch(`${baseUrl}/api/v2/call-analysis/transcribe`, {
               method: 'POST',
-              headers: { 'Content-Type': 'application/json', 'X-Internal-Secret': process.env.INTERNAL_API_SECRET || '' },
+              headers: { 'Content-Type': 'application/json', 'X-Internal-Secret': (process.env.INTERNAL_API_SECRET || '').trim() },
               body: JSON.stringify({ callLogId }),
             });
             if (sttRes.ok) {
@@ -139,7 +139,7 @@ export async function POST(request: NextRequest) {
               if (sttResult.success && !sttResult.skipped) {
                 await fetch(`${baseUrl}/api/v2/call-analysis/analyze`, {
                   method: 'POST',
-                  headers: { 'Content-Type': 'application/json', 'X-Internal-Secret': process.env.INTERNAL_API_SECRET || '' },
+                  headers: { 'Content-Type': 'application/json', 'X-Internal-Secret': (process.env.INTERNAL_API_SECRET || '').trim() },
                   body: JSON.stringify({ callLogId }),
                 });
               }

@@ -107,8 +107,10 @@ export function verifyInternalOrToken(request: NextRequest): AuthResult | AuthEr
   }
 
   // 2순위: 내부 API 시크릿
-  const internalSecret = request.headers.get('x-internal-secret');
-  const expectedSecret = process.env.INTERNAL_API_SECRET;
+  const internalSecret = request.headers.get('x-internal-secret')?.trim();
+  const expectedSecret = process.env.INTERNAL_API_SECRET?.trim();
+
+  console.log(`[Auth] verifyInternalOrToken: hasSecret=${!!internalSecret}, hasExpected=${!!expectedSecret}, match=${internalSecret === expectedSecret}, secretLen=${internalSecret?.length}, expectedLen=${expectedSecret?.length}`);
 
   if (expectedSecret && internalSecret === expectedSecret) {
     return {
