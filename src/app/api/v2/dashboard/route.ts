@@ -370,14 +370,15 @@ export async function GET(request: NextRequest) {
     const lastMonthPaid = conversionData.lastMonthPaid?.[0]?.count || 0;
 
     // 전환율 계산 (%)
+    // 결제전환율은 내원환자(visited) 대비로 계산 (예약/내원은 전체 신규문의 대비 유지)
     const reservationRate = thisMonthTotal > 0 ? Math.round((thisMonthReserved / thisMonthTotal) * 100) : 0;
     const visitRate = thisMonthTotal > 0 ? Math.round((thisMonthVisited / thisMonthTotal) * 100) : 0;
-    const paymentRate = thisMonthTotal > 0 ? Math.round((thisMonthPaid / thisMonthTotal) * 100) : 0;
+    const paymentRate = thisMonthVisited > 0 ? Math.round((thisMonthPaid / thisMonthVisited) * 100) : 0;
 
     // 지난 달 전환율
     const lastReservationRate = lastMonthTotal > 0 ? Math.round((lastMonthReserved / lastMonthTotal) * 100) : 0;
     const lastVisitRate = lastMonthTotal > 0 ? Math.round((lastMonthVisited / lastMonthTotal) * 100) : 0;
-    const lastPaymentRate = lastMonthTotal > 0 ? Math.round((lastMonthPaid / lastMonthTotal) * 100) : 0;
+    const lastPaymentRate = lastMonthVisited > 0 ? Math.round((lastMonthPaid / lastMonthVisited) * 100) : 0;
 
     // 전월 대비 트렌드 (%p)
     const reservationRateTrend = reservationRate - lastReservationRate;

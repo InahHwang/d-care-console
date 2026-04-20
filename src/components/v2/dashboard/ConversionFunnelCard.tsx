@@ -134,6 +134,7 @@ export function ConversionFunnelCard({ data, loading }: ConversionFunnelCardProp
     {
       id: 'payment',
       label: '결제 전환율',
+      note: '내원 대비',
       icon: CreditCard,
       value: data?.paymentRate.value ?? 0,
       unit: '%',
@@ -183,7 +184,12 @@ export function ConversionFunnelCard({ data, loading }: ConversionFunnelCardProp
               </div>
 
               {/* 라벨 */}
-              <p className="text-xs text-gray-500 mb-1">{card.label}</p>
+              <p className="text-xs text-gray-500 mb-1">
+                {card.label}
+                {'note' in card && card.note && (
+                  <span className="ml-1 text-[10px] text-gray-400">({card.note})</span>
+                )}
+              </p>
 
               {/* 값 */}
               <div className="flex items-baseline gap-1 mb-2">

@@ -181,6 +181,7 @@ const MonthlyReportKPIOverview: React.FC<MonthlyReportKPIOverviewProps> = ({ sta
               </div>
               <div>
                 전환율 {stats.agreedRate}%
+                <span className="ml-1 text-[10px] text-gray-400">(내원 대비)</span>
                 <ChangeIndicatorInline change={stats.changes.agreedRate} />
               </div>
             </div>

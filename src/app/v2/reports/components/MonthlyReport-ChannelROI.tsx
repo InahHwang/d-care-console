@@ -175,6 +175,7 @@ function ChannelTable({
             </th>
             <th className="text-center px-3 py-2.5 font-medium text-gray-600">
               결제전환율
+              <div className="text-[10px] text-gray-400 font-normal">내원 대비</div>
             </th>
             <th className="text-right px-3 py-2.5 font-medium text-gray-600">
               매출

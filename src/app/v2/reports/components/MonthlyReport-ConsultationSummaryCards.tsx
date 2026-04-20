@@ -136,6 +136,7 @@ const MonthlyReportConsultationSummaryCards: React.FC<MonthlyReportConsultationS
               </div>
               <div className="flex items-center gap-2">
                 결제전환율 {stats.agreedRate}%
+                <span className="text-[10px] text-gray-400">(내원 대비)</span>
                 <ChangeIndicatorInline change={stats.changes.agreedRate} />
               </div>
             </div>

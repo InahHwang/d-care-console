@@ -228,8 +228,9 @@ function computeRawStats(
   );
   const agreedRevenue = paidPatients.reduce((sum, p) => sum + (p.actualAmount || 0), 0);
   const agreedPatients = paidPatients.length;
-  const agreedRate = totalInquiries > 0
-    ? Math.round((agreedPatients / totalInquiries) * 1000) / 10
+  // 결제전환율: 내원환자(visited) 대비로 계산
+  const agreedRate = visitedPatients > 0
+    ? Math.round((agreedPatients / visitedPatients) * 1000) / 10
     : 0;
 
   // 평균 연령
@@ -960,7 +961,8 @@ function buildConsultationTypeROI(
       paidCount: data.paidCount,
       reservedRate: data.count > 0 ? Math.round((data.reservedCount / data.count) * 1000) / 10 : 0,
       visitedRate: data.count > 0 ? Math.round((data.visitedCount / data.count) * 1000) / 10 : 0,
-      paidRate: data.count > 0 ? Math.round((data.paidCount / data.count) * 1000) / 10 : 0,
+      // 결제전환율: 내원환자(visited) 대비로 계산
+      paidRate: data.visitedCount > 0 ? Math.round((data.paidCount / data.visitedCount) * 1000) / 10 : 0,
       totalRevenue: data.totalRevenue,
       avgDealSize: data.paidCount > 0 ? Math.round(data.totalRevenue / data.paidCount) : 0,
     }))
@@ -1009,7 +1011,8 @@ function buildChannelROIStats(patients: PatientV2[]): ChannelROIItem[] {
       paidCount: data.paidCount,
       reservedRate: data.count > 0 ? Math.round((data.reservedCount / data.count) * 1000) / 10 : 0,
       visitedRate: data.count > 0 ? Math.round((data.visitedCount / data.count) * 1000) / 10 : 0,
-      paidRate: data.count > 0 ? Math.round((data.paidCount / data.count) * 1000) / 10 : 0,
+      // 결제전환율: 내원환자(visited) 대비로 계산
+      paidRate: data.visitedCount > 0 ? Math.round((data.paidCount / data.visitedCount) * 1000) / 10 : 0,
       totalRevenue: data.totalRevenue,
       avgDealSize: data.paidCount > 0 ? Math.round(data.totalRevenue / data.paidCount) : 0,
     }))

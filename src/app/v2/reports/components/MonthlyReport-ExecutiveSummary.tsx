@@ -106,6 +106,7 @@ function BigMetricCard({
   unit,
   formatValue,
   accentColor,
+  note,
 }: {
   label: string;
   value: string;
@@ -113,10 +114,14 @@ function BigMetricCard({
   unit?: string;
   formatValue?: (v: number) => string;
   accentColor: string;
+  note?: string;
 }) {
   return (
     <div className="bg-white rounded-xl border p-6 text-center shadow-sm hover:shadow-md transition-shadow">
-      <div className={`text-sm font-medium ${accentColor} mb-2`}>{label}</div>
+      <div className={`text-sm font-medium ${accentColor} mb-2`}>
+        {label}
+        {note && <span className="ml-1 text-[10px] text-gray-400 font-normal">({note})</span>}
+      </div>
       <div className="text-3xl font-bold text-gray-900 mb-3">{value}</div>
       <MoMChangeBadge change={change} unit={unit} formatValue={formatValue} />
     </div>
@@ -284,6 +289,7 @@ const MonthlyReportExecutiveSummary: React.FC<MonthlyReportExecutiveSummaryProps
           />
           <BigMetricCard
             label="결제전환율"
+            note="내원 대비"
             value={`${stats.agreedRate}%`}
             change={stats.changes.agreedRate}
             unit="%p"
