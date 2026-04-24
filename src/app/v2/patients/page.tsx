@@ -100,6 +100,8 @@ function PatientsPageContent() {
   const initialConsultationType = searchParams.get('consultationType') || '';
   const initialInterest = searchParams.get('interest') || '';
   const initialRegion = searchParams.get('region') || '';
+  const initialCreatedBy = searchParams.get('createdBy') || ''; // 상담사별 실적 드릴다운
+  const [createdByFilter, setCreatedByFilter] = useState(initialCreatedBy);
   const [advancedFilter, setAdvancedFilter] = useState<AdvancedFilterValues>({
     consultationType: initialConsultationType,
     hasCoaching: initialHasCoaching,
@@ -193,6 +195,9 @@ function PatientsPageContent() {
       if (advancedFilter.region) {
         params.set('region', advancedFilter.region);
       }
+      if (createdByFilter) {
+        params.set('createdBy', createdByFilter);
+      }
       if (searchQuery) {
         params.set('search', searchQuery);
       }
@@ -230,7 +235,7 @@ function PatientsPageContent() {
     } finally {
       setLoading(false);
     }
-  }, [currentPage, activeFilter, searchQuery, urgencyFilter, period, dateRange, statusOverride, advancedFilter, callbackDate]);
+  }, [currentPage, activeFilter, searchQuery, urgencyFilter, period, dateRange, statusOverride, advancedFilter, callbackDate, createdByFilter]);
 
   useEffect(() => {
     fetchPatients();
@@ -260,6 +265,7 @@ function PatientsPageContent() {
     if (advancedFilter.consultationType) params.set('consultationType', advancedFilter.consultationType);
     if (advancedFilter.interest) params.set('interest', advancedFilter.interest);
     if (advancedFilter.region) params.set('region', advancedFilter.region);
+    if (createdByFilter) params.set('createdBy', createdByFilter);
     if (currentPage > 1) params.set('page', currentPage.toString());
     if (searchQuery) params.set('search', searchQuery);
     if (urgencyFilter !== 'all') params.set('urgency', urgencyFilter);
@@ -273,7 +279,7 @@ function PatientsPageContent() {
 
     const newUrl = params.toString() ? `?${params.toString()}` : '/v2/patients';
     window.history.replaceState(null, '', newUrl);
-  }, [activeFilter, currentPage, searchQuery, urgencyFilter, period, dateRange, statusOverride, advancedFilter]);
+  }, [activeFilter, currentPage, searchQuery, urgencyFilter, period, dateRange, statusOverride, advancedFilter, createdByFilter]);
 
   const handleFilterChange = (filter: PatientFilterType) => {
     setActiveFilter(filter);
@@ -369,6 +375,21 @@ function PatientsPageContent() {
           </button>
         </div>
       </div>
+
+      {/* 상담사 필터 활성 표시 (대시보드 드릴다운) */}
+      {createdByFilter && (
+        <div className="bg-indigo-50 border-b border-indigo-100 px-6 py-2 flex items-center justify-between">
+          <div className="text-sm text-indigo-900">
+            <span className="font-medium">{createdByFilter}</span> 상담사 등록 환자만 표시 중
+          </div>
+          <button
+            onClick={() => { setCreatedByFilter(''); setCurrentPage(1); }}
+            className="text-xs text-indigo-600 hover:text-indigo-800 underline"
+          >
+            필터 해제
+          </button>
+        </div>
+      )}
 
       {/* 긴급 요약 카드 */}
       <div className="bg-white border-b px-6 py-4">
