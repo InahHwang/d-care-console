@@ -134,6 +134,7 @@ export async function GET(request: NextRequest) {
     const hasCoaching = searchParams.get('hasCoaching') === 'true'; // AI 코칭 완료 환자만
     const consultationType = searchParams.get('consultationType'); // 상담타입 필터
     const region = searchParams.get('region'); // 지역(시/도) 필터
+    const createdByName = searchParams.get('createdBy'); // 등록 상담사 이름 필터 (상담사별 실적 드릴다운)
 
     const { db } = await connectToDatabase();
     const collection = db.collection('patients_v2');
@@ -189,6 +190,16 @@ export async function GET(request: NextRequest) {
 
     if (region) {
       (query as any)['region.province'] = region;
+    }
+
+    // 등록 상담사 필터 (상담사별 실적 드릴다운)
+    if (createdByName) {
+      if (createdByName === '미지정') {
+        // 등록자 정보가 없는(또는 비어있는) 환자
+        (query as any).createdByName = { $in: [null, ''] };
+      } else {
+        (query as any).createdByName = createdByName;
+      }
     }
 
     if (search) {
@@ -633,6 +644,9 @@ export async function POST(request: NextRequest) {
       lastContactAt: consultEventDate,
       statusChangedAt: consultEventDate,
       nextAction: nextAction || '',
+      // 등록자 정보 (상담사별 실적 집계용)
+      createdBy: auth.user.id,
+      createdByName: auth.user.name,
     };
 
     // 나이 추가 (입력된 경우)

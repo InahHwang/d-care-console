@@ -8,6 +8,8 @@ import {
   RevenueCard,
   TodayTasksCard,
   ConversionFunnelCard,
+  ConsultantPerformanceTable,
+  type ConsultantStat,
   TodayTasks,
 } from '@/components/v2/dashboard';
 import OnboardingChecklistWidget from '@/components/v2/dashboard/Onboarding-ChecklistWidget';
@@ -53,6 +55,7 @@ interface RevenueData {
 
 interface DashboardData {
   conversionRates: ConversionRates;
+  consultantStats?: ConsultantStat[];
   revenue?: RevenueData;
   todayTasks?: TodayTasks;
 }
@@ -131,6 +134,12 @@ export default function DashboardPage() {
       {/* 이번달 성과 (전환율 퍼널) */}
       <ConversionFunnelCard
         data={data?.conversionRates ?? null}
+        loading={loading}
+      />
+
+      {/* 상담사별 실적 테이블 */}
+      <ConsultantPerformanceTable
+        data={data?.consultantStats ?? null}
         loading={loading}
       />
 

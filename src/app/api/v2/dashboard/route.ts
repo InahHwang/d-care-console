@@ -52,6 +52,7 @@ export async function GET(request: NextRequest) {
       todayTasksStats,
       revenueStats,
       conversionStats,
+      consultantStatsRaw,
       settingsDoc
     ] = await Promise.all([
       // 1. 오늘 할 일 통계 (patients_v2에서 집계)
@@ -280,7 +281,60 @@ export async function GET(request: NextRequest) {
         }
       ]).toArray(),
 
-      // 4. 설정에서 목표매출 조회
+      // 4. 상담사별 실적 집계 (이번 달 등록자 기준)
+      db.collection('patients_v2').aggregate([
+        {
+          $match: {
+            clinicId,
+            deletedAt: { $exists: false },
+            createdAt: { $gte: monthStart, $lte: monthEnd }
+          }
+        },
+        {
+          $group: {
+            _id: {
+              $cond: [
+                {
+                  $or: [
+                    { $eq: [{ $ifNull: ['$createdByName', null] }, null] },
+                    { $eq: ['$createdByName', ''] }
+                  ]
+                },
+                '미지정',
+                '$createdByName'
+              ]
+            },
+            registered: { $sum: 1 },
+            reserved: {
+              $sum: {
+                $cond: [
+                  { $in: ['$status', ['reserved', 'visited', 'treatmentBooked', 'treatment', 'completed', 'followup']] },
+                  1, 0
+                ]
+              }
+            },
+            visited: {
+              $sum: {
+                $cond: [
+                  { $in: ['$status', ['visited', 'treatmentBooked', 'treatment', 'completed', 'followup']] },
+                  1, 0
+                ]
+              }
+            },
+            paid: {
+              $sum: {
+                $cond: [
+                  { $in: ['$paymentStatus', ['partial', 'completed']] },
+                  1, 0
+                ]
+              }
+            }
+          }
+        },
+        { $sort: { registered: -1 } }
+      ]).toArray(),
+
+      // 5. 설정에서 목표매출 조회
       db.collection('settings_v2').findOne({ clinicId }),
     ]);
 
@@ -386,6 +440,27 @@ export async function GET(request: NextRequest) {
     const paymentRateTrend = paymentRate - lastPaymentRate;
     const inquiryTrend = thisMonthTotal - lastMonthTotal;
 
+    // 상담사별 실적 가공
+    // 분모: 본인 등록 환자 수(달성률), 전체 신규 수(기여율)
+    const consultantStats = (consultantStatsRaw as Array<{
+      _id: string;
+      registered: number;
+      reserved: number;
+      visited: number;
+      paid: number;
+    }>).map(row => ({
+      name: row._id,
+      registered: row.registered,
+      contributionRate: thisMonthTotal > 0 ? Math.round((row.registered / thisMonthTotal) * 100) : 0,
+      reserved: row.reserved,
+      reservationRate: row.registered > 0 ? Math.round((row.reserved / row.registered) * 100) : 0,
+      visited: row.visited,
+      visitRate: row.registered > 0 ? Math.round((row.visited / row.registered) * 100) : 0,
+      paid: row.paid,
+      paymentRate: row.registered > 0 ? Math.round((row.paid / row.registered) * 100) : 0,
+      lowSample: row.registered < 5, // 표본 5명 미만이면 달성률 경고
+    }));
+
     return NextResponse.json({
       success: true,
       data: {
@@ -411,6 +486,8 @@ export async function GET(request: NextRequest) {
             count: thisMonthPaid,
           },
         },
+        // 상담사별 실적 (등록 수 많은 순 정렬)
+        consultantStats,
         // 오늘 할 일 통계
         todayTasks,
         // 매출 통계
