@@ -7,6 +7,21 @@ import { Sidebar } from '@/components/v2/layout/Sidebar';
 import { CTIPanel } from '@/components/v2/cti';
 import AuthGuard from '@/components/auth/AuthGuard';
 import AIChatWidget from '@/components/v2/ai-chat/AIChat-Widget';
+import { useChannelChat } from '@/hooks/useChannelChat';
+
+function V2LayoutInner({ children }: { children: React.ReactNode }) {
+  // 사이드바 채널상담 뱃지용: 어느 페이지든 새 채팅 들어오면 카운트 갱신
+  const { unreadTotal } = useChannelChat();
+
+  return (
+    <div className="flex min-h-screen bg-gray-50">
+      <Sidebar unreadChatCount={unreadTotal} />
+      <main className="flex-1 overflow-auto">{children}</main>
+      <CTIPanel />
+      <AIChatWidget />
+    </div>
+  );
+}
 
 export default function V2Layout({ children }: { children: React.ReactNode }) {
   const pathname = usePathname();
@@ -22,12 +37,7 @@ export default function V2Layout({ children }: { children: React.ReactNode }) {
   // 일반 V2 페이지: 전체 레이아웃 + 인증
   return (
     <AuthGuard>
-      <div className="flex min-h-screen bg-gray-50">
-        <Sidebar />
-        <main className="flex-1 overflow-auto">{children}</main>
-        <CTIPanel />
-        <AIChatWidget />
-      </div>
+      <V2LayoutInner>{children}</V2LayoutInner>
     </AuthGuard>
   );
 }

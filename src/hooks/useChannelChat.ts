@@ -50,6 +50,7 @@ export const useChannelChat = (options: UseChannelChatOptions = {}) => {
   const pusherRef = useRef<Pusher | null>(null);
   const channelRef = useRef<ReturnType<Pusher['subscribe']> | null>(null);
   const optionsRef = useRef(options);
+  const fetchUnreadCountRef = useRef<(() => void) | null>(null);
 
   // 옵션 최신 상태 유지
   useEffect(() => {
@@ -100,16 +101,22 @@ export const useChannelChat = (options: UseChannelChatOptions = {}) => {
     channel.bind('new-message', (data: NewMessageEvent) => {
       console.log('[ChannelChat] 새 메시지:', data);
       optionsRef.current.onNewMessage?.(data);
+      // 고객 메시지일 때만 unreadTotal 갱신 (상담사 본인 메시지는 무시)
+      if (data?.message?.senderType === 'customer') {
+        fetchUnreadCountRef.current?.();
+      }
     });
 
     channel.bind('new-chat', (data: NewChatEvent) => {
       console.log('[ChannelChat] 새 대화방:', data);
       optionsRef.current.onNewChat?.(data);
+      fetchUnreadCountRef.current?.();
     });
 
     channel.bind('messages-read', (data: MessagesReadEvent) => {
       console.log('[ChannelChat] 읽음 처리:', data);
       optionsRef.current.onMessagesRead?.(data);
+      fetchUnreadCountRef.current?.();
     });
 
     channel.bind('patient-matched', (data: PatientMatchedEvent) => {
@@ -120,6 +127,7 @@ export const useChannelChat = (options: UseChannelChatOptions = {}) => {
     channel.bind('chat-closed', (data: ChatClosedEvent) => {
       console.log('[ChannelChat] 상담 종료:', data);
       optionsRef.current.onChatClosed?.(data);
+      fetchUnreadCountRef.current?.();
     });
 
     channel.bind('ai-analysis-complete', (data: AIAnalysisCompleteEvent) => {
@@ -173,6 +181,11 @@ export const useChannelChat = (options: UseChannelChatOptions = {}) => {
       console.error('[ChannelChat] 읽지 않은 메시지 수 조회 오류:', error);
     }
   }, []);
+
+  // ref에 최신 fetchUnreadCount 저장 (Pusher 콜백에서 closure 문제 방지)
+  useEffect(() => {
+    fetchUnreadCountRef.current = fetchUnreadCount;
+  }, [fetchUnreadCount]);
 
   // 컴포넌트 마운트 시 자동 연결
   useEffect(() => {
