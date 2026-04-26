@@ -4,7 +4,7 @@
 
 import { NextRequest, NextResponse } from 'next/server';
 import { ObjectId } from 'mongodb';
-import { connectToDatabase } from '@/utils/mongodb';
+import { connectToDatabase, getClinicId } from '@/utils/mongodb';
 import Pusher from 'pusher';
 
 export const dynamic = 'force-dynamic';
@@ -86,10 +86,12 @@ export async function POST(request: NextRequest) {
     }
 
     const { db } = await connectToDatabase();
+    const clinicId = getClinicId();
 
     // 대화방 조회
     const chat = await db.collection('channelChats_v2').findOne({
       _id: new ObjectId(chatId),
+      clinicId,
     });
 
     if (!chat) {
@@ -162,6 +164,7 @@ export async function POST(request: NextRequest) {
 
       // 발송 실패해도 메시지는 DB에 저장 (실패 상태로)
       const failedMessage = {
+        clinicId,
         chatId,
         direction: 'outgoing',
         messageType,
@@ -186,6 +189,7 @@ export async function POST(request: NextRequest) {
 
     // 성공 - 메시지 저장
     const message = {
+      clinicId,
       chatId,
       direction: 'outgoing',
       messageType,

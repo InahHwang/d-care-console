@@ -3,7 +3,7 @@
 // API 문서: https://developers.facebook.com/docs/messenger-platform/instagram
 
 import { NextRequest, NextResponse } from 'next/server';
-import { connectToDatabase } from '@/utils/mongodb';
+import { connectToDatabase, getClinicId } from '@/utils/mongodb';
 import Pusher from 'pusher';
 
 export const dynamic = 'force-dynamic';
@@ -104,6 +104,7 @@ export async function POST(request: NextRequest) {
     }
 
     const { db } = await connectToDatabase();
+    const clinicId = getClinicId();
     const now = new Date();
 
     // 각 entry 처리
@@ -111,7 +112,7 @@ export async function POST(request: NextRequest) {
       if (!entry.messaging) continue;
 
       for (const event of entry.messaging) {
-        await handleMessagingEvent(db, entry.id, event, now);
+        await handleMessagingEvent(db, clinicId, entry.id, event, now);
       }
     }
 
@@ -130,6 +131,7 @@ export async function POST(request: NextRequest) {
 
 async function handleMessagingEvent(
   db: any,
+  clinicId: string,
   pageId: string,
   event: InstagramMessagingEvent,
   now: Date
@@ -162,7 +164,7 @@ async function handleMessagingEvent(
 
   // 메시지 이벤트
   if (message) {
-    await handleMessageEvent(db, pageId, sender.id, message, now);
+    await handleMessageEvent(db, clinicId, pageId, sender.id, message, now);
   }
 }
 
@@ -172,6 +174,7 @@ async function handleMessagingEvent(
 
 async function handleMessageEvent(
   db: any,
+  clinicId: string,
   pageId: string,
   senderId: string,
   message: NonNullable<InstagramMessagingEvent['message']>,
@@ -215,6 +218,7 @@ async function handleMessageEvent(
 
   // 대화방 찾기 또는 생성
   let chat = await db.collection('channelChats_v2').findOne({
+    clinicId,
     channel: 'instagram',
     channelUserKey: senderId,
   });
@@ -222,6 +226,7 @@ async function handleMessageEvent(
   if (!chat) {
     // 새 대화방 생성
     const newChat = {
+      clinicId,
       channel: 'instagram',
       channelRoomId: `instagram_${senderId}_${Date.now()}`,
       channelUserKey: senderId,
@@ -258,6 +263,7 @@ async function handleMessageEvent(
 
   // 메시지 저장
   const newMessage = {
+    clinicId,
     chatId: chat._id.toString(),
     direction: 'incoming',
     messageType,

@@ -3,7 +3,7 @@
 // API 문서: https://github.com/navertalk/chatbot-api
 
 import { NextRequest, NextResponse } from 'next/server';
-import { connectToDatabase } from '@/utils/mongodb';
+import { connectToDatabase, getClinicId } from '@/utils/mongodb';
 import Pusher from 'pusher';
 
 export const dynamic = 'force-dynamic';
@@ -83,6 +83,7 @@ export async function POST(request: NextRequest) {
     }
 
     const { db } = await connectToDatabase();
+    const clinicId = getClinicId();
     const now = new Date();
 
     // ============================================
@@ -102,7 +103,7 @@ export async function POST(request: NextRequest) {
 
       case 'send': {
         // 메시지 수신
-        await handleSendEvent(db, user, body as NaverSendEvent, now);
+        await handleSendEvent(db, clinicId, user, body as NaverSendEvent, now);
         break;
       }
 
@@ -142,12 +143,14 @@ export async function POST(request: NextRequest) {
 
 async function handleOpenEvent(
   db: any,
+  clinicId: string,
   userKey: string,
   event: NaverOpenEvent,
   now: Date
 ) {
   // 기존 대화방 찾기
   let chat = await db.collection('channelChats_v2').findOne({
+    clinicId,
     channel: 'naver',
     channelUserKey: userKey,
     status: { $ne: 'closed' },
@@ -156,6 +159,7 @@ async function handleOpenEvent(
   if (!chat) {
     // 새 대화방 생성
     const newChat = {
+      clinicId,
       channel: 'naver',
       channelRoomId: `naver_${userKey}_${Date.now()}`,
       channelUserKey: userKey,
@@ -200,6 +204,7 @@ async function handleOpenEvent(
 
 async function handleSendEvent(
   db: any,
+  clinicId: string,
   userKey: string,
   event: NaverSendEvent,
   now: Date
@@ -229,6 +234,7 @@ async function handleSendEvent(
 
   // 대화방 찾기 또는 생성
   let chat = await db.collection('channelChats_v2').findOne({
+    clinicId,
     channel: 'naver',
     channelUserKey: userKey,
   });
@@ -236,6 +242,7 @@ async function handleSendEvent(
   if (!chat) {
     // 대화방이 없으면 생성 (open 이벤트 없이 바로 메시지 온 경우)
     const newChat = {
+      clinicId,
       channel: 'naver',
       channelRoomId: `naver_${userKey}_${Date.now()}`,
       channelUserKey: userKey,
@@ -258,6 +265,7 @@ async function handleSendEvent(
 
   // 메시지 저장
   const message = {
+    clinicId,
     chatId: chat._id.toString(),
     direction: 'incoming',
     messageType,

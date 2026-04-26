@@ -185,14 +185,19 @@ export default function ChannelChatPage() {
       const chatData = await chatRes.json();
       const messagesData = await messagesRes.json();
 
-      if (chatData.success) {
-        setCurrentChat(chatData.data);
-        setPatient(chatData.data.patient || null);
+      // 조회 실패 시 이전 대화방 데이터가 남는 것을 방지 (clinicId 누락 등으로 404 반환되는 케이스)
+      if (!chatData.success || !messagesData.success) {
+        console.error('[ChannelChat] 대화방 조회 실패:', { chatId, chatError: chatData.error, messagesError: messagesData.error });
+        setCurrentChat(null);
+        setPatient(null);
+        setMessages([]);
+        alert(chatData.error || messagesData.error || '대화방을 불러올 수 없습니다. 새로고침 후 다시 시도해주세요.');
+        return;
       }
 
-      if (messagesData.success) {
-        setMessages(messagesData.data);
-      }
+      setCurrentChat(chatData.data);
+      setPatient(chatData.data.patient || null);
+      setMessages(messagesData.data);
 
       // 읽음 처리
       if (chatData.data?.unreadCount > 0) {
@@ -210,6 +215,9 @@ export default function ChannelChatPage() {
       }
     } catch (error) {
       console.error('대화방 상세 조회 오류:', error);
+      setCurrentChat(null);
+      setPatient(null);
+      setMessages([]);
     } finally {
       setIsLoadingMessages(false);
     }

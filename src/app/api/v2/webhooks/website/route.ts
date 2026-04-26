@@ -3,7 +3,7 @@
 
 import { NextRequest, NextResponse } from 'next/server';
 import { ObjectId } from 'mongodb';
-import { connectToDatabase } from '@/utils/mongodb';
+import { connectToDatabase, getClinicId } from '@/utils/mongodb';
 import Pusher from 'pusher';
 
 export const dynamic = 'force-dynamic';
@@ -53,6 +53,7 @@ export async function POST(request: NextRequest) {
     }
 
     const { db } = await connectToDatabase();
+    const clinicId = getClinicId();
     const now = new Date();
 
     // ============================================
@@ -61,6 +62,7 @@ export async function POST(request: NextRequest) {
     if (requestType === 'start') {
       // 기존 대화방 확인
       let chat = await db.collection('channelChats_v2').findOne({
+        clinicId,
         channel: 'website',
         channelRoomId: sessionId,
         status: { $ne: 'closed' },
@@ -81,6 +83,7 @@ export async function POST(request: NextRequest) {
 
       if (phone) {
         const patient = await db.collection('patients_v2').findOne({
+          clinicId,
           $or: [
             { phone },
             { phone: { $regex: phone.slice(-8) + '$' } },
@@ -95,6 +98,7 @@ export async function POST(request: NextRequest) {
 
       // 새 대화방 생성
       const newChat = {
+        clinicId,
         channel: 'website',
         channelRoomId: sessionId,
         channelUserKey: sessionId,
@@ -141,11 +145,13 @@ export async function POST(request: NextRequest) {
       if (chatId && ObjectId.isValid(chatId)) {
         chat = await db.collection('channelChats_v2').findOne({
           _id: new ObjectId(chatId),
+          clinicId,
         });
       }
 
       if (!chat) {
         chat = await db.collection('channelChats_v2').findOne({
+          clinicId,
           channel: 'website',
           channelRoomId: sessionId,
         });
@@ -160,6 +166,7 @@ export async function POST(request: NextRequest) {
 
       // 메시지 저장
       const message = {
+        clinicId,
         chatId: chat._id.toString(),
         direction: 'incoming',
         messageType,

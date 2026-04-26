@@ -3,7 +3,7 @@
 // API 문서: https://kakaobusiness.gitbook.io/main/tool/chatbot/skill_guide
 
 import { NextRequest, NextResponse } from 'next/server';
-import { connectToDatabase } from '@/utils/mongodb';
+import { connectToDatabase, getClinicId } from '@/utils/mongodb';
 import Pusher from 'pusher';
 
 export const dynamic = 'force-dynamic';
@@ -108,10 +108,12 @@ export async function POST(request: NextRequest) {
     }
 
     const { db } = await connectToDatabase();
+    const clinicId = getClinicId();
     const now = new Date();
 
     // 대화방 찾기 또는 생성
     let chat = await db.collection('channelChats_v2').findOne({
+      clinicId,
       channel: 'kakao',
       channelUserKey: userKey,
     });
@@ -119,6 +121,7 @@ export async function POST(request: NextRequest) {
     if (!chat) {
       // 새 대화방 생성
       const newChat = {
+        clinicId,
         channel: 'kakao',
         channelRoomId: `kakao_${userKey}_${Date.now()}`,
         channelUserKey: userKey,
@@ -146,6 +149,7 @@ export async function POST(request: NextRequest) {
 
     // 메시지 저장
     const message = {
+      clinicId,
       chatId: chat._id.toString(),
       direction: 'incoming',
       messageType: 'text',
