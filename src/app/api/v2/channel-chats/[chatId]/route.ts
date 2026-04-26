@@ -3,8 +3,17 @@ import { NextRequest, NextResponse } from 'next/server';
 import { ObjectId } from 'mongodb';
 import { connectToDatabase, getClinicId } from '@/utils/mongodb';
 import { verifyToken } from '@/lib/auth';
+import Pusher from 'pusher';
 
 export const dynamic = 'force-dynamic';
+
+const pusher = new Pusher({
+  appId: process.env.PUSHER_APP_ID!,
+  key: process.env.NEXT_PUBLIC_PUSHER_KEY!,
+  secret: process.env.PUSHER_SECRET!,
+  cluster: process.env.NEXT_PUBLIC_PUSHER_CLUSTER!,
+  useTLS: true,
+});
 
 interface RouteParams {
   params: Promise<{ chatId: string }>;
@@ -173,6 +182,27 @@ export async function PATCH(request: NextRequest, { params }: RouteParams) {
         { success: false, error: '대화방을 찾을 수 없습니다.' },
         { status: 404 }
       );
+    }
+
+    // 사이드바 unread 뱃지 갱신을 위한 Pusher 이벤트 발송
+    try {
+      if (body.unreadCount === 0) {
+        // 읽음 처리 → 뱃지 카운트 갱신
+        await pusher.trigger('channel-chat-v2', 'messages-read', { chatId });
+      } else if (body.status === 'closed') {
+        // 상담 종료 → 종료된 대화방은 unread 집계에서 제외되므로 뱃지 갱신 필요
+        await pusher.trigger('channel-chat-v2', 'chat-closed', { chatId });
+      } else if (body.patientId !== undefined) {
+        // 환자 매칭 변경
+        await pusher.trigger('channel-chat-v2', 'patient-matched', {
+          chatId,
+          patientId: body.patientId,
+          patientName: result.patientName,
+        });
+      }
+    } catch (pusherError) {
+      console.error('[채팅 PATCH] Pusher 이벤트 발송 실패:', pusherError);
+      // Pusher 실패해도 PATCH 자체는 성공으로 응답
     }
 
     return NextResponse.json({
