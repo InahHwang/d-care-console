@@ -187,16 +187,28 @@
   }
 
   async function loadMessages() {
-    if (!state.chatId) return;
+    if (!state.chatId || !state.sessionId) return;
     CONFIG = getConfig(); // config 갱신
 
     try {
-      const res = await fetch(CONFIG.apiBaseUrl + '/api/v2/channel-chats/' + state.chatId + '/messages');
+      const url = CONFIG.apiBaseUrl + '/api/v2/webhooks/website/messages'
+        + '?sessionId=' + encodeURIComponent(state.sessionId)
+        + '&chatId=' + encodeURIComponent(state.chatId);
+      const res = await fetch(url);
       const data = await res.json();
-      if (data.success) {
-        state.messages = data.data?.messages || [];
+      if (data.success && Array.isArray(data.data)) {
+        state.messages = data.data;
         renderMessages();
         connectPusher();
+      } else {
+        // 대화방을 찾지 못한 경우(예: 운영자가 삭제) 세션 초기화
+        if (res.status === 404) {
+          console.warn('[D-Care Widget] 이전 대화방을 찾을 수 없어 세션을 초기화합니다.');
+          localStorage.removeItem('dcare-chat-session');
+          state.chatId = null;
+          state.messages = [];
+          state.step = 'info';
+        }
       }
     } catch (error) {
       console.error('메시지 로드 실패:', error);
