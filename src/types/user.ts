@@ -20,6 +20,10 @@ export interface User {
   updatedAt: string
   lastLogin?: string
   createdBy?: string   // 계정 생성자
+  // 오늘 사용 중인 데스크 전화번호 (자동 환자 등록 시 매핑용)
+  // 빈 문자열/undefined = 자리 없음 (자동 매핑 비활성)
+  currentDeskNumber?: string
+  currentDeskUpdatedAt?: string  // 데스크 마지막 변경 시각 (하루 1회 확인 다이얼로그용)
 }
 
 // 역할 정규화 함수 (master -> admin)

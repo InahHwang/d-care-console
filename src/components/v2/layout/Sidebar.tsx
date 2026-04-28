@@ -24,6 +24,7 @@ import {
 } from 'lucide-react';
 import { ROLE_CONFIG } from '@/types/invitation';
 import type { UserRole } from '@/types/invitation';
+import { getDeskDisplay } from '@/constants/desks';
 
 interface NavItem {
   id: string;
@@ -52,9 +53,10 @@ interface SidebarProps {
   analysisPending?: number;
   callbackCount?: number;
   unreadChatCount?: number;
+  onOpenDeskDialog?: () => void;
 }
 
-export function Sidebar({ analysisPending = 0, callbackCount = 0, unreadChatCount = 0 }: SidebarProps) {
+export function Sidebar({ analysisPending = 0, callbackCount = 0, unreadChatCount = 0, onOpenDeskDialog }: SidebarProps) {
   const pathname = usePathname();
   const { user, isAuthenticated } = useAppSelector((state) => state.auth);
 
@@ -184,6 +186,23 @@ export function Sidebar({ analysisPending = 0, callbackCount = 0, unreadChatCoun
           <span>V1 버전 보기</span>
         </Link>
       </div>
+
+      {/* 내 자리 (전화기 데스크) */}
+      {isAuthenticated && (
+        <div className="px-3 pb-2">
+          <button
+            onClick={onOpenDeskDialog}
+            className="w-full flex items-center gap-2 px-3 py-2 text-xs text-gray-600 hover:bg-gray-50 rounded-lg transition-colors"
+            title="자리 변경"
+          >
+            <Phone size={14} className={user?.currentDeskNumber ? 'text-orange-500' : 'text-gray-400'} />
+            <span className="flex-1 text-left truncate">
+              내 자리: <span className="font-medium text-gray-800">{getDeskDisplay(user?.currentDeskNumber)}</span>
+            </span>
+            <span className="text-orange-500 text-[10px] font-medium">변경</span>
+          </button>
+        </div>
+      )}
 
       {/* 사용자 정보 */}
       <div className="p-3 border-t">
