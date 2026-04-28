@@ -2,7 +2,8 @@
 'use client';
 
 import { authFetch } from '@/utils/authFetch';
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useEffect, useCallback, useMemo } from 'react';
+import { ChevronLeft, ChevronRight } from 'lucide-react';
 import { PageHeader } from '@/components/v2/layout/PageHeader';
 import {
   RevenueCard,
@@ -65,9 +66,25 @@ export default function DashboardPage() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
+  // 선택된 월 (기본: 현재 월)
+  const [selectedMonth, setSelectedMonth] = useState(() => {
+    const now = new Date();
+    return { year: now.getFullYear(), month: now.getMonth() + 1 }; // month: 1-12
+  });
+
+  const isCurrentMonth = useMemo(() => {
+    const now = new Date();
+    return selectedMonth.year === now.getFullYear() && selectedMonth.month === now.getMonth() + 1;
+  }, [selectedMonth]);
+
+  const monthQueryString = useMemo(
+    () => `${selectedMonth.year}-${String(selectedMonth.month).padStart(2, '0')}`,
+    [selectedMonth]
+  );
+
   const fetchDashboardData = useCallback(async () => {
     try {
-      const response = await authFetch('/api/v2/dashboard');
+      const response = await authFetch(`/api/v2/dashboard?month=${monthQueryString}`);
       if (!response.ok) {
         throw new Error('Failed to fetch dashboard data');
       }
@@ -83,19 +100,39 @@ export default function DashboardPage() {
     } finally {
       setLoading(false);
     }
-  }, []);
+  }, [monthQueryString]);
 
   useEffect(() => {
+    setLoading(true);
     fetchDashboardData();
 
-    // 30초마다 자동 새로고침
+    // 현재 월일 때만 30초 자동 새로고침 (과거 월 데이터는 변하지 않음)
+    if (!isCurrentMonth) return;
     const interval = setInterval(fetchDashboardData, 30000);
     return () => clearInterval(interval);
-  }, [fetchDashboardData]);
+  }, [fetchDashboardData, isCurrentMonth]);
 
   const handleRefresh = () => {
     setLoading(true);
     fetchDashboardData();
+  };
+
+  const goToPrevMonth = () => {
+    setSelectedMonth(prev =>
+      prev.month === 1 ? { year: prev.year - 1, month: 12 } : { ...prev, month: prev.month - 1 }
+    );
+  };
+
+  const goToNextMonth = () => {
+    if (isCurrentMonth) return; // 미래 월 차단
+    setSelectedMonth(prev =>
+      prev.month === 12 ? { year: prev.year + 1, month: 1 } : { ...prev, month: prev.month + 1 }
+    );
+  };
+
+  const goToCurrentMonth = () => {
+    const now = new Date();
+    setSelectedMonth({ year: now.getFullYear(), month: now.getMonth() + 1 });
   };
 
   if (error) {
@@ -124,24 +161,59 @@ export default function DashboardPage() {
     <div className="p-6 space-y-6">
       <PageHeader
         title="대시보드"
-        subtitle="이번달 성과와 오늘 할 일을 확인하세요"
+        subtitle="월별 실적과 오늘 할 일을 확인하세요"
         onRefresh={handleRefresh}
       />
+
+      {/* 월 선택 네비게이션 */}
+      <div className="bg-white rounded-xl shadow-sm px-6 py-4 flex items-center justify-center gap-4">
+        <button
+          onClick={goToPrevMonth}
+          className="p-2 rounded-lg hover:bg-gray-100 text-gray-600 transition-colors"
+          title="이전 달"
+        >
+          <ChevronLeft size={22} />
+        </button>
+        <h2 className="text-3xl font-bold text-gray-900 tabular-nums min-w-[180px] text-center">
+          {selectedMonth.year}년 {selectedMonth.month}월
+        </h2>
+        <button
+          onClick={goToNextMonth}
+          disabled={isCurrentMonth}
+          className="p-2 rounded-lg hover:bg-gray-100 text-gray-600 transition-colors disabled:opacity-30 disabled:cursor-not-allowed disabled:hover:bg-transparent"
+          title="다음 달"
+        >
+          <ChevronRight size={22} />
+        </button>
+        {!isCurrentMonth && (
+          <button
+            onClick={goToCurrentMonth}
+            className="ml-2 px-3 py-1.5 text-sm font-medium text-orange-600 bg-orange-50 hover:bg-orange-100 rounded-lg transition-colors"
+          >
+            이번 달로
+          </button>
+        )}
+      </div>
 
       {/* 온보딩 체크리스트 (설정 미완료 시 표시) */}
       <OnboardingChecklistWidget />
 
-      {/* 이번달 성과 (전환율 퍼널) */}
-      <ConversionFunnelCard
-        data={data?.conversionRates ?? null}
-        loading={loading}
-      />
+      {/* 2열 그리드: 이번달 성과 + 상담사별 실적 */}
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+        {/* 이번달 성과 (전환율 퍼널) */}
+        <ConversionFunnelCard
+          data={data?.conversionRates ?? null}
+          loading={loading}
+          year={selectedMonth.year}
+          month={selectedMonth.month}
+        />
 
-      {/* 상담사별 실적 테이블 */}
-      <ConsultantPerformanceTable
-        data={data?.consultantStats ?? null}
-        loading={loading}
-      />
+        {/* 상담사별 실적 테이블 */}
+        <ConsultantPerformanceTable
+          data={data?.consultantStats ?? null}
+          loading={loading}
+        />
+      </div>
 
       {/* 2열 그리드: 오늘 할 일 + 매출 */}
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">

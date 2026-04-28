@@ -30,6 +30,8 @@ interface ConversionRates {
 interface ConversionFunnelCardProps {
   data: ConversionRates | null;
   loading?: boolean;
+  year?: number;
+  month?: number; // 1-12
 }
 
 function TrendBadge({ value, type }: { value: number; type: 'count' | 'percent' }) {
@@ -75,13 +77,15 @@ function LoadingSkeleton() {
   );
 }
 
-export function ConversionFunnelCard({ data, loading }: ConversionFunnelCardProps) {
+export function ConversionFunnelCard({ data, loading, year, month }: ConversionFunnelCardProps) {
   if (loading) {
     return <LoadingSkeleton />;
   }
 
   const today = new Date();
-  const monthStr = `${today.getFullYear()}년 ${today.getMonth() + 1}월`;
+  const displayYear = year ?? today.getFullYear();
+  const displayMonth = month ?? today.getMonth() + 1;
+  const monthStr = `${displayYear}년 ${displayMonth}월`;
 
   const router = useRouter();
 
@@ -165,16 +169,14 @@ export function ConversionFunnelCard({ data, loading }: ConversionFunnelCardProp
             <div
               key={card.id}
               onClick={() => router.push(card.href)}
-              className={`${card.bgColor} rounded-xl p-4 relative overflow-hidden cursor-pointer hover:brightness-95 transition-all`}
+              className={`${card.bgColor} rounded-xl p-4 relative cursor-pointer hover:brightness-95 transition-all`}
             >
               {/* 연결선 (모바일에서는 숨김) */}
               {index < cards.length - 1 && (
-                <div className="hidden lg:block absolute right-0 top-1/2 -translate-y-1/2 translate-x-1/2 z-10">
-                  <div className="w-4 h-4 text-gray-300">
-                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                      <path d="M9 18l6-6-6-6" />
-                    </svg>
-                  </div>
+                <div className="hidden lg:flex absolute right-0 top-1/2 -translate-y-1/2 translate-x-1/2 z-10 items-center justify-center w-6 h-6 bg-white rounded-full shadow-sm ring-1 ring-gray-100">
+                  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" className="w-3.5 h-3.5 text-gray-400">
+                    <path d="M9 18l6-6-6-6" />
+                  </svg>
                 </div>
               )}
 

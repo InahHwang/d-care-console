@@ -20,22 +20,37 @@ export async function GET(request: NextRequest) {
     // KST(UTC+9) 기준 날짜 계산 (Vercel 서버는 UTC이므로 보정 필요)
     const KST_OFFSET = 9 * 60 * 60 * 1000;
     const kstNow = new Date(Date.now() + KST_OFFSET);
-    const kstYear = kstNow.getUTCFullYear();
-    const kstMonth = kstNow.getUTCMonth();
-    const kstDate = kstNow.getUTCDate();
+    // 오늘 기준 (오늘 할 일은 월 선택과 무관하게 항상 현재 시점)
+    const todayKstYear = kstNow.getUTCFullYear();
+    const todayKstMonth = kstNow.getUTCMonth();
+    const todayKstDate = kstNow.getUTCDate();
 
-    // KST 기준 오늘/내일 자정 (UTC Date로 표현)
-    const today = new Date(Date.UTC(kstYear, kstMonth, kstDate) - KST_OFFSET);
+    // 선택된 월 (?month=YYYY-MM, 미지정 또는 미래월은 현재 월로 폴백)
+    const monthParam = request.nextUrl.searchParams.get('month');
+    let targetYear = todayKstYear;
+    let targetMonth = todayKstMonth;
+    if (monthParam && /^\d{4}-\d{2}$/.test(monthParam)) {
+      const [y, m] = monthParam.split('-').map(Number);
+      const requestedMonthTime = Date.UTC(y, m - 1, 1);
+      const currentMonthTime = Date.UTC(todayKstYear, todayKstMonth, 1);
+      if (requestedMonthTime <= currentMonthTime) {
+        targetYear = y;
+        targetMonth = m - 1;
+      }
+    }
+
+    // KST 기준 오늘/내일 자정 (UTC Date로 표현) - 오늘 할 일용
+    const today = new Date(Date.UTC(todayKstYear, todayKstMonth, todayKstDate) - KST_OFFSET);
     const tomorrow = new Date(today.getTime() + 24 * 60 * 60 * 1000);
 
-    // 이번 달 시작/끝 (KST 기준)
-    const monthStart = new Date(Date.UTC(kstYear, kstMonth, 1) - KST_OFFSET);
-    const lastDayOfMonth = new Date(Date.UTC(kstYear, kstMonth + 1, 0)).getUTCDate();
-    const monthEnd = new Date(Date.UTC(kstYear, kstMonth, lastDayOfMonth, 23, 59, 59, 999) - KST_OFFSET);
-    // 지난 달 시작/끝 (KST 기준)
-    const lastMonthStart = new Date(Date.UTC(kstYear, kstMonth - 1, 1) - KST_OFFSET);
-    const lastDayOfLastMonth = new Date(Date.UTC(kstYear, kstMonth, 0)).getUTCDate();
-    const lastMonthEnd = new Date(Date.UTC(kstYear, kstMonth - 1, lastDayOfLastMonth, 23, 59, 59, 999) - KST_OFFSET);
+    // 선택된 월의 시작/끝 (KST 기준)
+    const monthStart = new Date(Date.UTC(targetYear, targetMonth, 1) - KST_OFFSET);
+    const lastDayOfMonth = new Date(Date.UTC(targetYear, targetMonth + 1, 0)).getUTCDate();
+    const monthEnd = new Date(Date.UTC(targetYear, targetMonth, lastDayOfMonth, 23, 59, 59, 999) - KST_OFFSET);
+    // 선택된 월의 전월 시작/끝 (KST 기준)
+    const lastMonthStart = new Date(Date.UTC(targetYear, targetMonth - 1, 1) - KST_OFFSET);
+    const lastDayOfLastMonth = new Date(Date.UTC(targetYear, targetMonth, 0)).getUTCDate();
+    const lastMonthEnd = new Date(Date.UTC(targetYear, targetMonth - 1, lastDayOfLastMonth, 23, 59, 59, 999) - KST_OFFSET);
 
     // nextActionDate 비교용 ISO 문자열 (Date/String 혼재 대응)
     const dayAfterTomorrow = new Date(tomorrow.getTime() + 24 * 60 * 60 * 1000);
@@ -43,8 +58,8 @@ export async function GET(request: NextRequest) {
     const tomorrowISO = tomorrow.toISOString();
     const dayAfterTomorrowISO = dayAfterTomorrow.toISOString();
     // KST 날짜 문자열 (YYYY-MM-DD 형식 대응)
-    const kstTodayStr = `${kstYear}-${String(kstMonth + 1).padStart(2, '0')}-${String(kstDate).padStart(2, '0')}`;
-    const kstTmrDate = new Date(Date.UTC(kstYear, kstMonth, kstDate + 1));
+    const kstTodayStr = `${todayKstYear}-${String(todayKstMonth + 1).padStart(2, '0')}-${String(todayKstDate).padStart(2, '0')}`;
+    const kstTmrDate = new Date(Date.UTC(todayKstYear, todayKstMonth, todayKstDate + 1));
     const kstTomorrowStr = `${kstTmrDate.getUTCFullYear()}-${String(kstTmrDate.getUTCMonth() + 1).padStart(2, '0')}-${String(kstTmrDate.getUTCDate()).padStart(2, '0')}`;
 
     // 병렬 쿼리 실행 (성능 최적화) - V2 전용
