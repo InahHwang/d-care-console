@@ -35,6 +35,34 @@ interface PatientQuery {
   createdAt?: { $gte?: Date; $lte?: Date };
 }
 
+// 담당 상담사 표시용 이름 해석
+// 우선순위: createdByName → 첫 여정의 statusHistory → 환자 루트 statusHistory
+// ('시스템'은 자동 생성 값이라 의미 없으니 제외)
+type StatusEntry = { to?: string; changedBy?: string };
+function pickValidName(history: StatusEntry[] | undefined): string | undefined {
+  if (!history || history.length === 0) return undefined;
+  const isValid = (n?: string) => !!n && n !== '시스템';
+  // to === 'consulting'이면서 changedBy가 의미있는 첫 항목
+  const consultingEntry = history.find((h) => h?.to === 'consulting' && isValid(h?.changedBy));
+  if (consultingEntry?.changedBy) return consultingEntry.changedBy;
+  // 그 외 의미있는 첫 항목
+  const anyEntry = history.find((h) => isValid(h?.changedBy));
+  return anyEntry?.changedBy;
+}
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+function resolveCreatedByDisplay(p: any): string {
+  const createdByName = typeof p?.createdByName === 'string' ? p.createdByName : '';
+  if (createdByName && createdByName !== '시스템') return createdByName;
+  // 첫 여정(보통 신규 등록 시 생성된 여정)의 statusHistory 우선
+  const journeys = Array.isArray(p?.journeys) ? p.journeys : [];
+  if (journeys.length > 0) {
+    const fromJourney = pickValidName(journeys[0]?.statusHistory);
+    if (fromJourney) return fromJourney;
+  }
+  const fromRoot = pickValidName(p?.statusHistory);
+  return fromRoot || '';
+}
+
 // 정규식 특수문자 이스케이프 함수
 function escapeRegex(str: string): string {
   return str.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
@@ -403,10 +431,9 @@ export async function GET(request: NextRequest) {
       const daysInStatus = Math.floor((now.getTime() - statusDate.getTime()) / (1000 * 60 * 60 * 24));
       const patientUrgency = getUrgency(p.status, p.nextActionDate, daysInStatus);
 
-      // 담당 상담사 표시: createdByName이 없으면 statusHistory에서 최초 'consulting' 진입자 이름 fallback
-      const firstConsultingEntry = (p.statusHistory as Array<{ to?: string; changedBy?: string }> | undefined)
-        ?.find((h) => h?.to === 'consulting');
-      const createdByDisplay = p.createdByName || firstConsultingEntry?.changedBy || '';
+      // 담당 상담사 표시 fallback: createdByName → 첫 여정의 statusHistory → 환자 루트 statusHistory
+      // ('시스템'은 자동 생성 값이라 의미 없으니 제외)
+      const createdByDisplay = resolveCreatedByDisplay(p);
 
       return {
         id: p._id.toString(),
@@ -473,10 +500,8 @@ export async function GET(request: NextRequest) {
         }
         const days = Math.floor((now.getTime() - statusDate.getTime()) / (1000 * 60 * 60 * 24));
 
-        // 담당 상담사 표시: createdByName이 없으면 statusHistory에서 최초 'consulting' 진입자 이름 fallback
-        const firstConsultingEntry = (p.statusHistory as Array<{ to?: string; changedBy?: string }> | undefined)
-          ?.find((h) => h?.to === 'consulting');
-        const createdByDisplay = p.createdByName || firstConsultingEntry?.changedBy || '';
+        // 담당 상담사 표시 fallback (위와 동일 규칙)
+        const createdByDisplay = resolveCreatedByDisplay(p);
 
         return {
           id: p._id.toString(),
