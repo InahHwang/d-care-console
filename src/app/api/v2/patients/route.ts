@@ -439,6 +439,8 @@ export async function GET(request: NextRequest) {
         // AI 코칭 관련 필드
         lastCoachingScore: p.lastCoachingScore ?? null,
         lastCoachingAt: p.lastCoachingAt ?? null,
+        // 등록 상담사 (테이블 표시용)
+        createdByName: p.createdByName || '',
       };
     });
 
@@ -501,6 +503,8 @@ export async function GET(request: NextRequest) {
           // AI 코칭 관련 필드
           lastCoachingScore: p.lastCoachingScore ?? null,
           lastCoachingAt: p.lastCoachingAt ?? null,
+          // 등록 상담사 (테이블 표시용)
+          createdByName: p.createdByName || '',
         };
       });
 

@@ -2,7 +2,7 @@
 'use client';
 
 import React from 'react';
-import { PhoneCall, ChevronRight, Flame, Thermometer, Snowflake, PhoneIncoming, PhoneOutgoing, AlertTriangle, Layers, Sparkles } from 'lucide-react';
+import { PhoneCall, Flame, Thermometer, Snowflake, PhoneIncoming, PhoneOutgoing, AlertTriangle, Layers, Sparkles, User } from 'lucide-react';
 import { PatientStatus, Temperature } from '@/types/v2';
 
 type CallDirection = 'inbound' | 'outbound';
@@ -52,12 +52,13 @@ interface Patient {
   // AI 코칭 관련 필드
   lastCoachingScore?: number | null;
   lastCoachingAt?: string | null;
+  // 등록 상담사
+  createdByName?: string;
 }
 
 interface PatientListProps {
   patients: Patient[];
   onPatientClick?: (patient: Patient) => void;
-  onCallClick?: (patient: Patient) => void;
   loading?: boolean;
   consultationTypeMap?: Record<string, string>; // id → label 매핑
 }
@@ -107,7 +108,7 @@ function TableSkeleton() {
       <div className="col-span-1"><div className="h-4 w-10 bg-gray-200 rounded" /></div>
       <div className="col-span-1"><div className="h-4 w-12 bg-gray-200 rounded" /></div>
       <div className="col-span-1"><div className="h-4 w-14 bg-gray-200 rounded" /></div>
-      <div className="col-span-1"></div>
+      <div className="col-span-1"><div className="h-4 w-12 bg-gray-200 rounded" /></div>
     </div>
   );
 }
@@ -271,7 +272,7 @@ function CallDirectionIcon({ direction }: { direction?: CallDirection }) {
   );
 }
 
-export function PatientList({ patients, onPatientClick, onCallClick, loading, consultationTypeMap }: PatientListProps) {
+export function PatientList({ patients, onPatientClick, loading, consultationTypeMap }: PatientListProps) {
   if (loading) {
     return (
       <div className="bg-white rounded-2xl shadow-sm overflow-hidden">
@@ -280,12 +281,12 @@ export function PatientList({ patients, onPatientClick, onCallClick, loading, co
           <div className="w-[14%] min-w-[100px]">환자명</div>
           <div className="w-[6%] min-w-[45px]">나이</div>
           <div className="w-[10%] min-w-[95px]">금액</div>
-          <div className="w-[12%] min-w-[100px]">전화번호</div>
+          <div className="w-[11%] min-w-[95px]">전화번호</div>
           <div className="w-[10%] min-w-[75px]">지역</div>
           <div className="w-[12%] min-w-[80px]">치료과목</div>
           <div className="w-[10%] min-w-[70px]">상태</div>
-          <div className="w-[15%] min-w-[120px]">예정일</div>
-          <div className="w-[6%] min-w-[50px]"></div>
+          <div className="w-[14%] min-w-[110px]">예정일</div>
+          <div className="w-[8%] min-w-[70px]">담당 상담사</div>
         </div>
         <div className="divide-y divide-gray-100">
           {Array.from({ length: 5 }).map((_, i) => (
@@ -314,12 +315,12 @@ export function PatientList({ patients, onPatientClick, onCallClick, loading, co
         <div className="w-[14%] min-w-[100px]">환자명</div>
         <div className="w-[6%] min-w-[45px]">나이</div>
         <div className="w-[10%] min-w-[95px]">금액</div>
-        <div className="w-[12%] min-w-[100px]">전화번호</div>
+        <div className="w-[11%] min-w-[95px]">전화번호</div>
         <div className="w-[10%] min-w-[75px]">지역</div>
         <div className="w-[12%] min-w-[80px]">치료과목</div>
         <div className="w-[10%] min-w-[70px]">상태</div>
-        <div className="w-[15%] min-w-[120px]">예정일</div>
-        <div className="w-[6%] min-w-[50px]"></div>
+        <div className="w-[14%] min-w-[110px]">예정일</div>
+        <div className="w-[8%] min-w-[70px]">담당 상담사</div>
       </div>
 
       {/* 테이블 바디 */}
@@ -421,7 +422,7 @@ export function PatientList({ patients, onPatientClick, onCallClick, loading, co
               </div>
 
               {/* 전화번호 */}
-              <div className="w-[12%] min-w-[100px] text-sm text-gray-600">
+              <div className="w-[11%] min-w-[95px] text-sm text-gray-600">
                 {formatPhone(patient.phone)}
               </div>
 
@@ -461,7 +462,7 @@ export function PatientList({ patients, onPatientClick, onCallClick, loading, co
               </div>
 
               {/* 예정일 + 메모 */}
-              <div className="w-[15%] min-w-[120px] text-sm">
+              <div className="w-[14%] min-w-[110px] text-sm">
                 {patient.nextActionDate ? (
                   <div className="flex items-center gap-2">
                     <div className="flex flex-col shrink-0">
@@ -497,26 +498,16 @@ export function PatientList({ patients, onPatientClick, onCallClick, loading, co
                 )}
               </div>
 
-              {/* 액션 버튼 */}
-              <div className="w-[6%] min-w-[50px] flex justify-end gap-1">
-                <button
-                  onClick={(e) => {
-                    e.stopPropagation();
-                    onCallClick?.(patient);
-                  }}
-                  className="p-1.5 hover:bg-gray-100 rounded text-gray-400 hover:text-emerald-500"
-                >
-                  <PhoneCall size={16} />
-                </button>
-                <button
-                  onClick={(e) => {
-                    e.stopPropagation();
-                    onPatientClick?.(patient);
-                  }}
-                  className="p-1.5 hover:bg-gray-100 rounded text-gray-400 hover:text-orange-500"
-                >
-                  <ChevronRight size={16} />
-                </button>
+              {/* 담당 상담사 */}
+              <div className="w-[8%] min-w-[70px] text-sm text-gray-600 truncate">
+                {patient.createdByName ? (
+                  <span className="inline-flex items-center gap-1">
+                    <User size={12} className="text-gray-400 shrink-0" />
+                    <span className="truncate">{patient.createdByName}</span>
+                  </span>
+                ) : (
+                  <span className="text-gray-300">미지정</span>
+                )}
               </div>
             </div>
           );

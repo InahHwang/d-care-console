@@ -41,6 +41,8 @@ interface Patient {
   estimatedAmount?: number;
   actualAmount?: number;
   paymentStatus?: PaymentStatus;
+  // 등록 상담사
+  createdByName?: string;
 }
 
 interface FilterStats {
@@ -341,10 +343,6 @@ function PatientsPageContent() {
     router.push(`/v2/patients/${patient.id}`);
   };
 
-  const handleCallClick = (patient: Patient) => {
-    window.dispatchEvent(new CustomEvent('cti-call', { detail: { phone: patient.phone } }));
-  };
-
   const handleAddPatient = () => {
     router.push('/v2/patients/new');
   };
@@ -439,7 +437,6 @@ function PatientsPageContent() {
         <PatientList
           patients={patients}
           onPatientClick={handlePatientClick}
-          onCallClick={handleCallClick}
           loading={loading}
           consultationTypeMap={consultationTypeMap}
         />
