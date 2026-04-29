@@ -403,6 +403,11 @@ export async function GET(request: NextRequest) {
       const daysInStatus = Math.floor((now.getTime() - statusDate.getTime()) / (1000 * 60 * 60 * 24));
       const patientUrgency = getUrgency(p.status, p.nextActionDate, daysInStatus);
 
+      // 담당 상담사 표시: createdByName이 없으면 statusHistory에서 최초 'consulting' 진입자 이름 fallback
+      const firstConsultingEntry = (p.statusHistory as Array<{ to?: string; changedBy?: string }> | undefined)
+        ?.find((h) => h?.to === 'consulting');
+      const createdByDisplay = p.createdByName || firstConsultingEntry?.changedBy || '';
+
       return {
         id: p._id.toString(),
         name: p.name,
@@ -440,7 +445,7 @@ export async function GET(request: NextRequest) {
         lastCoachingScore: p.lastCoachingScore ?? null,
         lastCoachingAt: p.lastCoachingAt ?? null,
         // 등록 상담사 (테이블 표시용)
-        createdByName: p.createdByName || '',
+        createdByName: createdByDisplay,
       };
     });
 
@@ -467,6 +472,12 @@ export async function GET(request: NextRequest) {
           statusDate = p.statusChangedAt ? new Date(p.statusChangedAt) : new Date(p.createdAt);
         }
         const days = Math.floor((now.getTime() - statusDate.getTime()) / (1000 * 60 * 60 * 24));
+
+        // 담당 상담사 표시: createdByName이 없으면 statusHistory에서 최초 'consulting' 진입자 이름 fallback
+        const firstConsultingEntry = (p.statusHistory as Array<{ to?: string; changedBy?: string }> | undefined)
+          ?.find((h) => h?.to === 'consulting');
+        const createdByDisplay = p.createdByName || firstConsultingEntry?.changedBy || '';
+
         return {
           id: p._id.toString(),
           name: p.name,
@@ -504,7 +515,7 @@ export async function GET(request: NextRequest) {
           lastCoachingScore: p.lastCoachingScore ?? null,
           lastCoachingAt: p.lastCoachingAt ?? null,
           // 등록 상담사 (테이블 표시용)
-          createdByName: p.createdByName || '',
+          createdByName: createdByDisplay,
         };
       });
 
