@@ -92,15 +92,21 @@ export async function PUT(request: NextRequest) {
             },
           };
 
-    let result = null;
+    // updateOne + matchedCount: driver 버전(findOneAndUpdate 반환 형태 차이)에 영향 받지 않음
+    let matched = false;
     for (const filter of idFilters) {
-      result = await usersCollection.findOneAndUpdate(filter, update, {
-        returnDocument: 'after',
-      });
-      if (result) break;
+      const r = await usersCollection.updateOne(filter, update);
+      if (r.matchedCount > 0) {
+        matched = true;
+        break;
+      }
     }
 
-    if (!result) {
+    if (!matched) {
+      console.warn('[desk PUT] 사용자 매칭 실패', {
+        userId: auth.user.id,
+        filterCount: idFilters.length,
+      });
       return NextResponse.json(
         { message: '사용자를 찾을 수 없습니다.' },
         { status: 404 }
