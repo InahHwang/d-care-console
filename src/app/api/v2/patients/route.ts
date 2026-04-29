@@ -313,10 +313,14 @@ export async function GET(request: NextRequest) {
       'journeys.treatmentType': 1,
       'journeys.status': 1,
       'journeys.isActive': 1,
+      'journeys.statusHistory': 1, // 담당 상담사 fallback용
       activeJourneyId: 1,
       // AI 코칭 관련 필드
       lastCoachingScore: 1,
       lastCoachingAt: 1,
+      // 등록 상담사 (테이블 표시용 + fallback)
+      createdByName: 1,
+      statusHistory: 1,
     };
 
     // 병렬 쿼리
