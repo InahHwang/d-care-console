@@ -28,8 +28,10 @@ function V2LayoutInner({ children }: { children: React.ReactNode }) {
   // - currentDeskNumber 없고 defaultDeskNumber 있음: 자동 복원 (PUT)
   //   (예: 다른 직원이 그 자리 점유해서 본인 currentDeskNumber unset된 상태)
   // - currentDeskNumber 없고 defaultDeskNumber도 없음(필드 부재): 신규 사용자 → 다이얼로그 자동 표시
+  // user._id는 login 응답에 없을 수 있음(id만 옴). 둘 다 체크.
+  const userId = user?._id || user?.id;
   useEffect(() => {
-    if (!user?._id) return;
+    if (!userId) return;
     let cancelled = false;
     (async () => {
       try {
@@ -84,9 +86,8 @@ function V2LayoutInner({ children }: { children: React.ReactNode }) {
       }
     })();
     return () => { cancelled = true; };
-    // user._id가 바뀔 때만 실행 (로그인/로그아웃 시점)
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [user?._id]);
+    // userId가 바뀔 때만 실행 (로그인/로그아웃 시점)
+  }, [userId, dispatch]);
 
   const handleOpenDeskDialog = () => {
     setInitialDesk(user?.currentDeskNumber ?? '');
