@@ -1,7 +1,9 @@
 // src/app/api/v2/users/me/desk/route.ts
 // 본인 데스크(전화번호) 설정/변경 API
-// - 자동 환자 등록 시 incoming-call의 calledNumber로 user를 매핑하기 위함
+// - currentDeskNumber: 오늘 사용 중인 자리 (자동 매핑용)
+// - defaultDeskNumber: 영구 저장 자리 (출근 시 자동 복원 기본값)
 // - 빈 문자열 = "자리 없음" (자동 매핑 비활성)
+// - 1자리=1사람 점유: 자리 변경 시 같은 currentDeskNumber 보유한 다른 사용자는 자동 해제
 
 import { NextRequest, NextResponse } from 'next/server';
 import { ObjectId } from 'mongodb';
@@ -15,6 +17,18 @@ export const dynamic = 'force-dynamic';
 const deskSchema = z.object({
   deskNumber: z.string(), // 빈 문자열 허용 (자리 없음)
 });
+
+// user.id가 ObjectId 형식이거나 string일 수 있어 두 형태 모두 시도
+function buildIdFilter(rawId: string): Array<Record<string, unknown>> {
+  const filters: Array<Record<string, unknown>> = [];
+  try {
+    filters.push({ _id: new ObjectId(rawId) });
+  } catch {
+    // ObjectId 변환 실패는 무시 (string id 사용자)
+  }
+  filters.push({ _id: rawId as any });
+  return filters;
+}
 
 export async function PUT(request: NextRequest) {
   try {
@@ -42,34 +56,48 @@ export async function PUT(request: NextRequest) {
 
     const { db } = await connectToDatabase();
     const usersCollection = db.collection('users');
-
     const updatedAt = new Date().toISOString();
+    const idFilters = buildIdFilter(auth.user.id);
 
-    // user.id가 ObjectId 형식이 아닐 수도 있어 두 가지 모두 시도
+    // 1자리=1사람 점유 해제: 같은 currentDeskNumber 보유한 다른 사용자의 currentDeskNumber 제거
+    // (defaultDeskNumber는 그대로 유지 — 다음 출근 때 본인 자리로 다시 복원되도록)
+    if (deskNumber !== NO_DESK_VALUE) {
+      await usersCollection.updateMany(
+        {
+          currentDeskNumber: deskNumber,
+          $nor: idFilters,
+        },
+        {
+          $unset: { currentDeskNumber: '' },
+          $set: { currentDeskUpdatedAt: updatedAt },
+        }
+      );
+    }
+
+    // 본인 자리 업데이트: default + current 동시 set
+    const update =
+      deskNumber === NO_DESK_VALUE
+        ? {
+            $set: {
+              defaultDeskNumber: '', // 의도적 자리 없음 (다음 로그인에 다이얼로그 안 뜸)
+              currentDeskUpdatedAt: updatedAt,
+            },
+            $unset: { currentDeskNumber: '' },
+          }
+        : {
+            $set: {
+              currentDeskNumber: deskNumber,
+              defaultDeskNumber: deskNumber,
+              currentDeskUpdatedAt: updatedAt,
+            },
+          };
+
     let result = null;
-    try {
-      result = await usersCollection.findOneAndUpdate(
-        { _id: new ObjectId(auth.user.id) },
-        {
-          $set: {
-            currentDeskNumber: deskNumber,
-            currentDeskUpdatedAt: updatedAt,
-          },
-        },
-        { returnDocument: 'after' }
-      );
-    } catch {
-      // ObjectId 변환 실패 시 string id로 재시도
-      result = await usersCollection.findOneAndUpdate(
-        { _id: auth.user.id as any },
-        {
-          $set: {
-            currentDeskNumber: deskNumber,
-            currentDeskUpdatedAt: updatedAt,
-          },
-        },
-        { returnDocument: 'after' }
-      );
+    for (const filter of idFilters) {
+      result = await usersCollection.findOneAndUpdate(filter, update, {
+        returnDocument: 'after',
+      });
+      if (result) break;
     }
 
     if (!result) {
@@ -83,6 +111,7 @@ export async function PUT(request: NextRequest) {
       success: true,
       data: {
         currentDeskNumber: deskNumber === NO_DESK_VALUE ? null : deskNumber,
+        defaultDeskNumber: deskNumber,
         currentDeskUpdatedAt: updatedAt,
       },
     });
@@ -95,7 +124,7 @@ export async function PUT(request: NextRequest) {
   }
 }
 
-// 본인 현재 데스크 조회 (선택적 — 로그인 시 user 객체에 포함되므로 보통 안 씀)
+// 본인 현재/기본 데스크 조회
 export async function GET(request: NextRequest) {
   try {
     const auth = verifyToken(request);
@@ -105,18 +134,18 @@ export async function GET(request: NextRequest) {
 
     const { db } = await connectToDatabase();
     const usersCollection = db.collection('users');
+    const idFilters = buildIdFilter(auth.user.id);
 
-    let user = null;
-    try {
-      user = await usersCollection.findOne(
-        { _id: new ObjectId(auth.user.id) },
-        { projection: { currentDeskNumber: 1, currentDeskUpdatedAt: 1 } }
-      );
-    } catch {
-      user = await usersCollection.findOne(
-        { _id: auth.user.id as any },
-        { projection: { currentDeskNumber: 1, currentDeskUpdatedAt: 1 } }
-      );
+    let user: any = null;
+    for (const filter of idFilters) {
+      user = await usersCollection.findOne(filter, {
+        projection: {
+          currentDeskNumber: 1,
+          currentDeskUpdatedAt: 1,
+          defaultDeskNumber: 1,
+        },
+      });
+      if (user) break;
     }
 
     if (!user) {
@@ -128,6 +157,10 @@ export async function GET(request: NextRequest) {
       data: {
         currentDeskNumber: user.currentDeskNumber || null,
         currentDeskUpdatedAt: user.currentDeskUpdatedAt || null,
+        // defaultDeskNumber: 필드 부재 시 undefined로 응답 (신규 사용자 판정용)
+        defaultDeskNumber:
+          user.defaultDeskNumber === undefined ? undefined : user.defaultDeskNumber,
+        hasDefault: user.defaultDeskNumber !== undefined,
       },
     });
   } catch (error) {

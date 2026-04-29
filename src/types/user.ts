@@ -23,7 +23,10 @@ export interface User {
   // 오늘 사용 중인 데스크 전화번호 (자동 환자 등록 시 매핑용)
   // 빈 문자열/undefined = 자리 없음 (자동 매핑 비활성)
   currentDeskNumber?: string
-  currentDeskUpdatedAt?: string  // 데스크 마지막 변경 시각 (하루 1회 확인 다이얼로그용)
+  currentDeskUpdatedAt?: string  // 데스크 마지막 변경 시각 (출근 자동 복원 판정용)
+  // 영구 저장 자리 (출근 첫 로그인 시 currentDeskNumber로 자동 복원될 기본값)
+  // 필드 자체 부재 = 신규 사용자(다이얼로그 표시 대상), '' = 의도적 자리 없음
+  defaultDeskNumber?: string
 }
 
 // 역할 정규화 함수 (master -> admin)
