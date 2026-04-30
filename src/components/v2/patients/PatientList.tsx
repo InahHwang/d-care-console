@@ -352,6 +352,20 @@ export function PatientList({ patients, onPatientClick, loading, consultationTyp
 
               {/* 환자명 + 배지들 */}
               <div className="w-[14%] min-w-[100px] flex items-center gap-1 overflow-hidden">
+                {(() => {
+                  const todayKST = new Date().toLocaleDateString('en-CA', { timeZone: 'Asia/Seoul' });
+                  const createdKST = patient.createdAt
+                    ? new Date(patient.createdAt).toLocaleDateString('en-CA', { timeZone: 'Asia/Seoul' })
+                    : '';
+                  return createdKST === todayKST ? (
+                    <span
+                      className="flex items-center justify-center w-4 h-4 bg-red-500 text-white rounded text-[10px] font-bold shrink-0"
+                      title="오늘 등록된 환자"
+                    >
+                      N
+                    </span>
+                  ) : null;
+                })()}
                 <span className="font-medium text-gray-900 truncate">{patient.name}</span>
                 {(() => {
                   const typeLabel = getConsultationTypeLabel(patient.consultationType, consultationTypeMap);
