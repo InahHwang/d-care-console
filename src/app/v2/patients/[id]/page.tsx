@@ -39,6 +39,7 @@ import { ConsultationHistory } from '@/components/v2/patients/ConsultationHistor
 import { ConsultationHistoryCard } from '@/components/v2/patients/ConsultationHistoryCard';
 import { MessageSendModalV2 } from '@/components/v2/patients/MessageSendModalV2';
 import { MessageHistoryCard } from '@/components/v2/patients/MessageHistoryCard';
+import { DirectorCommentsSection } from '@/components/v2/patients/DirectorCommentsSection';
 import { useAppSelector } from '@/hooks/reduxHooks';
 import { ClipboardList, Send } from 'lucide-react';
 import { MarketingTargetButton } from '@/components/v2/marketing';
@@ -1795,6 +1796,14 @@ export default function PatientDetailPage() {
           <MessageHistoryCard
             patientId={patientId}
             patientPhone={patient.phone}
+          />
+
+          {/* 원장 코멘트 섹션 */}
+          <DirectorCommentsSection
+            patientId={patientId}
+            patientName={patient.name}
+            isMaster={isMaster}
+            currentUserId={user?._id || user?.id}
           />
         </div>
       </div>

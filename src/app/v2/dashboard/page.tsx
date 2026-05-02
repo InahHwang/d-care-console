@@ -10,6 +10,7 @@ import {
   TodayTasksCard,
   ConversionFunnelCard,
   ConsultantPerformanceTable,
+  DirectorCommentsCard,
   type ConsultantStat,
   TodayTasks,
 } from '@/components/v2/dashboard';
@@ -218,7 +219,7 @@ export default function DashboardPage() {
         />
       </div>
 
-      {/* 2열 그리드: 오늘 할 일 + 매출 */}
+      {/* 2열 그리드: 오늘 할 일 + 원장 코멘트 */}
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
         {/* 오늘 할 일 카드 */}
         <TodayTasksCard
@@ -226,17 +227,20 @@ export default function DashboardPage() {
           loading={loading}
         />
 
-        {/* 매출 통계 카드 */}
-        <RevenueCard
-          thisMonth={data?.revenue?.thisMonth ?? { confirmed: 0, missed: 0, missedCount: 0, patientCount: 0, paidCount: 0 }}
-          lastMonth={data?.revenue?.lastMonth ?? { confirmed: 0 }}
-          discountRate={data?.revenue?.discountRate ?? 0}
-          avgRevenue={data?.revenue?.avgRevenue ?? 0}
-          growthRate={data?.revenue?.growthRate ?? 0}
-          monthlyTarget={data?.revenue?.monthlyTarget ?? 0}
-          loading={loading}
-        />
+        {/* 원장 코멘트 카드 */}
+        <DirectorCommentsCard />
       </div>
+
+      {/* 매출 통계 카드 (전체 폭) */}
+      <RevenueCard
+        thisMonth={data?.revenue?.thisMonth ?? { confirmed: 0, missed: 0, missedCount: 0, patientCount: 0, paidCount: 0 }}
+        lastMonth={data?.revenue?.lastMonth ?? { confirmed: 0 }}
+        discountRate={data?.revenue?.discountRate ?? 0}
+        avgRevenue={data?.revenue?.avgRevenue ?? 0}
+        growthRate={data?.revenue?.growthRate ?? 0}
+        monthlyTarget={data?.revenue?.monthlyTarget ?? 0}
+        loading={loading}
+      />
     </div>
   );
 }
