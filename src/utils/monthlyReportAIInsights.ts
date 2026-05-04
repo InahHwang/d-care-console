@@ -157,7 +157,6 @@ function buildInsightPrompt(stats: MonthlyStatsV2): string {
     closedReasonStats: stats.closedReasonStats,
     weeklyPattern: stats.weeklyPattern,
     ageDistribution: stats.ageDistribution,
-    genderStats: stats.genderStats,
     revenueAnalysis: {
       achieved: stats.revenueAnalysis.achieved,
       potential: stats.revenueAnalysis.potential,

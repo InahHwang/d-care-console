@@ -12,7 +12,6 @@ import type {
   RegionStatV2,
   ChannelStatV2,
   AgeDistributionItem,
-  GenderStats,
   DemographicCrossItem,
   ConsultationTypeROIItem,
   ChannelROIItem,
@@ -124,7 +123,6 @@ export async function calculateMonthlyStatsV2(
 
   // ── 월보고서 재편 추가 계산 (2026-02) ──
   const ageDistribution = buildAgeDistribution(patients);
-  const genderStats = buildGenderStatsData(patients);
   const demographicCrossAnalysis = buildDemographicCrossAnalysis(patients, consultations);
   const consultationTypeROI = buildConsultationTypeROI(patients, categoryLabelMap);
   const channelROI = buildChannelROIStats(patients);
@@ -153,7 +151,6 @@ export async function calculateMonthlyStatsV2(
     interestBreakdown,
     disagreeReasons,
     ageDistribution,
-    genderStats,
     demographicCrossAnalysis,
     consultationTypeROI,
     channelROI,
@@ -846,20 +843,6 @@ function buildAgeDistribution(patients: PatientV2[]): AgeDistributionItem[] {
       count,
       percentage: total > 0 ? Math.round((count / total) * 1000) / 10 : 0,
     }));
-}
-
-// ============================================
-// 성별 통계
-// ============================================
-
-function buildGenderStatsData(patients: PatientV2[]): GenderStats {
-  let male = 0, female = 0, unknown = 0;
-  for (const p of patients) {
-    if (p.gender === '남') male++;
-    else if (p.gender === '여') female++;
-    else unknown++;
-  }
-  return { male, female, unknown };
 }
 
 // ============================================

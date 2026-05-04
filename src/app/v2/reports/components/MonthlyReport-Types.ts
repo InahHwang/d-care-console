@@ -115,16 +115,6 @@ export interface AgeDistributionItem {
 }
 
 // ============================================
-// 성별 통계
-// ============================================
-
-export interface GenderStats {
-  male: number;
-  female: number;
-  unknown: number;
-}
-
-// ============================================
 // 인구통계 교차분석 (연령대 x 치료관심)
 // ============================================
 
@@ -283,9 +273,6 @@ export interface MonthlyStatsV2 {
 
   // 연령 분포
   ageDistribution?: AgeDistributionItem[];
-
-  // 성별 통계
-  genderStats?: GenderStats;
 
   // 인구통계 교차분석 (연령대 x 치료관심)
   demographicCrossAnalysis?: DemographicCrossItem[];

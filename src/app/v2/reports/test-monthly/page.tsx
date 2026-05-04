@@ -371,8 +371,6 @@ const mockStats: MonthlyStatsV2 = {
     { bracket: '60대+', count: 16, percentage: 10.3 },
   ],
 
-  genderStats: { male: 68, female: 82, unknown: 6 },
-
   demographicCrossAnalysis: [
     { ageBracket: '20대', treatmentType: '치아교정', count: 12 },
     { ageBracket: '20대', treatmentType: '치아미백', count: 6 },

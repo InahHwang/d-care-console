@@ -1,5 +1,5 @@
 // src/app/v2/reports/components/MonthlyReport-Demographics.tsx
-// V2 환자 인구통계 분석 - 연령/성별/지역/교차분석
+// V2 환자 인구통계 분석 - 연령/지역/교차분석
 'use client';
 
 import React, { useMemo } from 'react';
@@ -7,8 +7,7 @@ import { Users, MapPin } from 'lucide-react';
 import type { MonthlyStatsV2, AgeDistributionItem, DemographicCrossItem } from './MonthlyReport-Types';
 
 const {
-  BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer,
-  PieChart, Pie, Cell, Legend,
+  BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer, Cell,
 } = require('recharts') as any;
 
 // ============================================
@@ -16,25 +15,13 @@ const {
 // ============================================
 
 interface MonthlyReportDemographicsProps { stats: MonthlyStatsV2; }
-interface GenderChartData { name: string; value: number; color: string; }
 interface CrossAnalysisRow { ageBracket: string; treatments: Record<string, number>; }
 
 const CHART_COLORS = ['#3B82F6', '#60A5FA', '#93C5FD', '#BFDBFE', '#DBEAFE', '#EFF6FF'];
-const GENDER_COLORS: Record<string, string> = { male: '#3B82F6', female: '#EC4899', unknown: '#9CA3AF' };
 
 // ============================================
 // Helper Functions
 // ============================================
-
-function buildGenderChartData(
-  genderStats: { male: number; female: number; unknown: number }
-): GenderChartData[] {
-  return [
-    { name: '남성', value: genderStats.male, color: GENDER_COLORS.male },
-    { name: '여성', value: genderStats.female, color: GENDER_COLORS.female },
-    { name: '미입력', value: genderStats.unknown, color: GENDER_COLORS.unknown },
-  ].filter((item) => item.value > 0);
-}
 
 function buildCrossAnalysisTable(
   items: DemographicCrossItem[]
@@ -108,20 +95,6 @@ function AgeTooltip({ active, payload, label }: any) {
   );
 }
 
-/** 커스텀 툴팁 - 성별 파이차트용 */
-function GenderTooltip({ active, payload }: any) {
-  if (!active || !payload || payload.length === 0) return null;
-  const data = payload[0];
-  return (
-    <div className="bg-white border shadow-lg rounded-lg px-3 py-2 text-sm">
-      <div className="font-medium text-gray-900">{data.name}</div>
-      <div style={{ color: data.payload.color }}>
-        {data.value}명
-      </div>
-    </div>
-  );
-}
-
 function AgeDistributionChart({ data }: { data: AgeDistributionItem[] }) {
   if (!data || data.length === 0) {
     return <NoDataPlaceholder message="데이터 새로고침 필요" />;
@@ -152,54 +125,6 @@ function AgeDistributionChart({ data }: { data: AgeDistributionItem[] }) {
         </Bar>
       </BarChart>
     </ResponsiveContainer>
-  );
-}
-
-function GenderPieChart({
-  data,
-  total,
-}: {
-  data: GenderChartData[];
-  total: number;
-}) {
-  if (data.length === 0) {
-    return <NoDataPlaceholder message="데이터 새로고침 필요" />;
-  }
-
-  return (
-    <div className="relative">
-      <ResponsiveContainer width="100%" height={240}>
-        <PieChart>
-          <Pie
-            data={data}
-            dataKey="value"
-            nameKey="name"
-            cx="50%"
-            cy="50%"
-            innerRadius={55}
-            outerRadius={85}
-            paddingAngle={3}
-          >
-            {data.map((entry: GenderChartData, index: number) => (
-              <Cell key={`gender-cell-${index}`} fill={entry.color} />
-            ))}
-          </Pie>
-          <Tooltip content={<GenderTooltip />} />
-          <Legend
-            formatter={(value: string) => (
-              <span className="text-sm text-gray-600">{value}</span>
-            )}
-          />
-        </PieChart>
-      </ResponsiveContainer>
-      {/* 중앙 텍스트 */}
-      <div className="absolute inset-0 flex items-center justify-center pointer-events-none" style={{ marginBottom: '24px' }}>
-        <div className="text-center">
-          <div className="text-xl font-bold text-gray-900">{total}</div>
-          <div className="text-xs text-gray-500">총 환자</div>
-        </div>
-      </div>
-    </div>
   );
 }
 
@@ -321,16 +246,6 @@ function CrossAnalysisTable({
 const MonthlyReportDemographics: React.FC<MonthlyReportDemographicsProps> = ({
   stats,
 }) => {
-  const genderChartData = useMemo(() => {
-    if (!stats.genderStats) return [];
-    return buildGenderChartData(stats.genderStats);
-  }, [stats.genderStats]);
-
-  const genderTotal = useMemo(() => {
-    if (!stats.genderStats) return 0;
-    return stats.genderStats.male + stats.genderStats.female + stats.genderStats.unknown;
-  }, [stats.genderStats]);
-
   return (
     <div className="bg-white rounded-lg shadow-sm border mb-6">
       {/* 헤더 */}
@@ -342,25 +257,13 @@ const MonthlyReportDemographics: React.FC<MonthlyReportDemographicsProps> = ({
       </div>
 
       <div className="p-6 space-y-8">
-        {/* Row 1: 연령 분포 + 성별 비율 */}
-        <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-          {/* 연령 분포 */}
-          <div>
-            <h3 className="font-medium text-gray-900 mb-4 flex items-center gap-2">
-              <span className="w-2 h-2 bg-orange-500 rounded-full" />
-              연령 분포
-            </h3>
-            <AgeDistributionChart data={stats.ageDistribution || []} />
-          </div>
-
-          {/* 성별 비율 */}
-          <div>
-            <h3 className="font-medium text-gray-900 mb-4 flex items-center gap-2">
-              <span className="w-2 h-2 bg-pink-500 rounded-full" />
-              성별 비율
-            </h3>
-            <GenderPieChart data={genderChartData} total={genderTotal} />
-          </div>
+        {/* Row 1: 연령 분포 */}
+        <div>
+          <h3 className="font-medium text-gray-900 mb-4 flex items-center gap-2">
+            <span className="w-2 h-2 bg-orange-500 rounded-full" />
+            연령 분포
+          </h3>
+          <AgeDistributionChart data={stats.ageDistribution || []} />
         </div>
 
         {/* Row 2: 지역 분포 + 교차분석 */}
