@@ -199,8 +199,16 @@ export default function DashboardPage() {
         </button>
       </div>
 
-      {/* 온보딩 체크리스트 (설정 미완료 시 표시) */}
-      <OnboardingChecklistWidget />
+      {/* 매출 통계 카드 (전체 폭) */}
+      <RevenueCard
+        thisMonth={data?.revenue?.thisMonth ?? { confirmed: 0, missed: 0, missedCount: 0, patientCount: 0, paidCount: 0 }}
+        lastMonth={data?.revenue?.lastMonth ?? { confirmed: 0 }}
+        discountRate={data?.revenue?.discountRate ?? 0}
+        avgRevenue={data?.revenue?.avgRevenue ?? 0}
+        growthRate={data?.revenue?.growthRate ?? 0}
+        monthlyTarget={data?.revenue?.monthlyTarget ?? 0}
+        loading={loading}
+      />
 
       {/* 2열 그리드: 이번달 성과 + 상담사별 실적 */}
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
@@ -231,16 +239,8 @@ export default function DashboardPage() {
         <DirectorCommentsCard />
       </div>
 
-      {/* 매출 통계 카드 (전체 폭) */}
-      <RevenueCard
-        thisMonth={data?.revenue?.thisMonth ?? { confirmed: 0, missed: 0, missedCount: 0, patientCount: 0, paidCount: 0 }}
-        lastMonth={data?.revenue?.lastMonth ?? { confirmed: 0 }}
-        discountRate={data?.revenue?.discountRate ?? 0}
-        avgRevenue={data?.revenue?.avgRevenue ?? 0}
-        growthRate={data?.revenue?.growthRate ?? 0}
-        monthlyTarget={data?.revenue?.monthlyTarget ?? 0}
-        loading={loading}
-      />
+      {/* 온보딩 체크리스트 (설정 미완료 시 표시) */}
+      <OnboardingChecklistWidget />
     </div>
   );
 }
