@@ -53,10 +53,17 @@ interface SidebarProps {
   analysisPending?: number;
   callbackCount?: number;
   unreadChatCount?: number;
+  newPatientsCount?: number;
   onOpenDeskDialog?: () => void;
 }
 
-export function Sidebar({ analysisPending = 0, callbackCount = 0, unreadChatCount = 0, onOpenDeskDialog }: SidebarProps) {
+export function Sidebar({
+  analysisPending = 0,
+  callbackCount = 0,
+  unreadChatCount = 0,
+  newPatientsCount = 0,
+  onOpenDeskDialog,
+}: SidebarProps) {
   const pathname = usePathname();
   const { user, isAuthenticated } = useAppSelector((state) => state.auth);
 
@@ -91,6 +98,7 @@ export function Sidebar({ analysisPending = 0, callbackCount = 0, unreadChatCoun
     if (id === 'call-logs' && analysisPending > 0) return analysisPending;
     if (id === 'schedules' && callbackCount > 0) return callbackCount;
     if (id === 'channel-chat' && unreadChatCount > 0) return unreadChatCount;
+    if (id === 'patients' && newPatientsCount > 0) return newPatientsCount;
     return undefined;
   };
 
@@ -143,6 +151,8 @@ export function Sidebar({ analysisPending = 0, callbackCount = 0, unreadChatCoun
                       ? 'bg-purple-500 text-white'
                       : item.id === 'channel-chat'
                       ? 'bg-green-500 text-white'
+                      : item.id === 'patients'
+                      ? 'bg-red-500 text-white'
                       : 'bg-amber-500 text-white'
                   }`}>
                     {badge}

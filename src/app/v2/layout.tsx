@@ -23,6 +23,34 @@ function V2LayoutInner({ children }: { children: React.ReactNode }) {
   const [forceSelect, setForceSelect] = useState(false);
   const [initialDesk, setInitialDesk] = useState<string | undefined>(undefined);
 
+  // 사이드바 환자관리 N 배지용: 오늘 등록된 환자 수
+  const [todayNewPatients, setTodayNewPatients] = useState(0);
+  useEffect(() => {
+    if (!user) return;
+    let cancelled = false;
+    const fetchCount = async () => {
+      try {
+        const res = await authFetch('/api/v2/patients/today-count');
+        if (!res.ok || cancelled) return;
+        const data = await res.json();
+        if (data?.success && typeof data.count === 'number') {
+          setTodayNewPatients(data.count);
+        }
+      } catch {
+        // 조용히 무시
+      }
+    };
+    fetchCount();
+    const intervalId = setInterval(fetchCount, 60_000); // 1분마다
+    const onFocus = () => fetchCount();
+    window.addEventListener('focus', onFocus);
+    return () => {
+      cancelled = true;
+      clearInterval(intervalId);
+      window.removeEventListener('focus', onFocus);
+    };
+  }, [user]);
+
   // 마운트 시 한 번: 본인 자리 정보 조회
   // - currentDeskNumber 있음: 그대로 유지 (재로그인/새로고침 안 깜빡임)
   // - currentDeskNumber 없고 defaultDeskNumber 있음: 자동 복원 (PUT)
@@ -97,7 +125,11 @@ function V2LayoutInner({ children }: { children: React.ReactNode }) {
 
   return (
     <div className="flex min-h-screen bg-gray-50">
-      <Sidebar unreadChatCount={unreadTotal} onOpenDeskDialog={handleOpenDeskDialog} />
+      <Sidebar
+        unreadChatCount={unreadTotal}
+        newPatientsCount={todayNewPatients}
+        onOpenDeskDialog={handleOpenDeskDialog}
+      />
       <main className="flex-1 overflow-auto">{children}</main>
       <CTIPanel />
       <AIChatWidget />
