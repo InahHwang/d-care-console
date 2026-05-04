@@ -6,8 +6,16 @@
 'use client';
 
 import React, { useCallback, useEffect, useState } from 'react';
-import { MessageSquareQuote, Trash2 } from 'lucide-react';
+import { MessageSquareQuote, Trash2, CornerDownRight } from 'lucide-react';
 import { authFetch } from '@/utils/authFetch';
+
+interface DirectorCommentReply {
+  id: string;
+  text: string;
+  createdBy: string;
+  createdByName: string;
+  createdAt: string;
+}
 
 interface DirectorComment {
   id: string;
@@ -19,6 +27,7 @@ interface DirectorComment {
   createdByName: string;
   createdAt: string;
   isUnread: boolean;
+  replies?: DirectorCommentReply[];
 }
 
 interface DirectorCommentsSectionProps {
@@ -119,6 +128,27 @@ export function DirectorCommentsSection({
     }
   };
 
+  const handleDeleteReply = async (commentId: string, replyId: string) => {
+    if (!confirm('이 답글을 삭제하시겠습니까?')) return;
+    try {
+      const res = await authFetch(
+        `/api/v2/director-comments/${commentId}/replies/${replyId}`,
+        { method: 'DELETE' }
+      );
+      if (res.ok) {
+        setComments(prev =>
+          prev.map(c =>
+            c.id === commentId
+              ? { ...c, replies: (c.replies || []).filter(r => r.id !== replyId) }
+              : c
+          )
+        );
+      }
+    } catch {
+      // ignore
+    }
+  };
+
   return (
     <div className="bg-white rounded-2xl shadow-sm p-5">
       <div className="flex items-center gap-2 mb-3">
@@ -210,9 +240,141 @@ export function DirectorCommentsSection({
                   )}
                 </div>
                 <p className="text-sm text-gray-800 whitespace-pre-wrap">{comment.text}</p>
+
+                <CommentReplies
+                  comment={comment}
+                  currentUserId={currentUserId}
+                  isMaster={isMaster}
+                  onReplyAdded={fetchComments}
+                  onDeleteReply={handleDeleteReply}
+                />
               </div>
             );
           })}
+        </div>
+      )}
+    </div>
+  );
+}
+
+// ───────────────────────────────────────────────
+// 답글 영역 (코멘트당 1개)
+// ───────────────────────────────────────────────
+interface CommentRepliesProps {
+  comment: DirectorComment;
+  currentUserId?: string;
+  isMaster: boolean;
+  onReplyAdded: () => Promise<void> | void;
+  onDeleteReply: (commentId: string, replyId: string) => Promise<void>;
+}
+
+function CommentReplies({
+  comment,
+  currentUserId,
+  isMaster,
+  onReplyAdded,
+  onDeleteReply,
+}: CommentRepliesProps) {
+  const [open, setOpen] = useState(false);
+  const [text, setText] = useState('');
+  const [submitting, setSubmitting] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const replies = comment.replies || [];
+
+  const handleSubmit = async () => {
+    const trimmed = text.trim();
+    if (!trimmed) return;
+    setSubmitting(true);
+    setError(null);
+    try {
+      const res = await authFetch(`/api/v2/director-comments/${comment.id}/replies`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ text: trimmed }),
+      });
+      const json = await res.json();
+      if (!res.ok || !json.success) {
+        setError(json.error || '답글 등록에 실패했습니다.');
+        return;
+      }
+      setText('');
+      setOpen(false);
+      await onReplyAdded();
+    } catch {
+      setError('답글 등록 중 오류가 발생했습니다.');
+    } finally {
+      setSubmitting(false);
+    }
+  };
+
+  return (
+    <div className="mt-2">
+      {replies.length > 0 && (
+        <ul className="space-y-1.5 mb-2 pl-3 border-l-2 border-amber-200">
+          {replies.map(r => {
+            const canDel = isMaster || r.createdBy === currentUserId;
+            return (
+              <li key={r.id} className="flex items-start gap-2">
+                <CornerDownRight size={12} className="mt-1 text-gray-400 flex-shrink-0" />
+                <div className="flex-1 min-w-0">
+                  <div className="flex items-center gap-2 text-[11px] text-gray-500">
+                    <span className="font-medium text-gray-700">{r.createdByName}</span>
+                    <span>·</span>
+                    <span>{formatDate(r.createdAt)}</span>
+                    {canDel && (
+                      <button
+                        onClick={() => onDeleteReply(comment.id, r.id)}
+                        className="ml-auto text-gray-400 hover:text-red-500 transition-colors"
+                        title="답글 삭제"
+                      >
+                        <Trash2 size={12} />
+                      </button>
+                    )}
+                  </div>
+                  <p className="text-sm text-gray-800 whitespace-pre-wrap">{r.text}</p>
+                </div>
+              </li>
+            );
+          })}
+        </ul>
+      )}
+
+      {!open ? (
+        <button
+          onClick={() => setOpen(true)}
+          className="text-xs text-amber-600 hover:text-amber-700 font-medium"
+        >
+          ↳ 답글 달기
+        </button>
+      ) : (
+        <div className="space-y-2">
+          <textarea
+            value={text}
+            onChange={e => setText(e.target.value)}
+            placeholder="답글을 입력하세요"
+            rows={2}
+            maxLength={2000}
+            disabled={submitting}
+            autoFocus
+            className="w-full px-3 py-2 text-sm border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-amber-300 disabled:bg-gray-50 resize-none"
+          />
+          {error && <p className="text-xs text-red-500">{error}</p>}
+          <div className="flex justify-end gap-2">
+            <button
+              onClick={() => { setOpen(false); setText(''); setError(null); }}
+              disabled={submitting}
+              className="px-3 py-1 text-xs font-medium text-gray-600 hover:text-gray-800"
+            >
+              취소
+            </button>
+            <button
+              onClick={handleSubmit}
+              disabled={submitting || !text.trim()}
+              className="px-3 py-1 text-xs font-medium text-white bg-amber-500 hover:bg-amber-600 rounded-lg disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+            >
+              {submitting ? '등록 중...' : '답글 등록'}
+            </button>
+          </div>
         </div>
       )}
     </div>

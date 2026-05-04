@@ -16,6 +16,14 @@ const createSchema = z.object({
   context: z.string().max(100).optional(),
 });
 
+interface DirectorCommentReply {
+  id: string;
+  text: string;
+  createdBy: string;
+  createdByName: string;
+  createdAt: Date | string;
+}
+
 interface DirectorCommentDoc {
   _id?: ObjectId;
   clinicId: string;
@@ -27,6 +35,7 @@ interface DirectorCommentDoc {
   createdByName: string;
   createdAt: Date;
   readBy: string[];
+  replies?: DirectorCommentReply[];
 }
 
 function isMasterRole(role: string) {
@@ -76,6 +85,13 @@ export async function GET(request: NextRequest) {
       createdByName: doc.createdByName,
       createdAt: doc.createdAt instanceof Date ? doc.createdAt.toISOString() : doc.createdAt,
       isUnread: !(doc.readBy || []).includes(userId),
+      replies: (doc.replies || []).map(r => ({
+        id: r.id,
+        text: r.text,
+        createdBy: r.createdBy,
+        createdByName: r.createdByName,
+        createdAt: r.createdAt instanceof Date ? r.createdAt.toISOString() : r.createdAt,
+      })),
     }));
 
     const unreadCount = comments.filter(c => c.isUnread).length;
@@ -131,6 +147,7 @@ export async function POST(request: NextRequest) {
       createdAt: new Date(),
       // 작성자 본인은 자동으로 읽음 처리
       readBy: [auth.user.id],
+      replies: [],
     };
 
     const result = await db.collection<DirectorCommentDoc>('directorComments_v2').insertOne(doc);
