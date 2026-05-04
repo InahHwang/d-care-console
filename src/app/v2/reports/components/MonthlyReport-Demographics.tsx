@@ -262,6 +262,11 @@ const MonthlyReportDemographics: React.FC<MonthlyReportDemographicsProps> = ({
           <h3 className="font-medium text-gray-900 mb-4 flex items-center gap-2">
             <span className="w-2 h-2 bg-orange-500 rounded-full" />
             연령 분포
+            {(stats.ageUnknownCount ?? 0) > 0 && (
+              <span className="text-xs font-normal text-gray-400">
+                (미입력 {stats.ageUnknownCount}명 제외)
+              </span>
+            )}
           </h3>
           <AgeDistributionChart data={stats.ageDistribution || []} />
         </div>
@@ -282,6 +287,11 @@ const MonthlyReportDemographics: React.FC<MonthlyReportDemographicsProps> = ({
             <h3 className="font-medium text-gray-900 mb-4 flex items-center gap-2">
               <span className="w-2 h-2 bg-indigo-500 rounded-full" />
               연령대별 관심 치료
+              {(stats.ageUnknownCount ?? 0) > 0 && (
+                <span className="text-xs font-normal text-gray-400">
+                  (미입력 {stats.ageUnknownCount}명 제외)
+                </span>
+              )}
             </h3>
             {stats.demographicCrossAnalysis &&
             stats.demographicCrossAnalysis.length > 0 ? (

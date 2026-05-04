@@ -274,6 +274,9 @@ export interface MonthlyStatsV2 {
   // 연령 분포
   ageDistribution?: AgeDistributionItem[];
 
+  // 연령 미입력 환자 수 (연령 분포/교차분석에서 제외된 인원)
+  ageUnknownCount?: number;
+
   // 인구통계 교차분석 (연령대 x 치료관심)
   demographicCrossAnalysis?: DemographicCrossItem[];
 

@@ -123,6 +123,7 @@ export async function calculateMonthlyStatsV2(
 
   // ── 월보고서 재편 추가 계산 (2026-02) ──
   const ageDistribution = buildAgeDistribution(patients);
+  const ageUnknownCount = patients.filter((p) => !p.age || p.age <= 0).length;
   const demographicCrossAnalysis = buildDemographicCrossAnalysis(patients, consultations);
   const consultationTypeROI = buildConsultationTypeROI(patients, categoryLabelMap);
   const channelROI = buildChannelROIStats(patients);
@@ -151,6 +152,7 @@ export async function calculateMonthlyStatsV2(
     interestBreakdown,
     disagreeReasons,
     ageDistribution,
+    ageUnknownCount,
     demographicCrossAnalysis,
     consultationTypeROI,
     channelROI,
