@@ -6,6 +6,7 @@
 import React, { useEffect, useState } from 'react';
 import { authFetch } from '@/utils/authFetch';
 import { MonthlyAnalytics, formatKRW, formatKRWShort } from './Marketing-Analytics-Types';
+import { MarketingInfoTooltip, MARKETING_METRIC_DESCRIPTIONS } from './Marketing-Info-Tooltip';
 
 interface Props {
   year: number;
@@ -120,18 +121,22 @@ export function MarketingChannelsTab({ year, month }: Props) {
         <>
           {/* KPI */}
           <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
-            <Stat label="광고비" value={formatKRW(ch.cost)} />
-            <Stat label="신환 수" value={`${ch.newPatients}명`} />
+            <Stat label="광고비" tooltip={MARKETING_METRIC_DESCRIPTIONS.totalCost} value={formatKRW(ch.cost)} />
+            <Stat label="신환 수" tooltip={MARKETING_METRIC_DESCRIPTIONS.newPatients} value={`${ch.newPatients}명`} />
             <Stat
               label="평균 객단가 (수납)"
+              tooltip={MARKETING_METRIC_DESCRIPTIONS.avgDeal}
               value={ch.newPatients > 0 ? formatKRWShort(Math.round(ch.actualRevenue / ch.newPatients)) : '-'}
             />
-            <Stat label="CAC" value={ch.cac > 0 ? formatKRW(ch.cac) : '-'} />
+            <Stat label="CAC" tooltip={MARKETING_METRIC_DESCRIPTIONS.cac} value={ch.cac > 0 ? formatKRW(ch.cac) : '-'} />
           </div>
 
           {/* 퍼널 */}
           <div className="bg-white border border-gray-200 rounded-xl p-4">
-            <h3 className="text-sm font-semibold text-gray-700 mb-3">유입 → 상담 → 치료 퍼널</h3>
+            <h3 className="text-sm font-semibold text-gray-700 mb-3 inline-flex items-center gap-1">
+              유입 → 상담 → 치료 퍼널
+              <MarketingInfoTooltip text={MARKETING_METRIC_DESCRIPTIONS.funnel} />
+            </h3>
             <FunnelBar label="유입 (신환)" value={ch.newPatients} max={ch.newPatients || 1} color="bg-blue-500" />
             <FunnelBar label="상담 (견적 발행)" value={consulted} max={ch.newPatients || 1} color="bg-orange-500" />
             <FunnelBar label="치료 (수납)" value={treated} max={ch.newPatients || 1} color="bg-emerald-500" />
@@ -205,10 +210,13 @@ export function MarketingChannelsTab({ year, month }: Props) {
   );
 }
 
-function Stat({ label, value }: { label: string; value: string }) {
+function Stat({ label, value, tooltip }: { label: string; value: string; tooltip?: string }) {
   return (
     <div className="bg-white border border-gray-200 rounded-xl p-4">
-      <div className="text-xs text-gray-500 mb-1">{label}</div>
+      <div className="text-xs text-gray-500 mb-1 inline-flex items-center gap-1">
+        {label}
+        {tooltip && <MarketingInfoTooltip text={tooltip} />}
+      </div>
       <div className="text-lg font-bold text-gray-900">{value}</div>
     </div>
   );

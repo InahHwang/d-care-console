@@ -20,6 +20,7 @@ import {
   Legend,
 } from 'recharts';
 import { MonthlyAnalytics, formatKRW, formatKRWShort } from './Marketing-Analytics-Types';
+import { MarketingInfoTooltip, MARKETING_METRIC_DESCRIPTIONS } from './Marketing-Info-Tooltip';
 
 interface Props {
   year: number;
@@ -108,6 +109,7 @@ export function MarketingOverviewTab({ year, month }: Props) {
         <KpiCard
           icon={<DollarSign size={18} />}
           label="총 광고비"
+          tooltip={MARKETING_METRIC_DESCRIPTIONS.totalCost}
           value={formatKRW(current.totalCost)}
           diff={costDiff}
           color="orange"
@@ -115,6 +117,7 @@ export function MarketingOverviewTab({ year, month }: Props) {
         <KpiCard
           icon={<TrendingUp size={18} />}
           label="총 매출 (수납)"
+          tooltip={MARKETING_METRIC_DESCRIPTIONS.totalRevenue}
           value={formatKRW(current.totalActualRevenue)}
           subValue={`견적 ${formatKRWShort(current.totalEstimatedRevenue)}`}
           diff={revDiff}
@@ -123,6 +126,7 @@ export function MarketingOverviewTab({ year, month }: Props) {
         <KpiCard
           icon={<TargetIcon size={18} />}
           label="ROAS (수납)"
+          tooltip={MARKETING_METRIC_DESCRIPTIONS.roas}
           value={`${current.actualRoas}%`}
           subValue={`견적 ${current.roas}%`}
           diff={roasDiff}
@@ -131,6 +135,7 @@ export function MarketingOverviewTab({ year, month }: Props) {
         <KpiCard
           icon={<Users size={18} />}
           label="신환 수"
+          tooltip={MARKETING_METRIC_DESCRIPTIONS.newPatients}
           value={`${current.totalNewPatients}명`}
           diff={patDiff}
           color="purple"
@@ -138,6 +143,7 @@ export function MarketingOverviewTab({ year, month }: Props) {
         <KpiCard
           icon={<Activity size={18} />}
           label="CAC"
+          tooltip={MARKETING_METRIC_DESCRIPTIONS.cac}
           value={current.cac > 0 ? formatKRW(current.cac) : '-'}
           diff={cacDiff}
           inverted
@@ -204,9 +210,13 @@ export function MarketingOverviewTab({ year, month }: Props) {
                   <th className="px-3 py-2 text-left">채널</th>
                   <th className="px-3 py-2 text-right">광고비</th>
                   <th className="px-3 py-2 text-right">매출 (수납)</th>
-                  <th className="px-3 py-2 text-right">ROAS</th>
+                  <th className="px-3 py-2 text-right">
+                    <span className="inline-flex items-center gap-1">ROAS<MarketingInfoTooltip text={MARKETING_METRIC_DESCRIPTIONS.roas} /></span>
+                  </th>
                   <th className="px-3 py-2 text-right">신환</th>
-                  <th className="px-3 py-2 text-right">CAC</th>
+                  <th className="px-3 py-2 text-right">
+                    <span className="inline-flex items-center gap-1">CAC<MarketingInfoTooltip text={MARKETING_METRIC_DESCRIPTIONS.cac} /></span>
+                  </th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-gray-100">
@@ -236,6 +246,7 @@ export function MarketingOverviewTab({ year, month }: Props) {
 function KpiCard({
   icon,
   label,
+  tooltip,
   value,
   subValue,
   diff,
@@ -244,6 +255,7 @@ function KpiCard({
 }: {
   icon: React.ReactNode;
   label: string;
+  tooltip?: string;
   value: string;
   subValue?: string;
   diff: { up: boolean; text: string } | null;
@@ -262,7 +274,10 @@ function KpiCard({
     <div className="bg-white border border-gray-200 rounded-xl p-4">
       <div className="flex items-center gap-2 mb-2">
         <div className={`p-1.5 rounded-lg ${colorMap[color]}`}>{icon}</div>
-        <span className="text-xs text-gray-500">{label}</span>
+        <span className="text-xs text-gray-500 inline-flex items-center gap-1">
+          {label}
+          {tooltip && <MarketingInfoTooltip text={tooltip} />}
+        </span>
       </div>
       <div className="text-xl font-bold text-gray-900">{value}</div>
       {subValue && <div className="text-xs text-gray-400 mt-0.5">{subValue}</div>}

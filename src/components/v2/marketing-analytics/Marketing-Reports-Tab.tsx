@@ -7,6 +7,7 @@ import React, { useEffect, useState } from 'react';
 import { authFetch } from '@/utils/authFetch';
 import { Download } from 'lucide-react';
 import { MonthlyAnalytics, formatKRWShort } from './Marketing-Analytics-Types';
+import { MarketingInfoTooltip, MARKETING_METRIC_DESCRIPTIONS } from './Marketing-Info-Tooltip';
 
 interface Props {
   year: number;
@@ -79,8 +80,9 @@ export function MarketingReportsTab({ year }: Props) {
   return (
     <div className="space-y-4">
       <div className="flex items-center justify-between">
-        <div className="text-sm text-gray-600">
+        <div className="text-sm text-gray-600 inline-flex items-center gap-1">
           {year}년 월별 ROAS 히트맵. 색상 강도가 짙을수록 효율이 좋습니다.
+          <MarketingInfoTooltip text={MARKETING_METRIC_DESCRIPTIONS.roas} position="bottom" />
         </div>
         <button
           onClick={exportCSV}
@@ -143,9 +145,13 @@ export function MarketingReportsTab({ year }: Props) {
                 <th className="px-3 py-2 text-left">월</th>
                 <th className="px-3 py-2 text-right">총 광고비</th>
                 <th className="px-3 py-2 text-right">총 매출 (수납)</th>
-                <th className="px-3 py-2 text-right">ROAS</th>
+                <th className="px-3 py-2 text-right">
+                  <span className="inline-flex items-center gap-1 justify-end w-full">ROAS<MarketingInfoTooltip text={MARKETING_METRIC_DESCRIPTIONS.roas} /></span>
+                </th>
                 <th className="px-3 py-2 text-right">신환</th>
-                <th className="px-3 py-2 text-right">CAC</th>
+                <th className="px-3 py-2 text-right">
+                  <span className="inline-flex items-center gap-1 justify-end w-full">CAC<MarketingInfoTooltip text={MARKETING_METRIC_DESCRIPTIONS.cac} /></span>
+                </th>
               </tr>
             </thead>
             <tbody className="divide-y divide-gray-100">
