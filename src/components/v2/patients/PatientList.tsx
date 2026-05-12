@@ -367,14 +367,11 @@ export function PatientList({ patients, onPatientClick, loading, consultationTyp
                   ) : null;
                 })()}
                 <span className="font-medium text-gray-900 truncate">{patient.name}</span>
-                {(() => {
-                  const typeLabel = getConsultationTypeLabel(patient.consultationType, consultationTypeMap);
-                  return typeLabel ? (
-                    <span className="px-1.5 py-0.5 bg-purple-100 text-purple-700 rounded text-xs shrink-0">
-                      {typeLabel}
-                    </span>
-                  ) : null;
-                })()}
+                {patient.source && (
+                  <span className="px-1.5 py-0.5 bg-purple-100 text-purple-700 rounded text-xs shrink-0">
+                    {patient.source}
+                  </span>
+                )}
                 {patient.journeys && patient.journeys.length > 1 && (
                   <span className="flex items-center gap-0.5 px-1 py-0.5 bg-indigo-100 text-indigo-700 rounded text-xs font-medium shrink-0" title={`${patient.journeys.length}개 치료 여정`}>
                     <Layers size={10} />
