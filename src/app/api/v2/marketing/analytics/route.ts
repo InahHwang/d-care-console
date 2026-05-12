@@ -65,6 +65,9 @@ async function calculateMonth(
   }
 
   // 2) 해당 월에 등록된 환자 (createdAt 기준)
+  // 매출 집계: 대시보드/월보고서와 동일한 로직
+  //   - estimatedAmount: 활성 journey > patient.estimatedAmount
+  //   - actualAmount: paymentStatus in (partial, completed)일 때만 patient.actualAmount
   const patients = await db.collection('patients_v2').aggregate([
     {
       $match: {
@@ -77,45 +80,32 @@ async function calculateMonth(
       $project: {
         _id: 1,
         referralSource: 1,
-        estimatedAmount: '$consultation.estimatedAmount',
+        estimatedAmount: 1,
+        actualAmount: 1,
+        paymentStatus: 1,
+        journeys: 1,
+        activeJourneyId: 1,
       },
     },
   ]).toArray();
 
-  // 3) 해당 환자들의 consultations_v2 집계 (실수납/최종금액)
-  const patientIds = patients.map((p) => p._id.toString());
-  const consultations = patientIds.length > 0
-    ? await db.collection('consultations_v2').find({
-        clinicId,
-        patientId: { $in: patientIds },
-      }).toArray()
-    : [];
-
-  const finalAmountByPatient = new Map<string, number>();
-  const originalAmountByPatient = new Map<string, number>();
-  for (const c of consultations) {
-    const pid = c.patientId;
-    const finalAmt = c.finalAmount ?? (c.originalAmount && c.discountRate !== undefined
-      ? Math.round(c.originalAmount * (1 - (c.discountRate || 0) / 100))
-      : 0);
-    if (finalAmt > 0) {
-      finalAmountByPatient.set(pid, Math.max(finalAmountByPatient.get(pid) || 0, finalAmt));
-    }
-    if (c.originalAmount && c.originalAmount > 0) {
-      originalAmountByPatient.set(pid, Math.max(originalAmountByPatient.get(pid) || 0, c.originalAmount));
-    }
-  }
-
-  // 4) 채널별 환자/매출 집계
+  // 3) 채널별 환자/매출 집계
   const channelMap = new Map<string, { count: number; estimated: number; actual: number }>();
   let totalEstimated = 0;
   let totalActual = 0;
 
   for (const p of patients) {
     const channel = (p.referralSource && p.referralSource !== '') ? p.referralSource : '미지정';
-    const pid = p._id.toString();
-    const estimated = originalAmountByPatient.get(pid) || p.estimatedAmount || 0;
-    const actual = finalAmountByPatient.get(pid) || 0;
+
+    // 활성 journey 또는 patient 직접 필드
+    const activeJourney = Array.isArray(p.journeys)
+      ? p.journeys.find((j: { isActive?: boolean; id?: string }) =>
+          j.isActive || j.id === p.activeJourneyId)
+      : null;
+
+    const estimated = activeJourney?.estimatedAmount || p.estimatedAmount || 0;
+    const isPaid = p.paymentStatus === 'partial' || p.paymentStatus === 'completed';
+    const actual = isPaid ? (activeJourney?.actualAmount || p.actualAmount || 0) : 0;
 
     const row = channelMap.get(channel) || { count: 0, estimated: 0, actual: 0 };
     row.count += 1;

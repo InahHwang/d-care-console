@@ -59,40 +59,32 @@ export async function GET(request: NextRequest) {
       .sort({ createdAt: -1 })
       .toArray();
 
-    const patientIds = patients.map((p) => p._id.toString());
-    const consultations = patientIds.length > 0
-      ? await db.collection('consultations_v2').find({
-          clinicId,
-          patientId: { $in: patientIds },
-        }).toArray()
-      : [];
-
-    const finalByPatient = new Map<string, number>();
-    const originalByPatient = new Map<string, number>();
-    for (const c of consultations) {
-      const pid = c.patientId;
-      const finalAmt = c.finalAmount ?? (c.originalAmount && c.discountRate !== undefined
-        ? Math.round(c.originalAmount * (1 - (c.discountRate || 0) / 100))
-        : 0);
-      if (finalAmt > 0) {
-        finalByPatient.set(pid, Math.max(finalByPatient.get(pid) || 0, finalAmt));
-      }
-      if (c.originalAmount && c.originalAmount > 0) {
-        originalByPatient.set(pid, Math.max(originalByPatient.get(pid) || 0, c.originalAmount));
-      }
-    }
-
+    // 매출 집계: 대시보드/월보고서와 동일한 로직
+    //   - estimatedAmount: 활성 journey > patient.estimatedAmount
+    //   - actualAmount: paymentStatus in (partial, completed)일 때만 patient.actualAmount
     const data = patients.map((p) => {
       const pid = p._id.toString();
-      const interests: string[] = Array.isArray(p.interestedServices) ? p.interestedServices : (p.interest ? [p.interest] : []);
+      const interests: string[] = Array.isArray(p.interestedServices)
+        ? p.interestedServices
+        : (p.interest ? [p.interest] : []);
+
+      const activeJourney = Array.isArray(p.journeys)
+        ? p.journeys.find((j: { isActive?: boolean; id?: string }) =>
+            j.isActive || j.id === p.activeJourneyId)
+        : null;
+
+      const estimated = activeJourney?.estimatedAmount || p.estimatedAmount || 0;
+      const isPaid = p.paymentStatus === 'partial' || p.paymentStatus === 'completed';
+      const actual = isPaid ? (activeJourney?.actualAmount || p.actualAmount || 0) : 0;
+
       return {
         patientId: pid,
         name: p.name || '',
         phone: p.phoneNumber || p.phone || '',
         status: p.status || '-',
         registeredAt: typeof p.createdAt === 'string' ? p.createdAt : new Date(p.createdAt).toISOString(),
-        estimatedAmount: originalByPatient.get(pid) || p.consultation?.estimatedAmount || 0,
-        actualAmount: finalByPatient.get(pid) || 0,
+        estimatedAmount: estimated,
+        actualAmount: actual,
         interests,
       };
     });
