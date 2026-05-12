@@ -284,6 +284,14 @@ export async function POST(request: NextRequest) {
       newItem.parentCategory = item.parentCategory;
     }
 
+    // referralSources는 parentCategory 필수
+    if (categoryType === 'referralSources' && !newItem.parentCategory) {
+      return NextResponse.json(
+        { success: false, error: '유입경로는 상담타입(parentCategory)을 반드시 지정해야 합니다.' },
+        { status: 400 }
+      );
+    }
+
     // 배열에 추가
     await db.collection('settings').updateOne(
       { type: 'categories' },

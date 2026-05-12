@@ -90,6 +90,12 @@ export default function PatientCategorySettings() {
   const handleAddItem = async () => {
     if (!newItemLabel.trim()) return;
 
+    // referralSources는 parentCategory(상담타입) 필수
+    if (activeCategory === 'referralSources' && !newItemParentCategory) {
+      alert('유입경로는 상담타입을 반드시 선택해야 합니다.');
+      return;
+    }
+
     const item: any = { label: newItemLabel.trim() };
     if ((activeCategory === 'treatmentTypes' || activeCategory === 'referralSources') && newItemParentCategory) {
       item.parentCategory = newItemParentCategory;
@@ -251,6 +257,12 @@ export default function PatientCategorySettings() {
     parentCategory: string,
     targetCategory: CategoryType = 'treatmentTypes'
   ) => {
+    // referralSources는 parentCategory(상담타입) 필수 — 빈 값 선택 차단
+    if (targetCategory === 'referralSources' && !parentCategory) {
+      alert('유입경로는 상담타입을 반드시 선택해야 합니다.');
+      return;
+    }
+
     const updatedItems = categories[targetCategory].map((item) =>
       item.id === itemId ? { ...item, parentCategory: parentCategory || undefined } : item
     );
@@ -511,10 +523,20 @@ export default function PatientCategorySettings() {
                     value={item.parentCategory || ''}
                     onChange={(e) => handleChangeParentCategory(item.id, e.target.value, activeCategory)}
                     disabled={isSaving}
-                    className="px-2 py-0.5 text-xs border border-gray-200 rounded bg-white focus:outline-none focus:ring-1 focus:ring-primary"
+                    className={`px-2 py-0.5 text-xs border rounded bg-white focus:outline-none focus:ring-1 focus:ring-primary ${
+                      isReferralSources && !item.parentCategory
+                        ? 'border-rose-300 text-rose-600'  // referralSources에서 미설정 = 경고색
+                        : 'border-gray-200'
+                    }`}
                     title={`${parentCategoryLabel} 선택`}
                   >
-                    <option value="">{parentCategoryLabel} 없음</option>
+                    {/* referralSources는 '없음' 옵션 차단 */}
+                    {!isReferralSources && (
+                      <option value="">{parentCategoryLabel} 없음</option>
+                    )}
+                    {isReferralSources && !item.parentCategory && (
+                      <option value="" disabled>⚠ {parentCategoryLabel} 선택 필요</option>
+                    )}
                     {parentCategoryOptions.map((label) => (
                       <option key={label} value={label}>{label}</option>
                     ))}
