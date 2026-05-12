@@ -183,8 +183,8 @@ export default function PatientDetailPage() {
   // 현재 로그인한 사용자 정보
   const { user } = useAppSelector((state) => state.auth);
 
-  // DB 기반 치료 과목 목록
-  const { activeTreatmentTypes } = useCategories();
+  // DB 기반 치료 과목 + 유입경로 목록
+  const { activeTreatmentTypes, activeReferralSources } = useCategories();
   const treatmentTypeLabels = activeTreatmentTypes.map(t => t.label);
 
   const [patient, setPatient] = useState<PatientDetail | null>(null);
@@ -232,6 +232,11 @@ export default function PatientDetailPage() {
   const [interestEditOpen, setInterestEditOpen] = useState(false);
   const [interestEditValue, setInterestEditValue] = useState('');
   const [interestSaving, setInterestSaving] = useState(false);
+
+  // 🆕 유입경로 인라인 편집
+  const [sourceEditOpen, setSourceEditOpen] = useState(false);
+  const [sourceEditValue, setSourceEditValue] = useState('');
+  const [sourceSaving, setSourceSaving] = useState(false);
 
   // 🆕 치료금액 인라인 편집
   const [amountEditOpen, setAmountEditOpen] = useState(false);
@@ -560,6 +565,30 @@ export default function PatientDetailPage() {
       console.error('관심분야 저장 실패:', err);
     } finally {
       setInterestSaving(false);
+    }
+  };
+
+  // 🆕 유입경로 인라인 편집 핸들러
+  // (백엔드가 source의 parentCategory로 consultationType 자동 갱신)
+  const handleSourceSave = async (value: string) => {
+    if (!value) {
+      setSourceEditOpen(false);
+      return;
+    }
+    setSourceSaving(true);
+    try {
+      const response = await authFetch(`/api/v2/patients/${patientId}`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ source: value }),
+      });
+      if (!response.ok) throw new Error('유입경로 업데이트 실패');
+      await fetchPatient();
+      setSourceEditOpen(false);
+    } catch (err) {
+      console.error('유입경로 저장 실패:', err);
+    } finally {
+      setSourceSaving(false);
     }
   };
 
@@ -1691,12 +1720,58 @@ export default function PatientDetailPage() {
                 <span className="text-gray-500">총 통화</span>
                 <span className="text-gray-900">{patient.callCount}회</span>
               </div>
-              {patient.source && (
-                <div className="flex items-center justify-between">
-                  <span className="text-gray-500">유입경로</span>
-                  <span className="text-gray-900">{patient.source}</span>
-                </div>
-              )}
+              <div className="flex items-center justify-between">
+                <span className="text-gray-500">유입경로</span>
+                {sourceEditOpen ? (
+                  <div className="flex items-center gap-1">
+                    <select
+                      value={sourceEditValue}
+                      onChange={(e) => setSourceEditValue(e.target.value)}
+                      disabled={sourceSaving}
+                      className="text-sm border border-orange-300 rounded px-2 py-0.5 focus:outline-none focus:ring-2 focus:ring-orange-500 bg-white"
+                      autoFocus
+                    >
+                      <option value="">선택...</option>
+                      {activeReferralSources.map((s) => (
+                        <option key={s.id} value={s.label}>
+                          {s.label}{s.parentCategory ? ` (${s.parentCategory})` : ''}
+                        </option>
+                      ))}
+                    </select>
+                    <button
+                      onClick={() => handleSourceSave(sourceEditValue)}
+                      disabled={sourceSaving || !sourceEditValue}
+                      className="p-1 text-orange-600 hover:bg-orange-50 rounded disabled:opacity-30"
+                      title="저장"
+                    >
+                      <Save size={14} />
+                    </button>
+                    <button
+                      onClick={() => setSourceEditOpen(false)}
+                      disabled={sourceSaving}
+                      className="p-1 text-gray-400 hover:bg-gray-100 rounded"
+                      title="취소"
+                    >
+                      <X size={14} />
+                    </button>
+                  </div>
+                ) : (
+                  <button
+                    onClick={() => {
+                      setSourceEditValue(patient.source || '');
+                      setSourceEditOpen(true);
+                    }}
+                    className={`text-sm rounded px-2 py-0.5 transition-colors ${
+                      patient.source
+                        ? 'text-gray-900 hover:bg-gray-100'
+                        : 'text-gray-400 hover:bg-gray-100'
+                    }`}
+                    title="유입경로 편집"
+                  >
+                    {patient.source || '미입력 (클릭하여 입력)'}
+                  </button>
+                )}
+              </div>
               {patient.statusChangedAt && (
                 <div className="flex items-center justify-between">
                   <span className="text-gray-500">상태 변경</span>
