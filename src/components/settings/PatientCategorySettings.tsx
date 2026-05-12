@@ -91,7 +91,7 @@ export default function PatientCategorySettings() {
     if (!newItemLabel.trim()) return;
 
     const item: any = { label: newItemLabel.trim() };
-    if (activeCategory === 'treatmentTypes' && newItemParentCategory) {
+    if ((activeCategory === 'treatmentTypes' || activeCategory === 'referralSources') && newItemParentCategory) {
       item.parentCategory = newItemParentCategory;
     }
 
@@ -110,7 +110,7 @@ export default function PatientCategorySettings() {
 
       if (data.success) {
         // 서버에서 "미분류" 시스템 항목이 추가됐을 수 있으므로 전체 리로드
-        if (activeCategory === 'treatmentTypes' && newItemParentCategory) {
+        if ((activeCategory === 'treatmentTypes' || activeCategory === 'referralSources') && newItemParentCategory) {
           await fetchCategories();
         } else {
           setCategories((prev) => ({
@@ -235,9 +235,13 @@ export default function PatientCategorySettings() {
     }
   };
 
-  // 대분류(parentCategory) 변경 (treatmentTypes 전용)
-  const handleChangeParentCategory = async (itemId: string, parentCategory: string) => {
-    const updatedItems = categories.treatmentTypes.map((item) =>
+  // 상위 카테고리(parentCategory) 변경 (treatmentTypes, referralSources 지원)
+  const handleChangeParentCategory = async (
+    itemId: string,
+    parentCategory: string,
+    targetCategory: CategoryType = 'treatmentTypes'
+  ) => {
+    const updatedItems = categories[targetCategory].map((item) =>
       item.id === itemId ? { ...item, parentCategory: parentCategory || undefined } : item
     );
 
@@ -247,7 +251,7 @@ export default function PatientCategorySettings() {
         method: 'PUT',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          categoryType: 'treatmentTypes',
+          categoryType: targetCategory,
           categories: updatedItems,
         }),
       });
@@ -258,11 +262,11 @@ export default function PatientCategorySettings() {
         // 서버에서 "미분류" 시스템 항목이 추가됐을 수 있으므로 리로드
         await fetchCategories();
       } else {
-        alert(data.error || '대분류 변경에 실패했습니다.');
+        alert(data.error || '상위 분류 변경에 실패했습니다.');
       }
     } catch (err) {
-      alert('대분류 변경에 실패했습니다.');
-      console.error('대분류 변경 오류:', err);
+      alert('상위 분류 변경에 실패했습니다.');
+      console.error('상위 분류 변경 오류:', err);
     } finally {
       setIsSaving(false);
     }
@@ -311,10 +315,17 @@ export default function PatientCategorySettings() {
   const activeCount = currentItems.filter((i) => i.isActive).length;
   const isReadonly = READONLY_CATEGORIES.includes(activeCategory);
   const isTreatmentTypes = activeCategory === 'treatmentTypes';
-  // 대분류 옵션 (interestedServices의 활성 라벨들)
-  const parentCategoryOptions = categories.interestedServices
-    .filter((s) => s.isActive)
-    .map((s) => s.label);
+  const isReferralSources = activeCategory === 'referralSources';
+  const hasParentCategory = isTreatmentTypes || isReferralSources;
+
+  // 상위 분류 옵션:
+  //   - treatmentTypes  → interestedServices (관심 분야)
+  //   - referralSources → consultationTypes (상담 타입)
+  const parentCategoryOptions = isReferralSources
+    ? categories.consultationTypes.filter((s) => s.isActive).map((s) => s.label)
+    : categories.interestedServices.filter((s) => s.isActive).map((s) => s.label);
+
+  const parentCategoryLabel = isReferralSources ? '상담타입' : '대분류';
 
   return (
     <div className="space-y-6">
@@ -370,14 +381,14 @@ export default function PatientCategorySettings() {
               onKeyPress={(e) => e.key === 'Enter' && handleAddItem()}
               disabled={isSaving}
             />
-            {isTreatmentTypes && (
+            {hasParentCategory && (
               <select
                 value={newItemParentCategory}
                 onChange={(e) => setNewItemParentCategory(e.target.value)}
                 className="px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary text-sm"
                 disabled={isSaving}
               >
-                <option value="">대분류 선택</option>
+                <option value="">{parentCategoryLabel} 선택</option>
                 {parentCategoryOptions.map((label) => (
                   <option key={label} value={label}>{label}</option>
                 ))}
@@ -491,16 +502,16 @@ export default function PatientCategorySettings() {
                   </span>
                 )}
 
-                {/* 대분류 매핑 (treatmentTypes 전용, 시스템 항목 제외) */}
-                {isTreatmentTypes && !item.isSystem && (
+                {/* 상위 분류 매핑 (treatmentTypes/referralSources, 시스템 항목 제외) */}
+                {hasParentCategory && !item.isSystem && (
                   <select
                     value={item.parentCategory || ''}
-                    onChange={(e) => handleChangeParentCategory(item.id, e.target.value)}
+                    onChange={(e) => handleChangeParentCategory(item.id, e.target.value, activeCategory)}
                     disabled={isSaving}
                     className="px-2 py-0.5 text-xs border border-gray-200 rounded bg-white focus:outline-none focus:ring-1 focus:ring-primary"
-                    title="대분류 선택"
+                    title={`${parentCategoryLabel} 선택`}
                   >
-                    <option value="">대분류 없음</option>
+                    <option value="">{parentCategoryLabel} 없음</option>
                     {parentCategoryOptions.map((label) => (
                       <option key={label} value={label}>{label}</option>
                     ))}

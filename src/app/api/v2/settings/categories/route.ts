@@ -277,8 +277,10 @@ export async function POST(request: NextRequest) {
       isActive: true,
     };
 
-    // treatmentTypes: parentCategory 매핑 지원
-    if (categoryType === 'treatmentTypes' && item.parentCategory) {
+    // treatmentTypes / referralSources: parentCategory 매핑 지원
+    // - treatmentTypes의 parentCategory = interestedServices (관심 분야)
+    // - referralSources의 parentCategory = consultationTypes (상담 타입)
+    if ((categoryType === 'treatmentTypes' || categoryType === 'referralSources') && item.parentCategory) {
       newItem.parentCategory = item.parentCategory;
     }
 
