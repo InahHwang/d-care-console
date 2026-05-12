@@ -6,6 +6,7 @@ import { ObjectId } from 'mongodb';
 import { PatientStatus, Temperature, CallbackReason, CallbackHistoryEntry } from '@/types/v2';
 import { z } from 'zod';
 import { extractUserFromRequest, diffChanges, logAudit } from '@/utils/auditLog';
+import { resolveCategoryLabel } from '@/utils/categoryResolver';
 
 const patientPatchSchema = z.object({
   name: z.string().nullish(),
@@ -288,7 +289,10 @@ export async function PATCH(
 
     if (name !== undefined) updateData.name = name;
     if (phone !== undefined) updateData.phone = phone;
-    if (body.consultationType !== undefined) updateData.consultationType = body.consultationType;
+    if (body.consultationType !== undefined) {
+      // id 형식이면 label로 자동 변환
+      updateData.consultationType = await resolveCategoryLabel(db, body.consultationType, 'consultationTypes');
+    }
     if (status !== undefined) {
       updateData.status = status as PatientStatus;
       // 상태가 변경되면 statusChangedAt 업데이트 및 히스토리 기록
@@ -345,7 +349,10 @@ export async function PATCH(
 
     if (temperature !== undefined) updateData.temperature = temperature as Temperature;
     if (interest !== undefined) updateData['aiAnalysis.interest'] = interest;
-    if (source !== undefined) updateData.source = source;
+    if (source !== undefined) {
+      // id 형식이면 label로 자동 변환
+      updateData.source = await resolveCategoryLabel(db, source, 'referralSources');
+    }
     if (memo !== undefined) updateData.memo = memo;
     if (tags !== undefined) updateData.tags = tags;
     if (age !== undefined) updateData.age = age;

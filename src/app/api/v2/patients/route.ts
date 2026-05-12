@@ -5,6 +5,7 @@ import { verifyToken } from '@/lib/auth';
 import { ObjectId } from 'mongodb';
 import { PatientStatus, Temperature, Journey } from '@/types/v2';
 import { z } from 'zod';
+import { resolveCategoryLabel } from '@/utils/categoryResolver';
 
 // POST 요청 Zod 스키마
 const createPatientSchema = z.object({
@@ -606,13 +607,17 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    const { name, phone, consultationType, interest, source, temperature, nextAction, age, region, firstConsultDate, changedBy } = parsed.data;
+    const { name, phone, consultationType: rawConsultationType, interest, source: rawSource, temperature, nextAction, age, region, firstConsultDate, changedBy } = parsed.data;
 
     console.log('[Patient POST] changedBy 받음:', changedBy, '| body.changedBy:', body.changedBy);
 
     const { db } = await connectToDatabase();
     const collection = db.collection('patients_v2');
     const clinicId = auth.user.clinicId;
+
+    // id 형식으로 들어오면 label로 자동 변환 (시스템 일관성 보장)
+    const consultationType = await resolveCategoryLabel(db, rawConsultationType, 'consultationTypes');
+    const source = await resolveCategoryLabel(db, rawSource, 'referralSources');
 
     // 중복 체크 (같은 병원 내에서, 삭제되지 않은 환자만)
     const existing = await collection.findOne({ clinicId, phone, deletedAt: { $exists: false } });
