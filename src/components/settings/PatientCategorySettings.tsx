@@ -488,13 +488,6 @@ export default function PatientCategorySettings() {
                   </span>
                 )}
 
-                {/* 기본 항목 뱃지 */}
-                {item.isDefault && (
-                  <span className="px-2 py-0.5 text-xs bg-orange-100 text-orange-600 rounded">
-                    기본
-                  </span>
-                )}
-
                 {/* 시스템 항목 뱃지 */}
                 {item.isSystem && (
                   <span className="px-2 py-0.5 text-xs bg-blue-100 text-blue-600 rounded">
