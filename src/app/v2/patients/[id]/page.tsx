@@ -1125,18 +1125,56 @@ export default function PatientDetailPage() {
                   ) : (
                     <h1 className="text-2xl font-bold text-gray-900">{patient.name}</h1>
                   )}
-                  {/* 상담타입은 유입경로의 parentCategory로 자동 결정됨 — 표시만, 편집 불가 */}
-                  {(() => {
-                    const typeLabel = getConsultationTypeLabel(patient.consultationType);
-                    return typeLabel ? (
-                      <span
-                        className="px-2 py-1 bg-purple-100 text-purple-700 rounded text-sm font-medium"
-                        title="상담타입은 유입경로에 따라 자동 결정됩니다"
+                  {/* 유입경로 인라인 편집 (이름 옆 보라색 뱃지) */}
+                  {sourceEditOpen ? (
+                    <div className="flex items-center gap-1">
+                      <select
+                        value={sourceEditValue}
+                        onChange={(e) => setSourceEditValue(e.target.value)}
+                        disabled={sourceSaving}
+                        className="px-2 py-1 text-sm border border-orange-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-orange-500 bg-white"
+                        autoFocus
                       >
-                        {typeLabel}
-                      </span>
-                    ) : null;
-                  })()}
+                        <option value="">선택...</option>
+                        {activeReferralSources.map((s) => (
+                          <option key={s.id} value={s.label}>
+                            {s.label}{s.parentCategory ? ` (${s.parentCategory})` : ''}
+                          </option>
+                        ))}
+                      </select>
+                      <button
+                        onClick={() => handleSourceSave(sourceEditValue)}
+                        disabled={sourceSaving || !sourceEditValue}
+                        className="p-1 text-orange-600 hover:bg-orange-50 rounded disabled:opacity-30"
+                        title="저장"
+                      >
+                        <Save size={14} />
+                      </button>
+                      <button
+                        onClick={() => setSourceEditOpen(false)}
+                        disabled={sourceSaving}
+                        className="p-1 text-gray-400 hover:bg-gray-100 rounded"
+                        title="취소"
+                      >
+                        <X size={14} />
+                      </button>
+                    </div>
+                  ) : (
+                    <button
+                      onClick={() => {
+                        setSourceEditValue(patient.source || '');
+                        setSourceEditOpen(true);
+                      }}
+                      className={`px-2 py-1 rounded text-sm font-medium transition-colors ${
+                        patient.source
+                          ? 'bg-purple-100 text-purple-700 hover:bg-purple-200'
+                          : 'bg-gray-100 text-gray-500 hover:bg-gray-200'
+                      }`}
+                      title="유입경로 편집"
+                    >
+                      {patient.source || '유입경로 설정'}
+                    </button>
+                  )}
                   <StatusBadge status={displayStatus} />
                 </div>
                 <div className="flex items-center gap-3 flex-wrap">
@@ -1720,57 +1758,20 @@ export default function PatientDetailPage() {
                 <span className="text-gray-500">총 통화</span>
                 <span className="text-gray-900">{patient.callCount}회</span>
               </div>
+              {/* 상담타입 — 유입경로의 parentCategory로 자동 결정됨, 표시만 */}
               <div className="flex items-center justify-between">
-                <span className="text-gray-500">유입경로</span>
-                {sourceEditOpen ? (
-                  <div className="flex items-center gap-1">
-                    <select
-                      value={sourceEditValue}
-                      onChange={(e) => setSourceEditValue(e.target.value)}
-                      disabled={sourceSaving}
-                      className="text-sm border border-orange-300 rounded px-2 py-0.5 focus:outline-none focus:ring-2 focus:ring-orange-500 bg-white"
-                      autoFocus
+                <span className="text-gray-500">상담타입</span>
+                {(() => {
+                  const typeLabel = getConsultationTypeLabel(patient.consultationType);
+                  return (
+                    <span
+                      className="text-gray-900"
+                      title="상담타입은 유입경로에 따라 자동 결정됩니다"
                     >
-                      <option value="">선택...</option>
-                      {activeReferralSources.map((s) => (
-                        <option key={s.id} value={s.label}>
-                          {s.label}{s.parentCategory ? ` (${s.parentCategory})` : ''}
-                        </option>
-                      ))}
-                    </select>
-                    <button
-                      onClick={() => handleSourceSave(sourceEditValue)}
-                      disabled={sourceSaving || !sourceEditValue}
-                      className="p-1 text-orange-600 hover:bg-orange-50 rounded disabled:opacity-30"
-                      title="저장"
-                    >
-                      <Save size={14} />
-                    </button>
-                    <button
-                      onClick={() => setSourceEditOpen(false)}
-                      disabled={sourceSaving}
-                      className="p-1 text-gray-400 hover:bg-gray-100 rounded"
-                      title="취소"
-                    >
-                      <X size={14} />
-                    </button>
-                  </div>
-                ) : (
-                  <button
-                    onClick={() => {
-                      setSourceEditValue(patient.source || '');
-                      setSourceEditOpen(true);
-                    }}
-                    className={`text-sm rounded px-2 py-0.5 transition-colors ${
-                      patient.source
-                        ? 'text-gray-900 hover:bg-gray-100'
-                        : 'text-gray-400 hover:bg-gray-100'
-                    }`}
-                    title="유입경로 편집"
-                  >
-                    {patient.source || '미입력 (클릭하여 입력)'}
-                  </button>
-                )}
+                      {typeLabel || '-'}
+                    </span>
+                  );
+                })()}
               </div>
               {patient.statusChangedAt && (
                 <div className="flex items-center justify-between">
