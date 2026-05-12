@@ -10,6 +10,7 @@ interface CategoryItem {
   id: string;
   label: string;
   isActive?: boolean;
+  parentCategory?: string;
 }
 
 /**
@@ -40,4 +41,26 @@ export async function resolveCategoryLabel(
 
   // 이미 label이거나 카테고리에 없는 값 → 그대로 (자유 입력 허용)
   return value;
+}
+
+/**
+ * 유입경로(referralSource) label로부터 매핑된 상담타입(consultationType) label 조회.
+ * 환자 등록 시 사용자가 유입경로만 선택하면 상담타입은 자동 결정되도록 하는 용도.
+ *
+ * @param db MongoDB 인스턴스
+ * @param sourceLabel 유입경로 라벨 (예: '네이버 광고', '팀플DB')
+ * @returns 매핑된 상담타입 라벨 (예: '인바운드', '아웃바운드'). 매핑 없으면 ''
+ */
+export async function resolveConsultationTypeBySource(
+  db: Db,
+  sourceLabel: string | null | undefined
+): Promise<string> {
+  if (!sourceLabel || typeof sourceLabel !== 'string') return '';
+
+  const settings = await db.collection('settings').findOne({ type: 'categories' });
+  if (!settings) return '';
+
+  const items: CategoryItem[] = (settings.referralSources as CategoryItem[]) || [];
+  const found = items.find((c) => c.label === sourceLabel);
+  return found?.parentCategory || '';
 }

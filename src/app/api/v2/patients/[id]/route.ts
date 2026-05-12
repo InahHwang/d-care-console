@@ -6,7 +6,7 @@ import { ObjectId } from 'mongodb';
 import { PatientStatus, Temperature, CallbackReason, CallbackHistoryEntry } from '@/types/v2';
 import { z } from 'zod';
 import { extractUserFromRequest, diffChanges, logAudit } from '@/utils/auditLog';
-import { resolveCategoryLabel } from '@/utils/categoryResolver';
+import { resolveCategoryLabel, resolveConsultationTypeBySource } from '@/utils/categoryResolver';
 
 const patientPatchSchema = z.object({
   name: z.string().nullish(),
@@ -351,7 +351,13 @@ export async function PATCH(
     if (interest !== undefined) updateData['aiAnalysis.interest'] = interest;
     if (source !== undefined) {
       // id 형식이면 label로 자동 변환
-      updateData.source = await resolveCategoryLabel(db, source, 'referralSources');
+      const normalizedSource = await resolveCategoryLabel(db, source, 'referralSources');
+      updateData.source = normalizedSource;
+      // 유입경로가 바뀌면 상담타입도 카테고리 매핑에 따라 자동 갱신
+      const newConsultationType = await resolveConsultationTypeBySource(db, normalizedSource);
+      if (newConsultationType) {
+        updateData.consultationType = newConsultationType;
+      }
     }
     if (memo !== undefined) updateData.memo = memo;
     if (tags !== undefined) updateData.tags = tags;

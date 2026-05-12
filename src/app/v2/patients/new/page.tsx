@@ -16,6 +16,7 @@ interface CategoryItem {
   label: string;
   isDefault: boolean;
   isActive: boolean;
+  parentCategory?: string;
 }
 
 // 시/도 및 시군구 데이터
@@ -47,7 +48,6 @@ export default function NewPatientPage() {
 
   const [name, setName] = useState('');
   const [phone, setPhone] = useState('');
-  const [consultationType, setConsultationType] = useState('');
   const [interest, setInterest] = useState('');
   const [source, setSource] = useState('');
   const [age, setAge] = useState<string>('');
@@ -59,7 +59,6 @@ export default function NewPatientPage() {
   const [error, setError] = useState('');
 
   // 카테고리 데이터
-  const [consultationTypes, setConsultationTypes] = useState<CategoryItem[]>([]);
   const [referralSources, setReferralSources] = useState<CategoryItem[]>([]);
   const [treatmentTypes, setTreatmentTypes] = useState<CategoryItem[]>([]);
   const [loadingCategories, setLoadingCategories] = useState(true);
@@ -71,15 +70,10 @@ export default function NewPatientPage() {
         const response = await authFetch('/api/v2/settings/categories');
         const data = await response.json();
         if (data.success) {
-          const activeTypes = (data.categories.consultationTypes || []).filter((item: CategoryItem) => item.isActive);
           const activeSources = (data.categories.referralSources || []).filter((item: CategoryItem) => item.isActive);
           const activeTreatments = (data.categories.treatmentTypes || []).filter((item: CategoryItem) => item.isActive);
-          setConsultationTypes(activeTypes);
           setReferralSources(activeSources);
           setTreatmentTypes(activeTreatments);
-          if (activeTypes.length > 0 && !consultationType) {
-            setConsultationType(activeTypes[0].label);
-          }
         }
       } catch (err) {
         console.error('카테고리 로드 실패:', err);
@@ -123,6 +117,12 @@ export default function NewPatientPage() {
       return;
     }
 
+    // 유입경로 필수
+    if (!source) {
+      setError('유입경로를 선택해주세요');
+      return;
+    }
+
     setSaving(true);
     setError('');
 
@@ -130,7 +130,7 @@ export default function NewPatientPage() {
       const patientData: Record<string, unknown> = {
         name: name.trim(),
         phone: phone.trim(),
-        consultationType,
+        // consultationType은 백엔드에서 source의 parentCategory로 자동 결정
         interest,
         source,
         memo,
@@ -240,27 +240,6 @@ export default function NewPatientPage() {
         <div className="space-y-4">
           <h2 className="font-semibold text-gray-900 pb-2 border-b">상담 정보</h2>
 
-          {/* 상담타입 */}
-          <div>
-            <label className="block text-sm font-medium text-gray-700 mb-2">상담타입</label>
-            {loadingCategories ? (
-              <div className="w-full px-4 py-3 border border-gray-200 rounded-lg bg-gray-50 text-gray-400">
-                로딩 중...
-              </div>
-            ) : (
-              <select
-                value={consultationType}
-                onChange={(e) => setConsultationType(e.target.value)}
-                className="w-full px-4 py-3 border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-orange-500"
-              >
-                <option value="">선택하세요</option>
-                {consultationTypes.map((item) => (
-                  <option key={item.id} value={item.label}>{item.label}</option>
-                ))}
-              </select>
-            )}
-          </div>
-
           {/* 관심 시술 */}
           <div>
             <label className="block text-sm font-medium text-gray-700 mb-2">관심 시술</label>
@@ -290,9 +269,11 @@ export default function NewPatientPage() {
             )}
           </div>
 
-          {/* 유입경로 */}
+          {/* 유입경로 (필수) */}
           <div>
-            <label className="block text-sm font-medium text-gray-700 mb-2">유입경로</label>
+            <label className="block text-sm font-medium text-gray-700 mb-2">
+              유입경로 <span className="text-red-500">*</span>
+            </label>
             {loadingCategories ? (
               <div className="w-full px-4 py-3 border border-gray-200 rounded-lg bg-gray-50 text-gray-400">
                 로딩 중...
@@ -302,13 +283,19 @@ export default function NewPatientPage() {
                 value={source}
                 onChange={(e) => setSource(e.target.value)}
                 className="w-full px-4 py-3 border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-orange-500"
+                required
               >
-                <option value="">알수없음</option>
+                <option value="">선택하세요</option>
                 {referralSources.map((item) => (
-                  <option key={item.id} value={item.label}>{item.label}</option>
+                  <option key={item.id} value={item.label}>
+                    {item.label}{item.parentCategory ? ` (${item.parentCategory})` : ''}
+                  </option>
                 ))}
               </select>
             )}
+            <p className="text-xs text-gray-400 mt-1">
+              유입경로에 따라 상담타입(인바운드/아웃바운드/구신환)이 자동으로 분류됩니다.
+            </p>
           </div>
 
           {/* 첫 상담일 */}

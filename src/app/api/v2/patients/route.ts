@@ -5,7 +5,7 @@ import { verifyToken } from '@/lib/auth';
 import { ObjectId } from 'mongodb';
 import { PatientStatus, Temperature, Journey } from '@/types/v2';
 import { z } from 'zod';
-import { resolveCategoryLabel } from '@/utils/categoryResolver';
+import { resolveCategoryLabel, resolveConsultationTypeBySource } from '@/utils/categoryResolver';
 
 // POST 요청 Zod 스키마
 const createPatientSchema = z.object({
@@ -616,8 +616,15 @@ export async function POST(request: NextRequest) {
     const clinicId = auth.user.clinicId;
 
     // id 형식으로 들어오면 label로 자동 변환 (시스템 일관성 보장)
-    const consultationType = await resolveCategoryLabel(db, rawConsultationType, 'consultationTypes');
     const source = await resolveCategoryLabel(db, rawSource, 'referralSources');
+
+    // 상담타입 결정 로직:
+    //   1. source(유입경로)가 있으면 카테고리 parentCategory에서 자동 조회 (우선)
+    //   2. 자동 결정 실패 시 클라이언트가 보낸 consultationType 사용 (자동등록 등 폴백)
+    let consultationType = await resolveConsultationTypeBySource(db, source);
+    if (!consultationType) {
+      consultationType = await resolveCategoryLabel(db, rawConsultationType, 'consultationTypes');
+    }
 
     // 중복 체크 (같은 병원 내에서, 삭제되지 않은 환자만)
     const existing = await collection.findOne({ clinicId, phone, deletedAt: { $exists: false } });
