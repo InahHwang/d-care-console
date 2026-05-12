@@ -155,7 +155,10 @@ export async function PATCH(request: NextRequest) {
   }
 }
 
-// DELETE - 광고비 삭제 (?id=xxx)
+// DELETE - 광고비 삭제
+//   ?id=xxx         → 단건 삭제
+//   ?channel=xxx&year=2026  → 해당 년도/채널의 모든 기록 일괄 삭제
+//   ?channel=xxx    → 해당 채널 전체 일괄 삭제 (전 기간)
 export async function DELETE(request: NextRequest) {
   try {
     const auth = verifyToken(request);
@@ -165,12 +168,25 @@ export async function DELETE(request: NextRequest) {
 
     const { searchParams } = new URL(request.url);
     const id = searchParams.get('id');
-    if (!id || !ObjectId.isValid(id)) {
-      return NextResponse.json({ success: false, message: '유효하지 않은 ID' }, { status: 400 });
-    }
+    const channel = searchParams.get('channel');
+    const year = searchParams.get('year');
 
     const { db } = await connectToDatabase();
     const clinicId = auth.user.clinicId;
+
+    // 채널 단위 일괄 삭제
+    if (channel) {
+      const filter: Record<string, unknown> = { clinicId, channel };
+      if (year) filter.year = parseInt(year);
+
+      const result = await db.collection('marketing_costs_v2').deleteMany(filter);
+      return NextResponse.json({ success: true, deletedCount: result.deletedCount });
+    }
+
+    // 단건 삭제
+    if (!id || !ObjectId.isValid(id)) {
+      return NextResponse.json({ success: false, message: '유효하지 않은 ID' }, { status: 400 });
+    }
 
     const result = await db.collection('marketing_costs_v2').deleteOne({
       _id: new ObjectId(id),
@@ -181,7 +197,7 @@ export async function DELETE(request: NextRequest) {
       return NextResponse.json({ success: false, message: '광고비 기록을 찾을 수 없습니다.' }, { status: 404 });
     }
 
-    return NextResponse.json({ success: true });
+    return NextResponse.json({ success: true, deletedCount: 1 });
   } catch (error) {
     console.error('[marketing/costs DELETE] error', error);
     return NextResponse.json({ success: false, message: '광고비 삭제 중 오류가 발생했습니다.' }, { status: 500 });

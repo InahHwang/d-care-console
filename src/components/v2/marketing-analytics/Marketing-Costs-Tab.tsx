@@ -56,6 +56,22 @@ export function MarketingCostsTab({ year }: Props) {
     MONTHS.reduce((sum, m) => sum + (matrix[ch]?.[m] || 0), 0)
   );
 
+  const handleDeleteChannel = async (channel: string) => {
+    const recordCount = MONTHS.reduce((sum, m) => sum + (matrix[channel]?.[m] ? 1 : 0), 0);
+    if (!confirm(`'${channel}' 채널의 ${year}년 광고비 기록 ${recordCount}건을 모두 삭제하시겠습니까?`)) return;
+
+    const res = await authFetch(
+      `/api/v2/marketing/costs?channel=${encodeURIComponent(channel)}&year=${year}`,
+      { method: 'DELETE' }
+    );
+    const json = await res.json();
+    if (!json.success) {
+      alert(json.message || '삭제 실패');
+      return;
+    }
+    await reload();
+  };
+
   const handleCellClick = (channel: string, month: number) => {
     const existing = memoMap[channel]?.[month];
     if (existing) {
@@ -112,11 +128,12 @@ export function MarketingCostsTab({ year }: Props) {
                   <th key={m} className="px-2 py-2 text-right min-w-[80px]">{m}월</th>
                 ))}
                 <th className="px-3 py-2 text-right bg-gray-100 min-w-[100px]">합계</th>
+                <th className="px-2 py-2 w-10"></th>
               </tr>
             </thead>
             <tbody className="divide-y divide-gray-100">
               {channels.map((ch, idx) => (
-                <tr key={ch} className="hover:bg-gray-50">
+                <tr key={ch} className="hover:bg-gray-50 group">
                   <td className="px-3 py-2 font-medium text-gray-900 sticky left-0 bg-white z-10">{ch}</td>
                   {MONTHS.map((m) => {
                     const amount = matrix[ch]?.[m] || 0;
@@ -135,6 +152,15 @@ export function MarketingCostsTab({ year }: Props) {
                   <td className="px-3 py-2 text-right font-semibold text-gray-900 bg-gray-50">
                     {formatKRWShort(channelTotals[idx])}
                   </td>
+                  <td className="px-2 py-2 text-center">
+                    <button
+                      onClick={() => handleDeleteChannel(ch)}
+                      className="p-1 text-gray-300 hover:text-rose-600 hover:bg-rose-50 rounded opacity-0 group-hover:opacity-100 transition-opacity"
+                      title={`'${ch}' 채널 전체 삭제`}
+                    >
+                      <Trash2 size={14} />
+                    </button>
+                  </td>
                 </tr>
               ))}
               <tr className="bg-gray-100 font-semibold">
@@ -147,6 +173,7 @@ export function MarketingCostsTab({ year }: Props) {
                 <td className="px-3 py-2 text-right text-orange-600">
                   {formatKRWShort(monthlyTotals.reduce((a, b) => a + b, 0))}
                 </td>
+                <td className="px-2 py-2"></td>
               </tr>
             </tbody>
           </table>
