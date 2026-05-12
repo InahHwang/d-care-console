@@ -4,8 +4,10 @@
 'use client';
 
 import React, { useEffect, useState, useCallback } from 'react';
+import Link from 'next/link';
 import { authFetch } from '@/utils/authFetch';
-import { Plus, Edit2, Trash2, X } from 'lucide-react';
+import { Plus, Trash2, X, Settings } from 'lucide-react';
+import { useCategories } from '@/hooks/useCategories';
 import { MarketingCost, CATEGORY_LABEL, formatKRWShort } from './Marketing-Analytics-Types';
 
 interface Props {
@@ -180,6 +182,8 @@ function CostFormModal({
   onSaved: () => void;
 }) {
   const isEdit = !!initial?._id;
+  const { activeReferralSources, isLoading: catLoading } = useCategories();
+
   const [form, setForm] = useState({
     year: initial?.year || year,
     month: initial?.month || new Date().getMonth() + 1,
@@ -191,9 +195,13 @@ function CostFormModal({
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
+  // 카테고리에 없는 기존 채널값 (이전에 자유 입력으로 저장된 것)
+  const channelLabels = activeReferralSources.map((s) => s.label);
+  const isCustomChannel = !!form.channel && !channelLabels.includes(form.channel);
+
   const handleSubmit = async () => {
     setError(null);
-    if (!form.channel.trim()) { setError('채널명을 입력하세요.'); return; }
+    if (!form.channel.trim()) { setError('채널을 선택하세요.'); return; }
     if (form.amount < 0) { setError('금액은 0 이상이어야 합니다.'); return; }
 
     setSubmitting(true);
@@ -276,16 +284,33 @@ function CostFormModal({
           </div>
           <div>
             <label className="text-xs text-gray-600 mb-1 block">채널 *</label>
-            <input
-              type="text"
+            <select
               value={form.channel}
               onChange={(e) => setForm({ ...form, channel: e.target.value })}
-              placeholder="예: 네이버광고, 인스타, 블로그, 당근, 전단지"
-              className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm"
-            />
-            <p className="text-xs text-gray-400 mt-1">
-              💡 환자 등록 시 입력하는 &apos;유입경로&apos;와 동일하게 적으면 ROAS가 자동 매칭됩니다.
-            </p>
+              className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm bg-white"
+              disabled={catLoading}
+            >
+              <option value="">선택하세요</option>
+              {channelLabels.map((label) => (
+                <option key={label} value={label}>{label}</option>
+              ))}
+              {/* 기존 자유 입력 채널 유지 (편집 시) */}
+              {isCustomChannel && (
+                <option value={form.channel}>{form.channel} (구 입력)</option>
+              )}
+            </select>
+            <div className="flex items-center justify-between mt-1">
+              <p className="text-xs text-gray-400">
+                환자 등록 시 사용하는 &apos;유입경로&apos; 목록과 동일합니다.
+              </p>
+              <Link
+                href="/v2/settings"
+                className="inline-flex items-center gap-1 text-xs text-orange-600 hover:underline"
+                target="_blank"
+              >
+                <Settings size={11} /> 유입경로 관리
+              </Link>
+            </div>
           </div>
           <div>
             <label className="text-xs text-gray-600 mb-1 block">카테고리</label>
