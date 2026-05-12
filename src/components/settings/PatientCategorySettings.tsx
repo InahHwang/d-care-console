@@ -14,6 +14,8 @@ import {
   HiOutlineRefresh,
   HiOutlineEye,
   HiOutlineEyeOff,
+  HiOutlineArrowUp,
+  HiOutlineArrowDown,
 } from 'react-icons/hi';
 import { Icon } from '@/components/common/Icon';
 import type { CategoryItem, Categories } from '@/hooks/useCategories';
@@ -289,6 +291,40 @@ export default function PatientCategorySettings() {
     } catch (err) {
       alert('상위 분류 변경에 실패했습니다.');
       console.error('상위 분류 변경 오류:', err);
+    } finally {
+      setIsSaving(false);
+    }
+  };
+
+  // 순서 변경 — 한 단계씩 위/아래로 이동
+  const handleMoveItem = async (index: number, direction: 'up' | 'down') => {
+    const targetIndex = direction === 'up' ? index - 1 : index + 1;
+    const items = categories[activeCategory];
+    if (targetIndex < 0 || targetIndex >= items.length) return;
+
+    const newItems = [...items];
+    [newItems[index], newItems[targetIndex]] = [newItems[targetIndex], newItems[index]];
+
+    setIsSaving(true);
+    try {
+      const response = await authFetch('/api/v2/settings/categories', {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          categoryType: activeCategory,
+          categories: newItems,
+        }),
+      });
+
+      const data = await response.json();
+      if (data.success) {
+        setCategories((prev) => ({ ...prev, [activeCategory]: newItems }));
+      } else {
+        alert(data.error || '순서 변경에 실패했습니다.');
+      }
+    } catch (err) {
+      alert('순서 변경에 실패했습니다.');
+      console.error('순서 변경 오류:', err);
     } finally {
       setIsSaving(false);
     }
@@ -575,6 +611,24 @@ export default function PatientCategorySettings() {
                   </>
                 ) : (
                   <>
+                    {/* 순서 변경 — 위 */}
+                    <button
+                      onClick={() => handleMoveItem(index, 'up')}
+                      disabled={isSaving || index === 0}
+                      className="p-1.5 text-gray-400 hover:text-gray-700 hover:bg-gray-100 rounded disabled:opacity-30 disabled:cursor-not-allowed"
+                      title="위로 이동"
+                    >
+                      <Icon icon={HiOutlineArrowUp} size={16} />
+                    </button>
+                    {/* 순서 변경 — 아래 */}
+                    <button
+                      onClick={() => handleMoveItem(index, 'down')}
+                      disabled={isSaving || index === currentItems.length - 1}
+                      className="p-1.5 text-gray-400 hover:text-gray-700 hover:bg-gray-100 rounded disabled:opacity-30 disabled:cursor-not-allowed"
+                      title="아래로 이동"
+                    >
+                      <Icon icon={HiOutlineArrowDown} size={16} />
+                    </button>
                     {!item.isSystem && (
                     <button
                       onClick={() => startEditing(item)}
