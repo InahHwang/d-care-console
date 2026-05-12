@@ -328,8 +328,9 @@ function CostFormModal({
             <label className="text-xs text-gray-600 mb-1 block">금액 (원) *</label>
             <input
               type="number"
-              value={form.amount}
+              value={form.amount || ''}
               onChange={(e) => setForm({ ...form, amount: parseInt(e.target.value) || 0 })}
+              placeholder="예: 800000"
               className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm"
             />
           </div>
