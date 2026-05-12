@@ -155,6 +155,7 @@ interface CategoryItem {
   label: string;
   isDefault: boolean;
   isActive: boolean;
+  parentCategory?: string;
 }
 
 // 시/도 및 시군구 데이터
@@ -184,7 +185,6 @@ function RegisterPatientModal({ call, onClose, onSuccess }: RegisterPatientModal
   const user = useAppSelector((state) => state.auth.user);
   const [name, setName] = useState(call.patientName || '');
   const [phone] = useState(call.phone);
-  const [consultationType, setConsultationType] = useState('');
   const [interest, setInterest] = useState(call.interest || '');
   const [source, setSource] = useState('');
   const [age, setAge] = useState<string>('');
@@ -194,7 +194,6 @@ function RegisterPatientModal({ call, onClose, onSuccess }: RegisterPatientModal
   const [error, setError] = useState('');
 
   // 카테고리 데이터
-  const [consultationTypes, setConsultationTypes] = useState<CategoryItem[]>([]);
   const [referralSources, setReferralSources] = useState<CategoryItem[]>([]);
   const [treatmentTypes, setTreatmentTypes] = useState<CategoryItem[]>([]);
   const [loadingCategories, setLoadingCategories] = useState(true);
@@ -207,17 +206,10 @@ function RegisterPatientModal({ call, onClose, onSuccess }: RegisterPatientModal
         const data = await response.json();
         if (data.success) {
           // 활성화된 항목만 필터링
-          const activeTypes = (data.categories.consultationTypes || []).filter((item: CategoryItem) => item.isActive);
           const activeSources = (data.categories.referralSources || []).filter((item: CategoryItem) => item.isActive);
           const activeTreatments = (data.categories.treatmentTypes || []).filter((item: CategoryItem) => item.isActive);
-          setConsultationTypes(activeTypes);
           setReferralSources(activeSources);
           setTreatmentTypes(activeTreatments);
-          // 기본값 설정
-          if (activeTypes.length > 0 && !consultationType) {
-            setConsultationType(activeTypes[0].label);
-          }
-          // 유입경로는 기본값을 설정하지 않음 (알수없음이 기본)
         }
       } catch (err) {
         console.error('카테고리 로드 실패:', err);
@@ -237,16 +229,20 @@ function RegisterPatientModal({ call, onClose, onSuccess }: RegisterPatientModal
       setError('관심 분야를 선택해주세요');
       return;
     }
+    if (!source) {
+      setError('유입경로를 선택해주세요');
+      return;
+    }
 
     setSaving(true);
     setError('');
 
     try {
       // 1. 환자 등록 시도
+      // consultationType은 백엔드에서 source의 parentCategory로 자동 결정
       const patientData: Record<string, unknown> = {
         name: name.trim(),
         phone,
-        consultationType,
         interest,
         source,
         changedBy: user?.name || '시스템',
@@ -356,26 +352,7 @@ function RegisterPatientModal({ call, onClose, onSuccess }: RegisterPatientModal
             />
           </div>
 
-          {/* 상담타입 */}
-          <div>
-            <label className="block text-sm font-medium text-gray-700 mb-2">상담타입</label>
-            {loadingCategories ? (
-              <div className="w-full px-3 py-2 border border-gray-200 rounded-lg bg-gray-50 text-gray-400">
-                로딩 중...
-              </div>
-            ) : (
-              <select
-                value={consultationType}
-                onChange={(e) => setConsultationType(e.target.value)}
-                className="w-full px-3 py-2 border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-orange-500"
-              >
-                <option value="">선택하세요</option>
-                {consultationTypes.map((item) => (
-                  <option key={item.id} value={item.label}>{item.label}</option>
-                ))}
-              </select>
-            )}
-          </div>
+          {/* 상담타입 UI 제거 — 유입경로의 parentCategory로 자동 결정됨 */}
 
           {/* 관심 분야 */}
           <div>
@@ -410,9 +387,11 @@ function RegisterPatientModal({ call, onClose, onSuccess }: RegisterPatientModal
             )}
           </div>
 
-          {/* 유입경로 */}
+          {/* 유입경로 (필수) */}
           <div>
-            <label className="block text-sm font-medium text-gray-700 mb-2">유입경로</label>
+            <label className="block text-sm font-medium text-gray-700 mb-2">
+              유입경로 <span className="text-red-500">*</span>
+            </label>
             {loadingCategories ? (
               <div className="w-full px-3 py-2 border border-gray-200 rounded-lg bg-gray-50 text-gray-400">
                 로딩 중...
@@ -421,14 +400,22 @@ function RegisterPatientModal({ call, onClose, onSuccess }: RegisterPatientModal
               <select
                 value={source}
                 onChange={(e) => setSource(e.target.value)}
-                className="w-full px-3 py-2 border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-orange-500"
+                className={`w-full px-3 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-orange-500 ${
+                  !source ? 'border-red-300' : 'border-gray-200'
+                }`}
+                required
               >
-                <option value="">알수없음</option>
+                <option value="">선택하세요</option>
                 {referralSources.map((item) => (
-                  <option key={item.id} value={item.label}>{item.label}</option>
+                  <option key={item.id} value={item.label}>
+                    {item.label}{item.parentCategory ? ` (${item.parentCategory})` : ''}
+                  </option>
                 ))}
               </select>
             )}
+            <p className="text-xs text-gray-400 mt-1">
+              유입경로에 따라 상담타입이 자동으로 분류됩니다.
+            </p>
           </div>
 
           {/* 나이 */}
