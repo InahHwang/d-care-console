@@ -686,7 +686,7 @@ export default function PatientDetailPage() {
         body: JSON.stringify({
           name: editData.name,
           phone: editData.phone,
-          consultationType: editData.consultationType,
+          // consultationType은 백엔드에서 source의 parentCategory로 자동 결정되므로 보내지 않음
           interest: editData.interest,
           source: editData.source,
           memo: editData.memo,
@@ -1096,27 +1096,18 @@ export default function PatientDetailPage() {
                   ) : (
                     <h1 className="text-2xl font-bold text-gray-900">{patient.name}</h1>
                   )}
-                  {isEditing ? (
-                    <select
-                      value={editData.consultationType || ''}
-                      onChange={(e) => setEditData({ ...editData, consultationType: e.target.value })}
-                      className="px-2 py-1 text-sm border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-orange-500"
-                    >
-                      <option value="">상담타입 선택</option>
-                      {Object.entries(consultationTypeMap).map(([id, label]) => (
-                        <option key={id} value={id}>{label}</option>
-                      ))}
-                    </select>
-                  ) : (
-                    (() => {
-                      const typeLabel = getConsultationTypeLabel(patient.consultationType);
-                      return typeLabel ? (
-                        <span className="px-2 py-1 bg-purple-100 text-purple-700 rounded text-sm font-medium">
-                          {typeLabel}
-                        </span>
-                      ) : null;
-                    })()
-                  )}
+                  {/* 상담타입은 유입경로의 parentCategory로 자동 결정됨 — 표시만, 편집 불가 */}
+                  {(() => {
+                    const typeLabel = getConsultationTypeLabel(patient.consultationType);
+                    return typeLabel ? (
+                      <span
+                        className="px-2 py-1 bg-purple-100 text-purple-700 rounded text-sm font-medium"
+                        title="상담타입은 유입경로에 따라 자동 결정됩니다"
+                      >
+                        {typeLabel}
+                      </span>
+                    ) : null;
+                  })()}
                   <StatusBadge status={displayStatus} />
                 </div>
                 <div className="flex items-center gap-3 flex-wrap">
