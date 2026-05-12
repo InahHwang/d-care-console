@@ -133,11 +133,21 @@ export default function PatientCategorySettings() {
   };
 
   // 항목 수정
+  // label 변경 시 id도 새로 생성 (isSystem 항목 제외) → id-label 일관성 유지
   const handleUpdateItem = async (itemId: string) => {
     if (!editingLabel.trim()) return;
 
+    const currentItem = categories[activeCategory].find((item) => item.id === itemId);
+    const newLabel = editingLabel.trim();
+    const labelChanged = currentItem?.label !== newLabel;
+    // isSystem 항목은 id 보존 (예: '미분류')
+    const newId =
+      labelChanged && !currentItem?.isSystem
+        ? `custom_${Date.now()}`
+        : itemId;
+
     const updatedItems = categories[activeCategory].map((item) =>
-      item.id === itemId ? { ...item, label: editingLabel.trim() } : item
+      item.id === itemId ? { ...item, id: newId, label: newLabel } : item
     );
 
     setIsSaving(true);
