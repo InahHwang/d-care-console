@@ -89,6 +89,7 @@ export async function POST(
 
     const now = new Date();
     const journeyId = new ObjectId().toString();
+    const startedByName = changedBy || auth.user.name || '미지정';
 
     // 새 여정 생성
     const newJourney: Journey = {
@@ -96,6 +97,8 @@ export async function POST(
       treatmentType,
       status: 'consulting' as PatientStatus,
       startedAt: now,
+      startedBy: auth.user.id,
+      startedByName,
       estimatedAmount: estimatedAmount ? Math.round(Number(estimatedAmount)) : undefined,
       paymentStatus: 'none',
       statusHistory: [{
@@ -103,7 +106,7 @@ export async function POST(
         to: 'consulting' as PatientStatus,
         eventDate: now,
         changedAt: now,
-        changedBy: changedBy || '시스템',
+        changedBy: startedByName,
       }],
       isActive: true,
       createdAt: now,

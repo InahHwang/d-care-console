@@ -21,6 +21,7 @@ interface RevenueCardProps {
   avgRevenue: number;
   growthRate: number;
   monthlyTarget: number;
+  returningContribution?: number; // 구신환 재유치 매출 기여 (보조 표시)
   loading?: boolean;
   onViewDetail?: () => void;
 }
@@ -67,6 +68,7 @@ export function RevenueCard({
   avgRevenue,
   growthRate,
   monthlyTarget,
+  returningContribution = 0,
   loading,
   onViewDetail,
 }: RevenueCardProps) {
@@ -223,6 +225,26 @@ export function RevenueCard({
           </p>
         </div>
       </div>
+
+      {/* 구신환 기여 보조 라인 */}
+      {returningContribution > 0 && (
+        <div className="mt-3 pt-2.5 border-t border-gray-100">
+          <div className="flex items-center justify-between text-xs">
+            <span className="inline-flex items-center gap-1.5 text-sky-700">
+              <span className="w-1.5 h-1.5 rounded-full bg-sky-500" />
+              구신환 재유치 기여
+            </span>
+            <span className="font-medium text-sky-700">
+              {formatCurrency(returningContribution)}원
+              {thisMonth.confirmed > 0 && (
+                <span className="text-gray-400 ml-1">
+                  ({Math.round((returningContribution / thisMonth.confirmed) * 100)}%)
+                </span>
+              )}
+            </span>
+          </div>
+        </div>
+      )}
 
     </Card>
   );

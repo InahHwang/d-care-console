@@ -5,6 +5,14 @@ import React from 'react';
 import { useRouter } from 'next/navigation';
 import { Users, CalendarCheck, Building2, CreditCard, TrendingUp, TrendingDown } from 'lucide-react';
 
+interface BreakdownItem {
+  count: number;
+  reserved: number;
+  visited: number;
+  paid: number;
+  revenue: number;
+}
+
 interface ConversionRates {
   newInquiries: {
     count: number;
@@ -24,6 +32,10 @@ interface ConversionRates {
     value: number;
     trend: number;
     count: number;
+  };
+  breakdown?: {
+    newPatient: BreakdownItem;
+    returningPatient: BreakdownItem;
   };
 }
 
@@ -162,7 +174,7 @@ export function ConversionFunnelCard({ data, loading, year, month }: ConversionF
       </div>
 
       {/* 4열 그리드 */}
-      <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
+      <div className="grid grid-cols-2 lg:grid-cols-4 gap-4 mb-4">
         {cards.map((card, index) => {
           const Icon = card.icon;
           return (
@@ -210,6 +222,32 @@ export function ConversionFunnelCard({ data, loading, year, month }: ConversionF
           );
         })}
       </div>
+
+      {/* 신환/구신환 breakdown 보조 라인 */}
+      {data?.breakdown && (
+        <div className="mt-2 pt-3 border-t border-gray-100">
+          <div className="grid grid-cols-2 gap-3 text-xs">
+            {/* 신환 */}
+            <div className="flex items-center gap-2 flex-wrap">
+              <span className="inline-flex items-center px-2 py-0.5 rounded-md bg-orange-100 text-orange-700 font-medium">
+                신환 {data.breakdown.newPatient.count}건
+              </span>
+              <span className="text-gray-500">
+                예약 {data.breakdown.newPatient.reserved} · 내원 {data.breakdown.newPatient.visited} · 결제 {data.breakdown.newPatient.paid}
+              </span>
+            </div>
+            {/* 구신환 재유치 */}
+            <div className="flex items-center gap-2 flex-wrap">
+              <span className="inline-flex items-center px-2 py-0.5 rounded-md bg-sky-100 text-sky-700 font-medium">
+                구신환 재유치 {data.breakdown.returningPatient.count}건
+              </span>
+              <span className="text-gray-500">
+                예약 {data.breakdown.returningPatient.reserved} · 내원 {data.breakdown.returningPatient.visited} · 결제 {data.breakdown.returningPatient.paid}
+              </span>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

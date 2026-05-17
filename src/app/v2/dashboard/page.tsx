@@ -16,6 +16,14 @@ import {
 } from '@/components/v2/dashboard';
 import OnboardingChecklistWidget from '@/components/v2/dashboard/Onboarding-ChecklistWidget';
 
+interface BreakdownItem {
+  count: number;
+  reserved: number;
+  visited: number;
+  paid: number;
+  revenue: number;
+}
+
 interface ConversionRates {
   newInquiries: {
     count: number;
@@ -36,6 +44,10 @@ interface ConversionRates {
     trend: number;
     count: number;
   };
+  breakdown?: {
+    newPatient: BreakdownItem;
+    returningPatient: BreakdownItem;
+  };
 }
 
 interface RevenueData {
@@ -53,6 +65,7 @@ interface RevenueData {
   avgRevenue: number;
   growthRate: number;
   monthlyTarget: number;
+  returningContribution?: number;
 }
 
 interface DashboardData {
@@ -207,6 +220,7 @@ export default function DashboardPage() {
         avgRevenue={data?.revenue?.avgRevenue ?? 0}
         growthRate={data?.revenue?.growthRate ?? 0}
         monthlyTarget={data?.revenue?.monthlyTarget ?? 0}
+        returningContribution={data?.revenue?.returningContribution ?? 0}
         loading={loading}
       />
 

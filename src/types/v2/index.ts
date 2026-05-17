@@ -83,6 +83,8 @@ export interface Journey {
   treatmentType: string;               // 치료 유형 (임플란트, 교정 등)
   status: PatientStatus;               // 현재 진행 단계
   startedAt: Date | string;            // 여정 시작일
+  startedBy?: string;                  // 여정 시작자 user.id (인센티브 산정용)
+  startedByName?: string;              // 여정 시작자 이름 (표시용)
   closedAt?: Date | string;            // 여정 종료일
   estimatedAmount?: number;            // 예상 치료금액
   actualAmount?: number;               // 최종금액 (할인 적용 후)
