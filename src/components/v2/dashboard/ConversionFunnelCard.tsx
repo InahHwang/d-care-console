@@ -1,9 +1,10 @@
 // src/components/v2/dashboard/ConversionFunnelCard.tsx
 'use client';
 
-import React from 'react';
+import React, { useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { Users, CalendarCheck, Building2, CreditCard, TrendingUp, TrendingDown } from 'lucide-react';
+import { JourneyPatientsModal } from './JourneyPatientsModal';
 
 interface BreakdownItem {
   count: number;
@@ -100,6 +101,7 @@ export function ConversionFunnelCard({ data, loading, year, month }: ConversionF
   const monthStr = `${displayYear}년 ${displayMonth}월`;
 
   const router = useRouter();
+  const [modalType, setModalType] = useState<'new' | 'returning' | null>(null);
 
   const cards = [
     {
@@ -229,18 +231,30 @@ export function ConversionFunnelCard({ data, loading, year, month }: ConversionF
           <div className="grid grid-cols-2 gap-3 text-xs">
             {/* 신환 */}
             <div className="flex items-center gap-2 flex-wrap">
-              <span className="inline-flex items-center px-2 py-0.5 rounded-md bg-orange-100 text-orange-700 font-medium">
+              <button
+                type="button"
+                onClick={() => setModalType('new')}
+                disabled={data.breakdown.newPatient.count === 0}
+                className="inline-flex items-center px-2 py-0.5 rounded-md bg-orange-100 text-orange-700 font-medium hover:bg-orange-200 transition-colors disabled:opacity-50 disabled:cursor-not-allowed disabled:hover:bg-orange-100"
+                title="명단 보기"
+              >
                 신환 {data.breakdown.newPatient.count}건
-              </span>
+              </button>
               <span className="text-gray-500">
                 예약 {data.breakdown.newPatient.reserved} · 내원 {data.breakdown.newPatient.visited} · 결제 {data.breakdown.newPatient.paid}
               </span>
             </div>
             {/* 구신환 재유치 */}
             <div className="flex items-center gap-2 flex-wrap">
-              <span className="inline-flex items-center px-2 py-0.5 rounded-md bg-sky-100 text-sky-700 font-medium">
+              <button
+                type="button"
+                onClick={() => setModalType('returning')}
+                disabled={data.breakdown.returningPatient.count === 0}
+                className="inline-flex items-center px-2 py-0.5 rounded-md bg-sky-100 text-sky-700 font-medium hover:bg-sky-200 transition-colors disabled:opacity-50 disabled:cursor-not-allowed disabled:hover:bg-sky-100"
+                title="명단 보기"
+              >
                 구신환 재유치 {data.breakdown.returningPatient.count}건
-              </span>
+              </button>
               <span className="text-gray-500">
                 예약 {data.breakdown.returningPatient.reserved} · 내원 {data.breakdown.returningPatient.visited} · 결제 {data.breakdown.returningPatient.paid}
               </span>
@@ -248,6 +262,15 @@ export function ConversionFunnelCard({ data, loading, year, month }: ConversionF
           </div>
         </div>
       )}
+
+      {/* 명단 모달 */}
+      <JourneyPatientsModal
+        open={modalType !== null}
+        onClose={() => setModalType(null)}
+        year={displayYear}
+        month={displayMonth}
+        type={modalType ?? 'new'}
+      />
     </div>
   );
 }
