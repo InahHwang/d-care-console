@@ -304,8 +304,27 @@ export default function AuditPage() {
                   <td className="px-4 py-3 text-gray-700">
                     {log.targetName || log.targetId?.substring(0, 8) || '-'}
                   </td>
-                  <td className="px-4 py-3 text-gray-500 text-xs max-w-[200px] truncate">
-                    {(log.details as Record<string, string>)?.notes || (log.details as Record<string, string>)?.changeDetails || '-'}
+                  <td className="px-4 py-3 text-gray-500 text-xs max-w-[280px]">
+                    {(() => {
+                      const d = (log.details || {}) as Record<string, string>;
+                      const reason = d.reason;
+                      const fallback = d.notes || d.changeDetails || '';
+                      // 환자 삭제 등 사유가 있는 활동은 사유를 메인으로 표시
+                      if (reason) {
+                        const full = `사유: ${reason}`;
+                        return (
+                          <div title={fallback ? `${full}\n${fallback}` : full}>
+                            <span className="text-red-600 font-medium">사유:</span>{' '}
+                            <span className="truncate inline-block max-w-[230px] align-bottom">{reason}</span>
+                          </div>
+                        );
+                      }
+                      return (
+                        <div className="truncate" title={fallback}>
+                          {fallback || '-'}
+                        </div>
+                      );
+                    })()}
                   </td>
                   <td className="px-4 py-3 text-center">
                     <button

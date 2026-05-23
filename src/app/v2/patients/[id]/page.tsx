@@ -34,6 +34,7 @@ import { useCategories } from '@/hooks/useCategories';
 import { StatusChangeModal, StatusChangeData } from '@/components/v2/patients/StatusChangeModal';
 import { CallDetailModal } from '@/components/v2/patients/CallDetailModal';
 import { ClosePatientModal } from '@/components/v2/patients/ClosePatientModal';
+import { PatientDeleteReasonModal } from '@/components/v2/patients/PatientDeleteReasonModal';
 import { ConsultationInputModal, ConsultationFormData, ExistingConsultationData, SourceActivity } from '@/components/v2/patients/ConsultationInputModal';
 import { ConsultationHistory } from '@/components/v2/patients/ConsultationHistory';
 import { ConsultationHistoryCard } from '@/components/v2/patients/ConsultationHistoryCard';
@@ -205,6 +206,7 @@ export default function PatientDetailPage() {
 
   // 종결 모달
   const [closeModalOpen, setCloseModalOpen] = useState(false);
+  const [deleteModalOpen, setDeleteModalOpen] = useState(false);
 
   // 상담 결과 모달
   const [consultationModalOpen, setConsultationModalOpen] = useState(false);
@@ -747,19 +749,28 @@ export default function PatientDetailPage() {
     }
   };
 
-  const handleDelete = async () => {
-    if (!confirm('정말로 이 환자를 삭제하시겠습니까?')) return;
+  const handleDelete = () => {
+    setDeleteModalOpen(true);
+  };
 
+  const handleConfirmDelete = async (reason: string) => {
     try {
       const response = await authFetch(`/api/v2/patients/${patientId}`, {
         method: 'DELETE',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ reason }),
       });
 
       if (response.ok) {
+        setDeleteModalOpen(false);
         router.push('/v2/patients');
+      } else {
+        const data = await response.json().catch(() => null);
+        alert(data?.error || '환자 삭제에 실패했습니다.');
       }
     } catch (err) {
       console.error('Error deleting:', err);
+      alert('환자 삭제 중 오류가 발생했습니다.');
     }
   };
 
@@ -1916,6 +1927,14 @@ export default function PatientDetailPage() {
         onConfirm={handleClosePatient}
         patientName={patient.name}
         currentStatus={patient.status}
+      />
+
+      {/* 환자 삭제 사유 입력 모달 */}
+      <PatientDeleteReasonModal
+        isOpen={deleteModalOpen}
+        onClose={() => setDeleteModalOpen(false)}
+        onConfirm={handleConfirmDelete}
+        patientName={patient.name}
       />
 
       {/* 상담 결과 입력 모달 */}

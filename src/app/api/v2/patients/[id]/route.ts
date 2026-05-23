@@ -611,6 +611,22 @@ export async function DELETE(
       return NextResponse.json({ error: 'Invalid patient ID' }, { status: 400 });
     }
 
+    // 삭제 사유 추출 — 필수
+    let deleteReason = '';
+    try {
+      const body = await request.json();
+      deleteReason = typeof body?.reason === 'string' ? body.reason.trim() : '';
+    } catch {
+      // body가 없거나 JSON 파싱 실패 — 사유 누락으로 처리
+    }
+
+    if (!deleteReason || deleteReason.length < 2) {
+      return NextResponse.json(
+        { error: '삭제 사유를 입력해주세요. (2자 이상)' },
+        { status: 400 }
+      );
+    }
+
     const { db } = await connectToDatabase();
     const clinicId = auth.user.clinicId;
 
@@ -671,9 +687,11 @@ export async function DELETE(
     logAudit(request, 'patient.delete', 'patients_v2', id, [
       { field: 'action', oldValue: null, newValue: 'hard_delete' },
       { field: 'deletedCounts', oldValue: null, newValue: JSON.stringify(deletedCounts) },
+      { field: 'deleteReason', oldValue: null, newValue: deleteReason },
     ], {
       documentName: maskedName,
       user: auditUser,
+      reason: deleteReason,
     });
 
     console.log(`[Patient DELETE] 완전 삭제 완료: ${patient.name} (${id}), 삭제 건수:`, deletedCounts);
