@@ -117,6 +117,12 @@ export default function NewPatientPage() {
       return;
     }
 
+    // 관심 시술 필수
+    if (!interest || !interest.trim()) {
+      setError('관심 시술을 선택해주세요');
+      return;
+    }
+
     // 유입경로 필수
     if (!source) {
       setError('유입경로를 선택해주세요');
@@ -242,7 +248,9 @@ export default function NewPatientPage() {
 
           {/* 관심 시술 */}
           <div>
-            <label className="block text-sm font-medium text-gray-700 mb-2">관심 시술</label>
+            <label className="block text-sm font-medium text-gray-700 mb-2">
+              관심 시술 <span className="text-red-500">*</span>
+            </label>
             {loadingCategories ? (
               <div className="w-full px-4 py-3 border border-gray-200 rounded-lg bg-gray-50 text-gray-400">
                 로딩 중...
