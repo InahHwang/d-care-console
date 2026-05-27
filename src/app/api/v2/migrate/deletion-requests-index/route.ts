@@ -15,6 +15,7 @@ const COLLECTION = 'deletionRequests_v2';
 const INDEXES: Array<{ index: Record<string, 1 | -1>; name: string }> = [
   { index: { clinicId: 1, status: 1, requestedAt: -1 }, name: 'idx_clinic_status_requested' },
   { index: { clinicId: 1, patientId: 1, status: 1 }, name: 'idx_clinic_patient_status' },
+  { index: { clinicId: 1, requestedBy: 1, status: 1 }, name: 'idx_clinic_requester_status' },
 ];
 
 export async function GET() {

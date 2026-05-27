@@ -1,7 +1,7 @@
 // src/app/v2/layout.tsx
 'use client';
 
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 import { usePathname } from 'next/navigation';
 import { Sidebar } from '@/components/v2/layout/Sidebar';
 import { CTIPanel } from '@/components/v2/cti';
@@ -10,7 +10,9 @@ import AIChatWidget from '@/components/v2/ai-chat/AIChat-Widget';
 import { useChannelChat } from '@/hooks/useChannelChat';
 import DeskCheckDialog from '@/components/v2/layout/DeskCheckDialog';
 import { DeletionApprovalModal } from '@/components/v2/layout/DeletionApprovalModal';
+import { DeletionResultModal } from '@/components/v2/layout/DeletionResultModal';
 import { useDeletionApprovals } from '@/hooks/useDeletionApprovals';
+import { useDeletionResults } from '@/hooks/useDeletionResults';
 import { authFetch } from '@/utils/authFetch';
 import { useAppDispatch, useAppSelector } from '@/hooks/reduxHooks';
 import { updateUserInfo } from '@/store/slices/authSlice';
@@ -22,6 +24,11 @@ function V2LayoutInner({ children }: { children: React.ReactNode }) {
   // 삭제 승인 대기 (master/admin 전용): 로그인 팝업 + 사이드바 배지
   const { isApprover, requests, pendingCount, loaded, approve, reject } = useDeletionApprovals();
   const [approvalModalOpen, setApprovalModalOpen] = useState(false);
+
+  // 삭제 요청 결과 알림 (요청자/매니저): 로그인 팝업
+  const { results: deletionResults, loaded: resultsLoaded, acknowledge: ackDeletionResults } = useDeletionResults();
+  const [resultModalOpen, setResultModalOpen] = useState(false);
+  const resultDismissedRef = useRef(false);
 
   const dispatch = useAppDispatch();
   const user = useAppSelector((s) => s.auth.user);
@@ -80,6 +87,20 @@ function V2LayoutInner({ children }: { children: React.ReactNode }) {
     // 현재 대기 목록을 "본 것"으로 갱신 (사라진 ID는 자연 정리)
     sessionStorage.setItem(seenKey, JSON.stringify(currentIds));
   }, [isApprover, loaded, requests, user]);
+
+  // 삭제 요청 결과 팝업: 미확인 결과(승인/반려)가 있으면 표시. 확인하면 서버 ack로 다시 안 뜸.
+  useEffect(() => {
+    if (!resultsLoaded || resultDismissedRef.current) return;
+    if (deletionResults.length > 0) {
+      setResultModalOpen(true);
+    }
+  }, [resultsLoaded, deletionResults]);
+
+  const handleCloseDeletionResults = () => {
+    resultDismissedRef.current = true;
+    setResultModalOpen(false);
+    ackDeletionResults();
+  };
 
   // 마운트 시 한 번: 본인 자리 정보 조회
   // - currentDeskNumber 있음: 그대로 유지 (재로그인/새로고침 안 깜빡임)
@@ -174,6 +195,11 @@ function V2LayoutInner({ children }: { children: React.ReactNode }) {
           onReject={reject}
         />
       )}
+      <DeletionResultModal
+        open={resultModalOpen}
+        onClose={handleCloseDeletionResults}
+        results={deletionResults}
+      />
       <DeskCheckDialog
         open={deskDialogOpen}
         onClose={() => setDeskDialogOpen(false)}

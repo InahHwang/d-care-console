@@ -174,6 +174,7 @@ export async function GET(request: NextRequest) {
     const clinicId = auth.user.clinicId;
 
     const patientId = request.nextUrl.searchParams.get('patientId');
+    const mine = request.nextUrl.searchParams.get('mine'); // 'resolved' → 내 요청의 처리결과
     const statusParam = request.nextUrl.searchParams.get('status') || 'pending';
 
     const filter: Record<string, unknown> = { clinicId };
@@ -182,6 +183,11 @@ export async function GET(request: NextRequest) {
       // 환자 상세 배지용: 해당 환자의 요청만 (권한 제한 없음 — 본인 요청 상태 확인)
       filter.patientId = patientId;
       filter.status = 'pending';
+    } else if (mine === 'resolved') {
+      // 요청자 결과 알림용: 내가 올린 요청 중 승인/반려됐고 아직 확인 안 한 것
+      filter.requestedBy = auth.user.id;
+      filter.status = { $in: ['approved', 'rejected'] };
+      filter.requesterAckAt = { $exists: false };
     } else {
       // 전체 목록(승인 화면) — master/admin 전용
       if (!canDeleteDirectly(auth.user.role)) {

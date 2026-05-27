@@ -601,6 +601,7 @@ export interface DeletionRequest {
   reviewedAt?: Date | string;
   rejectReason?: string;         // 거절 사유
   deletedCounts?: Record<string, number>; // 승인 시 실제 삭제 건수 기록
+  requesterAckAt?: Date | string; // 요청자가 결과(승인/반려)를 확인한 시각
 }
 
 // ============================================
