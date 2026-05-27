@@ -22,6 +22,7 @@ import {
   Target,
   TrendingUp,
   Shield,
+  Trash2,
 } from 'lucide-react';
 import { ROLE_CONFIG } from '@/types/invitation';
 import type { UserRole } from '@/types/invitation';
@@ -56,6 +57,8 @@ interface SidebarProps {
   callbackCount?: number;
   unreadChatCount?: number;
   newPatientsCount?: number;
+  deletionPendingCount?: number;
+  onOpenDeletionApproval?: () => void;
   onOpenDeskDialog?: () => void;
 }
 
@@ -64,6 +67,8 @@ export function Sidebar({
   callbackCount = 0,
   unreadChatCount = 0,
   newPatientsCount = 0,
+  deletionPendingCount = 0,
+  onOpenDeletionApproval,
   onOpenDeskDialog,
 }: SidebarProps) {
   const pathname = usePathname();
@@ -163,6 +168,20 @@ export function Sidebar({
               </Link>
             );
           })}
+
+          {/* 삭제 승인: 관리자 + 대기 건 있을 때만 노출 (활동 로그 아래) */}
+          {isAdmin && deletionPendingCount > 0 && (
+            <button
+              onClick={onOpenDeletionApproval}
+              className="w-full flex items-center gap-3 px-4 py-3 rounded-xl font-medium text-gray-600 hover:bg-gray-50 transition-colors"
+            >
+              <Trash2 size={20} />
+              <span>삭제 승인</span>
+              <span className="ml-auto text-xs px-2 py-0.5 rounded-full bg-red-500 text-white">
+                {deletionPendingCount}
+              </span>
+            </button>
+          )}
         </div>
       </nav>
 

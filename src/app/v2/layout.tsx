@@ -1,7 +1,7 @@
 // src/app/v2/layout.tsx
 'use client';
 
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 import { usePathname } from 'next/navigation';
 import { Sidebar } from '@/components/v2/layout/Sidebar';
 import { CTIPanel } from '@/components/v2/cti';
@@ -9,6 +9,8 @@ import AuthGuard from '@/components/auth/AuthGuard';
 import AIChatWidget from '@/components/v2/ai-chat/AIChat-Widget';
 import { useChannelChat } from '@/hooks/useChannelChat';
 import DeskCheckDialog from '@/components/v2/layout/DeskCheckDialog';
+import { DeletionApprovalModal } from '@/components/v2/layout/DeletionApprovalModal';
+import { useDeletionApprovals } from '@/hooks/useDeletionApprovals';
 import { authFetch } from '@/utils/authFetch';
 import { useAppDispatch, useAppSelector } from '@/hooks/reduxHooks';
 import { updateUserInfo } from '@/store/slices/authSlice';
@@ -16,6 +18,11 @@ import { updateUserInfo } from '@/store/slices/authSlice';
 function V2LayoutInner({ children }: { children: React.ReactNode }) {
   // 사이드바 채널상담 뱃지용: 어느 페이지든 새 채팅 들어오면 카운트 갱신
   const { unreadTotal } = useChannelChat();
+
+  // 삭제 승인 대기 (master/admin 전용): 로그인 팝업 + 사이드바 배지
+  const { isApprover, requests, pendingCount, loaded, approve, reject } = useDeletionApprovals();
+  const [approvalModalOpen, setApprovalModalOpen] = useState(false);
+  const autoOpenedRef = useRef(false);
 
   const dispatch = useAppDispatch();
   const user = useAppSelector((s) => s.auth.user);
@@ -50,6 +57,19 @@ function V2LayoutInner({ children }: { children: React.ReactNode }) {
       window.removeEventListener('focus', onFocus);
     };
   }, [user]);
+
+  // 삭제 승인 팝업 자동 표시: 로그인(사용자)당 1회, 대기 건 있을 때만
+  useEffect(() => {
+    if (!isApprover || !loaded || autoOpenedRef.current) return;
+    autoOpenedRef.current = true;
+    if (pendingCount > 0) {
+      const flagKey = `deletionApprovalShown:${user?.id || 'unknown'}`;
+      if (sessionStorage.getItem(flagKey) !== '1') {
+        setApprovalModalOpen(true);
+        sessionStorage.setItem(flagKey, '1');
+      }
+    }
+  }, [isApprover, loaded, pendingCount, user]);
 
   // 마운트 시 한 번: 본인 자리 정보 조회
   // - currentDeskNumber 있음: 그대로 유지 (재로그인/새로고침 안 깜빡임)
@@ -128,11 +148,22 @@ function V2LayoutInner({ children }: { children: React.ReactNode }) {
       <Sidebar
         unreadChatCount={unreadTotal}
         newPatientsCount={todayNewPatients}
+        deletionPendingCount={pendingCount}
+        onOpenDeletionApproval={() => setApprovalModalOpen(true)}
         onOpenDeskDialog={handleOpenDeskDialog}
       />
       <main className="flex-1 overflow-auto">{children}</main>
       <CTIPanel />
       <AIChatWidget />
+      {isApprover && (
+        <DeletionApprovalModal
+          open={approvalModalOpen}
+          onClose={() => setApprovalModalOpen(false)}
+          requests={requests}
+          onApprove={approve}
+          onReject={reject}
+        />
+      )}
       <DeskCheckDialog
         open={deskDialogOpen}
         onClose={() => setDeskDialogOpen(false)}

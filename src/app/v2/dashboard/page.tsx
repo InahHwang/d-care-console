@@ -11,7 +11,6 @@ import {
   ConversionFunnelCard,
   ConsultantPerformanceTable,
   DirectorCommentsCard,
-  DeletionApprovalCard,
   type ConsultantStat,
   TodayTasks,
 } from '@/components/v2/dashboard';
@@ -241,9 +240,6 @@ export default function DashboardPage() {
           loading={loading}
         />
       </div>
-
-      {/* 삭제 승인 대기 (master/admin 전용, 대기 요청 있을 때만 표시) */}
-      <DeletionApprovalCard />
 
       {/* 2열 그리드: 오늘 할 일 + 원장 코멘트 */}
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
