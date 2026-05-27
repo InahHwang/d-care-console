@@ -10,3 +10,4 @@ export { TodayTasksCard, type TodayTasks } from './TodayTasksCard';
 export { ConversionFunnelCard } from './ConversionFunnelCard';
 export { ConsultantPerformanceTable, type ConsultantStat } from './ConsultantPerformanceTable';
 export { DirectorCommentsCard } from './DirectorCommentsCard';
+export { DeletionApprovalCard } from './DeletionApprovalCard';

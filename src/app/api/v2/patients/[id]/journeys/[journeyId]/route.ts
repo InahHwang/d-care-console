@@ -5,6 +5,8 @@ import { connectToDatabase } from '@/utils/mongodb';
 import { ObjectId } from 'mongodb';
 import { PatientStatus } from '@/types/v2';
 import { verifyToken } from '@/lib/auth';
+import { canDeleteDirectly, performJourneyDeletion, maskPatientName } from '@/lib/deletion';
+import { extractUserFromRequest, logAudit } from '@/utils/auditLog';
 
 export const dynamic = 'force-dynamic';
 
@@ -235,6 +237,14 @@ export async function DELETE(
       return NextResponse.json({ error: auth.error }, { status: auth.status });
     }
 
+    // 권한 확인 — master/admin만 즉시 삭제 가능 (manager는 삭제 요청 API 사용)
+    if (!canDeleteDirectly(auth.user.role)) {
+      return NextResponse.json(
+        { error: '관리자만 여정을 삭제할 수 있습니다.' },
+        { status: 403 }
+      );
+    }
+
     const { id, journeyId } = await params;
 
     if (!ObjectId.isValid(id)) {
@@ -243,75 +253,39 @@ export async function DELETE(
 
     const { db } = await connectToDatabase();
 
-    // 현재 환자 정보 조회
+    // 현재 환자 정보 조회 (clinic 범위)
     const patient = await db.collection('patients_v2').findOne({
       _id: new ObjectId(id),
+      clinicId: auth.user.clinicId,
     });
 
     if (!patient) {
       return NextResponse.json({ error: 'Patient not found' }, { status: 404 });
     }
 
-    // 여정이 1개뿐이면 삭제 불가
-    if (!patient.journeys || patient.journeys.length <= 1) {
-      return NextResponse.json(
-        { error: 'Cannot delete the only journey' },
-        { status: 400 }
-      );
+    // 여정 삭제 (공용 로직)
+    const result = await performJourneyDeletion(db, id, journeyId, {
+      journeys: patient.journeys,
+      activeJourneyId: patient.activeJourneyId,
+    });
+
+    if (!result.ok) {
+      return NextResponse.json({ error: result.error }, { status: result.status || 400 });
     }
 
-    // 활성 여정 삭제 시 다른 여정을 활성화
-    const isActiveJourney = patient.activeJourneyId === journeyId;
-    let newActiveJourneyId = patient.activeJourneyId;
-
-    if (isActiveJourney) {
-      // 삭제하려는 여정이 아닌 첫 번째 여정을 활성화
-      const otherJourney = patient.journeys.find((j: { id: string }) => j.id !== journeyId);
-      if (otherJourney) {
-        newActiveJourneyId = otherJourney.id;
-      }
-    }
-
-    // 여정 삭제 및 활성 여정 업데이트
-    const updateData: Record<string, unknown> = {
-      updatedAt: new Date(),
-    };
-
-    if (isActiveJourney && newActiveJourneyId !== journeyId) {
-      const newActiveJourney = patient.journeys.find((j: { id: string }) => j.id === newActiveJourneyId);
-      if (newActiveJourney) {
-        updateData.activeJourneyId = newActiveJourneyId;
-        updateData.status = newActiveJourney.status;
-        updateData.estimatedAmount = newActiveJourney.estimatedAmount;
-        updateData.actualAmount = newActiveJourney.actualAmount;
-        updateData.paymentStatus = newActiveJourney.paymentStatus;
-        updateData.interest = newActiveJourney.treatmentType;
-      }
-    }
-
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const result = await db.collection('patients_v2').updateOne(
-      { _id: new ObjectId(id) },
-      {
-        $pull: { journeys: { id: journeyId } },
-        $set: updateData,
-      } as any
+    // 활동 로그 (환자명 마스킹)
+    const auditUser = extractUserFromRequest(request);
+    logAudit(
+      request,
+      'journey.delete',
+      'patients_v2',
+      id,
+      [
+        { field: 'action', oldValue: null, newValue: 'journey_delete' },
+        { field: 'journeyId', oldValue: null, newValue: journeyId },
+      ],
+      { documentName: maskPatientName(patient.name), user: auditUser }
     );
-
-    if (result.matchedCount === 0) {
-      return NextResponse.json({ error: 'Delete failed' }, { status: 500 });
-    }
-
-    // 새 활성 여정의 isActive를 true로 설정
-    if (isActiveJourney && newActiveJourneyId !== journeyId) {
-      await db.collection('patients_v2').updateOne(
-        { _id: new ObjectId(id) },
-        { $set: { 'journeys.$[journey].isActive': true } },
-        { arrayFilters: [{ 'journey.id': newActiveJourneyId }] }
-      );
-    }
-
-    console.log(`[Journey] 여정 삭제: 환자ID=${id}, journeyId=${journeyId}`);
 
     return NextResponse.json({ success: true });
   } catch (error) {

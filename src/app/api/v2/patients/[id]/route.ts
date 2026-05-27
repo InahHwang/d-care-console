@@ -7,6 +7,7 @@ import { PatientStatus, Temperature, CallbackReason, CallbackHistoryEntry } from
 import { z } from 'zod';
 import { extractUserFromRequest, diffChanges, logAudit } from '@/utils/auditLog';
 import { resolveCategoryLabel, resolveConsultationTypeBySource } from '@/utils/categoryResolver';
+import { canDeleteDirectly, performPatientDeletion, maskPatientName } from '@/lib/deletion';
 
 const patientPatchSchema = z.object({
   name: z.string().nullish(),
@@ -641,48 +642,20 @@ export async function DELETE(
       return NextResponse.json({ error: 'Patient not found' }, { status: 404 });
     }
 
-    // 권한 확인 — master만 삭제 가능
+    // 권한 확인 — master/admin만 즉시 삭제 가능 (manager는 삭제 요청 API 사용)
     const auditUser = extractUserFromRequest(request);
-    if (!auditUser || auditUser.userRole !== 'master') {
+    if (!auditUser || !canDeleteDirectly(auditUser.userRole)) {
       return NextResponse.json(
         { error: '관리자만 환자를 삭제할 수 있습니다.' },
         { status: 403 }
       );
     }
 
-    const deletedBy = auditUser.userName;
-    const deletedCounts: Record<string, number> = {};
+    // 환자 + 연관 데이터 완전 삭제 (공용 로직)
+    const { deletedCounts } = await performPatientDeletion(db, id);
 
-    // 1. 연관 데이터 완전 삭제
-    const collections = [
-      { name: 'callLogs_v2', filter: { patientId: id } },
-      { name: 'callbacks_v2', filter: { patientId: id } },
-      { name: 'consultations_v2', filter: { patientId: id } },
-      { name: 'manualConsultations_v2', filter: { patientId: id } },
-      { name: 'channelChats_v2', filter: { patientId: id } },
-      { name: 'recall_messages', filter: { patientId: id } },
-    ];
-
-    for (const col of collections) {
-      try {
-        const result = await db.collection(col.name).deleteMany(col.filter);
-        deletedCounts[col.name] = result.deletedCount;
-        if (result.deletedCount > 0) {
-          console.log(`[Patient DELETE] ${col.name} 삭제: ${result.deletedCount}건 (환자ID: ${id})`);
-        }
-      } catch (err) {
-        console.error(`[Patient DELETE] ${col.name} 삭제 실패:`, err);
-      }
-    }
-
-    // 2. 환자 본체 완전 삭제
-    await db.collection('patients_v2').deleteOne({ _id: new ObjectId(id) });
-    deletedCounts['patients_v2'] = 1;
-
-    // 3. 활동 로그에 삭제 기록 (환자명은 마스킹)
-    const maskedName = patient.name
-      ? patient.name[0] + '*'.repeat(patient.name.length - 1)
-      : 'unknown';
+    // 활동 로그에 삭제 기록 (환자명은 마스킹)
+    const maskedName = maskPatientName(patient.name);
 
     logAudit(request, 'patient.delete', 'patients_v2', id, [
       { field: 'action', oldValue: null, newValue: 'hard_delete' },

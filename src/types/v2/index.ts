@@ -541,7 +541,12 @@ export type AuditAction =
   | 'patient.create'
   | 'patient.update'
   | 'patient.delete'
+  | 'patient.delete_request'
+  | 'patient.delete_approve'
+  | 'patient.delete_reject'
   | 'patient.status_change'
+  | 'journey.delete'
+  | 'journey.delete_request'
   | 'callback.create'
   | 'callback.update'
   | 'callback.delete'
@@ -569,6 +574,33 @@ export interface AuditLog {
   ipAddress?: string;
   userAgent?: string;
   timestamp: Date;
+}
+
+// ============================================
+// 삭제 승인 요청 (매니저 요청 → master/admin 승인)
+// ============================================
+
+export type DeletionRequestType = 'patient' | 'journey';
+export type DeletionRequestStatus = 'pending' | 'approved' | 'rejected';
+
+export interface DeletionRequest {
+  _id?: ObjectId | string;
+  clinicId: string;
+  type: DeletionRequestType;
+  patientId: string;
+  patientName: string;           // 표시용 (목록에서 식별)
+  journeyId?: string;            // type === 'journey'
+  journeyLabel?: string;         // 여정 치료유형 (표시용)
+  reason: string;                // 삭제 사유 (필수)
+  status: DeletionRequestStatus;
+  requestedBy: string;           // user.id
+  requestedByName: string;
+  requestedAt: Date | string;
+  reviewedBy?: string;           // 승인/거절한 user.id
+  reviewedByName?: string;
+  reviewedAt?: Date | string;
+  rejectReason?: string;         // 거절 사유
+  deletedCounts?: Record<string, number>; // 승인 시 실제 삭제 건수 기록
 }
 
 // ============================================

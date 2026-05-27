@@ -207,6 +207,10 @@ export default function PatientDetailPage() {
   // 종결 모달
   const [closeModalOpen, setCloseModalOpen] = useState(false);
   const [deleteModalOpen, setDeleteModalOpen] = useState(false);
+  // 삭제 대상 (환자 전체 / 특정 여정)
+  const [deleteTarget, setDeleteTarget] = useState<{ type: 'patient' | 'journey'; journeyId?: string; journeyLabel?: string }>({ type: 'patient' });
+  // 이 환자의 승인 대기 중 삭제 요청 목록 (배지 표시용)
+  const [pendingDeletions, setPendingDeletions] = useState<Array<{ type: string; journeyId?: string }>>([]);
 
   // 상담 결과 모달
   const [consultationModalOpen, setConsultationModalOpen] = useState(false);
@@ -252,6 +256,15 @@ export default function PatientDetailPage() {
 
   // 마스터 권한 확인
   const isMaster = user?.role === 'master';
+  // 삭제 권한: master/admin = 즉시 삭제, manager = 요청, staff = 불가
+  const canDeleteDirectly = user?.role === 'master' || user?.role === 'admin';
+  const canRequestDeletion = user?.role === 'manager' || canDeleteDirectly;
+
+  // 승인 대기 파생값
+  const patientPendingDeletion = pendingDeletions.some((r) => r.type === 'patient');
+  const journeyPendingIds = new Set(
+    pendingDeletions.filter((r) => r.type === 'journey' && r.journeyId).map((r) => r.journeyId)
+  );
 
   // 상담타입 ID→라벨 매핑
   const [consultationTypeMap, setConsultationTypeMap] = useState<Record<string, string>>({});
@@ -749,28 +762,94 @@ export default function PatientDetailPage() {
     }
   };
 
+  // 이 환자의 승인 대기 삭제 요청 조회 (배지 표시용)
+  const fetchPendingDeletions = useCallback(async () => {
+    if (!patientId) return;
+    try {
+      const res = await authFetch(`/api/v2/deletion-requests?patientId=${patientId}`);
+      if (!res.ok) {
+        setPendingDeletions([]);
+        return;
+      }
+      const json = await res.json();
+      setPendingDeletions(json?.success ? json.data.requests || [] : []);
+    } catch {
+      setPendingDeletions([]);
+    }
+  }, [patientId]);
+
+  useEffect(() => {
+    fetchPendingDeletions();
+  }, [fetchPendingDeletions]);
+
+  // 환자 전체 삭제 (또는 요청)
   const handleDelete = () => {
+    setDeleteTarget({ type: 'patient' });
+    setDeleteModalOpen(true);
+  };
+
+  // 특정 여정 삭제 (또는 요청)
+  const handleDeleteJourney = (journey: { id: string; treatmentType?: string }) => {
+    setDeleteTarget({ type: 'journey', journeyId: journey.id, journeyLabel: journey.treatmentType });
+    setIsJourneyDropdownOpen(false);
     setDeleteModalOpen(true);
   };
 
   const handleConfirmDelete = async (reason: string) => {
     try {
-      const response = await authFetch(`/api/v2/patients/${patientId}`, {
-        method: 'DELETE',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ reason }),
-      });
+      // 권한 부족(manager) → 삭제 요청 생성
+      if (!canDeleteDirectly) {
+        const res = await authFetch('/api/v2/deletion-requests', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            type: deleteTarget.type,
+            patientId,
+            journeyId: deleteTarget.journeyId,
+            reason,
+          }),
+        });
+        const data = await res.json().catch(() => null);
+        if (res.ok) {
+          setDeleteModalOpen(false);
+          await fetchPendingDeletions();
+          alert('삭제 요청이 접수되었습니다. 관리자 승인 후 삭제됩니다.');
+        } else {
+          alert(data?.error || '삭제 요청에 실패했습니다.');
+        }
+        return;
+      }
 
-      if (response.ok) {
-        setDeleteModalOpen(false);
-        router.push('/v2/patients');
+      // master/admin → 즉시 삭제
+      if (deleteTarget.type === 'patient') {
+        const res = await authFetch(`/api/v2/patients/${patientId}`, {
+          method: 'DELETE',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ reason }),
+        });
+        if (res.ok) {
+          setDeleteModalOpen(false);
+          router.push('/v2/patients');
+        } else {
+          const data = await res.json().catch(() => null);
+          alert(data?.error || '환자 삭제에 실패했습니다.');
+        }
       } else {
-        const data = await response.json().catch(() => null);
-        alert(data?.error || '환자 삭제에 실패했습니다.');
+        const res = await authFetch(`/api/v2/patients/${patientId}/journeys/${deleteTarget.journeyId}`, {
+          method: 'DELETE',
+        });
+        if (res.ok) {
+          setDeleteModalOpen(false);
+          setSelectedJourneyId('');
+          await fetchPatient();
+        } else {
+          const data = await res.json().catch(() => null);
+          alert(data?.error || '여정 삭제에 실패했습니다.');
+        }
       }
     } catch (err) {
       console.error('Error deleting:', err);
-      alert('환자 삭제 중 오류가 발생했습니다.');
+      alert('삭제 처리 중 오류가 발생했습니다.');
     }
   };
 
@@ -989,13 +1068,22 @@ export default function PatientDetailPage() {
                   종결
                 </button>
               )}
-              <button
-                onClick={handleDelete}
-                className="flex items-center gap-2 px-4 py-2 text-red-600 hover:bg-red-50 rounded-lg"
-              >
-                <Trash2 size={18} />
-                삭제
-              </button>
+              {canRequestDeletion && (
+                patientPendingDeletion ? (
+                  <span className="flex items-center gap-2 px-4 py-2 text-amber-600 bg-amber-50 rounded-lg text-sm font-medium">
+                    <Clock size={16} />
+                    삭제 승인 대기
+                  </span>
+                ) : (
+                  <button
+                    onClick={handleDelete}
+                    className="flex items-center gap-2 px-4 py-2 text-red-600 hover:bg-red-50 rounded-lg"
+                  >
+                    <Trash2 size={18} />
+                    {canDeleteDirectly ? '삭제' : '삭제 요청'}
+                  </button>
+                )
+              )}
             </>
           )}
         </div>
@@ -1034,32 +1122,36 @@ export default function PatientDetailPage() {
                       <p className="text-xs text-gray-500 px-2">치료 여정 목록</p>
                     </div>
                     <div className="max-h-64 overflow-y-auto">
-                      {journeys.map((journey) => (
-                        <button
+                      {journeys.map((journey) => {
+                        const journeyPending = journeyPendingIds.has(journey.id);
+                        return (
+                        <div
                           key={journey.id}
-                          onClick={() => {
-                            setSelectedJourneyId(journey.id);
-                            setIsJourneyDropdownOpen(false);
-                          }}
-                          className={`w-full px-4 py-3 flex items-center justify-between hover:bg-gray-50 transition-colors ${
+                          className={`w-full px-4 py-3 flex items-center justify-between gap-2 hover:bg-gray-50 transition-colors ${
                             selectedJourneyId === journey.id ? 'bg-orange-50' : ''
                           }`}
                         >
-                          <div className="flex items-center gap-3">
+                          <button
+                            onClick={() => {
+                              setSelectedJourneyId(journey.id);
+                              setIsJourneyDropdownOpen(false);
+                            }}
+                            className="flex items-center gap-3 flex-1 min-w-0 text-left"
+                          >
                             {journey.isActive ? (
-                              <div className="w-2 h-2 rounded-full bg-green-500 animate-pulse" />
+                              <div className="w-2 h-2 rounded-full bg-green-500 animate-pulse flex-shrink-0" />
                             ) : (
-                              <div className="w-2 h-2 rounded-full bg-gray-300" />
+                              <div className="w-2 h-2 rounded-full bg-gray-300 flex-shrink-0" />
                             )}
-                            <div className="text-left">
-                              <p className="font-medium text-gray-900">{journey.treatmentType}</p>
+                            <div className="min-w-0">
+                              <p className="font-medium text-gray-900 truncate">{journey.treatmentType}</p>
                               <p className="text-xs text-gray-500">
                                 {formatDateOnly(journey.startedAt)}
                                 {journey.closedAt && ` ~ ${formatDateOnly(journey.closedAt)}`}
                               </p>
                             </div>
-                          </div>
-                          <div className="flex items-center gap-2">
+                          </button>
+                          <div className="flex items-center gap-2 flex-shrink-0">
                             <span className={`px-2 py-0.5 rounded text-xs text-white ${getStatusColor(journey.status)}`}>
                               {getStatusLabel(journey.status)}
                             </span>
@@ -1068,9 +1160,30 @@ export default function PatientDetailPage() {
                                 진행중
                               </span>
                             )}
+                            {/* 여정 삭제: 여정 2개 이상 + 권한 보유 시 노출 */}
+                            {journeyPending ? (
+                              <span className="flex items-center gap-1 px-2 py-0.5 bg-amber-100 text-amber-700 rounded text-xs">
+                                <Clock size={12} />
+                                승인대기
+                              </span>
+                            ) : (
+                              canRequestDeletion && journeys.length > 1 && (
+                                <button
+                                  onClick={(e) => {
+                                    e.stopPropagation();
+                                    handleDeleteJourney(journey);
+                                  }}
+                                  title={canDeleteDirectly ? '여정 삭제' : '여정 삭제 요청'}
+                                  className="p-1 text-gray-400 hover:text-red-600 hover:bg-red-50 rounded transition-colors"
+                                >
+                                  <Trash2 size={14} />
+                                </button>
+                              )
+                            )}
                           </div>
-                        </button>
-                      ))}
+                        </div>
+                        );
+                      })}
                     </div>
                     <div className="p-2 border-t border-gray-100">
                       <button
@@ -1929,12 +2042,28 @@ export default function PatientDetailPage() {
         currentStatus={patient.status}
       />
 
-      {/* 환자 삭제 사유 입력 모달 */}
+      {/* 환자/여정 삭제(또는 요청) 사유 입력 모달 */}
       <PatientDeleteReasonModal
         isOpen={deleteModalOpen}
         onClose={() => setDeleteModalOpen(false)}
         onConfirm={handleConfirmDelete}
         patientName={patient.name}
+        mode={canDeleteDirectly ? 'delete' : 'request'}
+        title={
+          deleteTarget.type === 'journey'
+            ? (canDeleteDirectly ? '여정 삭제' : '여정 삭제 요청')
+            : (canDeleteDirectly ? '환자 삭제' : '환자 삭제 요청')
+        }
+        targetName={
+          deleteTarget.type === 'journey'
+            ? `${patient.name} — ${deleteTarget.journeyLabel || '여정'}`
+            : patient.name
+        }
+        warningBody={
+          deleteTarget.type === 'journey'
+            ? '선택한 여정 기록이 삭제됩니다. (통화·상담·콜백 기록은 환자에 유지됩니다)'
+            : '환자 정보와 함께 통화기록, 콜백, 상담내역, 채널 대화, 리콜 메시지가 모두 영구 삭제됩니다.'
+        }
       />
 
       {/* 상담 결과 입력 모달 */}
