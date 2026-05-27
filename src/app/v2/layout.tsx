@@ -1,7 +1,7 @@
 // src/app/v2/layout.tsx
 'use client';
 
-import React, { useEffect, useRef, useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import { usePathname } from 'next/navigation';
 import { Sidebar } from '@/components/v2/layout/Sidebar';
 import { CTIPanel } from '@/components/v2/cti';
@@ -22,7 +22,6 @@ function V2LayoutInner({ children }: { children: React.ReactNode }) {
   // 삭제 승인 대기 (master/admin 전용): 로그인 팝업 + 사이드바 배지
   const { isApprover, requests, pendingCount, loaded, approve, reject } = useDeletionApprovals();
   const [approvalModalOpen, setApprovalModalOpen] = useState(false);
-  const autoOpenedRef = useRef(false);
 
   const dispatch = useAppDispatch();
   const user = useAppSelector((s) => s.auth.user);
@@ -58,18 +57,29 @@ function V2LayoutInner({ children }: { children: React.ReactNode }) {
     };
   }, [user]);
 
-  // 삭제 승인 팝업 자동 표시: 로그인(사용자)당 1회, 대기 건 있을 때만
+  // 삭제 승인 팝업 자동 표시: 새로 들어온(아직 안 본) 요청이 있을 때만.
+  // - 로그인/새 요청 → 팝업. 페이지 이동·새로고침으로 이미 본 요청은 다시 안 뜸.
+  // - 본 요청 ID를 sessionStorage에 기록(사용자별). 처리/거절로 사라진 ID는 자동 정리됨.
   useEffect(() => {
-    if (!isApprover || !loaded || autoOpenedRef.current) return;
-    autoOpenedRef.current = true;
-    if (pendingCount > 0) {
-      const flagKey = `deletionApprovalShown:${user?.id || 'unknown'}`;
-      if (sessionStorage.getItem(flagKey) !== '1') {
-        setApprovalModalOpen(true);
-        sessionStorage.setItem(flagKey, '1');
-      }
+    if (!isApprover || !loaded) return;
+    const seenKey = `deletionApprovalSeen:${user?.id || 'unknown'}`;
+
+    let seen: string[] = [];
+    try {
+      seen = JSON.parse(sessionStorage.getItem(seenKey) || '[]');
+    } catch {
+      seen = [];
     }
-  }, [isApprover, loaded, pendingCount, user]);
+
+    const currentIds = requests.map((r) => r.id);
+    const hasNew = currentIds.some((id) => !seen.includes(id));
+
+    if (hasNew) {
+      setApprovalModalOpen(true);
+    }
+    // 현재 대기 목록을 "본 것"으로 갱신 (사라진 ID는 자연 정리)
+    sessionStorage.setItem(seenKey, JSON.stringify(currentIds));
+  }, [isApprover, loaded, requests, user]);
 
   // 마운트 시 한 번: 본인 자리 정보 조회
   // - currentDeskNumber 있음: 그대로 유지 (재로그인/새로고침 안 깜빡임)
