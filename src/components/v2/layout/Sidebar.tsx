@@ -23,6 +23,7 @@ import {
   TrendingUp,
   Shield,
   Trash2,
+  Coins,
 } from 'lucide-react';
 import { ROLE_CONFIG } from '@/types/invitation';
 import type { UserRole } from '@/types/invitation';
@@ -48,6 +49,7 @@ const navItems: NavItem[] = [
   { id: 'marketing-targets', label: '이벤트 타겟', href: '/v2/marketing-targets', icon: <Target size={20} /> },
   { id: 'marketing', label: '마케팅', href: '/v2/marketing', icon: <TrendingUp size={20} />, managerOnly: true },
   { id: 'reports', label: '리포트', href: '/v2/reports', icon: <BarChart3 size={20} /> },
+  { id: 'incentive', label: '인센티브 정산', href: '/v2/incentive', icon: <Coins size={20} />, managerOnly: true },
   { id: 'settings', label: '설정', href: '/v2/settings', icon: <Settings size={20} />, managerOnly: true },
   { id: 'audit', label: '활동 로그', href: '/v2/admin/audit', icon: <Shield size={20} />, adminOnly: true },
 ];
