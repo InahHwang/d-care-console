@@ -104,6 +104,8 @@ function PatientsPageContent() {
   const initialRegion = searchParams.get('region') || '';
   const initialCreatedBy = searchParams.get('createdBy') || ''; // 상담사별 실적 드릴다운
   const [createdByFilter, setCreatedByFilter] = useState(initialCreatedBy);
+  const initialHasEstimate = searchParams.get('hasEstimate') === 'true'; // 매출 미결제(놓친매출) 드릴다운
+  const [hasEstimateFilter, setHasEstimateFilter] = useState(initialHasEstimate);
   const [advancedFilter, setAdvancedFilter] = useState<AdvancedFilterValues>({
     consultationType: initialConsultationType,
     hasCoaching: initialHasCoaching,
@@ -200,6 +202,9 @@ function PatientsPageContent() {
       if (createdByFilter) {
         params.set('createdBy', createdByFilter);
       }
+      if (hasEstimateFilter) {
+        params.set('hasEstimate', 'true');
+      }
       if (searchQuery) {
         params.set('search', searchQuery);
       }
@@ -237,7 +242,7 @@ function PatientsPageContent() {
     } finally {
       setLoading(false);
     }
-  }, [currentPage, activeFilter, searchQuery, urgencyFilter, period, dateRange, statusOverride, advancedFilter, callbackDate, createdByFilter]);
+  }, [currentPage, activeFilter, searchQuery, urgencyFilter, period, dateRange, statusOverride, advancedFilter, callbackDate, createdByFilter, hasEstimateFilter]);
 
   useEffect(() => {
     fetchPatients();
@@ -268,6 +273,7 @@ function PatientsPageContent() {
     if (advancedFilter.interest) params.set('interest', advancedFilter.interest);
     if (advancedFilter.region) params.set('region', advancedFilter.region);
     if (createdByFilter) params.set('createdBy', createdByFilter);
+    if (hasEstimateFilter) params.set('hasEstimate', 'true');
     if (currentPage > 1) params.set('page', currentPage.toString());
     if (searchQuery) params.set('search', searchQuery);
     if (urgencyFilter !== 'all') params.set('urgency', urgencyFilter);
@@ -281,7 +287,7 @@ function PatientsPageContent() {
 
     const newUrl = params.toString() ? `?${params.toString()}` : '/v2/patients';
     window.history.replaceState(null, '', newUrl);
-  }, [activeFilter, currentPage, searchQuery, urgencyFilter, period, dateRange, statusOverride, advancedFilter, createdByFilter]);
+  }, [activeFilter, currentPage, searchQuery, urgencyFilter, period, dateRange, statusOverride, advancedFilter, createdByFilter, hasEstimateFilter]);
 
   const handleFilterChange = (filter: PatientFilterType) => {
     setActiveFilter(filter);
@@ -383,6 +389,21 @@ function PatientsPageContent() {
           <button
             onClick={() => { setCreatedByFilter(''); setCurrentPage(1); }}
             className="text-xs text-indigo-600 hover:text-indigo-800 underline"
+          >
+            필터 해제
+          </button>
+        </div>
+      )}
+
+      {/* 미결제(놓친 매출) 필터 활성 표시 (대시보드 매출 드릴다운) */}
+      {hasEstimateFilter && (
+        <div className="bg-rose-50 border-b border-rose-100 px-6 py-2 flex items-center justify-between">
+          <div className="text-sm text-rose-900">
+            견적 등록 후 <span className="font-medium">미결제</span>인 환자만 표시 중 (놓친 매출)
+          </div>
+          <button
+            onClick={() => { setHasEstimateFilter(false); setCurrentPage(1); }}
+            className="text-xs text-rose-600 hover:text-rose-800 underline"
           >
             필터 해제
           </button>
