@@ -12,8 +12,7 @@ export interface IncentiveConsultantRow {
   reserved: number;
   visited: number;
   paid: number;
-  retroPaid: number;
-  currentPaid: number;
+  retroCount: number;      // 이번 달 소급 건수 (지난달 내원 → 이번달 결제)
   reservationRate: number; // 예약/문의
   visitRate: number;       // 내원/예약
   paymentRate: number;     // 결제/내원
@@ -27,6 +26,7 @@ export interface IncentiveRetroPatient {
   name: string;
   phone: string;
   journeyStartedAt: string;
+  originMonth: string;     // 내원(출처)월 YYYY-MM
   paidAt: string | null;
   paymentStatus: string;
   amount: number;
@@ -41,8 +41,7 @@ export interface IncentiveSettlementData {
     reserved: number;
     visited: number;
     paid: number;
-    retroPaid: number;
-    currentPaid: number;
+    retroCount: number;
     reservationRate: number;
     visitRate: number;
     paymentRate: number;
@@ -108,7 +107,7 @@ export function IncentiveSettlementTable({ data, loading }: IncentiveSettlementT
           <h3 className="font-bold text-gray-900 text-lg">인센티브 정산</h3>
         </div>
         <span className="text-xs text-gray-500">
-          전환율 = 직전 단계 대비 · <span className="text-blue-600 font-medium">소급</span> = 이 달 등록 환자가 다음 달 이후 결제
+          전환율 = 직전 단계 대비(내원월 기준) · <span className="text-blue-600 font-medium">소급</span> = 지난달 내원 환자가 이번 달 결제 (이번 달 지급 대상)
         </span>
       </div>
 
@@ -151,26 +150,21 @@ export function IncentiveSettlementTable({ data, loading }: IncentiveSettlementT
                       <span className={`ml-1.5 text-xs ${rateClass}`}>({row.visitRate}%{sampleMark})</span>
                     </td>
 
-                    {/* 결제전환 = 결제/내원 (당월·소급 분리) */}
+                    {/* 결제전환 = 결제/내원 (내원월 코호트 기준) */}
                     <td className="py-3 px-3 text-right">
                       <span className="text-gray-900">{row.paid}</span>
                       <span className={`ml-1.5 text-xs ${rateClass}`}>({row.paymentRate}%{sampleMark})</span>
-                      {row.retroPaid > 0 && (
-                        <span className="block text-[11px] text-gray-400">
-                          당월 {row.currentPaid} · <span className="text-blue-600">소급 {row.retroPaid}</span>
-                        </span>
-                      )}
                     </td>
 
-                    {/* 소급 배지 */}
+                    {/* 소급 배지 (지난달 내원 → 이번달 결제) */}
                     <td className="py-3 px-3 text-right">
-                      {row.retroPaid > 0 ? (
+                      {row.retroCount > 0 ? (
                         <button
                           onClick={() => setRetroConsultant(row.name)}
                           className="inline-flex items-center gap-1 px-2 py-0.5 rounded-md bg-blue-100 text-blue-700 text-xs font-semibold hover:bg-blue-200 transition-colors"
                           title="소급 환자 명단 보기"
                         >
-                          +{row.retroPaid}명
+                          +{row.retroCount}명
                         </button>
                       ) : (
                         <span className="text-xs text-gray-300">-</span>
@@ -198,7 +192,7 @@ export function IncentiveSettlementTable({ data, loading }: IncentiveSettlementT
                     <span className="ml-1.5 text-xs text-gray-600 font-normal">({totals.paymentRate}%)</span>
                   </td>
                   <td className="py-3 px-3 text-right text-blue-700">
-                    {totals.retroPaid > 0 ? `+${totals.retroPaid}명` : '-'}
+                    {totals.retroCount > 0 ? `+${totals.retroCount}명` : '-'}
                   </td>
                 </tr>
               )}
@@ -211,7 +205,7 @@ export function IncentiveSettlementTable({ data, loading }: IncentiveSettlementT
               <p className="text-xs text-gray-400">※ 문의 5건 미만 — 전환율은 표본이 작아 참고용</p>
             )}
             <p className="text-xs text-blue-500">
-              🔵 소급 = 인센 지급 후 뒤늦게 결제된 건. 이 인원만 추가로 챙겨주면 됩니다.
+              🔵 소급 = 지난달(6개월 내) 내원 환자가 이번 달에 결제한 건. 이번 달 인센에 이 인원을 추가로 챙겨주세요.
             </p>
           </div>
         </div>
@@ -225,7 +219,7 @@ export function IncentiveSettlementTable({ data, loading }: IncentiveSettlementT
             <div className="flex items-center justify-between px-6 py-4 border-b">
               <div>
                 <h2 className="text-lg font-bold text-gray-900">{retroConsultant} — 소급 결제 명단</h2>
-                <p className="text-xs text-gray-500 mt-0.5">이 달 등록 후 다음 달 이후 결제된 환자 · 총 {retroRows.length}명</p>
+                <p className="text-xs text-gray-500 mt-0.5">지난달(6개월 내) 내원 후 이번 달 결제된 환자 · 총 {retroRows.length}명 (이번 달 인센 추가 대상)</p>
               </div>
               <button onClick={() => setRetroConsultant(null)} className="p-2 rounded-lg hover:bg-gray-100 text-gray-500" title="닫기">
                 <X size={20} />
@@ -240,7 +234,7 @@ export function IncentiveSettlementTable({ data, loading }: IncentiveSettlementT
                     <tr className="text-left text-xs font-medium text-gray-500">
                       <th className="px-4 py-2.5">이름</th>
                       <th className="px-4 py-2.5">전화번호</th>
-                      <th className="px-4 py-2.5 text-center">등록</th>
+                      <th className="px-4 py-2.5 text-center">내원(출처)</th>
                       <th className="px-4 py-2.5 text-center">결제일</th>
                       <th className="px-4 py-2.5 text-right">금액</th>
                     </tr>
@@ -254,10 +248,12 @@ export function IncentiveSettlementTable({ data, loading }: IncentiveSettlementT
                       >
                         <td className="px-4 py-3 font-medium text-gray-900">{p.name}</td>
                         <td className="px-4 py-3 text-gray-600 tabular-nums">{p.phone}</td>
-                        <td className="px-4 py-3 text-center text-gray-500 tabular-nums">{formatDate(p.journeyStartedAt)}</td>
+                        <td className="px-4 py-3 text-center text-gray-500 tabular-nums">
+                          {p.originMonth || formatDate(p.journeyStartedAt)}
+                        </td>
                         <td className="px-4 py-3 text-center tabular-nums">
                           <span className="inline-flex items-center gap-1 text-blue-700 font-medium">
-                            {formatDate(p.journeyStartedAt)}<ArrowRight size={11} className="text-gray-300" />{formatDate(p.paidAt)}
+                            <ArrowRight size={11} className="text-gray-300" />{formatDate(p.paidAt)}
                           </span>
                         </td>
                         <td className="px-4 py-3 text-right text-gray-700 tabular-nums">{formatAmount(p.amount)}</td>

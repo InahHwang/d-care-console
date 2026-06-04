@@ -1,13 +1,15 @@
 // src/app/api/v2/dashboard/incentive-settlement/route.ts
-// 인센티브 정산용 직원별 퍼널 전환율 + 월경계 소급분 분리
+// 인센티브 정산용 직원별 퍼널 전환율 + 결제월 기준 소급 명단
 //
-// 목적: 직원 인센티브를 내원/결제 전환율로 줄 때, "그 달에 등록(여정시작)한 환자가
-//       다음 달 이후 결제(소급)"한 실적을 한눈에 보여줘 인센 지급 후 누락분을 소급해 주기 위함.
+// 모델 (2026-06 확정):
+// - 퍼널 전환율(예약/내원/결제): 여정 startedAt 코호트(=내원월) 기준. 비율은 코호트 유지(메모 방식 B)
+// - 소급(retro): "결제(paidAt)가 이 달에 찍혔는데, 여정 시작(내원)은 이전 달(6개월 이내)" 인 건
+//   → 인센은 결제된 달에 지급하므로, 늦은 결제는 '결제된 달' 화면에 별도 소급으로 표시
+//   → 원래 여정 담당자(startedByName)에게 크레딧, 출처(내원)월 함께 표시
+// - 6개월 초과 시차는 소급 제외 (사실상 새 결정으로 봄)
 //
-// 코호트 기준: 여정 startedAt 월 (대시보드 route.ts의 '이번달 성과'와 동일한 여정 단위)
-// 상담사 귀속: journeys.startedByName 우선, 없으면 createdByName (대시보드와 동일)
-// 소급 판별: 결제(partial/completed) && journeys.paidAt 존재 && paidAt > 코호트 월말
-//   → paidAt이 없던 과거 결제건은 소급 분리 불가(이번 paidAt 도입 이후 데이터부터 정확)
+// 상담사 귀속: journeys.startedByName 우선, 없으면 createdByName (대시보드 route.ts와 동일)
+// 주의: paidAt은 2026-06-04 도입 이후 결제건만 존재 → 그 이전 결제는 소급 판별 불가
 
 import { NextRequest, NextResponse } from 'next/server';
 import { connectToDatabase, getClinicId } from '@/utils/mongodb';
@@ -18,18 +20,18 @@ export const dynamic = 'force-dynamic';
 const RESERVED_OR_ABOVE = ['reserved', 'visited', 'treatmentBooked', 'treatment', 'completed', 'followup'];
 const VISITED_OR_ABOVE = ['visited', 'treatmentBooked', 'treatment', 'completed', 'followup'];
 const PAID_STATUSES = ['partial', 'completed'];
+const RETRO_LOOKBACK_MONTHS = 6; // 소급 인정 기간: 내원~결제 시차 6개월 이내
 
 interface ConsultantRow {
   name: string;
-  registered: number;   // 여정 시작 수 (퍼널 1단계 = 문의)
+  registered: number;      // M월 코호트 여정 시작 수 (퍼널 1단계 = 문의)
   reserved: number;
   visited: number;
   paid: number;
-  retroPaid: number;    // 소급 결제 (월 이후 결제)
-  currentPaid: number;  // 당월 반영 결제 (paid - retroPaid)
   reservationRate: number; // 예약/문의
   visitRate: number;       // 내원/예약
   paymentRate: number;     // 결제/내원
+  retroCount: number;      // 이번 달 소급 건수 (지난달 내원 → 이번달 결제, 이 담당자 크레딧)
   lowSample: boolean;
 }
 
@@ -39,14 +41,22 @@ interface RetroPatient {
   journeyId: string | null;
   name: string;
   phone: string;
-  journeyStartedAt: string | Date;
-  paidAt: string | Date | null;
+  journeyStartedAt: string | Date; // 내원(여정 시작) 시점 = 출처
+  paidAt: string | Date | null;    // 결제 시점 (이번 달)
   paymentStatus: string;
   amount: number;
 }
 
 function rate(numer: number, denom: number) {
   return denom > 0 ? Math.round((numer / denom) * 100) : 0;
+}
+
+function monthKey(d: string | Date | null): string {
+  if (!d) return '';
+  const dt = new Date(d);
+  if (Number.isNaN(dt.getTime())) return '';
+  const kst = new Date(dt.getTime() + 9 * 60 * 60 * 1000);
+  return `${kst.getUTCFullYear()}-${String(kst.getUTCMonth() + 1).padStart(2, '0')}`;
 }
 
 export async function GET(request: NextRequest) {
@@ -69,8 +79,8 @@ export async function GET(request: NextRequest) {
     const monthStart = new Date(Date.UTC(y, m - 1, 1) - KST_OFFSET);
     const lastDay = new Date(Date.UTC(y, m, 0)).getUTCDate();
     const monthEnd = new Date(Date.UTC(y, m - 1, lastDay, 23, 59, 59, 999) - KST_OFFSET);
-    const startISO = monthStart.toISOString();
-    const endISO = monthEnd.toISOString();
+    // 소급 인정 하한: M월 시작에서 6개월 전 달의 시작
+    const retroFloor = new Date(Date.UTC(y, m - 1 - RETRO_LOOKBACK_MONTHS, 1) - KST_OFFSET);
 
     // 상담사 이름 표현식 (대시보드 route.ts와 동일)
     const consultantNameExpr = {
@@ -101,17 +111,11 @@ export async function GET(request: NextRequest) {
       { $match: { clinicId, deletedAt: { $exists: false } } },
       { $unwind: '$journeys' },
       {
-        $match: {
-          $or: [
-            { 'journeys.startedAt': { $gte: monthStart, $lte: monthEnd } },
-            { 'journeys.startedAt': { $gte: startISO, $lte: endISO } },
-          ],
-        },
-      },
-      {
         $addFields: {
           consultantName: consultantNameExpr,
-          // 도달 여부: 현재 status + statusHistory 둘 다 확인 (대시보드와 동일)
+          // startedAt이 Date/문자열 혼재 → Date로 정규화 (없으면 createdAt 폴백)
+          startedAtDate: { $toDate: { $ifNull: ['$journeys.startedAt', '$createdAt'] } },
+          isPaid: { $in: ['$journeys.paymentStatus', PAID_STATUSES] },
           hasReserved: {
             $or: [
               { $in: ['$journeys.status', RESERVED_OR_ABOVE] },
@@ -140,20 +144,13 @@ export async function GET(request: NextRequest) {
               },
             ],
           },
-          isPaid: { $in: ['$journeys.paymentStatus', PAID_STATUSES] },
-          // 소급: 결제됐고 paidAt가 코호트 월말 이후 (그 달 인센 지급 후 들어온 결제)
-          isRetroPaid: {
-            $and: [
-              { $in: ['$journeys.paymentStatus', PAID_STATUSES] },
-              { $ne: [{ $ifNull: ['$journeys.paidAt', null] }, null] },
-              { $gt: ['$journeys.paidAt', monthEnd] },
-            ],
-          },
         },
       },
       {
         $facet: {
-          byConsultant: [
+          // 퍼널: M월 코호트(내원월) 기준
+          funnel: [
+            { $match: { startedAtDate: { $gte: monthStart, $lte: monthEnd } } },
             {
               $group: {
                 _id: '$consultantName',
@@ -161,13 +158,19 @@ export async function GET(request: NextRequest) {
                 reserved: { $sum: { $cond: ['$hasReserved', 1, 0] } },
                 visited: { $sum: { $cond: ['$hasVisited', 1, 0] } },
                 paid: { $sum: { $cond: ['$isPaid', 1, 0] } },
-                retroPaid: { $sum: { $cond: ['$isRetroPaid', 1, 0] } },
               },
             },
             { $sort: { registered: -1 } },
           ],
-          retroPatients: [
-            { $match: { isRetroPaid: true } },
+          // 소급: 결제(paidAt)가 M월 + 내원(startedAt)은 M월 이전 6개월 이내
+          retro: [
+            {
+              $match: {
+                'journeys.paymentStatus': { $in: PAID_STATUSES },
+                'journeys.paidAt': { $gte: monthStart, $lte: monthEnd },
+                startedAtDate: { $gte: retroFloor, $lt: monthStart },
+              },
+            },
             {
               $project: {
                 _id: 0,
@@ -176,7 +179,7 @@ export async function GET(request: NextRequest) {
                 journeyId: { $ifNull: ['$journeys.id', null] },
                 name: '$name',
                 phone: '$phone',
-                journeyStartedAt: '$journeys.startedAt',
+                journeyStartedAt: '$startedAtDate',
                 paidAt: '$journeys.paidAt',
                 paymentStatus: '$journeys.paymentStatus',
                 amount: {
@@ -192,52 +195,78 @@ export async function GET(request: NextRequest) {
 
     const [result] = await db.collection('patients_v2').aggregate(pipeline).toArray();
 
-    const rawConsultants = (result?.byConsultant || []) as Array<{
-      _id: string;
-      registered: number;
-      reserved: number;
-      visited: number;
-      paid: number;
-      retroPaid: number;
+    const rawFunnel = (result?.funnel || []) as Array<{
+      _id: string; registered: number; reserved: number; visited: number; paid: number;
     }>;
+    const retroPatients = (result?.retro || []) as RetroPatient[];
 
-    const consultants: ConsultantRow[] = rawConsultants.map((c) => ({
-      name: c._id || '미지정',
-      registered: c.registered,
-      reserved: c.reserved,
-      visited: c.visited,
-      paid: c.paid,
-      retroPaid: c.retroPaid,
-      currentPaid: c.paid - c.retroPaid,
-      reservationRate: rate(c.reserved, c.registered), // 예약/문의
-      visitRate: rate(c.visited, c.reserved),          // 내원/예약
-      paymentRate: rate(c.paid, c.visited),            // 결제/내원
-      lowSample: c.registered < 5,
-    }));
+    // 소급 건수: 상담사별 집계
+    const retroCountByConsultant: Record<string, number> = {};
+    for (const r of retroPatients) {
+      const key = r.consultant || '미지정';
+      retroCountByConsultant[key] = (retroCountByConsultant[key] || 0) + 1;
+    }
 
-    const retroPatients = (result?.retroPatients || []) as RetroPatient[];
+    // 퍼널 코호트 ∪ 소급 담당자 = 표시 대상 상담사
+    const byName = new Map<string, ConsultantRow>();
+    for (const c of rawFunnel) {
+      const name = c._id || '미지정';
+      byName.set(name, {
+        name,
+        registered: c.registered,
+        reserved: c.reserved,
+        visited: c.visited,
+        paid: c.paid,
+        reservationRate: rate(c.reserved, c.registered),
+        visitRate: rate(c.visited, c.reserved),
+        paymentRate: rate(c.paid, c.visited),
+        retroCount: 0,
+        lowSample: c.registered < 5,
+      });
+    }
+    for (const [name, cnt] of Object.entries(retroCountByConsultant)) {
+      const existing = byName.get(name);
+      if (existing) {
+        existing.retroCount = cnt;
+      } else {
+        // 이번 달 코호트는 없지만 소급만 있는 상담사도 표시
+        byName.set(name, {
+          name, registered: 0, reserved: 0, visited: 0, paid: 0,
+          reservationRate: 0, visitRate: 0, paymentRate: 0,
+          retroCount: cnt, lowSample: true,
+        });
+      }
+    }
 
-    // 합계
+    const consultants = Array.from(byName.values()).sort(
+      (a, b) => b.registered - a.registered || b.retroCount - a.retroCount
+    );
+
     const totals = consultants.reduce(
       (acc, c) => ({
         registered: acc.registered + c.registered,
         reserved: acc.reserved + c.reserved,
         visited: acc.visited + c.visited,
         paid: acc.paid + c.paid,
-        retroPaid: acc.retroPaid + c.retroPaid,
+        retroCount: acc.retroCount + c.retroCount,
       }),
-      { registered: 0, reserved: 0, visited: 0, paid: 0, retroPaid: 0 }
+      { registered: 0, reserved: 0, visited: 0, paid: 0, retroCount: 0 }
     );
+
+    // 소급 명단에 출처(내원)월 라벨 부여
+    const retroPatientsOut = retroPatients.map((r) => ({
+      ...r,
+      originMonth: monthKey(r.journeyStartedAt),
+    }));
 
     return NextResponse.json({
       success: true,
       data: {
         month: monthParam,
         consultants,
-        retroPatients,
+        retroPatients: retroPatientsOut,
         totals: {
           ...totals,
-          currentPaid: totals.paid - totals.retroPaid,
           reservationRate: rate(totals.reserved, totals.registered),
           visitRate: rate(totals.visited, totals.reserved),
           paymentRate: rate(totals.paid, totals.visited),
