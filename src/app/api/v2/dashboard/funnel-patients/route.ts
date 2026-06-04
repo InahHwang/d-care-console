@@ -23,7 +23,9 @@ const STAGE_LABEL: Record<FunnelStage, string> = {
 export async function GET(request: NextRequest) {
   try {
     const authResult = verifyToken(request);
-    if (authResult instanceof NextResponse) return authResult;
+    if (!authResult.success) {
+      return NextResponse.json({ success: false, error: authResult.error }, { status: authResult.status });
+    }
 
     const { db } = await connectToDatabase();
     const clinicId = getClinicId();
