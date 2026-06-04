@@ -167,6 +167,19 @@ export async function PATCH(
       if (patient.activeJourneyId === journeyId) {
         updateFields.paymentStatus = paymentStatus;
       }
+      // 🆕 paidAt: 이 여정의 결제(부분/완납) 첫 전환 시점 기록 — 인센티브 소급 판별용
+      //   none → partial/completed로 처음 바뀔 때만, 이미 있으면 유지
+      const PAID_STATUSES = ['partial', 'completed'];
+      if (
+        PAID_STATUSES.includes(paymentStatus) &&
+        !PAID_STATUSES.includes(String(currentJourney.paymentStatus ?? 'none')) &&
+        !currentJourney.paidAt
+      ) {
+        updateFields['journeys.$[journey].paidAt'] = now;
+        if (patient.activeJourneyId === journeyId) {
+          updateFields.paidAt = now;
+        }
+      }
     }
     if (treatmentNote !== undefined) {
       updateFields['journeys.$[journey].treatmentNote'] = treatmentNote;
@@ -197,6 +210,7 @@ export async function PATCH(
       updateFields.estimatedAmount = currentJourney.estimatedAmount;
       updateFields.actualAmount = currentJourney.actualAmount;
       updateFields.paymentStatus = currentJourney.paymentStatus;
+      updateFields.paidAt = currentJourney.paidAt ?? null;
       updateFields.treatmentNote = currentJourney.treatmentNote;
       updateFields.interest = currentJourney.treatmentType;
     }

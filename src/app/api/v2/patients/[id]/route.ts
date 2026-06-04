@@ -371,6 +371,18 @@ export async function PATCH(
     if (paymentStatus !== undefined) updateData.paymentStatus = paymentStatus;
     if (treatmentNote !== undefined) updateData.treatmentNote = treatmentNote;
 
+    // 🆕 paidAt: 결제(부분/완납) 첫 전환 시점 기록 — 인센티브 월경계 소급 판별용
+    //   none → partial/completed로 처음 바뀔 때만 기록, 이미 있으면 유지(덮어쓰지 않음)
+    const PAID_STATUSES = ['partial', 'completed'];
+    const firstPaymentNow =
+      paymentStatus !== undefined &&
+      PAID_STATUSES.includes(paymentStatus) &&
+      !PAID_STATUSES.includes(String(currentPatient?.paymentStatus ?? 'none')) &&
+      !currentPatient?.paidAt;
+    if (firstPaymentNow) {
+      updateData.paidAt = new Date();
+    }
+
     // 치료 진행 관련 필드
     if (treatmentStartDate !== undefined) {
       updateData.treatmentStartDate = treatmentStartDate ? new Date(treatmentStartDate) : null;
@@ -438,6 +450,11 @@ export async function PATCH(
       }
       if (paymentStatus !== undefined) {
         journeyDataUpdate['journeys.$[journey].paymentStatus'] = paymentStatus;
+        hasJourneyUpdate = true;
+      }
+      // 🆕 paidAt: 결제 첫 전환이면 활성 여정에도 동일 시점 기록
+      if (firstPaymentNow) {
+        journeyDataUpdate['journeys.$[journey].paidAt'] = updateData.paidAt;
         hasJourneyUpdate = true;
       }
       if (treatmentNote !== undefined) {
