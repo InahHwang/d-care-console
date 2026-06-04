@@ -31,6 +31,7 @@ interface JourneyPatientsModalProps {
   month: number; // 1-12
   type?: 'new' | 'returning';      // 신환/구신환 breakdown 모드
   stage?: FunnelStage | null;       // 퍼널 단계 근거 명단 모드 (우선 적용)
+  missed?: boolean;                 // 놓친 매출(미결제) 근거 명단 모드 (stage보다 우선)
 }
 
 const STAGE_TITLE: Record<FunnelStage, string> = {
@@ -79,13 +80,13 @@ function formatAmount(n: number) {
   return `${(n / 10000).toLocaleString()}만`;
 }
 
-export function JourneyPatientsModal({ open, onClose, year, month, type, stage }: JourneyPatientsModalProps) {
+export function JourneyPatientsModal({ open, onClose, year, month, type, stage, missed }: JourneyPatientsModalProps) {
   const router = useRouter();
   const [patients, setPatients] = useState<JourneyPatient[]>([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
-  // stage(퍼널 단계 근거 명단) 모드가 type보다 우선
+  // 우선순위: missed(놓친매출) > stage(퍼널단계) > type(신환/구신환)
   const isStage = !!stage;
 
   useEffect(() => {
@@ -94,9 +95,11 @@ export function JourneyPatientsModal({ open, onClose, year, month, type, stage }
     let cancelled = false;
     setLoading(true);
     setError(null);
-    const url = stage
-      ? `/api/v2/dashboard/funnel-patients?month=${monthStr}&stage=${stage}`
-      : `/api/v2/dashboard/journey-patients?month=${monthStr}&type=${type}`;
+    const url = missed
+      ? `/api/v2/dashboard/journey-patients?month=${monthStr}&missed=true`
+      : stage
+        ? `/api/v2/dashboard/funnel-patients?month=${monthStr}&stage=${stage}`
+        : `/api/v2/dashboard/journey-patients?month=${monthStr}&type=${type}`;
     authFetch(url)
       .then((res) => res.json())
       .then((result) => {
@@ -118,21 +121,27 @@ export function JourneyPatientsModal({ open, onClose, year, month, type, stage }
     return () => {
       cancelled = true;
     };
-  }, [open, year, month, type, stage]);
+  }, [open, year, month, type, stage, missed]);
 
   if (!open) return null;
 
-  const title = isStage
-    ? STAGE_TITLE[stage!]
-    : type === 'new' ? '신환 명단' : '구신환 재유치 명단';
-  const subtitle = isStage
-    ? `${year}년 ${month}월 ${STAGE_SUBTITLE[stage!]}`
-    : type === 'new'
-      ? `${year}년 ${month}월에 등록된 신환의 여정`
-      : `${year}년 ${month}월에 새 여정이 시작된 기존 환자`;
-  const accentClass = isStage
-    ? STAGE_ACCENT[stage!]
-    : type === 'new' ? 'bg-orange-100 text-orange-700' : 'bg-sky-100 text-sky-700';
+  const title = missed
+    ? '놓친 매출 (미결제) 명단'
+    : isStage
+      ? STAGE_TITLE[stage!]
+      : type === 'new' ? '신환 명단' : '구신환 재유치 명단';
+  const subtitle = missed
+    ? `${year}년 ${month}월에 시작된 여정 중 견적은 냈으나 미결제`
+    : isStage
+      ? `${year}년 ${month}월 ${STAGE_SUBTITLE[stage!]}`
+      : type === 'new'
+        ? `${year}년 ${month}월에 등록된 신환의 여정`
+        : `${year}년 ${month}월에 새 여정이 시작된 기존 환자`;
+  const accentClass = missed
+    ? 'bg-red-100 text-red-700'
+    : isStage
+      ? STAGE_ACCENT[stage!]
+      : type === 'new' ? 'bg-orange-100 text-orange-700' : 'bg-sky-100 text-sky-700';
 
   const handlePatientClick = (patientId: string) => {
     onClose();

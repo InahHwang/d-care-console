@@ -1,10 +1,10 @@
 // src/components/v2/dashboard/RevenueCard.tsx
 'use client';
 
-import React from 'react';
-import { useRouter } from 'next/navigation';
+import React, { useState } from 'react';
 import { Wallet, TrendingUp, TrendingDown, ArrowRight } from 'lucide-react';
 import { Card } from '@/components/v2/ui/Card';
+import { JourneyPatientsModal } from './JourneyPatientsModal';
 
 interface RevenueCardProps {
   thisMonth: {
@@ -22,6 +22,8 @@ interface RevenueCardProps {
   growthRate: number;
   monthlyTarget: number;
   returningContribution?: number; // 구신환 재유치 매출 기여 (보조 표시)
+  year?: number;   // 선택된 월 (놓친매출 명단 모달용)
+  month?: number;  // 1-12
   loading?: boolean;
   onViewDetail?: () => void;
 }
@@ -69,29 +71,36 @@ export function RevenueCard({
   growthRate,
   monthlyTarget,
   returningContribution = 0,
+  year,
+  month,
   loading,
   onViewDetail,
 }: RevenueCardProps) {
+  const [showMissed, setShowMissed] = useState(false);
+
   if (loading) {
     return <Skeleton />;
   }
 
-  const router = useRouter();
   const isGrowthPositive = growthRate >= 0;
   const achievementRate = monthlyTarget > 0 ? Math.min(Math.round((thisMonth.confirmed / monthlyTarget) * 100), 999) : 0;
 
-  // 영업일 기준 계산 (일요일 제외)
+  // 영업일 기준 계산 (일요일 제외) — 오늘 기준
   const today = new Date();
-  const year = today.getFullYear();
-  const month = today.getMonth();
-  const lastDay = new Date(year, month + 1, 0).getDate();
+  const tYear = today.getFullYear();
+  const tMonth = today.getMonth();
+  const lastDay = new Date(tYear, tMonth + 1, 0).getDate();
+
+  // 명단 모달용 선택 월 (props 없으면 이번 달)
+  const modalYear = year ?? tYear;
+  const modalMonth = month ?? (tMonth + 1);
 
   let remainingBusinessDays = 0;
   let elapsedBusinessDays = 0;
   let totalBusinessDays = 0;
 
   for (let day = 1; day <= lastDay; day++) {
-    if (new Date(year, month, day).getDay() !== 0) { // 일요일 제외
+    if (new Date(tYear, tMonth, day).getDay() !== 0) { // 일요일 제외
       totalBusinessDays++;
       if (day < today.getDate()) elapsedBusinessDays++;
       if (day >= today.getDate()) remainingBusinessDays++;
@@ -158,7 +167,7 @@ export function RevenueCard({
       {/* 놓친 매출 */}
       {thisMonth.missed > 0 && (
         <div
-          onClick={() => router.push('/v2/patients?period=thisMonth&paymentStatus=none&hasEstimate=true')}
+          onClick={() => setShowMissed(true)}
           className="mb-4 bg-red-50 rounded-lg px-3 py-2.5 cursor-pointer hover:bg-red-100 transition-colors"
         >
           <div className="flex items-center justify-between">
@@ -246,6 +255,14 @@ export function RevenueCard({
         </div>
       )}
 
+      {/* 놓친 매출(미결제) 근거 명단 모달 — missedCount와 동일 정의(여정 단위) */}
+      <JourneyPatientsModal
+        open={showMissed}
+        onClose={() => setShowMissed(false)}
+        year={modalYear}
+        month={modalMonth}
+        missed
+      />
     </Card>
   );
 }

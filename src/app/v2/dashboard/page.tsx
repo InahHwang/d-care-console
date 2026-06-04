@@ -221,6 +221,8 @@ export default function DashboardPage() {
         growthRate={data?.revenue?.growthRate ?? 0}
         monthlyTarget={data?.revenue?.monthlyTarget ?? 0}
         returningContribution={data?.revenue?.returningContribution ?? 0}
+        year={selectedMonth.year}
+        month={selectedMonth.month}
         loading={loading}
       />
 

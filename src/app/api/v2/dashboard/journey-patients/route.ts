@@ -1,5 +1,7 @@
 // src/app/api/v2/dashboard/journey-patients/route.ts
-// 이번달 시작 여정 명단 (신환 / 구신환 재유치)
+// 이번달 시작 여정 명단 (신환 / 구신환 재유치 / 미결제=놓친매출)
+//   ?type=new|returning  → 신환/구신환 재유치 breakdown
+//   ?missed=true         → 놓친 매출(미결제+견적>0). 대시보드 RevenueCard missedCount와 동일 정의(여정 단위)
 
 import { NextRequest, NextResponse } from 'next/server';
 import { connectToDatabase, getClinicId } from '@/utils/mongodb';
@@ -19,11 +21,12 @@ export async function GET(request: NextRequest) {
 
     const monthParam = request.nextUrl.searchParams.get('month');
     const typeParam = request.nextUrl.searchParams.get('type');
+    const missedParam = request.nextUrl.searchParams.get('missed') === 'true';
 
     if (!monthParam || !/^\d{4}-\d{2}$/.test(monthParam)) {
       return NextResponse.json({ success: false, error: 'Invalid month' }, { status: 400 });
     }
-    if (typeParam !== 'new' && typeParam !== 'returning') {
+    if (!missedParam && typeParam !== 'new' && typeParam !== 'returning') {
       return NextResponse.json({ success: false, error: 'Invalid type' }, { status: 400 });
     }
 
@@ -48,17 +51,34 @@ export async function GET(request: NextRequest) {
           ],
         },
       },
-      {
-        $addFields: {
-          isNewPatient: {
-            $or: [
-              { $and: [{ $gte: ['$createdAt', monthStart] }, { $lte: ['$createdAt', monthEnd] }] },
-              { $and: [{ $gte: ['$createdAt', startISO] }, { $lte: ['$createdAt', endISO] }] },
-            ],
+    ];
+
+    if (missedParam) {
+      // 놓친 매출: 미결제(partial/completed 아님) + 견적 > 0 (missedCount 정의와 동일)
+      pipeline.push({
+        $match: {
+          'journeys.paymentStatus': { $nin: ['partial', 'completed'] },
+          'journeys.estimatedAmount': { $gt: 0 },
+        },
+      });
+    } else {
+      // 신환/구신환 재유치 구분
+      pipeline.push(
+        {
+          $addFields: {
+            isNewPatient: {
+              $or: [
+                { $and: [{ $gte: ['$createdAt', monthStart] }, { $lte: ['$createdAt', monthEnd] }] },
+                { $and: [{ $gte: ['$createdAt', startISO] }, { $lte: ['$createdAt', endISO] }] },
+              ],
+            },
           },
         },
-      },
-      { $match: { isNewPatient: isNewType } },
+        { $match: { isNewPatient: isNewType } },
+      );
+    }
+
+    pipeline.push(
       {
         $project: {
           _id: 1,
@@ -78,7 +98,7 @@ export async function GET(request: NextRequest) {
         },
       },
       { $sort: { journeyStartedAt: -1 } },
-    ];
+    );
 
     const rows = await db.collection('patients_v2').aggregate(pipeline).toArray();
 
