@@ -2,9 +2,8 @@
 'use client';
 
 import React, { useState } from 'react';
-import { useRouter } from 'next/navigation';
 import { Users, CalendarCheck, Building2, CreditCard, TrendingUp, TrendingDown } from 'lucide-react';
-import { JourneyPatientsModal } from './JourneyPatientsModal';
+import { JourneyPatientsModal, FunnelStage } from './JourneyPatientsModal';
 
 interface BreakdownItem {
   count: number;
@@ -100,12 +99,13 @@ export function ConversionFunnelCard({ data, loading, year, month }: ConversionF
   const displayMonth = month ?? today.getMonth() + 1;
   const monthStr = `${displayYear}년 ${displayMonth}월`;
 
-  const router = useRouter();
   const [modalType, setModalType] = useState<'new' | 'returning' | null>(null);
+  const [modalStage, setModalStage] = useState<FunnelStage | null>(null);
 
   const cards = [
     {
       id: 'new',
+      stage: 'new' as FunnelStage,
       label: '신규 문의',
       icon: Users,
       value: data?.newInquiries.count ?? 0,
@@ -117,10 +117,10 @@ export function ConversionFunnelCard({ data, loading, year, month }: ConversionF
       iconBg: 'bg-orange-100',
       iconColor: 'text-orange-600',
       valueColor: 'text-orange-700',
-      href: '/v2/patients?period=thisMonth',
     },
     {
       id: 'reservation',
+      stage: 'reserved' as FunnelStage,
       label: '예약 전환율',
       icon: CalendarCheck,
       value: data?.reservationRate.value ?? 0,
@@ -132,10 +132,10 @@ export function ConversionFunnelCard({ data, loading, year, month }: ConversionF
       iconBg: 'bg-purple-100',
       iconColor: 'text-purple-600',
       valueColor: 'text-purple-700',
-      href: '/v2/patients?period=thisMonth&status=reserved,visited,treatmentBooked,treatment,completed,followup',
     },
     {
       id: 'visit',
+      stage: 'visited' as FunnelStage,
       label: '내원 전환율',
       icon: Building2,
       value: data?.visitRate.value ?? 0,
@@ -147,10 +147,10 @@ export function ConversionFunnelCard({ data, loading, year, month }: ConversionF
       iconBg: 'bg-amber-100',
       iconColor: 'text-amber-600',
       valueColor: 'text-amber-700',
-      href: '/v2/patients?period=thisMonth&status=visited,treatmentBooked,treatment,completed,followup',
     },
     {
       id: 'payment',
+      stage: 'paid' as FunnelStage,
       label: '결제 전환율',
       note: '내원 대비',
       icon: CreditCard,
@@ -163,7 +163,6 @@ export function ConversionFunnelCard({ data, loading, year, month }: ConversionF
       iconBg: 'bg-emerald-100',
       iconColor: 'text-emerald-600',
       valueColor: 'text-emerald-700',
-      href: '/v2/patients?period=thisMonth&paymentStatus=partial,completed',
     },
   ];
 
@@ -182,8 +181,9 @@ export function ConversionFunnelCard({ data, loading, year, month }: ConversionF
           return (
             <div
               key={card.id}
-              onClick={() => router.push(card.href)}
+              onClick={() => setModalStage(card.stage)}
               className={`${card.bgColor} rounded-xl p-4 relative cursor-pointer hover:brightness-95 transition-all`}
+              title="근거 명단 보기"
             >
               {/* 연결선 (모바일에서는 숨김) */}
               {index < cards.length - 1 && (
@@ -263,13 +263,14 @@ export function ConversionFunnelCard({ data, loading, year, month }: ConversionF
         </div>
       )}
 
-      {/* 명단 모달 */}
+      {/* 명단 모달 (stage: 퍼널 단계 근거 명단 우선 / type: 신환·구신환 breakdown) */}
       <JourneyPatientsModal
-        open={modalType !== null}
-        onClose={() => setModalType(null)}
+        open={modalType !== null || modalStage !== null}
+        onClose={() => { setModalType(null); setModalStage(null); }}
         year={displayYear}
         month={displayMonth}
-        type={modalType ?? 'new'}
+        type={modalStage ? undefined : (modalType ?? 'new')}
+        stage={modalStage}
       />
     </div>
   );

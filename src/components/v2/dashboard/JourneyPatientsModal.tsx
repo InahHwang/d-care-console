@@ -22,13 +22,37 @@ interface JourneyPatient {
   consultantName: string;
 }
 
+export type FunnelStage = 'new' | 'reserved' | 'visited' | 'paid';
+
 interface JourneyPatientsModalProps {
   open: boolean;
   onClose: () => void;
   year: number;
   month: number; // 1-12
-  type: 'new' | 'returning';
+  type?: 'new' | 'returning';      // 신환/구신환 breakdown 모드
+  stage?: FunnelStage | null;       // 퍼널 단계 근거 명단 모드 (우선 적용)
 }
+
+const STAGE_TITLE: Record<FunnelStage, string> = {
+  new: '신규 문의 명단',
+  reserved: '예약 전환 명단',
+  visited: '내원 전환 명단',
+  paid: '결제 전환 명단',
+};
+
+const STAGE_SUBTITLE: Record<FunnelStage, string> = {
+  new: '에 등록된 신규 문의 환자',
+  reserved: '등록 환자 중 예약 단계 이상 도달',
+  visited: '등록 환자 중 내원 단계 이상 도달',
+  paid: '등록 환자 중 결제(부분/완납) 도달',
+};
+
+const STAGE_ACCENT: Record<FunnelStage, string> = {
+  new: 'bg-orange-100 text-orange-700',
+  reserved: 'bg-purple-100 text-purple-700',
+  visited: 'bg-amber-100 text-amber-700',
+  paid: 'bg-emerald-100 text-emerald-700',
+};
 
 const PAYMENT_LABEL: Record<JourneyPatient['paymentStatus'], string> = {
   none: '미결제',
@@ -55,11 +79,14 @@ function formatAmount(n: number) {
   return `${(n / 10000).toLocaleString()}만`;
 }
 
-export function JourneyPatientsModal({ open, onClose, year, month, type }: JourneyPatientsModalProps) {
+export function JourneyPatientsModal({ open, onClose, year, month, type, stage }: JourneyPatientsModalProps) {
   const router = useRouter();
   const [patients, setPatients] = useState<JourneyPatient[]>([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+
+  // stage(퍼널 단계 근거 명단) 모드가 type보다 우선
+  const isStage = !!stage;
 
   useEffect(() => {
     if (!open) return;
@@ -67,7 +94,10 @@ export function JourneyPatientsModal({ open, onClose, year, month, type }: Journ
     let cancelled = false;
     setLoading(true);
     setError(null);
-    authFetch(`/api/v2/dashboard/journey-patients?month=${monthStr}&type=${type}`)
+    const url = stage
+      ? `/api/v2/dashboard/funnel-patients?month=${monthStr}&stage=${stage}`
+      : `/api/v2/dashboard/journey-patients?month=${monthStr}&type=${type}`;
+    authFetch(url)
       .then((res) => res.json())
       .then((result) => {
         if (cancelled) return;
@@ -88,14 +118,21 @@ export function JourneyPatientsModal({ open, onClose, year, month, type }: Journ
     return () => {
       cancelled = true;
     };
-  }, [open, year, month, type]);
+  }, [open, year, month, type, stage]);
 
   if (!open) return null;
 
-  const title = type === 'new' ? '신환 명단' : '구신환 재유치 명단';
-  const subtitle = type === 'new'
-    ? `${year}년 ${month}월에 등록된 신환의 여정`
-    : `${year}년 ${month}월에 새 여정이 시작된 기존 환자`;
+  const title = isStage
+    ? STAGE_TITLE[stage!]
+    : type === 'new' ? '신환 명단' : '구신환 재유치 명단';
+  const subtitle = isStage
+    ? `${year}년 ${month}월 ${STAGE_SUBTITLE[stage!]}`
+    : type === 'new'
+      ? `${year}년 ${month}월에 등록된 신환의 여정`
+      : `${year}년 ${month}월에 새 여정이 시작된 기존 환자`;
+  const accentClass = isStage
+    ? STAGE_ACCENT[stage!]
+    : type === 'new' ? 'bg-orange-100 text-orange-700' : 'bg-sky-100 text-sky-700';
 
   const handlePatientClick = (patientId: string) => {
     onClose();
@@ -109,9 +146,7 @@ export function JourneyPatientsModal({ open, onClose, year, month, type }: Journ
         {/* Header */}
         <div className="flex items-center justify-between px-6 py-4 border-b">
           <div className="flex items-center gap-3">
-            <div className={`w-10 h-10 rounded-full flex items-center justify-center ${
-              type === 'new' ? 'bg-orange-100 text-orange-700' : 'bg-sky-100 text-sky-700'
-            }`}>
+            <div className={`w-10 h-10 rounded-full flex items-center justify-center ${accentClass}`}>
               <Users size={20} />
             </div>
             <div>
