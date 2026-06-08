@@ -650,7 +650,8 @@ export async function GET(request: NextRequest) {
       visited: row.visited,
       visitRate: row.registered > 0 ? Math.round((row.visited / row.registered) * 100) : 0,
       paid: row.paid,
-      paymentRate: row.registered > 0 ? Math.round((row.paid / row.registered) * 100) : 0,
+      // 결제달성률은 '이번달 성과' 결제전환율과 동일하게 내원(visited) 대비로 계산 (등록 대비 아님)
+      paymentRate: row.visited > 0 ? Math.round((row.paid / row.visited) * 100) : 0,
       lowSample: row.registered < 5,
     }));
 

@@ -64,7 +64,8 @@ export function ConsultantPerformanceTable({ data, loading }: ConsultantPerforma
 
   const totalReservationRate = totals.registered > 0 ? Math.round((totals.reserved / totals.registered) * 100) : 0;
   const totalVisitRate = totals.registered > 0 ? Math.round((totals.visited / totals.registered) * 100) : 0;
-  const totalPaymentRate = totals.registered > 0 ? Math.round((totals.paid / totals.registered) * 100) : 0;
+  // 결제달성률은 내원 대비 ('이번달 성과' 결제전환율과 동일 기준)
+  const totalPaymentRate = totals.visited > 0 ? Math.round((totals.paid / totals.visited) * 100) : 0;
 
   const navigateToPatients = (consultantName: string, statusFilter?: string, paymentFilter?: string) => {
     const params = new URLSearchParams({
@@ -87,7 +88,7 @@ export function ConsultantPerformanceTable({ data, loading }: ConsultantPerforma
           <h3 className="font-bold text-gray-900 text-lg">상담사별 실적</h3>
         </div>
         <span className="text-xs text-gray-500">
-          달성률 = 본인 등록 환자 중 전환된 비율 · 기여율 = 전체 신규 대비 등록 비율
+          예약·내원 달성률 = 등록 대비 · 결제달성률 = 내원 대비 · 기여율 = 전체 신규 대비 등록 비율
         </span>
       </div>
 
@@ -103,7 +104,7 @@ export function ConsultantPerformanceTable({ data, loading }: ConsultantPerforma
                 <th className="py-2 px-3 font-medium text-right">기여율</th>
                 <th className="py-2 px-3 font-medium text-right">예약 (달성률)</th>
                 <th className="py-2 px-3 font-medium text-right">내원 (달성률)</th>
-                <th className="py-2 px-3 font-medium text-right">결제 (달성률)</th>
+                <th className="py-2 px-3 font-medium text-right">결제 (내원대비)</th>
               </tr>
             </thead>
             <tbody>
